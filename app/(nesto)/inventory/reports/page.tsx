@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -40,6 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * (PRD #20 §22).
  */
 export default async function InventoryReportsPage() {
+  const locale = await getLocale();
   const context = await requireModule("inventory");
   if (!can(context, "inventory.report.view")) redirect("/access-denied");
 
@@ -76,7 +77,7 @@ export default async function InventoryReportsPage() {
       align: "right",
       hideBelow: "md",
       render: (row) => (
-        <span className="tabular-nums text-fg-muted">{formatQuantity(row.totalReserved)}</span>
+        <span className="tabular-nums text-fg-muted">{formatQuantity(row.totalReserved, locale)}</span>
       ),
     },
   ];
@@ -110,7 +111,7 @@ export default async function InventoryReportsPage() {
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
-          {formatQuantity(row.onHand)} {row.item.baseUnit}
+          {formatQuantity(row.onHand, locale)} {row.item.baseUnit}
         </span>
       ),
     },

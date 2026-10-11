@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { dateText } from "@/lib/i18n/format";
 import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import { instantFromLocal, localDate, localMinutes } from "@/lib/modules/calendar/calendar.time";
 import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
@@ -166,7 +167,7 @@ export function TimeGridView({
           return (
             <div key={day} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 border-l border-line px-2 py-2">
               <span className="text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">
-                {new Intl.DateTimeFormat(words.locale, { timeZone: zone, weekday: "short" }).format(noon)}
+                {dateText(noon, { timeZone: zone, weekday: "short" }, words.locale)}
               </span>
               <span
                 className={cn(

@@ -43,6 +43,7 @@ export default async function NewWarehousePage() {
         action={createWarehouseAction}
         cancelHref="/inventory/warehouses"
         submitLabel={t("form.addWarehouse")}
+        saveKind="create"
         pendingLabel={t("form.adding")}
         projects={options.projects.map((project) => ({
           value: project.id,

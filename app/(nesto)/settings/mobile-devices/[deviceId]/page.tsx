@@ -6,9 +6,9 @@ import { AdminDeviceActions } from "@/components/security/admin-device-actions";
 import { Badge } from "@/components/ui/badge";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { getDevice } from "@/lib/modules/security/security.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { requireSettingsSection } from "../../settings-access";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,6 +26,7 @@ const STATUS_TONE = { ACTIVE: "success", STALE: "default", REVOKED: "danger", BL
  * of scope is a 404, like one that does not exist.
  */
 export default async function MobileDevicePage({ params }: Params) {
+  const locale = await getLocale();
   const context = await requireSettingsSection("mobile-devices");
   const { deviceId } = await params;
   const t = await getTranslations("security");
@@ -41,8 +42,8 @@ export default async function MobileDevicePage({ params }: Params) {
     [t("admin.devices.detail.platform"), device.platform === "IOS" ? "iOS" : "Android"],
     [t("admin.devices.detail.os"), device.osVersion ?? unknown],
     [t("admin.devices.detail.app"), `${device.appVersion}${device.appBuild ? ` (${device.appBuild})` : ""}`],
-    [t("admin.devices.detail.firstSeen"), formatDateTime(device.firstSeenAt)],
-    [t("admin.devices.detail.lastSeen"), formatDateTime(device.lastSeenAt)],
+    [t("admin.devices.detail.firstSeen"), formatDateTime(device.firstSeenAt, locale)],
+    [t("admin.devices.detail.lastSeen"), formatDateTime(device.lastSeenAt, locale)],
     [t("admin.devices.detail.sessions"), String(device.activeSessions)],
     [t("admin.devices.detail.push"), t(`devices.push.${device.pushEnabled ? "ON" : "OFF"}`)],
     [t("admin.devices.detail.lock"), device.appLockEnabled === null ? unknown : t(`devices.appLock.${device.appLockEnabled ? "ON" : "OFF"}`)],
@@ -58,7 +59,7 @@ export default async function MobileDevicePage({ params }: Params) {
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="device-detail-title" className="text-card font-semibold text-fg">{device.name}</h2>
           <Badge tone={STATUS_TONE[device.status]}>{t(`devices.status.${device.status}`)}</Badge>
-          {device.revokedAt ? <span className="text-meta text-fg-subtle">{t("admin.devices.detail.revokedBy", { date: formatDateTime(device.revokedAt) })}</span> : null}
+          {device.revokedAt ? <span className="text-meta text-fg-subtle">{t("admin.devices.detail.revokedBy", { date: formatDateTime(device.revokedAt, locale) })}</span> : null}
         </div>
         <dl className="mt-4 grid gap-x-8 gap-y-3 text-table sm:grid-cols-2" data-testid="device-admin-detail">
           {rows.map(([label, value]) => (

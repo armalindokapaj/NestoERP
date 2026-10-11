@@ -2,10 +2,11 @@ import Link from "@/components/navigation/nav-link";
 
 import { RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { MemberActions } from "@/components/team/member-actions";
 import { Badge } from "@/components/ui/badge";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { loadMember, memberBreadcrumbs } from "../member-context";
 import { MemberTabs } from "../member-tabs";
 
@@ -16,9 +17,10 @@ type Props = { children: React.ReactNode; params: Promise<{ memberId: string }> 
  * Overview, Projects and Activity swaps only the content beneath the tabs.
  */
 export default async function MemberTabsLayout({ children, params }: Props) {
+  const locale = await getLocale();
   const { memberId } = await params;
   const { context, member } = await loadMember(memberId);
-  const t = await getTranslations("team");
+  const [t, tr] = await Promise.all([getTranslations("team"), getTranslations("roles")]);
   const isSelf = member.id === context.membershipId;
 
   return (
@@ -26,11 +28,11 @@ export default async function MemberTabsLayout({ children, params }: Props) {
       <RecordHeader
         breadcrumbs={memberBreadcrumbs(t, member)}
         title={member.profile.fullName}
-        subtitle={member.membership.jobTitle ?? member.membership.role.name}
+        subtitle={member.membership.jobTitle ?? adminRoleName(tr, member.membership.role.name)}
         status={member.membership.status}
         badges={
           <>
-            <Badge tone="neutral">{member.membership.role.name}</Badge>
+            <Badge tone="neutral">{adminRoleName(tr, member.membership.role.name)}</Badge>
             {member.membership.department ? (
               <Badge tone="default">{member.membership.department.name}</Badge>
             ) : null}
@@ -59,7 +61,7 @@ export default async function MemberTabsLayout({ children, params }: Props) {
           },
           {
             label: t("member.joined"),
-            value: member.membership.joinedAt ? formatDate(member.membership.joinedAt) : "—",
+            value: member.membership.joinedAt ? formatDate(member.membership.joinedAt, locale) : "—",
           },
           ...(member.personId
             ? [

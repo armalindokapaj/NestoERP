@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -26,6 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * the register behind it.
  */
 export default async function ProjectEngineeringOverviewPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId } = await params;
   const context = await requireModule("engineering");
   const t = await getTranslations("projects");
@@ -88,7 +89,7 @@ export default async function ProjectEngineeringOverviewPage({ params }: Params)
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge tone={item.decision === "APPROVED" || item.decision === "APPROVED_WITH_COMMENTS" ? "success" : item.decision === "REJECTED" ? "danger" : "warning"}>{engineeringLabel(te, "decision", item.decision, REVIEW_DECISION_LABELS[item.decision])}</Badge>
-                    <span className="text-meta tabular-nums text-fg-subtle">{dateLabel(item.at.slice(0, 10))}</span>
+                    <span className="text-meta tabular-nums text-fg-subtle">{dateLabel(item.at.slice(0, 10), locale)}</span>
                   </div>
                 </li>
               ))}

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Plus, X } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { dayLabel, formatMinutes, parseDuration } from "@/lib/modules/timesheets/timesheet.time";
@@ -60,10 +61,11 @@ function Cell({
   onOpenEntries: (logIds: string[], date: string) => void;
   onDraft?: (cell: string, typed: boolean) => void;
 }) {
+  const locale = useLocale();
   const t = useTimesheetsTranslations();
   const [value, setValue] = React.useState(hoursValue(minutes));
   const [invalid, setInvalid] = React.useState(false);
-  const label = dayLabel(date);
+  const label = dayLabel(date, locale);
   const name = `${rowLabel(t, row).primary}${row.task ? `, ${row.task.title}` : ""}, ${label.weekday} ${label.day}`;
 
   React.useEffect(() => {
@@ -167,6 +169,7 @@ export function TimesheetGrid({
   onRemoveTemplate: (key: string) => void;
   onDraft?: (cell: string, typed: boolean) => void;
 }) {
+  const locale = useLocale();
   const t = useTimesheetsTranslations();
   return (
     <div className="nesto-card overflow-hidden" data-testid="timesheet-grid">
@@ -185,7 +188,7 @@ export function TimesheetGrid({
                 {t("grid.projectTask")}
               </th>
               {week.days.map((day) => {
-                const label = dayLabel(day.date);
+                const label = dayLabel(day.date, locale);
                 const today = day.date === week.today;
                 return (
                   <th key={day.date} scope="col" className={cn("px-1.5 py-2 text-right text-meta font-medium", today ? "text-accent-strong" : "text-fg-muted")}>

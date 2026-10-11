@@ -69,6 +69,7 @@ export default async function NewHseActionPage({
         action={createHseActionAction}
         cancelHref="/hse/actions"
         submitLabel={t("page.raiseAction")}
+        saveKind="create"
         pendingLabel={t("page.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,

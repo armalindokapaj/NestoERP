@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Mail, Pencil, Phone, Plus, Trash2, Upload } from "lucide-react";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import type { Locale } from "@/lib/i18n/config";
 import { COMPLIANCE_STATUS_LABELS, COMPLIANCE_TYPE_LABELS, CONTACT_ROLE_LABELS, type ComplianceItemDTO, type ContactDTO } from "@/lib/modules/contractors/contractor.types";
 import type { Option } from "@/lib/modules/engineering/engineering.types";
 import { cn } from "@/lib/utils/cn";
@@ -120,15 +122,16 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
   );
 }
 
-function expiryText(item: ComplianceItemDTO, t: Translate<"contractors">): string {
+function expiryText(item: ComplianceItemDTO, t: Translate<"contractors">, locale: Locale): string {
   if (!item.expiresAt) return t("compliance.noExpiry");
-  if (item.daysToExpiry === null) return dateLabel(item.expiresAt);
-  if (item.daysToExpiry < 0) return t("compliance.expired", { date: dateLabel(item.expiresAt) });
+  if (item.daysToExpiry === null) return dateLabel(item.expiresAt, locale);
+  if (item.daysToExpiry < 0) return t("compliance.expired", { date: dateLabel(item.expiresAt, locale) });
   if (item.daysToExpiry === 0) return t("compliance.expiresToday");
-  return t("compliance.inDays", { date: dateLabel(item.expiresAt), count: item.daysToExpiry });
+  return t("compliance.inDays", { date: dateLabel(item.expiresAt, locale), count: item.daysToExpiry });
 }
 
 export function CompliancePanel({ contractorId, items, canManage, canUpload, highlight, showContractor = false }: { contractorId: string | null; items: ComplianceItemDTO[]; canManage: boolean; canUpload: boolean; highlight?: string | null; showContractor?: boolean }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useContractorsTranslations();
@@ -234,7 +237,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
                 {[showContractor ? item.contractor.label : null, contractorsLabel(t, "complianceType", item.type, COMPLIANCE_TYPE_LABELS[item.type]), item.issuer, item.referenceNumber].filter(Boolean).join(" · ")}
               </p>
               {item.status === "WAIVED" && item.waivedReason ? <p className="text-meta text-fg-muted">{t("compliance.waived", { reason: item.waivedReason })}</p> : null}
-              <p className={cn("text-table tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item, t)}</p>
+              <p className={cn("text-table tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item, t, locale)}</p>
               {item.document ? (
                 <Link href={item.document.href} className="inline-flex items-center text-table text-fg underline-offset-4 [overflow-wrap:anywhere] hover:underline touch:min-h-11">
                   {item.document.name}
@@ -283,7 +286,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
                 <TableCell>
                   <ReviewBadge status={item.status} label={contractorsLabel(t, "complianceStatus", item.status, COMPLIANCE_STATUS_LABELS[item.status])} testId="compliance-status" />
                 </TableCell>
-                <TableCell className={cn("whitespace-nowrap tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item, t)}</TableCell>
+                <TableCell className={cn("whitespace-nowrap tabular-nums", item.status === "EXPIRED" ? "text-danger-strong" : item.status === "EXPIRING" ? "text-warning-strong" : "text-fg")}>{expiryText(item, t, locale)}</TableCell>
                 <TableCell>
                   {item.document ? (
                     <Link href={item.document.href} className="text-fg underline-offset-4 hover:underline">

@@ -5,8 +5,9 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { isModuleKey } from "@/config/modules";
 import type { UserContext } from "@/lib/context/types";
 import { getCompany, getCompanyModules, getTeamMembers } from "@/lib/database/queries";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 
 /**
  * Company identity (PRD #5 §38).
@@ -15,6 +16,7 @@ import { formatDate, orDash } from "@/lib/utils/format";
  * `company.manage`, which V0.1 exposes through Settings rather than here.
  */
 export async function CompanyOverview({ context }: { context: UserContext }) {
+  const locale = await getLocale();
   const [company, members, companyModules] = await Promise.all([
     getCompany(context.companyId),
     getTeamMembers(context.companyId),
@@ -53,7 +55,7 @@ export async function CompanyOverview({ context }: { context: UserContext }) {
             { label: m("company.email"), value: orDash(company.email) },
             { label: m("company.phone"), value: orDash(company.phone) },
             { label: m("company.website"), value: orDash(company.website) },
-            { label: m("company.created"), value: formatDate(company.createdAt) },
+            { label: m("company.created"), value: formatDate(company.createdAt, locale) },
           ]}
         />
       </section>

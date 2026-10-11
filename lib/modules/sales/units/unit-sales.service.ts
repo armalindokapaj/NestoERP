@@ -9,6 +9,8 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { applyTransition } from "@/lib/core/state/transition";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
+import { numberText } from "@/lib/i18n/format";
 import { createClientSchema } from "@/lib/modules/clients/client.schema";
 import { checkDuplicates, createClientRecord, DuplicateClientError } from "@/lib/modules/clients/client.service";
 import { fail } from "@/lib/modules/project-structure/structure.service";
@@ -259,7 +261,7 @@ export async function updateCommercialDetails(context: UserContext, unitId: stri
           changedByMemberId: context.membershipId,
         },
       });
-      const shown = (price: string | null, code: string | null) => (price === null ? "no price" : `${code ?? ""} ${Number(price).toLocaleString("en", { minimumFractionDigits: 2 })}`.trim());
+      const shown = (price: string | null, code: string | null) => (price === null ? "no price" : `${code ?? ""} ${numberText(Number(price), { minimumFractionDigits: 2 }, SOURCE_LOCALE, "en")}`.trim());
       await evidence(tx, context, unit, {
         action: "UNIT_PRICE_CHANGED",
         message: `changed the asking price of ${unit.unitCode} from ${shown(oldPrice, profile.currency)} to ${shown(input.askingPrice, currency)}`,

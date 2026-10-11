@@ -40,6 +40,7 @@ export default async function NewSupplierPage() {
         action={createSupplierAction}
         cancelHref="/procurement/suppliers"
         submitLabel={t("suppliers.add")}
+        saveKind="create"
         pendingLabel={t("suppliers.adding")}
       />
     </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -15,7 +16,6 @@ import { requireModule } from "@/lib/context/current-user";
 import * as adjustments from "@/lib/modules/inventory/documents/adjustment.service";
 import { adjustmentReasonLabels } from "@/lib/modules/inventory/inventory.status";
 import { inventoryLabel } from "@/components/inventory/inventory-labels";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ adjustmentId: string }> };
 
@@ -33,6 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One adjustment (PRD #20 §142, §317, §318). */
 export default async function AdjustmentPage({ params }: Params) {
+  const locale = await getLocale();
   const { adjustmentId } = await params;
   const context = await requireModule("inventory");
   const t = await getTranslations("inventory");
@@ -60,7 +61,7 @@ export default async function AdjustmentPage({ params }: Params) {
         status={adjustment.status}
         badges={<Badge tone="neutral">{inventoryLabel(t, "adjustmentReason", adjustment.reason, adjustmentReasonLabels[adjustment.reason])}</Badge>}
         meta={[
-          { label: t("detail.adjusted"), value: formatDate(adjustment.adjustmentDate) },
+          { label: t("detail.adjusted"), value: formatDate(adjustment.adjustmentDate, locale) },
           { label: t("columns.lines"), value: String(adjustment.lineCount) },
         ]}
         actions={
@@ -128,7 +129,7 @@ export default async function AdjustmentPage({ params }: Params) {
                 { label: t("fields.warehouse"), value: adjustment.warehouse.name },
                 { label: t("fields.reason"), value: inventoryLabel(t, "adjustmentReason", adjustment.reason, adjustmentReasonLabels[adjustment.reason]) },
                 { label: t("detail.draftedBy"), value: adjustment.createdBy ? <PersonLink memberId={adjustment.createdBy.memberId} name={adjustment.createdBy.fullName} /> : "—" },
-                { label: t("detail.drafted"), value: formatDateTime(adjustment.createdAt) },
+                { label: t("detail.drafted"), value: formatDateTime(adjustment.createdAt, locale) },
                 { label: t("columns.postedBy"), value: adjustment.postedBy ? <PersonLink memberId={adjustment.postedBy.memberId} name={adjustment.postedBy.fullName} /> : "—" },
               ]}
             />

@@ -10,11 +10,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDateTime } from "@/lib/i18n/format";
 import { getCompanyEntitlements, listEntitlementPlans } from "@/lib/modules/entitlements/entitlement.service";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
-import { formatDateTime } from "@/lib/utils/format";
 import { statusWord } from "../../organizations/_detail/labels";
 
 export async function generateMetadata() {
@@ -45,6 +45,7 @@ function Limit({ label, used: value, limit, t }: { label: string; used: string |
  * the history of those decisions. Not the organization page.
  */
 export default async function CompanyEntitlementsPage({ params, searchParams }: Props) {
+  const locale = await getLocale();
   const [{ companyId }, { tab: rawTab }] = await Promise.all([params, searchParams]);
   const t = await getTranslations("adminOrgs");
   const context = await requirePlatformContext();
@@ -150,7 +151,7 @@ export default async function CompanyEntitlementsPage({ params, searchParams }: 
                   <p className="text-body font-medium text-fg">{row.actionKey === "PLATFORM_ENTITLEMENT_LIMITS_CHANGED" ? t("entitlements.limitsChanged") : row.actionKey === "PLATFORM_ENTITLEMENTS_CHANGED" ? t("entitlements.entitlementsChanged") : row.actionKey.replace(/^PLATFORM_|^PROJECT_/, "").toLowerCase().replaceAll("_", " ")}</p>
                   {row.after && typeof row.after === "object" && "changed" in row.after ? <p className="text-table text-fg-muted">{String(row.after.changed)}{"plan" in row.after ? ` · ${t("entitlements.planLabel", { plan: String(row.after.plan) })}` : ""}</p> : null}
                   {row.reason ? <p className="text-table text-fg-muted">“{row.reason}”</p> : null}
-                  <p className="text-meta text-fg-subtle">{row.actor ?? t("common.system")} · {formatDateTime(row.occurredAt)}</p>
+                  <p className="text-meta text-fg-subtle">{row.actor ?? t("common.system")} · {formatDateTime(row.occurredAt, locale)}</p>
                 </li>
               ))}
             </ul>

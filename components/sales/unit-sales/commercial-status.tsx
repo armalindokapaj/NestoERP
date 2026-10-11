@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { SalesLabel } from "@/components/sales/sales-text";
+import type { Locale } from "@/lib/i18n/config";
+import { numberText } from "@/lib/i18n/format";
 import { UNIT_COMMERCIAL_STATUS_LABELS, type UnitCommercialStatus } from "@/lib/modules/sales/units/unit-sales.types";
 
 /**
@@ -25,18 +27,18 @@ export function CommercialStatusBadge({ status, className }: { status: UnitComme
 }
 
 /** An amount with its currency: whole when it is whole, cents when it has them (§10, §11). */
-export function moneyLabel(amount: string | null, currency: string | null): string {
+export function moneyLabel(amount: string | null, currency: string | null, locale: Locale): string {
   if (amount === null) return "—";
   const value = Number(amount);
   const digits = Number.isInteger(value) ? 0 : 2;
-  if (!currency) return value.toLocaleString("en-GB", { minimumFractionDigits: digits, maximumFractionDigits: 2 });
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency, minimumFractionDigits: digits, maximumFractionDigits: 2 }).format(value);
+  if (!currency) return numberText(value, { minimumFractionDigits: digits, maximumFractionDigits: 2 }, locale);
+  return numberText(value, { style: "currency", currency, minimumFractionDigits: digits, maximumFractionDigits: 2 }, locale);
 }
 
 /** Price per square metre, rounded to the whole currency unit for reading (§10). */
-export function perSqmLabel(amount: string | null, currency: string | null): string {
+export function perSqmLabel(amount: string | null, currency: string | null, locale: Locale): string {
   if (amount === null) return "—";
   const value = Math.round(Number(amount));
-  const text = currency ? new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(value) : value.toLocaleString("en-GB");
+  const text = currency ? numberText(value, { style: "currency", currency, maximumFractionDigits: 0 }, locale) : numberText(value, undefined, locale);
   return `${text}/m²`;
 }

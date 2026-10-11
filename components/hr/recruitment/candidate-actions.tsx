@@ -81,6 +81,7 @@ export function CandidateActions({ candidate, choices }: { candidate: CandidateD
           initial={{ ...candidate.person, targetCompanyId: candidate.targetCompany?.id, targetDepartmentId: candidate.targetDepartment?.id, targetRoleKey: candidate.targetRole?.key, targetJobTitle: candidate.targetJobTitle, hiringManagerUserId: candidate.hiringManager?.userId, interviewStage: candidate.interviewStage, notes: candidate.notes }}
           onValuesChange={(values) => setCompanyId(String(values.targetCompanyId ?? ""))}
           submitLabel={t("candidate.save")}
+          saveKind="save"
           module="hr"
           wide
           onSubmit={async (payload) => {
@@ -123,6 +124,7 @@ export function CandidateActions({ candidate, choices }: { candidate: CandidateD
           { name: "notes", label: t("account.notes"), type: "textarea", rows: 3 },
         ]}
         submitLabel={t("account.submit")}
+        saveKind="none"
         module="hr"
         testId="access-dialog"
         onSubmit={async (payload) => {

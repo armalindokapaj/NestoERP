@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, Handshake } from "lucide-react";
 
@@ -17,7 +18,6 @@ import { requireModule } from "@/lib/context/current-user";
 import { attentionListForWorkspace, getSalesOverviewForWorkspace } from "@/lib/modules/sales/overview/overview.service";
 import { groupCompanies, includedCompanies, resolveSalesExperience } from "@/lib/modules/sales/sales.workspace";
 import { formatAmount } from "@/components/sales/sales-format";
-import { formatDate } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("sales");
@@ -41,6 +41,7 @@ export default async function SalesOverviewPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const locale = await getLocale();
   const context = await requireModule("sales");
   const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
@@ -110,7 +111,7 @@ export default async function SalesOverviewPage({
                 href: `/sales/opportunities/${row.id}`,
                 primary: row.name,
                 secondary: row.client?.name ?? t("overview.noClientYet"),
-                meta: row.expectedCloseDate ? formatDate(row.expectedCloseDate) : "—",
+                meta: row.expectedCloseDate ? formatDate(row.expectedCloseDate, locale) : "—",
               }))}
             />
           ) : null}
@@ -128,7 +129,7 @@ export default async function SalesOverviewPage({
                 href: `/sales/opportunities/${row.id}`,
                 primary: row.name,
                 secondary: row.owner.fullName,
-                meta: formatAmount(row.estimatedValue, row.currency),
+                meta: formatAmount(row.estimatedValue, row.currency, locale),
               }))}
             />
           ) : null}
@@ -148,7 +149,7 @@ export default async function SalesOverviewPage({
                 secondary: row.companyName ?? t("overview.individual"),
                 meta:
                   row.estimatedValue && row.currency
-                    ? formatAmount(row.estimatedValue, row.currency)
+                    ? formatAmount(row.estimatedValue, row.currency, locale)
                     : "—",
               }))}
             />
@@ -167,7 +168,7 @@ export default async function SalesOverviewPage({
                 href: `/sales/proposals/${row.id}`,
                 primary: row.proposalNumber,
                 secondary: row.client.name,
-                meta: row.validUntil ? formatDate(row.validUntil) : "—",
+                meta: row.validUntil ? formatDate(row.validUntil, locale) : "—",
               }))}
             />
           ) : null}
@@ -185,7 +186,7 @@ export default async function SalesOverviewPage({
                 href: `/sales/opportunities/${row.id}`,
                 primary: row.name,
                 secondary: t("overview.noLongerActive", { name: row.owner.fullName }),
-                meta: formatAmount(row.estimatedValue, row.currency),
+                meta: formatAmount(row.estimatedValue, row.currency, locale),
               }))}
             />
           ) : null}

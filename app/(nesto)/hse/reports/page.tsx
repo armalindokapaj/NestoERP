@@ -9,11 +9,18 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { getTranslations } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/translator";
 import * as reports from "@/lib/modules/hse/reports/reports.service";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("hse");
   return { title: t("pages.reports.title") };
+}
+
+/** A dictionary string, or the service's own English when the key is unknown. */
+function known(t: Awaited<ReturnType<typeof getTranslations<"hse">>>, key: string, fallback: string): string {
+  const text = t(key as MessageKey<"hse">);
+  return text === key ? fallback : text;
 }
 
 /**
@@ -68,7 +75,7 @@ export default async function HseReportsPage({
   const columns: TableColumn<KeyedRow>[] =
     result?.columns.map((column) => ({
       key: column.key,
-      label: column.label,
+      label: known(t, `pages.reports.columns.${active?.key === "risk-matrix" && column.key === "count" ? "openHazards" : column.key}`, column.label),
       primary: column === result.columns[0],
       render: (row) => {
         const value = row[column.key];
@@ -103,14 +110,14 @@ export default async function HseReportsPage({
                   : "inline-flex items-center rounded-full border border-line px-3 py-1.5 text-meta text-fg-muted hover:border-line-strong touch:min-h-11"
               }
             >
-              {report.label}
+              {known(t, `pages.reports.names.${report.key}`, report.label)}
             </Link>
           ))}
         </nav>
 
         {result ? (
           <section className="space-y-4">
-            <h2 className="text-card font-semibold text-fg">{result.label}</h2>
+            <h2 className="text-card font-semibold text-fg">{known(t, `pages.reports.names.${result.key}`, result.label)}</h2>
 
             {/* The 5x5 grid, with every cell carrying its score in text (§358). */}
             {result.matrix ? (
@@ -137,7 +144,7 @@ export default async function HseReportsPage({
             ) : (
               <>
                 <DataTable
-                  caption={result.label}
+                  caption={known(t, `pages.reports.names.${result.key}`, result.label)}
                   columns={columns}
                   records={records}
                   rowKey={(row) => row.__key}

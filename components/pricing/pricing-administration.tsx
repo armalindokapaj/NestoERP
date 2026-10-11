@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { CheckCircle2, CirclePlus, Save, Send } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/toast";
 import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { dateText, numberText } from "@/lib/i18n/format";
 import type { getPricingAdministration } from "@/lib/modules/pricing/pricing.service";
 import type { Foundation, PricingConfig, PricingModule, PricingPromotionConfig, RozarisClass } from "@/lib/modules/pricing/pricing.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
@@ -107,8 +108,9 @@ export function PricingAdministration({ data }: { data: PricingAdminData }) {
 }
 
 function PriceBookSummary({ config }: { config: PricingConfig }) {
+  const locale = useLocale();
   const t = useTranslations("adminOrgs");
-  const eur = (cents: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(cents / 100);
+  const eur = (cents: number) => numberText(cents / 100, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }, locale, "en-IE");
   const mo = (cents: number) => t("pricing.perMonth", { amount: eur(cents) });
   const platform = config.foundations.find((row) => row.id === "NESTO_PLATFORM");
   const priced = config.modules.filter((row) => row.enabled && row.public && row.monthlyPriceCents > 0).length;
@@ -473,13 +475,15 @@ function PromotionEditor({ promotion }: { promotion: Promotion }) {
 }
 
 function VersionHistory({ versions }: { versions: PricingAdminData["versions"] }) {
+  const locale = useLocale();
   const t = useTranslations("adminOrgs");
-  return <Card className="p-5"><h2 className="text-card font-semibold text-fg">{t("pricing.versionHistory")}</h2><div className="mt-4"><Table flush aria-label={t("pricing.versionsTable")}><TableHead><TableRow><TableHeaderCell>{t("pricing.col.version")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.status")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.effective")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.published")}</TableHeaderCell></TableRow></TableHead><TableBody>{versions.map((version) => <TableRow key={version.id}><TableCell className="font-medium text-fg">{version.versionCode}</TableCell><TableCell><Badge tone={version.status === "ACTIVE" ? "success" : version.status === "DRAFT" ? "warning" : "neutral"}>{t(`pricing.versionStatus.${version.status}`)}</Badge></TableCell><TableCell>{new Date(version.effectiveFrom).toLocaleDateString()}</TableCell><TableCell>{version.publishedAt ? new Date(version.publishedAt).toLocaleDateString() : "—"}</TableCell></TableRow>)}</TableBody></Table></div></Card>;
+  return <Card className="p-5"><h2 className="text-card font-semibold text-fg">{t("pricing.versionHistory")}</h2><div className="mt-4"><Table flush aria-label={t("pricing.versionsTable")}><TableHead><TableRow><TableHeaderCell>{t("pricing.col.version")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.status")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.effective")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.published")}</TableHeaderCell></TableRow></TableHead><TableBody>{versions.map((version) => <TableRow key={version.id}><TableCell className="font-medium text-fg">{version.versionCode}</TableCell><TableCell><Badge tone={version.status === "ACTIVE" ? "success" : version.status === "DRAFT" ? "warning" : "neutral"}>{t(`pricing.versionStatus.${version.status}`)}</Badge></TableCell><TableCell>{dateText(new Date(version.effectiveFrom), {}, locale)}</TableCell><TableCell>{version.publishedAt ? dateText(new Date(version.publishedAt), {}, locale) : "—"}</TableCell></TableRow>)}</TableBody></Table></div></Card>;
 }
 
 function RecentQuotes({ quotes }: { quotes: PricingAdminData["recentQuotes"] }) {
+  const locale = useLocale();
   const t = useTranslations("adminOrgs");
-  return <Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="text-card font-semibold text-fg">{t("pricing.recentQuotes")}</h2><p className="mt-1 text-table text-fg-muted">{t("pricing.recentQuotesNote")}</p></div><CheckCircle2 className="size-5 text-success-strong" /></div><div className="mt-4"><Table flush label={t("pricing.quotesTable")} aria-label={t("pricing.quotesTable")}><TableHead><TableRow><TableHeaderCell>{t("pricing.col.reference")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.product")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.monthly")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.term")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.status")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.leads")}</TableHeaderCell></TableRow></TableHead><TableBody>{quotes.map((quote) => <TableRow key={quote.id}><TableCell className="font-mono text-fg">{quote.reference}</TableCell><TableCell>{quote.productMode}</TableCell><TableCell>€{quote.standardMonthly.toLocaleString()}</TableCell><TableCell>{t("pricing.termMonths", { count: quote.contractMonths })}</TableCell><TableCell><Badge tone={quote.status === "PROPOSAL_REQUESTED" ? "success" : "neutral"}>{t(`pricing.quoteStatus.${quote.status}`)}</Badge></TableCell><TableCell>{quote.leads}</TableCell></TableRow>)}</TableBody></Table>{quotes.length === 0 ? <p className="py-8 text-center text-table text-fg-muted">{t("pricing.noQuotes")}</p> : null}</div></Card>;
+  return <Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="text-card font-semibold text-fg">{t("pricing.recentQuotes")}</h2><p className="mt-1 text-table text-fg-muted">{t("pricing.recentQuotesNote")}</p></div><CheckCircle2 className="size-5 text-success-strong" /></div><div className="mt-4"><Table flush label={t("pricing.quotesTable")} aria-label={t("pricing.quotesTable")}><TableHead><TableRow><TableHeaderCell>{t("pricing.col.reference")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.product")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.monthly")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.term")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.status")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.leads")}</TableHeaderCell></TableRow></TableHead><TableBody>{quotes.map((quote) => <TableRow key={quote.id}><TableCell className="font-mono text-fg">{quote.reference}</TableCell><TableCell>{quote.productMode}</TableCell><TableCell>€{numberText(quote.standardMonthly, undefined, locale)}</TableCell><TableCell>{t("pricing.termMonths", { count: quote.contractMonths })}</TableCell><TableCell><Badge tone={quote.status === "PROPOSAL_REQUESTED" ? "success" : "neutral"}>{t(`pricing.quoteStatus.${quote.status}`)}</Badge></TableCell><TableCell>{quote.leads}</TableCell></TableRow>)}</TableBody></Table>{quotes.length === 0 ? <p className="py-8 text-center text-table text-fg-muted">{t("pricing.noQuotes")}</p> : null}</div></Card>;
 }
 
 function EditorGroup({ title, children }: { title: string; children: React.ReactNode }) { return <section><h3 className="mb-3 text-table font-semibold uppercase tracking-wide text-fg-subtle">{title}</h3><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">{children}</div></section>; }

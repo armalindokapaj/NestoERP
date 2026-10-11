@@ -8,9 +8,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { History } from "lucide-react";
 
 import { can } from "@/lib/access/can";
+import { formatDateTime } from "@/lib/i18n/format";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { formatDateTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import { loadTask, taskBreadcrumbs } from "../task-context";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
@@ -36,6 +37,7 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
 
   if (!can(context, "task.activity.view")) notFound();
   const t = await getTranslations("tasks");
+  const locale = await getLocale();
 
   const query = await searchParams;
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
@@ -68,10 +70,10 @@ export default async function TaskActivityPage({ params, searchParams }: Params)
                 {/* Messages quote titles and reasons: they wrap, never widen the page (AUD-04 §3, MW-01). */}
                 <p className="text-table text-fg [overflow-wrap:anywhere]">
                   {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("common.someone")}</span>}{" "}
-                  {entry.message ?? entry.action}
+                  {localizeActivity(locale, entry) ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {formatDateTime(entry.createdAt)}
+                  {formatDateTime(entry.createdAt, locale)}
                 </p>
               </li>
             ))}

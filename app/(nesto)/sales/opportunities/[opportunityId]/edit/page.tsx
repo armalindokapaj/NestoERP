@@ -67,6 +67,7 @@ export default async function EditOpportunityPage({ params }: Params) {
         versionUpdatedAt={opportunity.updatedAt}
         cancelHref={`/sales/opportunities/${opportunityId}`}
         submitLabel={t("pages.saveChanges")}
+        saveKind="save"
         pendingLabel={t("pages.saving")}
       />
     </div>

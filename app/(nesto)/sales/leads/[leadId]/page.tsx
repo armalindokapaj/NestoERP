@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { RecordHeader } from "@/components/modules/record-header";
@@ -14,7 +15,6 @@ import { SkeletonTable } from "@/components/ui/loading-state";
 import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import { formatAmount } from "@/components/sales/sales-format";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
-import { formatDate } from "@/lib/utils/format";
 import { leadContext } from "./lead-context";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,6 +26,7 @@ type Params = { params: Promise<{ leadId: string }> };
 
 /** Lead detail (PRD #17 §286). */
 export default async function LeadPage({ params }: Params) {
+  const locale = await getLocale();
   const { leadId } = await params;
   const { context, lead } = await leadContext(leadId);
   const t = await getTranslations("sales");
@@ -58,10 +59,10 @@ export default async function LeadPage({ params }: Params) {
             label: t("detail.estimatedValue"),
             value:
               lead.estimatedValue && lead.currency
-                ? formatAmount(lead.estimatedValue, lead.currency)
+                ? formatAmount(lead.estimatedValue, lead.currency, locale)
                 : "—",
           },
-          { label: t("detail.created"), value: formatDate(lead.createdAt) },
+          { label: t("detail.created"), value: formatDate(lead.createdAt, locale) },
         ]}
         actions={<LeadActions lead={lead} />}
       />
@@ -70,7 +71,7 @@ export default async function LeadPage({ params }: Params) {
         <section className="nesto-card p-5">
           <h2 className="text-card font-semibold text-fg">{t("detail.converted")}</h2>
           <p className="mt-1 text-table text-fg-muted">
-            {t("detail.convertedOn", { date: lead.convertedAt ? formatDate(lead.convertedAt) : "—" })}
+            {t("detail.convertedOn", { date: lead.convertedAt ? formatDate(lead.convertedAt, locale) : "—" })}
           </p>
           <div className="mt-3 flex flex-wrap gap-4 text-table">
             {lead.convertedOpportunity ? (

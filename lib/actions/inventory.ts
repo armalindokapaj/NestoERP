@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { ZodError } from "zod";
 
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { actionFailure } from "@/lib/actions/result";
 import { invalidInput, readSubmittedLines, scalarFormValues } from "@/lib/modules/finance/finance.form-data";
 import { committed } from "@/lib/forms/committed";
@@ -47,7 +48,7 @@ function revalidateInventory(recordPath?: string) {
 }
 
 /** A refusal the form can place (AUD-09 §3, §6): see `actionFailure`. */
-function toResult(error: unknown): InventoryActionResult {
+async function toResult(error: unknown): Promise<InventoryActionResult> {
   return actionFailure(error, "inventory");
 }
 
@@ -55,8 +56,8 @@ function toResult(error: unknown): InventoryActionResult {
  * Invalid input under canonical paths (AUD-09 §3, §7, FV-16): a line's error
  * is `lines.<index>.<field>`, the index being the row's submitted position.
  */
-function invalid(error: ZodError, submitted: number[] | null = null): InventoryActionResult {
-  return invalidInput(error, submitted ? { lines: submitted } : {});
+async function invalid(error: ZodError, submitted: number[] | null = null): Promise<InventoryActionResult> {
+  return localizeActionFailure(invalidInput(error, submitted ? { lines: submitted } : {}));
 }
 
 const LINE_FIELDS = [

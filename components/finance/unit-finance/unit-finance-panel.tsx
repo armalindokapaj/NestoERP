@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
+import { formatDate } from "@/lib/i18n/format";
 import { compareDecimal, isZeroDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
@@ -8,6 +10,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { Banknote, CalendarRange, FileText, MoreHorizontal, Plus, Receipt, Trash2 } from "lucide-react";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
+import { StatusText } from "@/components/i18n/common-text";
 import { selectClass } from "@/components/forms/record-form";
 import { Field, isFailure, structureApi } from "@/components/project-structure/structure-ui";
 import { FormDialog, requestOutcome, useDialogRequest, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
@@ -19,7 +22,6 @@ import { useToast } from "@/components/ui/toast";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { PAYMENT_METHODS } from "@/lib/modules/finance/payments/payment.schema";
 import { INSTALLMENT_TYPES, type ContractPaymentDTO, type InstallmentDTO, type ScheduleDTO, type UnitFinanceDTO } from "@/lib/modules/finance/units/unit-finance.types";
-import { formatDate } from "@/lib/utils/format";
 import { PersonLink } from "@/components/people/person-link";
 import type { FinanceActor } from "@/lib/modules/finance/units/unit-finance.types";
 import { FieldsDialog, today, type Submit } from "./fields-dialog";
@@ -50,6 +52,7 @@ const METHODS = new Set(["BANK_TRANSFER", "CARD", "CASH", "CHECK", "OTHER"]);
 const methodLabel = (t: ReturnType<typeof useFinanceTranslations>, code: string) => (METHODS.has(code) ? t(`method.${code}` as "method.CASH") : code);
 
 export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const t = useFinanceTranslations();
@@ -97,16 +100,16 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
         {contract ? (
           <>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Figure label={t("panel.contractValue")} testId="finance-contract-value" value={amountLabel(contract.value, currency)} strong />
-              <Figure label={t("panel.paid")} testId="finance-paid" value={amountLabel(summary.paidAmount, currency)} />
-              <Figure label={t("panel.outstanding")} testId="finance-outstanding" value={amountLabel(summary.outstandingAmount, currency)} strong />
-              <Figure label={t("panel.overdue")} testId="finance-overdue" value={amountLabel(summary.overdueAmount, currency)} danger={Number(summary.overdueAmount) > 0} />
+              <Figure label={t("panel.contractValue")} testId="finance-contract-value" value={amountLabel(contract.value, currency, locale)} strong />
+              <Figure label={t("panel.paid")} testId="finance-paid" value={amountLabel(summary.paidAmount, currency, locale)} />
+              <Figure label={t("panel.outstanding")} testId="finance-outstanding" value={amountLabel(summary.outstandingAmount, currency, locale)} strong />
+              <Figure label={t("panel.overdue")} testId="finance-overdue" value={amountLabel(summary.overdueAmount, currency, locale)} danger={Number(summary.overdueAmount) > 0} />
             </dl>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="nesto-eyebrow text-fg-subtle">{t("panel.nextPayment")}</p>
                 <p className="mt-1 text-body text-fg" data-testid="finance-next-due">
-                  {summary.nextDue ? t("panel.nextDue", { amount: amountLabel(summary.nextDue.amount, currency), label: summary.nextDue.label, date: formatDate(summary.nextDue.dueDate) }) : t("panel.nothingDue")}
+                  {summary.nextDue ? t("panel.nextDue", { amount: amountLabel(summary.nextDue.amount, currency, locale), label: summary.nextDue.label, date: formatDate(summary.nextDue.dueDate, locale) }) : t("panel.nothingDue")}
                 </p>
               </div>
               <div>
@@ -123,7 +126,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
             </div>
             {Number(summary.unallocatedAmount) > 0 ? (
               <p className="mt-4 rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-table text-warning-strong" data-testid="finance-unallocated">
-                {t("panel.unallocated", { amount: amountLabel(summary.unallocatedAmount, currency) })}
+                {t("panel.unallocated", { amount: amountLabel(summary.unallocatedAmount, currency, locale) })}
               </p>
             ) : null}
             {summary.sharedWithUnits.length ? (
@@ -177,8 +180,8 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                 <ScheduleStatusBadge status="DRAFT" />
                 <ByLine actor={draft.createdBy} />
                 <span className="text-meta text-fg-subtle">
-                  {t("panel.total", { amount: amountLabel(draft.total, currency) })}
-                  {finance.scheduleTarget ? t("panel.contractNeeds", { amount: amountLabel(finance.scheduleTarget, currency) }) : ""}
+                  {t("panel.total", { amount: amountLabel(draft.total, currency, locale) })}
+                  {finance.scheduleTarget ? t("panel.contractNeeds", { amount: amountLabel(finance.scheduleTarget, currency, locale) }) : ""}
                 </span>
               </div>
               <InstallmentTable schedule={draft} currency={currency} canInvoice={false} onInvoice={() => undefined} />
@@ -208,7 +211,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                     <p className="flex items-center gap-2 text-table text-fg">
                       v{schedule.versionNumber} <ScheduleStatusBadge status={schedule.status} />
                       <span className="text-meta text-fg-subtle">
-                        {schedule.supersededAt ? t("panel.superseded", { date: formatDate(schedule.supersededAt) }) : schedule.cancelledAt ? t("panel.cancelledOn", { date: formatDate(schedule.cancelledAt) }) : ""}
+                        {schedule.supersededAt ? t("panel.superseded", { date: formatDate(schedule.supersededAt, locale) }) : schedule.cancelledAt ? t("panel.cancelledOn", { date: formatDate(schedule.cancelledAt, locale) }) : ""}
                       </span>
                     </p>
                     <InstallmentTable schedule={schedule} currency={currency} canInvoice={false} onInvoice={() => undefined} />
@@ -232,13 +235,13 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
               {finance.payments.map((payment) => (
                 <li key={payment.id} className="py-3 text-table" data-testid="payment-row">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={payment.status === "VOIDED" ? "font-medium tabular-nums text-fg-subtle line-through" : "font-medium tabular-nums text-fg"}>{amountLabel(payment.amount, payment.currency)}</span>
+                    <span className={payment.status === "VOIDED" ? "font-medium tabular-nums text-fg-subtle line-through" : "font-medium tabular-nums text-fg"}>{amountLabel(payment.amount, payment.currency, locale)}</span>
                     <span className="text-fg-muted">
-                      {formatDate(payment.paymentDate)} · {methodLabel(t, payment.method)}
+                      {formatDate(payment.paymentDate, locale)} · {methodLabel(t, payment.method)}
                       {payment.reference ? ` · ${payment.reference}` : ""}
                     </span>
                     <ByLine actor={payment.recordedBy} />
-                    {payment.status === "VOIDED" ? <Badge>{t("paymentStatus.VOIDED")}</Badge> : Number(payment.unallocatedAmount) > 0 ? <Badge tone="warning">{t("panel.unallocatedBadge", { amount: amountLabel(payment.unallocatedAmount, payment.currency) })}</Badge> : null}
+                    {payment.status === "VOIDED" ? <Badge>{t("paymentStatus.VOIDED")}</Badge> : Number(payment.unallocatedAmount) > 0 ? <Badge tone="warning">{t("panel.unallocatedBadge", { amount: amountLabel(payment.unallocatedAmount, payment.currency, locale) })}</Badge> : null}
                     <PaymentMenu payment={payment} caps={caps} onOpen={setOpen} />
                   </div>
                   {payment.allocations.length ? (
@@ -246,7 +249,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                       {payment.allocations.map((allocation) => (
                         <li key={allocation.id} className="flex flex-wrap items-center gap-2 text-meta text-fg-muted">
                           <span className={allocation.reversed ? "line-through" : undefined}>
-                            {amountLabel(allocation.amount, payment.currency)} → {allocation.label}
+                            {amountLabel(allocation.amount, payment.currency, locale)} → {allocation.label}
                           </span>
                           {allocation.reversed ? <span>{allocation.reversalReason ? t("panel.reversedReason", { reason: allocation.reversalReason }) : t("panel.reversed")}</span> : null}
                           {!allocation.reversed && payment.status === "RECORDED" && caps.canCorrect ? (
@@ -281,11 +284,11 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                 <Link href={`/finance/invoices/${invoice.id}`} className="font-medium text-fg hover:underline">
                   {invoice.invoiceNumber}
                 </Link>
-                <Badge>{invoice.status.charAt(0) + invoice.status.slice(1).toLowerCase().replace(/_/g, " ")}</Badge>
-                <span className="text-fg-muted">{t("panel.invoiceDue", { label: invoice.installmentLabel ?? "", date: formatDate(invoice.dueDate) })}</span>
+                <Badge><StatusText status={invoice.status} /></Badge>
+                <span className="text-fg-muted">{t("panel.invoiceDue", { label: invoice.installmentLabel ?? "", date: formatDate(invoice.dueDate, locale) })}</span>
                 <ByLine actor={invoice.createdBy} />
                 <span className="ml-auto tabular-nums text-fg-muted">
-                  {t("panel.paidOfTotal", { paid: amountLabel(invoice.paidAmount, currency), total: amountLabel(invoice.totalAmount, currency) })}
+                  {t("panel.paidOfTotal", { paid: amountLabel(invoice.paidAmount, currency, locale), total: amountLabel(invoice.totalAmount, currency, locale) })}
                 </span>
               </li>
             ))}
@@ -310,7 +313,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
                     <Link href={`/documents/${document.id}`} className="font-medium text-fg hover:underline">
                       {document.name}
                     </Link>
-                    <span className="text-meta text-fg-subtle">{payment ? `${amountLabel(payment.amount, payment.currency)} · ${formatDate(payment.paymentDate)}` : ""}</span>
+                    <span className="text-meta text-fg-subtle">{payment ? `${amountLabel(payment.amount, payment.currency, locale)} · ${formatDate(payment.paymentDate, locale)}` : ""}</span>
                     <ByLine actor={document.uploadedBy} />
                   </li>
                 );
@@ -330,7 +333,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
           open
           onClose={close}
           title={t("panel.raiseTitle", { label: open.installment.label })}
-          description={t("panel.raiseBody", { amount: amountLabel(open.installment.amount, currency) })}
+          description={t("panel.raiseBody", { amount: amountLabel(open.installment.amount, currency, locale) })}
           confirmLabel={t("panel.raiseInvoice")}
           url={`/api/finance/installments/${open.installment.id}/invoice`}
           fields={[
@@ -348,7 +351,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
         <FieldsDialog open onClose={close} title={t("panel.reverseTitle")} description={t("panel.reverseBody", { label: open.label })} confirmLabel={t("panel.reverse")} url={`/api/finance/payment-allocations/${open.allocationId}/reverse`} fields={[{ name: "reason", label: t("panel.reason"), kind: "textarea", required: true }]} success={t("panel.reversedDone")} submit={submit} />
       ) : null}
       {open?.kind === "void" ? (
-        <FieldsDialog open onClose={close} title={t("panel.voidTitle", { amount: amountLabel(open.payment.amount, open.payment.currency) })} description={t("panel.voidBody")} confirmLabel={t("voidPayment.confirm")} url={`/api/finance/payments/${open.payment.id}/void`} fields={[{ name: "reason", label: t("panel.reason"), kind: "textarea", required: true }]} success={t("panel.voided")} submit={submit} testId="void-payment-dialog" />
+        <FieldsDialog open onClose={close} title={t("panel.voidTitle", { amount: amountLabel(open.payment.amount, open.payment.currency, locale) })} description={t("panel.voidBody")} confirmLabel={t("voidPayment.confirm")} url={`/api/finance/payments/${open.payment.id}/void`} fields={[{ name: "reason", label: t("panel.reason"), kind: "textarea", required: true }]} success={t("panel.voided")} submit={submit} testId="void-payment-dialog" />
       ) : null}
     </div>
   );
@@ -366,6 +369,7 @@ function Figure({ label, value, strong, danger, testId }: { label: string; value
 }
 
 function PaymentMenu({ payment, caps, onOpen }: { payment: ContractPaymentDTO; caps: UnitFinanceDTO["capabilities"]; onOpen: (open: Open) => void }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const allocate = payment.status === "RECORDED" && caps.canAllocate && Number(payment.unallocatedAmount) > 0;
   const voidable = payment.status === "RECORDED" && caps.canVoidPayment;
@@ -374,7 +378,7 @@ function PaymentMenu({ payment, caps, onOpen }: { payment: ContractPaymentDTO; c
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t("panel.paymentActions", { amount: amountLabel(payment.amount, payment.currency), date: formatDate(payment.paymentDate) })} className="ml-auto">
+        <Button variant="ghost" size="icon" aria-label={t("panel.paymentActions", { amount: amountLabel(payment.amount, payment.currency, locale), date: formatDate(payment.paymentDate, locale) })} className="ml-auto">
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
@@ -392,6 +396,7 @@ function PaymentMenu({ payment, caps, onOpen }: { payment: ContractPaymentDTO; c
 }
 
 function InstallmentTable({ schedule, currency, canInvoice, onInvoice }: { schedule: ScheduleDTO; currency: string; canInvoice: boolean; onInvoice: (installment: InstallmentDTO) => void }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const invoice = (row: InstallmentDTO) =>
     row.invoice ? (
@@ -426,9 +431,9 @@ function InstallmentTable({ schedule, currency, canInvoice, onInvoice }: { sched
                   <span className="font-medium text-fg">{row.label}</span>
                   <span className="block text-meta text-fg-subtle">{t(`installmentType.${row.type}`)}</span>
                 </td>
-                <td className="py-2 pr-3 text-fg-muted">{formatDate(row.dueDate)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums text-fg">{amountLabel(row.amount, currency)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{amountLabel(row.paidAmount, currency)}</td>
+                <td className="py-2 pr-3 text-fg-muted">{formatDate(row.dueDate, locale)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums text-fg">{amountLabel(row.amount, currency, locale)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{amountLabel(row.paidAmount, currency, locale)}</td>
                 <td className="py-2 pr-3">
                   <InstallmentStatusBadge status={row.status} />
                 </td>
@@ -445,10 +450,10 @@ function InstallmentTable({ schedule, currency, canInvoice, onInvoice }: { sched
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-fg">{row.label}</span>
               <InstallmentStatusBadge status={row.status} />
-              <span className="ml-auto tabular-nums text-fg">{amountLabel(row.amount, currency)}</span>
+              <span className="ml-auto tabular-nums text-fg">{amountLabel(row.amount, currency, locale)}</span>
             </div>
             <p className="mt-0.5 text-meta text-fg-subtle">
-              {t("panel.duePaid", { date: formatDate(row.dueDate), amount: amountLabel(row.paidAmount, currency) })}
+              {t("panel.duePaid", { date: formatDate(row.dueDate, locale), amount: amountLabel(row.paidAmount, currency, locale) })}
             </p>
             {invoice(row) ? <div className="mt-1">{invoice(row)}</div> : null}
           </li>
@@ -462,6 +467,7 @@ type Row = { label: string; type: string; amount: string; dueDate: string };
 
 /** A draft edited as a whole: rows added, removed and reordered by due date on save (§21, §24). */
 function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onClose: () => void; finance: UnitFinanceDTO; schedule: ScheduleDTO | null; copyFrom: ScheduleDTO | null; submit: Submit }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const request = useDialogRequest((url, body, success) => submit(url, body, success, schedule ? "PATCH" : "POST"));
   const currency = finance.summary.contract?.currency ?? "EUR";
@@ -539,8 +545,8 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
           <Plus aria-hidden="true" /> {t("panel.addInstallment")}
         </Button>
         <p className={`text-table tabular-nums ${offTarget ? "text-warning-strong" : "text-fg"}`} data-testid="schedule-total">
-          {t("panel.total", { amount: amountLabel(total, currency) })}
-          {target !== null ? t("panel.ofNeeded", { amount: amountLabel(target, currency) }) : ""}
+          {t("panel.total", { amount: amountLabel(total, currency, locale) })}
+          {target !== null ? t("panel.ofNeeded", { amount: amountLabel(target, currency, locale) }) : ""}
         </p>
       </div>
     </FormDialog>
@@ -549,6 +555,7 @@ function ScheduleDialog({ onClose, finance, schedule, copyFrom, submit }: { onCl
 
 /** Activation checks the total; a deliberate difference takes the correction grant and a reason (§24). */
 function ActivateDialog({ onClose, finance, schedule, submit }: { onClose: () => void; finance: UnitFinanceDTO; schedule: ScheduleDTO; submit: Submit }) {
+  const locale = useLocale();
   const currency = finance.summary.contract?.currency ?? "EUR";
   const t = useFinanceTranslations();
   const mismatch = finance.scheduleTarget !== null && Number(schedule.total) !== Number(finance.scheduleTarget);
@@ -559,7 +566,7 @@ function ActivateDialog({ onClose, finance, schedule, submit }: { onClose: () =>
       title={t("panel.activateTitle", { version: schedule.versionNumber })}
       description={
         mismatch
-          ? t("panel.activateMismatch", { total: amountLabel(schedule.total, currency), target: amountLabel(finance.scheduleTarget, currency) })
+          ? t("panel.activateMismatch", { total: amountLabel(schedule.total, currency, locale), target: amountLabel(finance.scheduleTarget, currency, locale) })
           : t("panel.activateBody")
       }
       confirmLabel={t("panel.activate")}
@@ -587,6 +594,7 @@ function propose(amount: string, installments: InstallmentDTO[]): Record<string,
 }
 
 function AllocationRows({ installments, values, currency, onChange }: { installments: InstallmentDTO[]; values: Record<string, string>; currency: string; onChange: (id: string, value: string) => void }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   if (installments.length === 0) return <p className="text-table text-fg-muted">{t("panel.nothingOwed")}</p>;
   return (
@@ -597,7 +605,7 @@ function AllocationRows({ installments, values, currency, onChange }: { installm
           <label htmlFor={`allocate-${row.id}`} className="min-w-0 text-table">
             <span className="font-medium text-fg">{row.label}</span>
             <span className="block text-meta text-fg-subtle">
-              {t("panel.dueOwed", { date: formatDate(row.dueDate), amount: amountLabel(row.outstandingAmount, currency) })}
+              {t("panel.dueOwed", { date: formatDate(row.dueDate, locale), amount: amountLabel(row.outstandingAmount, currency, locale) })}
             </span>
           </label>
           <Input id={`allocate-${row.id}`} inputMode="decimal" value={values[row.id] ?? ""} onChange={(event) => onChange(row.id, event.target.value)} />
@@ -609,6 +617,7 @@ function AllocationRows({ installments, values, currency, onChange }: { installm
 
 /** Money received against the contract, allocated in the same step (§77); a lookalike is offered back first (§78). */
 function PaymentDialog({ onClose, contractId, currency, installments, canAllocate, submit }: { onClose: () => void; contractId: string; currency: string; installments: InstallmentDTO[]; canAllocate: boolean; submit: Submit }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const request = useDialogRequest((url, body, success) => submit(url, body, success));
   const [amount, setAmount] = React.useState("");
@@ -650,7 +659,7 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
           <ul className="mt-1 list-inside list-disc">
             {duplicates.map((row, index) => (
               <li key={index}>
-                {t("panel.amountOn", { amount: amountLabel(row.amount, currency), date: formatDate(row.paymentDate) })}
+                {t("panel.amountOn", { amount: amountLabel(row.amount, currency, locale), date: formatDate(row.paymentDate, locale) })}
                 {row.reference ? ` · ${row.reference}` : ""}
               </li>
             ))}
@@ -699,7 +708,7 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
             }}
           />
           <p className={`text-right text-table tabular-nums ${over ? "text-danger-strong" : "text-fg-muted"}`} data-testid="payment-unallocated">
-            {over ? t("panel.overAllocated", { amount: amountLabel(left.slice(1), currency) }) : t("panel.unallocatedTotal", { amount: amountLabel(left, currency) })}
+            {over ? t("panel.overAllocated", { amount: amountLabel(left.slice(1), currency, locale) }) : t("panel.unallocatedTotal", { amount: amountLabel(left, currency, locale) })}
           </p>
         </>
       ) : null}
@@ -711,6 +720,7 @@ function PaymentDialog({ onClose, contractId, currency, installments, canAllocat
 }
 
 function AllocateDialog({ onClose, payment, installments, submit }: { onClose: () => void; payment: ContractPaymentDTO; installments: InstallmentDTO[]; submit: Submit }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const request = useDialogRequest((url, body, success) => submit(url, body, success));
   const [values, setValues] = React.useState<Record<string, string>>(() => propose(payment.unallocatedAmount, installments));
@@ -719,8 +729,8 @@ function AllocateDialog({ onClose, payment, installments, submit }: { onClose: (
     <FormDialog
       open
       onClose={onClose}
-      title={t("panel.allocateTitle", { amount: amountLabel(payment.unallocatedAmount, payment.currency) })}
-      description={t("panel.allocateBody", { amount: amountLabel(payment.amount, payment.currency), date: formatDate(payment.paymentDate) })}
+      title={t("panel.allocateTitle", { amount: amountLabel(payment.unallocatedAmount, payment.currency, locale) })}
+      description={t("panel.allocateBody", { amount: amountLabel(payment.amount, payment.currency, locale), date: formatDate(payment.paymentDate, locale) })}
       confirmLabel={t("panel.allocate")}
       pending={request.pending}
       error={request.error}

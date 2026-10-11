@@ -16,8 +16,8 @@ import {
   recentClients,
   recentlyUpdatedClients,
 } from "@/lib/modules/clients/client.repository";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("clients"))("meta.clients") };
@@ -124,6 +124,7 @@ async function ClientPanel({
   >;
   primary?: boolean;
 }) {
+  const locale = await getLocale();
   const [clients, t] = await Promise.all([pending, getTranslations("clients")]);
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
@@ -151,7 +152,7 @@ async function ClientPanel({
                   {client.name}
                 </Link>
                 <p className="truncate text-meta text-fg-subtle">
-                  {client.code ?? formatDate(client.updatedAt)}
+                  {client.code ?? formatDate(client.updatedAt, locale)}
                 </p>
               </div>
               <StatusBadge status={client.status} />

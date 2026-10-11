@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, Link2, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "@/components/project-planning/use-values-editor";
+import { formatRelativeTime } from "@/lib/i18n/format";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import {
   UNIT_DOCUMENT_CATEGORIES,
@@ -28,7 +29,6 @@ import {
   type UnitFileDTO,
   type UnitFilesDTO,
 } from "@/lib/modules/project-structure/unit-publishing.types";
-import { formatRelativeTime } from "@/lib/utils/format";
 import { PersonLink } from "@/components/people/person-link";
 import { Field, FormError, failureMessage, structureApi } from "../structure-ui";
 import { fileSize, uploadNewVersion } from "./unit-upload";
@@ -45,6 +45,7 @@ import { FormSelect } from "@/components/ui/form-select";
 const PROCESSING: readonly string[] = UPLOAD_IN_FLIGHT;
 
 function FileLine({ file, children }: { file: UnitFileDTO; children?: React.ReactNode }) {
+  const locale = useLocale();
   const t = useTranslations("projects");
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -55,7 +56,7 @@ function FileLine({ file, children }: { file: UnitFileDTO; children?: React.Reac
       {file.versionNumber ? <span className="text-meta tabular-nums text-fg-muted">v{file.versionNumber}</span> : null}
       {file.archived ? <Badge tone="warning">{t("unitFiles.archived")}</Badge> : file.storageStatus !== "AVAILABLE" ? <Badge tone="info">{t("unitFiles.beingChecked")}</Badge> : null}
       <span className="text-meta text-fg-subtle">
-        {fileSize(file.sizeBytes)} · {formatRelativeTime(file.uploadedAt)}
+        {fileSize(file.sizeBytes)} · {formatRelativeTime(file.uploadedAt, locale)}
         {file.uploadedBy ? (
           <>
             {" · "}

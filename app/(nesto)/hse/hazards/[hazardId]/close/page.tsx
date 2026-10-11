@@ -9,6 +9,7 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
 import { hazardClosureGapLabels } from "@/lib/modules/hse/hse.status";
+import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -61,7 +62,7 @@ export default async function CloseHazardPage({ params }: Params) {
 
       <BlockedList
         title={t("page.stillOutstanding")}
-        reasons={outstanding.map((gap) => hazardClosureGapLabels[gap])}
+        reasons={outstanding.map((gap) => hseLabel(t, "hazardClosureGap", gap, hazardClosureGapLabels[gap]))}
       />
 
       {outstanding.length === 0 ? <HazardCloseForm hazard={hazard} /> : null}

@@ -5,12 +5,12 @@ import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDate } from "@/lib/i18n/format";
 import { entitlementDirectory, listEntitlementPlans, moduleCatalog, moduleHolders } from "@/lib/modules/entitlements/entitlement.service";
 import { organizationGroupOptions } from "@/lib/modules/platform/platform-organizations.query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
 
 export async function generateMetadata() {
   const t = await getTranslations("adminOrgs");
@@ -109,6 +109,7 @@ function PlanFilter({ plans, current, raw, t }: { plans: Array<{ value: string; 
 }
 
 async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<typeof requirePlatformContext>>; moduleKey: string }) {
+  const locale = await getLocale();
   const t = await getTranslations("adminOrgs");
   const catalog = await moduleCatalog(context);
   const selected = catalog.modules.find((row) => row.key === moduleKey && row.scope === "Company");
@@ -150,7 +151,7 @@ async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<ty
                     <TableCell className="max-md:hidden">{row.group ?? t("modules.standalone")}</TableCell>
                     <TableCell>{row.plan}</TableCell>
                     <TableCell><AdminStatusBadge status={row.state} /></TableCell>
-                    <TableCell className="max-sm:hidden">{row.since ? formatDate(row.since) : "—"}</TableCell>
+                    <TableCell className="max-sm:hidden">{row.since ? formatDate(row.since, locale) : "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

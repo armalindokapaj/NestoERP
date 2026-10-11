@@ -5,7 +5,8 @@ import { RecordDocuments } from "@/components/documents/record-documents";
 import { MeetingWorkspace } from "@/components/meetings/meeting-workspace";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { listMeetingActivity } from "@/lib/modules/meetings/meeting.service";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import { loadMeeting } from "./meeting-context";
 
 type Params = { params: Promise<{ meetingId: string }> };
@@ -29,8 +30,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function MeetingPage({ params }: Params) {
   const { meetingId } = await params;
   const { context, meeting } = await loadMeeting(meetingId);
-  const activity = await listMeetingActivity(context, meetingId);
   const t = await getTranslations("meetings");
+  const locale = await getLocale();
+  // The workspace is a client component and cannot read the catalogues: its activity lines are put into the reader's language here.
+  const activity = (await listMeetingActivity(context, meetingId)).map((entry) => ({ ...entry, message: localizeActivity(locale, entry) }));
 
   return (
     <MeetingWorkspace

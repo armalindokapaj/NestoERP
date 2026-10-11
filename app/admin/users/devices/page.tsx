@@ -3,10 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDate } from "@/lib/i18n/format";
 import { listPlatformDevices } from "@/lib/modules/platform/platform-mobile-security.service";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
-import { formatDate } from "@/lib/utils/format";
 
 export async function generateMetadata() {
   const t = await getTranslations("adminAccess");
@@ -17,6 +17,7 @@ const TONE = { ACTIVE: "success", STALE: "default", REVOKED: "danger", BLOCKED: 
 
 /** Every installed app across tenants. A technical surface: status and version, never business data (MOB-11 §26, §186). */
 export default async function PlatformDevicesPage() {
+  const locale = await getLocale();
   const t = await getTranslations("adminAccess");
   const context = await requirePlatformContext();
   const devices = await listPlatformDevices(context);
@@ -45,7 +46,7 @@ export default async function PlatformDevicesPage() {
                 <TableCell>{device.name} · {device.platform === "IOS" ? "iOS" : "Android"}{device.osVersion ? ` ${device.osVersion}` : ""}</TableCell>
                 <TableCell>{device.appVersion}</TableCell>
                 <TableCell><Badge tone={TONE[device.status]}>{enumLabel(t, "enums.deviceStatus", device.status)}</Badge></TableCell>
-                <TableCell>{formatDate(device.lastSeenAt)}</TableCell>
+                <TableCell>{formatDate(device.lastSeenAt, locale)}</TableCell>
                 <TableCell>{canRevoke ? <PlatformDeviceActions deviceId={device.id} userName={device.user.fullName} status={device.status} /> : null}</TableCell>
               </TableRow>
             ))}

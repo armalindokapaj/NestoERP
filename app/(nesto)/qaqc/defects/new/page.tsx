@@ -52,6 +52,7 @@ export default async function NewDefectPage({
         action={createDefectAction}
         cancelHref="/qaqc/defects"
         submitLabel={t("defectPage.raise")}
+        saveKind="create"
         pendingLabel={t("common.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,

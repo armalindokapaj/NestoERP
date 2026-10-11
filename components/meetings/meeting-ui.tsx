@@ -3,6 +3,8 @@ import type { MeetingResponseStatus, MeetingStatus } from "@prisma/client";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
 import { MEETING_STATUS_LABELS, RESPONSE_LABELS, type MeetingPersonDTO } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
 import { MeetingsLabel } from "./meetings-text";
@@ -69,8 +71,8 @@ export function AvatarStack({ people, total, max = 4, label }: { people: Array<P
 /* Time, always in the meeting's zone (PRD #40 §206)                            */
 /* -------------------------------------------------------------------------- */
 
-export function meetingDay(iso: string, zone: string, options: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" }): string {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: zone, ...options }).format(new Date(iso));
+export function meetingDay(iso: string, zone: string, options: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" }, locale: Locale): string {
+  return dateText(new Date(iso), { timeZone: zone, ...options }, locale);
 }
 
 export function meetingClock(iso: string, zone: string): string {
@@ -88,8 +90,8 @@ export function meetingZoneLabel(iso: string, zone: string): string {
 }
 
 /** "Wed 16 Sep · 10:00–11:00" */
-export function meetingWhen(startsAt: string, endsAt: string, zone: string): string {
-  return `${meetingDay(startsAt, zone, { weekday: "short", day: "numeric", month: "short" })} · ${meetingClock(startsAt, zone)}–${meetingClock(endsAt, zone)}`;
+export function meetingWhen(startsAt: string, endsAt: string, zone: string, locale: Locale): string {
+  return `${meetingDay(startsAt, zone, { weekday: "short", day: "numeric", month: "short" }, locale)} · ${meetingClock(startsAt, zone)}–${meetingClock(endsAt, zone)}`;
 }
 
 export function durationLabel(startsAt: string, endsAt: string): string {

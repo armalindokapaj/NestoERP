@@ -10,14 +10,16 @@ import { DocumentFilePanel } from "@/components/documents/document-file-panel";
 import { DocumentVersions } from "@/components/documents/document-versions";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/i18n/format";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import * as documents from "@/lib/modules/documents/document.service";
 import type { DocumentDetailDTO } from "@/lib/modules/documents/document.types";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { documentBreadcrumbs, loadDocument } from "./document-context";
 import { contextLabel, documentsLabel, fileTypeLabel } from "@/lib/i18n/modules/documents/labels";
 import type { Translate } from "@/lib/i18n/translator";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 
 type Params = { params: Promise<{ documentId: string }> };
 
@@ -41,6 +43,9 @@ export default async function DocumentDetailPage({ params }: Params) {
   const { documentId } = await params;
   const { context, document } = await loadDocument(documentId);
   const t = await getTranslations("documents");
+  const tCommon = await getTranslations("common");
+  const tModules = await getTranslations("modules");
+  const locale = await getLocale();
 
   const archived = document.archivedAt !== null || document.status === "ARCHIVED";
   const activity = document.capabilities.canViewActivity
@@ -67,7 +72,7 @@ export default async function DocumentDetailPage({ params }: Params) {
                   {document.context.relatedRecordName}
                 </Link>
               ) : (
-                contextLabel(t, document.context.label)
+                contextLabel(t, document.context.label, { ...document.context, common: tCommon, modules: tModules })
               ),
           },
           {
@@ -140,8 +145,8 @@ export default async function DocumentDetailPage({ params }: Params) {
                     document.file.sizeBytes === null ? null : Number(document.file.sizeBytes),
                   ),
                 },
-                { label: t("detail.added"), value: formatDateTime(document.createdAt) },
-                { label: t("detail.updated"), value: formatDateTime(document.updatedAt) },
+                { label: t("detail.added"), value: formatDateTime(document.createdAt, locale) },
+                { label: t("detail.updated"), value: formatDateTime(document.updatedAt, locale) },
                 // The storage lifecycle, which is not the business status
                 // (PRD #29 §2).
                 { label: t("detail.storage"), value: storageLabel(t, document.file.storageStatus) },
@@ -178,9 +183,9 @@ export default async function DocumentDetailPage({ params }: Params) {
                     <li key={entry.id} className="text-table">
                       <p className="text-fg">
                         {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("detail.someone")}</span>}{" "}
-                        {entry.message ?? entry.action}
+                        {localizeActivity(locale, entry) ?? entry.action}
                       </p>
-                      <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>
+                      <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt, locale)}</p>
                     </li>
                   ))}
                 </ul>

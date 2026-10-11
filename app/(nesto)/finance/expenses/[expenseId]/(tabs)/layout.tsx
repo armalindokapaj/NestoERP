@@ -2,9 +2,9 @@ import { ExpenseActions } from "@/components/finance/expense-actions";
 import { Money } from "@/components/finance/money";
 import { RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
-import { formatDate } from "@/lib/utils/format";
 import { expenseBreadcrumbs, expenseLabel, loadExpense } from "../expense-context";
 import { FinanceRecordTabs } from "../../../invoices/[invoiceId]/record-tabs";
 
@@ -12,6 +12,7 @@ type Props = { children: React.ReactNode; params: Promise<{ expenseId: string }>
 
 /** The record's frame: header and tabs stay mounted while Overview, Documents and Activity swap beneath them. */
 export default async function ExpenseTabsLayout({ children, params }: Props) {
+  const locale = await getLocale();
   const { expenseId } = await params;
   const { context, expense } = await loadExpense(expenseId);
 
@@ -37,7 +38,7 @@ export default async function ExpenseTabsLayout({ children, params }: Props) {
             label: t("columns.outstanding"),
             value: <Money amount={expense.outstandingAmount} currency={expense.currency} />,
           },
-          { label: t("expenses.incurred"), value: formatDate(expense.expenseDate) },
+          { label: t("expenses.incurred"), value: formatDate(expense.expenseDate, locale) },
         ]}
         actions={
           <ExpenseActions

@@ -38,6 +38,7 @@ lib/modules/productivity/navigable.registry.ts every starrable type
 lib/modules/dashboard/dashboard.service.ts     every KPI
 lib/modules/projects/project-workspace.service.ts  the Project home's read-only counts and dates
 lib/modules/productivity/my-day.service.ts     My Day's read-only answer from Tasks, Approvals and Calendar
+lib/i18n/system/slots.ts                       the words inside stored notification and activity text, read from every domain's label maps
 lib/core/state/registry.ts                     every declared state machine
 ```
 

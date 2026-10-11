@@ -11,6 +11,7 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { dailyLogsOpen, MODULE, projectDoor, readableDailyLogWhere } from "./daily-log.permissions";
 import type { reportQuerySchema } from "./daily-log.schema";
 import { projectRules, resolveDailyLogSettings } from "./daily-log.settings";
@@ -284,7 +285,7 @@ async function sendMissingLogReminder(missing: MissingLog): Promise<boolean> {
     if (!(await claimIdempotencyKey(tx, claim))) return false;
     await enqueueNotificationEvent(tx, {
       companyId: missing.companyId, eventType: NotificationEvent.DAILY_LOG_MISSING_REMINDER, moduleKey: MODULE, entityType: "project", entityId: missing.projectId, actorMemberId: null, projectId: missing.projectId,
-      payload: { memberIds, projectName: missing.projectName, workDate: missing.date, dateLabel: dateLabel(missing.date) },
+      payload: { memberIds, projectName: missing.projectName, workDate: missing.date, dateLabel: dateLabel(missing.date, SOURCE_LOCALE) },
     });
     return true;
   });

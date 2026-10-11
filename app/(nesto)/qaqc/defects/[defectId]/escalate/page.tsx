@@ -75,6 +75,7 @@ export default async function EscalateDefectPage({ params }: Params) {
         action={action}
         cancelHref={`/qaqc/defects/${defect.id}`}
         submitLabel={t("defectPage.raiseNcr")}
+        saveKind="create"
         pendingLabel={t("common.raising")}
       >
         <FormSection

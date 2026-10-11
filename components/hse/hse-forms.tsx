@@ -294,6 +294,7 @@ export function HazardForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -305,6 +306,7 @@ export function HazardForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -325,6 +327,7 @@ export function HazardForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
       onSuccess={evidence.onSuccess}
@@ -492,6 +495,7 @@ export function IncidentForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   withEvidence = false,
@@ -501,6 +505,7 @@ export function IncidentForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   withEvidence?: boolean;
@@ -517,6 +522,7 @@ export function IncidentForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
       onSuccess={evidence.onSuccess}
@@ -662,6 +668,7 @@ export function InspectionForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -672,6 +679,7 @@ export function InspectionForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -684,6 +692,7 @@ export function InspectionForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -791,6 +800,7 @@ export function PermitForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -801,6 +811,7 @@ export function PermitForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -813,6 +824,7 @@ export function PermitForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -966,6 +978,7 @@ export function ActionForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -976,6 +989,7 @@ export function ActionForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -989,6 +1003,7 @@ export function ActionForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -1093,6 +1108,7 @@ export function ObservationForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -1103,6 +1119,7 @@ export function ObservationForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -1115,6 +1132,7 @@ export function ObservationForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

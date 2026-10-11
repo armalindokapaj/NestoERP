@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
@@ -23,8 +24,8 @@ import {
   rejectExpenseAction,
   rejectInvoiceAction,
 } from "@/lib/actions/finance";
+import { formatDateTime } from "@/lib/i18n/format";
 import type { FinanceApprovalDTO } from "@/lib/modules/finance/finance.types";
-import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * The approval queue (PRD #15 §141, §142, §305).
@@ -57,6 +58,7 @@ const SUBJECT_KEYS = {
 } as const;
 
 export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useFinanceTranslations();
@@ -109,12 +111,12 @@ export function ApprovalQueue({ approvals }: { approvals: FinanceApprovalDTO[] }
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
                   {t("queue.submittedBy")} <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> ·{" "}
-                  {formatDateTime(approval.submittedAt)}
+                  {formatDateTime(approval.submittedAt, locale)}
                 </p>
                 {approval.decision ? (
                   <p className="mt-0.5 text-meta text-fg-subtle">
                     {t("queue.decidedBy")} <PersonLink memberId={approval.decision.memberId} name={approval.decision.fullName} /> ·{" "}
-                    {formatDateTime(approval.decision.decidedAt)}
+                    {formatDateTime(approval.decision.decidedAt, locale)}
                     {approval.decision.note ? ` · ${approval.decision.note}` : ""}
                   </p>
                 ) : null}

@@ -1,4 +1,6 @@
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { History } from "lucide-react";
@@ -7,7 +9,6 @@ import { Pagination } from "@/components/data/pagination";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import * as clients from "@/lib/modules/clients/client.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadClient } from "../../client-context";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
@@ -32,6 +33,7 @@ export default async function ClientActivityPage({ params, searchParams }: Param
 
   if (!client.capabilities.canViewActivity) notFound();
   const t = await getTranslations("clients");
+  const locale = await getLocale();
 
   const query = await searchParams;
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
@@ -56,10 +58,10 @@ export default async function ClientActivityPage({ params, searchParams }: Param
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
                   {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("common.someone")}</span>}{" "}
-                  {entry.message ?? entry.action}
+                  {localizeActivity(locale, entry) ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {formatDateTime(entry.createdAt)}
+                  {formatDateTime(entry.createdAt, locale)}
                 </p>
               </li>
             ))}

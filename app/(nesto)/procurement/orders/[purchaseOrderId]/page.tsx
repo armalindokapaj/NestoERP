@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { notFound } from "next/navigation";
@@ -16,7 +17,6 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/procurement/approvals/approval.service";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { dueLabel, formatAmount, receivedLabel } from "@/components/procurement/procurement-format";
 import { RecordTasks } from "@/components/tasks/record-tasks";
 
@@ -41,6 +41,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * short (PRD #19 §140, §141).
  */
 export default async function OrderDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { purchaseOrderId } = await params;
   const context = await requireModule("procurement");
 
@@ -57,7 +58,7 @@ export default async function OrderDetailPage({ params }: Params) {
     order.capabilities.canApprove || order.capabilities.canReject
       ? await pendingCycle(context, "PURCHASE_ORDER", order.id)
       : null;
-  const money = (value: string) => formatAmount(value, order.currency);
+  const money = (value: string) => formatAmount(value, order.currency, locale);
   const t = await getTranslations("procurement");
 
   return (
@@ -69,7 +70,7 @@ export default async function OrderDetailPage({ params }: Params) {
           { label: order.poNumber },
         ]}
         title={`${order.poNumber} — ${order.supplier.name}`}
-        subtitle={t("orders.orderedOn", { date: formatDate(order.orderDate) })}
+        subtitle={t("orders.orderedOn", { date: formatDate(order.orderDate, locale) })}
         status={order.status}
         badges={
           <>
@@ -89,7 +90,7 @@ export default async function OrderDetailPage({ params }: Params) {
           { label: t("orders.value"), value: money(order.totalAmount) },
           {
             label: t("orders.required"),
-            value: order.requiredDate ? formatDate(order.requiredDate) : t("common.noDate"),
+            value: order.requiredDate ? formatDate(order.requiredDate, locale) : t("common.noDate"),
           },
         ]}
         actions={
@@ -284,13 +285,13 @@ export default async function OrderDetailPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label={t("common.created")} value={formatDateTime(order.createdAt)} />
+              <Meta label={t("common.created")} value={formatDateTime(order.createdAt, locale)} />
               {order.dates.approvedAt ? (
                 <Meta
                   label={t("common.approved")}
                   value={
                     <>
-                      {formatDateTime(order.dates.approvedAt)}
+                      {formatDateTime(order.dates.approvedAt, locale)}
                       {order.approvedBy ? (
                         <>
                           {" · "}
@@ -302,10 +303,10 @@ export default async function OrderDetailPage({ params }: Params) {
                 />
               ) : null}
               {order.dates.issuedAt ? (
-                <Meta label={t("common.issued")} value={formatDateTime(order.dates.issuedAt)} />
+                <Meta label={t("common.issued")} value={formatDateTime(order.dates.issuedAt, locale)} />
               ) : null}
               {order.dates.closedAt ? (
-                <Meta label={t("common.closed")} value={formatDateTime(order.dates.closedAt)} />
+                <Meta label={t("common.closed")} value={formatDateTime(order.dates.closedAt, locale)} />
               ) : null}
               <Meta
                 label={t("common.raisedBy")}

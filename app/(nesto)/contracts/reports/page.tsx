@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { ContractExportLink } from "@/components/contracts/export-link";
@@ -14,7 +15,6 @@ import { contractReports } from "@/lib/modules/contracts/reports/reports.service
 import { contractTypeLabels } from "@/lib/modules/contracts/contracts/contract.schema";
 import { obligationTypeLabels } from "@/lib/modules/contracts/obligations/obligation.status";
 import { totalsLabel } from "@/components/contracts/contract-format";
-import { formatDate } from "@/lib/utils/format";
 import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
 import type { Translate } from "@/lib/i18n/translator";
 
@@ -32,6 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * (PRD #18 §221, §447).
  */
 export default async function ContractReportsPage() {
+  const locale = await getLocale();
   const context = await requireModule("contracts");
   if (!can(context, "legal.report.view")) redirect("/access-denied");
 
@@ -91,7 +92,7 @@ export default async function ContractReportsPage() {
                   <span className="flex items-center gap-3">
                     {row.totals ? (
                       <span className="text-meta tabular-nums text-fg-subtle">
-                        {totalsLabel(row.totals)}
+                        {totalsLabel(row.totals, locale)}
                       </span>
                     ) : null}
                     <span className="tabular-nums text-table text-fg">{row.count}</span>
@@ -118,7 +119,7 @@ export default async function ContractReportsPage() {
                     <span className="flex items-center gap-3">
                       {row.totals ? (
                         <span className="text-meta tabular-nums text-fg-subtle">
-                          {totalsLabel(row.totals)}
+                          {totalsLabel(row.totals, locale)}
                         </span>
                       ) : null}
                       <span className="tabular-nums text-table text-fg">{row.count}</span>
@@ -138,7 +139,7 @@ export default async function ContractReportsPage() {
                 {reports.value.map((row) => (
                   <li key={row.key} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
                     <span className="text-table text-fg">{valueRowLabel(t, row.key, row.label)}</span>
-                    <span className="text-meta tabular-nums text-fg">{totalsLabel(row.totals)}</span>
+                    <span className="text-meta tabular-nums text-fg">{totalsLabel(row.totals, locale)}</span>
                   </li>
                 ))}
               </ul>
@@ -167,7 +168,7 @@ export default async function ContractReportsPage() {
                       </span>
                     </span>
                     <span className="shrink-0 text-meta tabular-nums text-fg-subtle">
-                      {row.alertDate ? formatDate(row.alertDate) : "—"}
+                      {row.alertDate ? formatDate(row.alertDate, locale) : "—"}
                     </span>
                   </li>
                 ))}
@@ -195,7 +196,7 @@ export default async function ContractReportsPage() {
                         : "shrink-0 text-meta tabular-nums text-fg-subtle"
                     }
                   >
-                    {row.dueDate ? formatDate(row.dueDate) : t("obligations.noDueDate")}
+                    {row.dueDate ? formatDate(row.dueDate, locale) : t("obligations.noDueDate")}
                     {row.isOverdue ? t("reports.daysOverdue", { count: row.daysOverdue }) : ""}
                   </span>
                 </li>
@@ -245,7 +246,7 @@ export default async function ContractReportsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-table text-fg">{row.contract.contractNumber}</span>
                     <span className="text-meta tabular-nums text-fg-subtle">
-                      {row.terminationDate ? formatDate(row.terminationDate) : "—"}
+                      {row.terminationDate ? formatDate(row.terminationDate, locale) : "—"}
                     </span>
                   </div>
                   {row.terminationReason ? (

@@ -11,6 +11,7 @@ import { IncidentActions } from "@/components/hse/record-actions";
 import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { IncidentPeople } from "@/components/hse/workforce-panels";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import { hseEmploymentOptions, listIncidentPeople } from "@/lib/modules/hse/hse.workforce";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +23,8 @@ import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as incidents from "@/lib/modules/hse/incidents/incident.service";
 import { incidentClosureGapLabels, incidentTypeLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ incidentId: string }> };
 
@@ -40,6 +41,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One incident (PRD #22 §76, §95, §316, §317). */
 export default async function IncidentPage({ params }: Params) {
+  const locale = await getLocale();
   const { incidentId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -77,7 +79,7 @@ export default async function IncidentPage({ params }: Params) {
         }
         meta={[
           { label: t("record.project"), value: incident.project?.code ?? t("record.companyWide") },
-          { label: t("incident.detail.occurred"), value: formatDateTime(incident.occurredAt) },
+          { label: t("incident.detail.occurred"), value: formatDateTime(incident.occurredAt, locale) },
           {
             label: t("record.reportedBy"),
             value: incident.reportedBy ? (
@@ -133,8 +135,8 @@ export default async function IncidentPage({ params }: Params) {
                   ),
                 },
                 { label: t("record.where"), value: orDash(incident.locationText) },
-                { label: t("incident.detail.occurred"), value: formatDateTime(incident.occurredAt) },
-                { label: t("record.reported"), value: formatDateTime(incident.reportedAt) },
+                { label: t("incident.detail.occurred"), value: formatDateTime(incident.occurredAt, locale) },
+                { label: t("record.reported"), value: formatDateTime(incident.reportedAt, locale) },
               ]}
             />
           </section>
@@ -230,14 +232,14 @@ export default async function IncidentPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("incident.detail.raised")} value={formatDateTime(incident.createdAt)} />
+              <Meta label={t("incident.detail.raised")} value={formatDateTime(incident.createdAt, locale)} />
               {incident.dueDate ? (
-                <Meta label={t("record.due")} value={formatDate(incident.dueDate)} />
+                <Meta label={t("record.due")} value={formatDate(incident.dueDate, locale)} />
               ) : null}
               {incident.submittedForCloseAt ? (
                 <Meta
                   label={t("incident.detail.putUpForClosure")}
-                  value={formatDateTime(incident.submittedForCloseAt)}
+                  value={formatDateTime(incident.submittedForCloseAt, locale)}
                 />
               ) : null}
               {incident.closedAt ? (
@@ -245,7 +247,7 @@ export default async function IncidentPage({ params }: Params) {
                   label={t("record.closed")}
                   value={
                     <>
-                      {formatDateTime(incident.closedAt)}
+                      {formatDateTime(incident.closedAt, locale)}
                       {incident.closedBy ? (
                         <>
                           {" "}
@@ -260,7 +262,7 @@ export default async function IncidentPage({ params }: Params) {
                 <Meta label={t("record.closureNote")} value={incident.closureNote} />
               ) : null}
               {incident.cancelledAt ? (
-                <Meta label={t("record.cancelled")} value={formatDateTime(incident.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(incident.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

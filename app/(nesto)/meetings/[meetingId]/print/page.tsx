@@ -11,8 +11,9 @@ import {
   MEETING_TYPE_LABELS,
   PARTICIPANT_ROLE_LABELS,
 } from "@/lib/modules/meetings/meeting.types";
+import { dateText } from "@/lib/i18n/format";
 import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { loadMeeting } from "../meeting-context";
 
 type Params = { params: Promise<{ meetingId: string }> };
@@ -29,12 +30,13 @@ export async function generateMetadata(): Promise<Metadata> {
  * PDF. Everything is text: nothing written in the minutes is interpreted.
  */
 export default async function MeetingPrintPage({ params }: Params) {
+  const locale = await getLocale();
   const { meetingId } = await params;
   const { context, meeting } = await loadMeeting(meetingId);
   const zone = meeting.timezone;
   const t = await getTranslations("meetings");
   const final = meeting.minutesStatus === "FINAL";
-  const dateTime = (iso: string) => new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeStyle: "short", timeZone: zone }).format(new Date(iso));
+  const dateTime = (iso: string) => dateText(new Date(iso), { dateStyle: "long", timeStyle: "short", timeZone: zone }, locale);
 
   return (
     <div>
@@ -62,7 +64,7 @@ export default async function MeetingPrintPage({ params }: Params) {
             {t("print.minutesOf", { state: final ? t("print.final") : t("print.draftNotFinal") })}
           </p>
           <dl className="mt-5 grid gap-x-8 gap-y-2 text-table sm:grid-cols-2">
-            <Row label={t("print.date")} value={meetingDay(meeting.startsAt, zone, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} />
+            <Row label={t("print.date")} value={meetingDay(meeting.startsAt, zone, { weekday: "long", day: "numeric", month: "long", year: "numeric" }, locale)} />
             <Row label={t("print.time")} value={`${meetingClock(meeting.startsAt, zone)}–${meetingClock(meeting.endsAt, zone)} (${zone.replace("_", " ")})`} />
             <Row label={t("print.type")} value={meetingsLabel(t, "type", meeting.meetingType, MEETING_TYPE_LABELS[meeting.meetingType])} />
             {meeting.project ? <Row label={t("print.project")} value={`${meeting.project.code} · ${meeting.project.name}`} /> : null}

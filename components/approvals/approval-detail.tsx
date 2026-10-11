@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { ArrowLeft, ArrowUpRight, CircleAlert, Download, ExternalLink, Eye, EyeOff, FileText, Info, MessageSquare, RotateCw, TriangleAlert, UserRoundCheck, X } from "lucide-react";
 
@@ -52,6 +53,7 @@ export function ApprovalDetailView({
   onClose: () => void;
   variant: "panel" | "sheet";
 }) {
+  const locale = useLocale();
   const t = useApprovalsTranslations();
   const word = useApprovalsWord();
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -95,7 +97,7 @@ export function ApprovalDetailView({
   }
 
   const { item } = detail;
-  const amount = formatMoney(item.amount);
+  const amount = formatMoney(item.amount, locale);
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="approval-detail" aria-busy={loading}>
@@ -163,7 +165,7 @@ export function ApprovalDetailView({
               {t("detail.requestedBy")} <PersonLink memberId={item.requester.memberId} name={item.requester.name} />
             </span>
             <span aria-hidden="true">·</span>
-            <time dateTime={item.requestedAt}>{formatStamp(item.requestedAt)}</time>
+            <time dateTime={item.requestedAt}>{formatStamp(item.requestedAt, locale)}</time>
             {item.status === "PENDING" ? (
               <>
                 <span aria-hidden="true">·</span>
@@ -296,6 +298,7 @@ function Warnings({ warnings }: { warnings: ApprovalWarning[] }) {
 }
 
 function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprovalDetail["chainMode"] }) {
+  const locale = useLocale();
   const t = useApprovalsTranslations();
   const parallel = mode === "PARALLEL";
   return (
@@ -336,7 +339,7 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
                       <PersonLink memberId={step.onBehalfOfMemberId} name={step.onBehalfOf} />
                     </>
                   ) : null}{" "}
-                  · {formatStamp(step.decidedAt)}
+                  · {formatStamp(step.decidedAt, locale)}
                 </span>
               ) : null}
             </span>
@@ -523,6 +526,7 @@ const TONE_DOT: Record<UnifiedApprovalHistoryEntry["tone"], string> = {
 };
 
 function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
+  const locale = useLocale();
   const t = useApprovalsTranslations();
   return (
     <section aria-labelledby="history-heading">
@@ -545,10 +549,10 @@ function History({ entries }: { entries: UnifiedApprovalHistoryEntry[] }) {
                         <PersonLink memberId={entry.onBehalfOf.memberId} name={entry.onBehalfOf.name} />
                       </>
                     ) : null}
-                    {` · ${formatStamp(entry.occurredAt)}`}
+                    {` · ${formatStamp(entry.occurredAt, locale)}`}
                   </>
                 ) : (
-                  [entry.actorName, formatStamp(entry.occurredAt)].filter(Boolean).join(" · ")
+                  [entry.actorName, formatStamp(entry.occurredAt, locale)].filter(Boolean).join(" · ")
                 )}
               </p>
               {entry.note ? <PlainText text={entry.note} className="mt-1.5 rounded-lg bg-surface-muted px-3 py-2 text-table text-fg" /> : null}

@@ -9,11 +9,12 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate } from "@/lib/i18n/format";
 import { recruitmentFormOptions } from "@/lib/modules/hr/recruitment/candidate.options";
 import { getCandidate } from "@/lib/modules/hr/recruitment/candidate.service";
 import { StatusText } from "@/components/i18n/common-text";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate } from "@/lib/utils/format";
+import { adminRoleName } from "@/components/platform/admin-roles";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("hr");
@@ -36,6 +37,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
  * to, their employment once hired, and where their NESTO account stands.
  */
 export default async function CandidatePage({ params }: Props) {
+  const locale = await getLocale();
   const { candidateId } = await params;
   const context = await requireModule("hr");
   if (!can(context, "candidate.view")) redirect("/access-denied");
@@ -46,7 +48,7 @@ export default async function CandidatePage({ params }: Props) {
   });
   const choices = candidate.actions.canEdit ? await recruitmentFormOptions(context) : null;
 
-  const t = await getTranslations("hr");
+  const [t, tr] = await Promise.all([getTranslations("hr"), getTranslations("roles")]);
   const account = candidate.person.hasAccount
     ? t("recruitment.accountActive")
     : candidate.provisioning && !["REJECTED", "CANCELLED"].includes(candidate.provisioning.status)
@@ -89,11 +91,11 @@ export default async function CandidatePage({ params }: Props) {
           <dl className="mt-3">
             <Row label={t("recruitment.company")} value={candidate.targetCompany?.name} />
             <Row label={t("columns.department")} value={candidate.targetDepartment?.name} />
-            <Row label={t("employee.role")} value={candidate.targetRole?.label} />
+            <Row label={t("employee.role")} value={candidate.targetRole ? adminRoleName(tr, candidate.targetRole.label) : undefined} />
             <Row label={t("fields.jobTitle")} value={candidate.targetJobTitle} />
             <Row label={t("recruitment.hiringManager")} value={candidate.hiringManager ? <PersonLink userId={candidate.hiringManager.userId} name={candidate.hiringManager.name} /> : null} />
             <Row label={t("recruitment.interviewStage")} value={candidate.interviewStage} />
-            {candidate.decidedAt ? <Row label={t("leave.decided")} value={formatDate(candidate.decidedAt)} /> : null}
+            {candidate.decidedAt ? <Row label={t("leave.decided")} value={formatDate(candidate.decidedAt, locale)} /> : null}
           </dl>
         </section>
 

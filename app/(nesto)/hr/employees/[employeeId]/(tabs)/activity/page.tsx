@@ -5,10 +5,11 @@ import { History } from "lucide-react";
 import { Pagination } from "@/components/data/pagination";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatDateTime } from "@/lib/i18n/format";
 import { listEmployeeActivity } from "@/lib/modules/hr/hr.activity";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadEmployee } from "../../employee-context";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
 type Params = {
@@ -43,6 +44,7 @@ export default async function EmployeeActivityTabPage({ params, searchParams }: 
   if (activity.pagination.page !== page) redirect(listPageRedirect(`/hr/employees/${employeeId}/activity`, query, activity.pagination.page));
 
   const t = await getTranslations("hr");
+  const locale = await getLocale();
   return (
     <div className="space-y-5">
       {activity.data.length === 0 ? (
@@ -58,9 +60,9 @@ export default async function EmployeeActivityTabPage({ params, searchParams }: 
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
                   <span className="font-medium">{entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : t("activity.someone")}</span>{" "}
-                  {entry.message ?? entry.action}
+                  {localizeActivity(locale, entry) ?? entry.action}
                 </p>
-                <p className="mt-0.5 text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>
+                <p className="mt-0.5 text-meta text-fg-subtle">{formatDateTime(entry.createdAt, locale)}</p>
               </li>
             ))}
           </ol>

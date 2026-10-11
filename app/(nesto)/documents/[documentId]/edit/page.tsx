@@ -56,6 +56,7 @@ export default async function EditDocumentPage({ params }: Params) {
         cancelHref={`/documents/${document.id}`}
         versionUpdatedAt={document.updatedAt}
         submitLabel={t("edit.save")}
+        saveKind="save"
         pendingLabel={t("edit.saving")}
         module="documents"
       >

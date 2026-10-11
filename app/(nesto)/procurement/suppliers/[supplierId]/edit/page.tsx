@@ -58,6 +58,7 @@ export default async function EditSupplierPage({ params }: Params) {
         versionUpdatedAt={supplier.updatedAt}
         cancelHref={`/procurement/suppliers/${supplier.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         values={{
           code: supplier.code ?? "",

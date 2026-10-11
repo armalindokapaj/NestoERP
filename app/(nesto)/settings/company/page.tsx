@@ -8,8 +8,9 @@ import { CompanyNameForm } from "./company-name-form";
 import { can } from "@/lib/access/can";
 import { requireSettingsSection } from "../settings-access";
 import { getCompany } from "@/lib/database/queries";
+import { numberText } from "@/lib/i18n/format";
 import { getCompanyOwners } from "@/lib/modules/settings/company-settings.service";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -17,6 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CompanySettingsPage() {
+  const locale = await getLocale();
   const user = await requireSettingsSection("company");
   const [company, owners] = await Promise.all([getCompany(user.companyId), getCompanyOwners(user)]);
 
@@ -75,7 +77,7 @@ export default async function CompanySettingsPage() {
                 </div>
                 <span className="shrink-0 text-table font-semibold tabular-nums text-fg">
                   <span className="sr-only">{t("company.ownershipShare")}: </span>
-                  {owner.sharePercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%
+                  {numberText(owner.sharePercent, { maximumFractionDigits: 2 }, locale, "en-US")}%
                 </span>
               </li>
             ))}

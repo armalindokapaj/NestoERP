@@ -52,12 +52,12 @@ function revalidateQaqc(recordPath?: string) {
 }
 
 /** One reading of a failure for both transports (AUD-09 §3, §6). */
-function toResult(error: unknown): QaqcActionResult {
+async function toResult(error: unknown): Promise<QaqcActionResult> {
   return actionFailure(error, "qaqc");
 }
 
 /** Every issue under its full path (AUD-09 §3, FV-04). */
-function invalid(error: ZodError): QaqcActionResult {
+async function invalid(error: ZodError): Promise<QaqcActionResult> {
   return validationFailure(error);
 }
 

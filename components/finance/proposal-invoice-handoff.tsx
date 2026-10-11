@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 import { Receipt, TriangleAlert } from "lucide-react";
 
+import { StatusText } from "@/components/i18n/common-text";
 import { ModuleMessages } from "@/components/i18n/module-messages";
 import { Badge } from "@/components/ui/badge";
 import { Money } from "@/components/finance/money";
@@ -90,7 +91,7 @@ export async function ProposalInvoiceHandoff({
                 </Link>
                 <div className="flex items-center gap-2">
                   <Money amount={invoice.totalAmount} currency={invoice.currency} />
-                  <Badge tone="default">{invoice.status}</Badge>
+                  <Badge tone="default"><StatusText status={invoice.status} /></Badge>
                 </div>
               </li>
             ))}

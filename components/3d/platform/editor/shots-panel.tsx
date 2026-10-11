@@ -7,6 +7,7 @@ import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTyp
 import type { CameraPreset, Project3DConfig } from "@/lib/3d/runtime/types";
 import { cn } from "@/lib/utils/cn";
 import { GroupCard, SectionHeading, SliderRow } from "./rozaris-fields";
+import { useEditorWord } from "./editor-text";
 
 /*
  * The Shots tool, ported as it is in the Rozaris Web3D Experience Editor
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export function ShotsPanel({ draft, change, viewerRef, canEdit }: Props) {
+  const editorServerText = useEditorWord();
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameValue, setRenameValue] = React.useState("");
   const [previewingId, setPreviewingId] = React.useState<string | null>(null);
@@ -74,35 +76,35 @@ export function ShotsPanel({ draft, change, viewerRef, canEdit }: Props) {
 
   return (
     <div className="space-y-3">
-      <SectionHeading>Shots</SectionHeading>
+      <SectionHeading>{editorServerText("Shots")}</SectionHeading>
       <button
         type="button"
         onClick={capture}
         disabled={!canEdit}
         className="flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Camera className="h-3.5 w-3.5" /> Capture Shot
+        <Camera className="h-3.5 w-3.5" /> {editorServerText("Capture Shot")}
       </button>
 
-      {shots.length === 0 && <p className="p-3 text-center text-xs text-fg-subtle">No shots saved yet — orbit the viewport and Capture one.</p>}
+      {shots.length === 0 && <p className="p-3 text-center text-xs text-fg-subtle">{editorServerText("No shots saved yet — orbit the viewport and Capture one.")}</p>}
 
       <div className="space-y-1.5">
         {shots.map((shot, i) => (
           <GroupCard key={shot.id}>
             <div className="flex items-center gap-1.5">
               {i === 0 ? (
-                <span title="Opening Shot" className="shrink-0">
+                <span title={editorServerText("Opening Shot")} className="shrink-0">
                   <Star className="h-3.5 w-3.5 fill-warning text-warning-strong" />
                 </span>
               ) : (
-                <button type="button" onClick={() => makeOpening(shot.id)} disabled={!canEdit} title="Set as Opening Shot" aria-label={`Set ${shot.label} as Opening Shot`} className="shrink-0 text-fg-subtle hover:text-warning-strong disabled:opacity-40">
+                <button type="button" onClick={() => makeOpening(shot.id)} disabled={!canEdit} title={editorServerText("Set as Opening Shot")} aria-label={editorServerText("Set {0} as Opening Shot", shot.label)} className="shrink-0 text-fg-subtle hover:text-warning-strong disabled:opacity-40">
                   <Star className="h-3.5 w-3.5" />
                 </button>
               )}
               {renamingId === shot.id ? (
                 <input
                   autoFocus
-                  aria-label="Shot name"
+                  aria-label={editorServerText("Shot name")}
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onBlur={() => {
@@ -125,24 +127,24 @@ export function ShotsPanel({ draft, change, viewerRef, canEdit }: Props) {
                   {shot.label}
                 </button>
               )}
-              <button type="button" onClick={() => preview(shot)} title="Preview" aria-label={`Preview ${shot.label}`} className={cn("shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg", previewingId === shot.id && "text-accent-strong")}>
+              <button type="button" onClick={() => preview(shot)} title={editorServerText("Preview")} aria-label={editorServerText("Preview {0}", shot.label)} className={cn("shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg", previewingId === shot.id && "text-accent-strong")}>
                 <Play className="h-3.5 w-3.5" />
               </button>
-              <button type="button" onClick={() => duplicate(shot.id)} disabled={!canEdit} title="Duplicate" aria-label={`Duplicate ${shot.label}`} className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-40">
+              <button type="button" onClick={() => duplicate(shot.id)} disabled={!canEdit} title={editorServerText("Duplicate")} aria-label={editorServerText("Duplicate {0}", shot.label)} className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-40">
                 <Copy className="h-3.5 w-3.5" />
               </button>
-              <button type="button" onClick={() => reorder(shot.id, "up")} disabled={!canEdit || i === 0} title="Move up" aria-label={`Move ${shot.label} up`} className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-20">
+              <button type="button" onClick={() => reorder(shot.id, "up")} disabled={!canEdit || i === 0} title={editorServerText("Move up")} aria-label={editorServerText("Move {0} up", shot.label)} className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-20">
                 <ChevronUp className="h-3.5 w-3.5" />
               </button>
-              <button type="button" onClick={() => reorder(shot.id, "down")} disabled={!canEdit || i === shots.length - 1} title="Move down" aria-label={`Move ${shot.label} down`} className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-20">
+              <button type="button" onClick={() => reorder(shot.id, "down")} disabled={!canEdit || i === shots.length - 1} title={editorServerText("Move down")} aria-label={editorServerText("Move {0} down", shot.label)} className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-20">
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
-              <button type="button" onClick={() => set(shots.filter((p) => p.id !== shot.id))} disabled={!canEdit} title="Delete" aria-label={`Delete ${shot.label}`} className="shrink-0 rounded p-1 text-danger-strong hover:bg-danger-soft disabled:opacity-40">
+              <button type="button" onClick={() => set(shots.filter((p) => p.id !== shot.id))} disabled={!canEdit} title={editorServerText("Delete")} aria-label={editorServerText("Delete {0}", shot.label)} className="shrink-0 rounded p-1 text-danger-strong hover:bg-danger-soft disabled:opacity-40">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
             <div className="mt-2">
-              <SliderRow label="Transition" value={shot.durationMs} min={0} max={8000} step={100} suffix="ms" disabled={!canEdit} onChange={(v) => set(shots.map((s) => (s.id === shot.id ? { ...s, durationMs: v } : s)))} />
+              <SliderRow label={editorServerText("Transition")} value={shot.durationMs} min={0} max={8000} step={100} suffix="ms" disabled={!canEdit} onChange={(v) => set(shots.map((s) => (s.id === shot.id ? { ...s, durationMs: v } : s)))} />
             </div>
           </GroupCard>
         ))}

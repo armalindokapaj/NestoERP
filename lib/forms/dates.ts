@@ -1,3 +1,5 @@
+import { localizeClient } from "@/lib/i18n/errors/client";
+
 /**
  * Date-only values (AUD-09 §4, FV-07).
  *
@@ -52,16 +54,16 @@ export function isDateOnly(value: unknown): value is string {
 export function parseDateOnly(input: string, rule: DateOnlyRule = {}): DateOnlyParse {
   const label = rule.label ?? "Date";
   const raw = String(input ?? "").trim();
-  if (raw === "") return { ok: false, code: "DATE_REQUIRED", message: `Enter ${label.toLowerCase()}.` };
+  if (raw === "") return { ok: false, code: "DATE_REQUIRED", message: localizeClient(`Enter ${label.toLowerCase()}.`) };
   const match = DATE_ONLY.exec(raw);
-  if (!match) return { ok: false, code: "DATE_MALFORMED", message: `${label} must be a date like 2026-09-27.` };
+  if (!match) return { ok: false, code: "DATE_MALFORMED", message: localizeClient(`${label} must be a date like 2026-09-27.`) };
   if (!isRealCalendarDate(Number(match[1]), Number(match[2]), Number(match[3]))) {
-    return { ok: false, code: "DATE_IMPOSSIBLE", message: `${label} ${raw} is not a real date. Check the day and the month.` };
+    return { ok: false, code: "DATE_IMPOSSIBLE", message: localizeClient(`${label} ${raw} is not a real date. Check the day and the month.`) };
   }
   const min = rule.min ?? DATE_ONLY_MIN;
   const max = rule.max ?? DATE_ONLY_MAX;
-  if (raw < min) return { ok: false, code: "DATE_OUT_OF_RANGE", message: `${label} must be on or after ${min}.` };
-  if (raw > max) return { ok: false, code: "DATE_OUT_OF_RANGE", message: `${label} must be on or before ${max}.` };
+  if (raw < min) return { ok: false, code: "DATE_OUT_OF_RANGE", message: localizeClient(`${label} must be on or after ${min}.`) };
+  if (raw > max) return { ok: false, code: "DATE_OUT_OF_RANGE", message: localizeClient(`${label} must be on or before ${max}.`) };
   return { ok: true, value: raw };
 }
 
@@ -105,5 +107,5 @@ export function compareDateOnly(a: string, b: string): number {
 export function dateOrderError(start: string | null | undefined, end: string | null | undefined, labels: { start: string; end: string } = { start: "the start date", end: "Due date" }): string | null {
   if (!start || !end || !isDateOnly(start) || !isDateOnly(end)) return null;
   // The Tasks schema's own sentence (PRD #11 §50), so client and server say the same.
-  return compareDateOnly(end, start) < 0 ? `${labels.end} must be on or after ${labels.start}.` : null;
+  return compareDateOnly(end, start) < 0 ? localizeClient(`${labels.end} must be on or after ${labels.start}.`) : null;
 }

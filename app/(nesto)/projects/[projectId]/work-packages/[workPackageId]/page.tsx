@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { numberText } from "@/lib/i18n/format";
+import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -33,9 +35,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * around it, its tasks and files. Completing it closes nothing else.
  */
 export default async function WorkPackagePage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId, workPackageId } = await params;
   const context = await requireModule("contractors");
   const t = await getTranslations("projects");
+  const tContractors = await getTranslations("contractors");
   const wp = await orNotFound(getWorkPackage(context, workPackageId));
   if (wp.project.id !== projectId) notFound();
   const [links, members, project] = await Promise.all([
@@ -60,8 +64,8 @@ export default async function WorkPackagePage({ params }: Params) {
         {t("workPackage.projectContractors")}
       </Link>
       <div className="flex flex-wrap items-center gap-2">
-        <ReviewBadge status={wp.status} label={WORK_PACKAGE_STATUS_LABELS[wp.status]} testId="work-package-status" />
-        {wp.discipline ? <span className="text-table text-fg-muted">{DISCIPLINE_LABELS[wp.discipline]}</span> : null}
+        <ReviewBadge status={wp.status} label={contractorsLabel(tContractors, "workPackageStatus", wp.status, WORK_PACKAGE_STATUS_LABELS[wp.status])} testId="work-package-status" />
+        {wp.discipline ? <span className="text-table text-fg-muted">{contractorsLabel(tContractors, "discipline", wp.discipline, DISCIPLINE_LABELS[wp.discipline])}</span> : null}
         {wp.completedAt ? <span className="text-table text-fg-muted">{t("workPackage.completed")}{wp.completedBy ? <> {t("workPackage.by")} <PersonLink memberId={wp.completedBy.id} name={wp.completedBy.name} /></> : null}</span> : null}
       </div>
       <MetricStrip className="xl:grid-cols-6">
@@ -95,7 +99,7 @@ export default async function WorkPackagePage({ params }: Params) {
                 { label: t("workPackage.contractor"), value: <Ref value={wp.contractor} /> },
                 { label: t("workPackage.contract"), value: <Ref value={wp.contract} /> },
                 { label: t("workPackage.responsible"), value: <Person value={wp.responsible} fallback="—" /> },
-                wp.value && { label: t("workPackage.value"), value: <span className="tabular-nums">{Number(wp.value.amount).toLocaleString("en-GB", { minimumFractionDigits: 2 })} {wp.value.currency ?? ""}</span> },
+                wp.value && { label: t("workPackage.value"), value: <span className="tabular-nums">{numberText(Number(wp.value.amount), { minimumFractionDigits: 2 }, locale)} {wp.value.currency ?? ""}</span> },
               ]}
             />
           </Panel>

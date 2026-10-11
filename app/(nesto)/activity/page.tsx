@@ -10,7 +10,8 @@ import { AccessError } from "@/lib/access/guards";
 import { requireUserContext } from "@/lib/context/current-user";
 import { resolvePersonalContexts } from "@/lib/context/workspace-access";
 import { listReadableAttentionForWorkspace } from "@/lib/core/notifications/attention.service";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeAttention } from "@/lib/i18n/system";
 import { activityFilters, activityQuerySchema } from "@/lib/modules/activity/activity-center.schema";
 import { listActivity, type ActivityPage } from "@/lib/modules/activity/activity-center.service";
 
@@ -37,17 +38,19 @@ export default async function ActivityPage({ searchParams }: Params) {
   const input = parsed.data;
   const t = await getTranslations("activity");
   const m = await getTranslations("misc");
+  const locale = await getLocale();
 
   let page: ActivityPage;
   try {
-    page = await listActivity(context, { ...activityFilters(input), cursor: null });
+    page = await listActivity(context, { ...activityFilters(input), cursor: null }, locale);
   } catch (error) {
     // A company the person may not use is refused by the API (§142); here the filter is simply dropped.
     if (error instanceof AccessError && error.status === 403) redirect("/activity");
     throw error;
   }
   const [attention, contexts] = await Promise.all([
-    input.type === "ANNOUNCEMENT" ? Promise.resolve([]) : listReadableAttentionForWorkspace(context, 10),
+    // Attention items stay stored in English — the reconciler compares that text — and are said in the reader's language here.
+    input.type === "ANNOUNCEMENT" ? Promise.resolve([]) : listReadableAttentionForWorkspace(context, 10).then((items) => items.map((item) => localizeAttention(locale, item))),
     resolvePersonalContexts(context),
   ]);
   const modules = [...new Set(contexts.flatMap((company) => Object.entries(company.moduleAccess).filter(([, access]) => access.enabled && access.accessLevel !== "NONE").map(([key]) => key)))].sort();

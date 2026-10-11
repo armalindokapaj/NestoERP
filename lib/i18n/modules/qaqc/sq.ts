@@ -712,6 +712,7 @@ export const qaqcSq: typeof qaqcEn = {
     noun: "miratime",
   },
   reports: {
+    noProject: "Pa projekt",
     passRate: "Shkalla e kalimit",
     passRateBody: "Vetëm inspektimet e vendosura. Një që nuk e ka miratuar askush nuk është ende as kalim, as mos-kalim.",
     nothingDecided: "Asgjë e vendosur ende",

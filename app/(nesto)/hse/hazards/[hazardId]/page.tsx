@@ -15,12 +15,13 @@ import { RecordTasks } from "@/components/tasks/record-tasks";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import * as hazards from "@/lib/modules/hse/hazards/hazard.service";
 import { riskLevelLabels } from "@/lib/modules/hse/hse.risk";
 import { hazardCategoryLabels, hazardClosureGapLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ hazardId: string }> };
 
@@ -37,6 +38,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One hazard (PRD #22 §57, §73, §314, §315). */
 export default async function HazardPage({ params }: Params) {
+  const locale = await getLocale();
   const { hazardId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -81,7 +83,7 @@ export default async function HazardPage({ params }: Params) {
           },
           {
             label: t("record.due"),
-            value: hazard.dueDate ? formatDate(hazard.dueDate) : t("record.noDate"),
+            value: hazard.dueDate ? formatDate(hazard.dueDate, locale) : t("record.noDate"),
           },
         ]}
         actions={
@@ -122,7 +124,7 @@ export default async function HazardPage({ params }: Params) {
                   ),
                 },
                 { label: t("record.where"), value: orDash(hazard.locationText) },
-                { label: t("record.observed"), value: formatDate(hazard.observedAt) },
+                { label: t("record.observed"), value: formatDate(hazard.observedAt, locale) },
                 {
                   label: t("hazard.detail.foundOn"),
                   value: hazard.inspection ? (
@@ -233,13 +235,13 @@ export default async function HazardPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("record.reported")} value={formatDateTime(hazard.createdAt)} />
+              <Meta label={t("record.reported")} value={formatDateTime(hazard.createdAt, locale)} />
               {hazard.closedAt ? (
                 <Meta
                   label={t("record.closed")}
                   value={
                     <>
-                      {formatDateTime(hazard.closedAt)}
+                      {formatDateTime(hazard.closedAt, locale)}
                       {hazard.closedBy ? (
                         <>
                           {" "}
@@ -254,7 +256,7 @@ export default async function HazardPage({ params }: Params) {
                 <Meta label={t("record.closureNote")} value={hazard.closureNote} />
               ) : null}
               {hazard.cancelledAt ? (
-                <Meta label={t("record.cancelled")} value={formatDateTime(hazard.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(hazard.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

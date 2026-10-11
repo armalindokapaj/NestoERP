@@ -5,9 +5,10 @@ import { ModuleHelpPage } from "@/components/help/help-page";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireUserContext } from "@/lib/context/current-user";
 import { helpAccess } from "@/lib/help/help-access";
-import { MODULE_HELP } from "@/lib/help/help-content";
+import { helpContent } from "@/lib/help/help-content";
 import { moduleForHelpSlug } from "@/lib/help/help-routes";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { sectionLabel } from "@/lib/i18n/modules/common/labels";
 
 type Props = { params: Promise<{ module: string }> };
 
@@ -29,9 +30,10 @@ export default async function ModuleHelpRoute({ params }: Props) {
   const access = await helpAccess(context);
   if (!access.modules.includes(key)) notFound();
 
-  const help = MODULE_HELP[key];
+  const [locale, common] = await Promise.all([getLocale(), getTranslations("common")]);
+  const help = helpContent(locale)[key];
   // The sections this reader sees, named as their tabs name them — in a company workspace, where tabs exist.
-  const sections = context.workspace.scopeType === "COMPANY" ? resolveModuleExperience(context, key).sections.map((section) => section.label) : [];
+  const sections = context.workspace.scopeType === "COMPANY" ? resolveModuleExperience(context, key).sections.map((section) => sectionLabel(common, key, section)) : [];
   const actions = help.actions.filter((action) => access.holds(action.permission));
 
   return <ModuleHelpPage moduleKey={key} help={help} sections={sections} actions={actions} />;

@@ -44,6 +44,7 @@ export function AttendanceForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -55,6 +56,7 @@ export function AttendanceForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
 }) {
   const [status, setStatus] = React.useState<AttendanceStatus>(
@@ -70,6 +72,7 @@ export function AttendanceForm({
       action={translatedAction}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
       module="hr"

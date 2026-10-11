@@ -1,10 +1,12 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { Avatar } from "@/components/ui/avatar";
+import { formatDate } from "@/lib/i18n/format";
 import type { TeamMemberSummaryDTO } from "@/lib/modules/team/team.types";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 
 /**
  * The Team directory (PRD #14 §32, §212).
@@ -28,7 +30,8 @@ export async function TeamTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
-  const t = await getTranslations("team");
+  const locale = await getLocale();
+  const [t, tr] = await Promise.all([getTranslations("team"), getTranslations("roles")]);
   const columns: TableColumn<TeamMemberSummaryDTO>[] = [
     {
       key: "name",
@@ -58,7 +61,7 @@ export async function TeamTable({
       key: "role",
       id: "role",
       label: t("table.role"),
-      render: (member) => <span className="text-fg-muted">{member.role.name}</span>,
+      render: (member) => <span className="text-fg-muted">{adminRoleName(tr, member.role.name)}</span>,
     },
     {
       key: "department",
@@ -101,7 +104,7 @@ export async function TeamTable({
             hideBelow: "xl" as const,
             render: (member: TeamMemberSummaryDTO) => (
               <span className="text-fg-muted">
-                {member.lastLoginAt ? formatDate(member.lastLoginAt) : "—"}
+                {member.lastLoginAt ? formatDate(member.lastLoginAt, locale) : "—"}
               </span>
             ),
           },
@@ -124,7 +127,7 @@ export async function TeamTable({
         status: (member) => <StatusBadge status={member.status} />,
         facts: ["role", "department"],
         omit: ["status"],
-        label: (member) => [member.name.fullName, member.role.name, member.department?.name].filter(Boolean).join(", "),
+        label: (member) => [member.name.fullName, adminRoleName(tr, member.role.name), member.department?.name].filter(Boolean).join(", "),
       }}
     />
   );

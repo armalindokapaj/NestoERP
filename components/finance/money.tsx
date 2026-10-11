@@ -1,4 +1,4 @@
-import { formatAmount } from "@/lib/modules/finance/finance.currency";
+import { AmountText } from "@/components/i18n/format-text";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -25,7 +25,7 @@ export function Money({
       className={cn("tabular-nums", emphasis && "font-semibold text-fg", className)}
       title={`${amount} ${currency}`}
     >
-      {formatAmount(amount, currency)}
+      <AmountText amount={amount} currency={currency} />
     </span>
   );
 }
@@ -57,7 +57,7 @@ export function Variance({
       title={`${amount} ${currency}`}
     >
       {negative ? "" : "+"}
-      {formatAmount(amount, currency)}
+      <AmountText amount={amount} currency={currency} />
     </span>
   );
 }
@@ -80,7 +80,7 @@ export function CurrencyTotals({
 }) {
   if (totals.length === 0) {
     return (
-      <span className={cn("tabular-nums", className)}>{formatAmount("0", baseCurrency)}</span>
+      <span className={cn("tabular-nums", className)}><AmountText amount="0" currency={baseCurrency} /></span>
     );
   }
 
@@ -88,7 +88,7 @@ export function CurrencyTotals({
     <span className={cn("flex flex-col gap-0.5", className)}>
       {totals.map((total) => (
         <span key={total.currency} className="tabular-nums">
-          {formatAmount(total.amount, total.currency)}
+          <AmountText amount={total.amount} currency={total.currency} />
         </span>
       ))}
     </span>

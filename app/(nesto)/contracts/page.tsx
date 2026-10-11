@@ -14,8 +14,8 @@ import {
   contractOverview,
 } from "@/lib/modules/contracts/overview/overview.service";
 import { commercialLabel, expiryLabel } from "@/components/contracts/contract-format";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("contracts");
@@ -31,6 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * holes in it (PRD #18 §495).
  */
 export default async function ContractsOverviewPage() {
+  const locale = await getLocale();
   const context = await requireModule("contracts");
   const experience = resolveModuleExperience(context, "contracts");
   const t = await getTranslations("contracts");
@@ -89,7 +90,7 @@ export default async function ContractsOverviewPage() {
                 href: `/contracts/${row.id}`,
                 primary: row.contractNumber,
                 secondary: row.client?.name ?? row.counterpartyName ?? t("common.noCounterparty"),
-                meta: row.expiryDate ? formatDate(row.expiryDate) : "—",
+                meta: row.expiryDate ? formatDate(row.expiryDate, locale) : "—",
               }))}
             />
 
@@ -102,7 +103,7 @@ export default async function ContractsOverviewPage() {
                 href: `/contracts/${row.id}`,
                 primary: row.contractNumber,
                 secondary: row.title,
-                meta: row.effectiveDate ? formatDate(row.effectiveDate) : "—",
+                meta: row.effectiveDate ? formatDate(row.effectiveDate, locale) : "—",
               }))}
             />
 
@@ -115,7 +116,7 @@ export default async function ContractsOverviewPage() {
                 href: `/contracts/${row.id}`,
                 primary: row.contractNumber,
                 secondary: row.client?.name ?? row.counterpartyName ?? t("common.noCounterparty"),
-                meta: commercialLabel(row.commercial, t) ?? "—",
+                meta: commercialLabel(row.commercial, t, locale) ?? "—",
               }))}
             />
 

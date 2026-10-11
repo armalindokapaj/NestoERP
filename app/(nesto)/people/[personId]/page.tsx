@@ -22,15 +22,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
+import { formatDate } from "@/lib/i18n/format";
 import { getPersonEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
 import { getAccessSummary, getDocumentsTab, getEmploymentView, getPrivateProfile, getQualificationsTab, getWorkProfile } from "@/lib/modules/people/people.service";
 import type { WorkProfileDTO } from "@/lib/modules/people/people.types";
 import { assignableProjects, removableProjectIds } from "@/lib/modules/people/person.projects";
 import { personInWorkforce } from "@/lib/modules/workforce/workforce.directory";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { statusLabel } from "@/lib/utils/status";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { adminRoleName } from "@/components/platform/admin-roles";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { statusText } from "@/lib/i18n/modules/common/labels";
 import { peopleLabel } from "@/lib/i18n/modules/people/labels";
 import type { MessageKey, Translate } from "@/lib/i18n/translator";
 
@@ -71,7 +74,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
   const { personId } = await params;
   const context = await requireModule("people");
   const profile = await load(context, personId);
-  const t = await getTranslations("people");
+  const [t, tr] = await Promise.all([getTranslations("people"), getTranslations("roles")]);
   const requested = (await searchParams).tab;
   // Where they work and with whom, for a reader who sees this company's workforce (E-04 §139, E-09 §7).
   const inWorkforce = await personInWorkforce(context, profile.personId);
@@ -155,7 +158,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
           ))}
       </ContextTabsFrame>
 
-      {tab === "overview" ? profile.former ? <Former profile={profile} t={t} /> : <Overview profile={profile} t={t} /> : null}
+      {tab === "overview" ? profile.former ? <Former profile={profile} t={t} /> : <Overview profile={profile} t={t} tr={tr} /> : null}
       {tab === "projects" ? <Projects context={context} profile={profile} t={t} /> : null}
       {tab === "qualifications" ? <Qualifications context={context} personId={profile.personId} name={profile.name} /> : null}
       {tab === "documents" ? <Documents context={context} personId={profile.personId} t={t} /> : null}
@@ -168,7 +171,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
   );
 }
 
-function Overview({ profile, t }: { profile: WorkProfileDTO; t: Translate<"people"> }) {
+function Overview({ profile, t, tr }: { profile: WorkProfileDTO; t: Translate<"people">; tr: Translate<"roles"> }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="about-heading">
@@ -184,7 +187,7 @@ function Overview({ profile, t }: { profile: WorkProfileDTO; t: Translate<"peopl
             { label: t("profile.group"), value: profile.parentGroup.name },
             { label: t("profile.employingCompany"), value: orDash(profile.employingCompany?.name) },
             { label: t("profile.department"), value: orDash(profile.department?.name) },
-            { label: t("profile.role"), value: orDash(profile.role?.label) },
+            { label: t("profile.role"), value: orDash(profile.role ? adminRoleName(tr, profile.role.label) : null) },
             {
               label: t("profile.reportsTo"),
               value: profile.manager ? <PersonLink personId={profile.manager.personId} name={profile.manager.name} detail={profile.manager.jobTitle} /> : "—",
@@ -251,7 +254,7 @@ function Overview({ profile, t }: { profile: WorkProfileDTO; t: Translate<"peopl
                 <p className="font-medium text-fg">{placement.company.name}</p>
                 <p className="text-fg-muted">{[placement.jobTitle, placement.department].filter(Boolean).join(" · ") || "—"}</p>
                 <p className="text-meta text-fg-subtle">
-                  {placement.role.label}
+                  {adminRoleName(tr, placement.role.label)}
                   {placement.positions.length > 0 ? ` · ${placement.positions.join(", ")}` : ""}
                 </p>
               </li>
@@ -282,6 +285,7 @@ function Former({ profile, t }: { profile: WorkProfileDTO; t: Translate<"people"
 
 /** The person's projects, and — for a department manager or a project's team lead — putting them on one or taking them off (§49, §64). */
 async function Projects({ context, profile, t }: { context: UserContext; profile: WorkProfileDTO; t: Translate<"people"> }) {
+  const locale = await getLocale();
   const [assignable, removable] = profile.former ? [[], []] : await Promise.all([assignableProjects(context, profile.personId), removableProjectIds(context, profile.personId)]);
   const canRemove = new Set(removable);
   const assign = assignable.length > 0 ? <AssignProjectButton personId={profile.personId} name={profile.name} projects={assignable} /> : null;
@@ -326,7 +330,7 @@ async function Projects({ context, profile, t }: { context: UserContext; profile
                 <TableCell>
                   <StatusBadge status={project.status} />
                 </TableCell>
-                <TableCell>{project.joinedAt ? formatDate(project.joinedAt) : "—"}</TableCell>
+                <TableCell>{project.joinedAt ? formatDate(project.joinedAt, locale) : "—"}</TableCell>
                 {canRemove.size > 0 ? (
                   <TableCell>
                     {project.projectId && project.status === "ACTIVE" && canRemove.has(project.projectId) ? (
@@ -343,7 +347,8 @@ async function Projects({ context, profile, t }: { context: UserContext; profile
   );
 }
 
-function Activity({ profile, t }: { profile: WorkProfileDTO; t: Translate<"people"> }) {
+async function Activity({ profile, t }: { profile: WorkProfileDTO; t: Translate<"people"> }) {
+  const locale = await getLocale();
   if (profile.activity.length === 0) return <EmptyState title={t("activity.emptyTitle")} description={t("activity.emptyDescription")} />;
   return (
     <ol className="nesto-card divide-y divide-line p-0" aria-label={t("activity.label")}>
@@ -351,7 +356,7 @@ function Activity({ profile, t }: { profile: WorkProfileDTO; t: Translate<"peopl
         <li key={`${entry.at}-${index}`} className="flex items-baseline justify-between gap-3 px-5 py-3 text-table">
           <span className="text-fg">{entry.text}</span>
           <time dateTime={entry.at} className="shrink-0 text-meta text-fg-subtle">
-            {formatDate(entry.at)}
+            {formatDate(entry.at, locale)}
           </time>
         </li>
       ))}
@@ -365,6 +370,7 @@ function Activity({ profile, t }: { profile: WorkProfileDTO; t: Translate<"peopl
  * the organization history across the group's companies, newest first.
  */
 async function Employment({ context, personId, withHistory, t }: { context: UserContext; personId: string; withHistory: boolean; t: Translate<"people"> }) {
+  const locale = await getLocale();
   const th = await getTranslations("hr");
   const [employments, history] = await Promise.all([
     getEmploymentView(context, personId),
@@ -399,9 +405,9 @@ async function Employment({ context, personId, withHistory, t }: { context: User
               { label: t("employment.jobTitle"), value: orDash(employment.jobTitle) },
               { label: t("employment.department"), value: orDash(employment.department) },
               { label: t("employment.type"), value: hrLabel(th, "employmentType", employment.type, statusLabel(employment.type)) },
-              { label: t("employment.started"), value: employment.startDate ? formatDate(employment.startDate) : "—" },
-              { label: t("employment.probation"), value: employment.probationEndDate ? formatDate(employment.probationEndDate) : "—" },
-              { label: t("employment.ends"), value: employment.endDate ? formatDate(employment.endDate) : "—" },
+              { label: t("employment.started"), value: employment.startDate ? formatDate(employment.startDate, locale) : "—" },
+              { label: t("employment.probation"), value: employment.probationEndDate ? formatDate(employment.probationEndDate, locale) : "—" },
+              { label: t("employment.ends"), value: employment.endDate ? formatDate(employment.endDate, locale) : "—" },
               { label: t("employment.location"), value: orDash(employment.workLocation) },
               { label: t("employment.manager"), value: orDash(employment.manager) },
             ]}
@@ -451,6 +457,7 @@ async function Documents({ context, personId, t }: { context: UserContext; perso
 }
 
 async function Private({ context, personId, t }: { context: UserContext; personId: string; t: Translate<"people"> }) {
+  const locale = await getLocale();
   const details = await getPrivateProfile(context, personId);
   return (
     <section className="nesto-card p-5" aria-labelledby="private-heading">
@@ -463,7 +470,7 @@ async function Private({ context, personId, t }: { context: UserContext; personI
         items={[
           { label: t("private.personalEmail"), value: orDash(details.personalEmail) },
           { label: t("private.personalPhone"), value: orDash(details.personalPhone) },
-          { label: t("private.dateOfBirth"), value: details.dateOfBirth ? formatDate(details.dateOfBirth) : "—" },
+          { label: t("private.dateOfBirth"), value: details.dateOfBirth ? formatDate(details.dateOfBirth, locale) : "—" },
           { label: t("private.address"), value: orDash([details.address, details.city, details.country].filter(Boolean).join(", ") || null) },
         ]}
       />
@@ -479,7 +486,9 @@ const POSITION_LABEL: Record<string, string> = { GROUP_HEAD: "Group head", COMPA
  * their record is — for access administrators only.
  */
 async function Access({ context, personId, t }: { context: UserContext; personId: string; t: Translate<"people"> }) {
+  const locale = await getLocale();
   const access = await getAccessSummary(context, personId);
+  const [tr, tc] = await Promise.all([getTranslations("roles"), getTranslations("common")]);
   const checks: Array<[keyof typeof access.completeness, string]> = [
     ["photo", t("access.photo")],
     ["workEmail", t("access.workEmail")],
@@ -501,15 +510,15 @@ async function Access({ context, personId, t }: { context: UserContext; personId
             items={[
               { label: t("access.username"), value: access.account.username },
               { label: t("access.status"), value: <StatusBadge status={access.account.status} /> },
-              { label: t("access.created"), value: formatDate(access.account.createdAt) },
-              ...(access.showsLastLogin ? [{ label: t("access.lastSignIn"), value: access.account.lastLoginAt ? formatDate(access.account.lastLoginAt) : t("access.never") }] : []),
+              { label: t("access.created"), value: formatDate(access.account.createdAt, locale) },
+              ...(access.showsLastLogin ? [{ label: t("access.lastSignIn"), value: access.account.lastLoginAt ? formatDate(access.account.lastLoginAt, locale) : t("access.never") }] : []),
               ...(access.account.mustChangePassword ? [{ label: t("access.password"), value: t("access.mustChange") }] : []),
             ]}
           />
         ) : (
           <p className="mt-2 text-table text-fg-muted">
             {t("access.notActive")}
-            {access.provisioning ? t("access.request", { company: access.provisioning.company, status: statusLabel(access.provisioning.status).toLowerCase() }) : ""}
+            {access.provisioning ? t("access.request", { company: access.provisioning.company, status: statusText(tc, access.provisioning.status).toLowerCase() }) : ""}
             {access.provisioning?.href ? (
               <>
                 {" "}
@@ -539,12 +548,12 @@ async function Access({ context, personId, t }: { context: UserContext; personId
               {access.memberships.map((membership) => (
                 <TableRow key={membership.company.id}>
                   <TableCell className="font-medium">{membership.company.name}</TableCell>
-                  <TableCell>{membership.role.label}</TableCell>
+                  <TableCell>{adminRoleName(tr, membership.role.label)}</TableCell>
                   <TableCell>{orDash(membership.department)}</TableCell>
                   <TableCell>
                     <StatusBadge status={membership.status} />
                   </TableCell>
-                  <TableCell>{formatDate(membership.since)}</TableCell>
+                  <TableCell>{formatDate(membership.since, locale)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -561,7 +570,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
                 <span className="font-medium text-fg">
                   {project.code} · {project.name}
                 </span>
-                <span className="text-fg-muted"> · {[project.company, project.role, statusLabel(project.status)].filter(Boolean).join(" · ")}</span>
+                <span className="text-fg-muted"> · {[project.company, project.role, statusText(tc, project.status)].filter(Boolean).join(" · ")}</span>
               </li>
             ))}
           </ul>
@@ -603,8 +612,8 @@ async function Access({ context, personId, t }: { context: UserContext; personId
             <ul className="mt-2 space-y-1 text-table">
               {access.grants.map((grant, index) => (
                 <li key={index}>
-                  {[grant.functionKey ?? t("access.everyFunction"), statusLabel(grant.scopeType), statusLabel(grant.accessLevel)].join(" · ")}
-                  {grant.expiresAt ? <span className="text-fg-muted">{t("access.until", { date: formatDate(grant.expiresAt) })}</span> : null}
+                  {[grant.functionKey ?? t("access.everyFunction"), peopleLabel(t, "grantScope", grant.scopeType, statusLabel(grant.scopeType)), peopleLabel(t, "grantLevel", grant.accessLevel, statusLabel(grant.accessLevel))].join(" · ")}
+                  {grant.expiresAt ? <span className="text-fg-muted">{t("access.until", { date: formatDate(grant.expiresAt, locale) })}</span> : null}
                 </li>
               ))}
             </ul>

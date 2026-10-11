@@ -1,8 +1,8 @@
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDateTime } from "@/lib/i18n/format";
 import type { ContractApprovalDTO } from "@/lib/modules/contracts/contract.types";
-import { formatDateTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * A record's approval history (PRD #18 §115, §423).
@@ -18,6 +18,7 @@ export async function ContractApprovalHistory({
   approvals: ContractApprovalDTO[];
   emptyLabel?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("contracts");
   if (approvals.length === 0) {
     return <p className="nesto-card p-5 text-table text-fg-subtle">{emptyLabel ?? t("approvalHistory.empty")}</p>;
@@ -30,7 +31,7 @@ export async function ContractApprovalHistory({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <StatusBadge status={approval.status} />
             <time className="text-meta text-fg-subtle" dateTime={approval.submittedAt}>
-              {t("approvalHistory.submitted", { date: formatDateTime(approval.submittedAt) })}
+              {t("approvalHistory.submitted", { date: formatDateTime(approval.submittedAt, locale) })}
             </time>
           </div>
 
@@ -50,7 +51,7 @@ export async function ContractApprovalHistory({
             {approval.decidedAt ? (
               <div className="flex gap-2">
                 <dt className="text-fg-subtle">{t("approvalHistory.decided")}</dt>
-                <dd className="text-fg">{formatDateTime(approval.decidedAt)}</dd>
+                <dd className="text-fg">{formatDateTime(approval.decidedAt, locale)}</dd>
               </div>
             ) : null}
           </dl>

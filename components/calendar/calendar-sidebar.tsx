@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { dateText } from "@/lib/i18n/format";
 import { instantFromLocal } from "@/lib/modules/calendar/calendar.time";
 import type { CalendarCategory } from "@/lib/modules/calendar/calendar.types";
 import { cn } from "@/lib/utils/cn";
@@ -35,7 +36,7 @@ export function MiniCalendar({
   const t = useCalendarTranslations();
   const words = useDayWords();
   const days = visibleDays("month", month, zone);
-  const label = new Intl.DateTimeFormat(words.locale, { timeZone: zone, month: "long", year: "numeric" }).format(instantFromLocal(month, "12:00", zone));
+  const label = dateText(instantFromLocal(month, "12:00", zone), { timeZone: zone, month: "long", year: "numeric" }, words.locale);
 
   return (
     <div className="select-none">

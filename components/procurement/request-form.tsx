@@ -54,6 +54,7 @@ export function RequestForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -64,6 +65,7 @@ export function RequestForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
 }) {
   // Saved links the pickers no longer offer stay on this request (FV-10).
@@ -78,6 +80,7 @@ export function RequestForm({
       module="procurement"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

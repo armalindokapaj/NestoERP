@@ -60,6 +60,7 @@ export function RequestForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -71,6 +72,7 @@ export function RequestForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -86,6 +88,7 @@ export function RequestForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -264,6 +267,7 @@ export function InspectionForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -276,6 +280,7 @@ export function InspectionForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -293,6 +298,7 @@ export function InspectionForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -501,6 +507,7 @@ export function DefectForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -510,6 +517,7 @@ export function DefectForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -521,6 +529,7 @@ export function DefectForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -640,6 +649,7 @@ export function NcrForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -650,6 +660,7 @@ export function NcrForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -662,6 +673,7 @@ export function NcrForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -863,6 +875,7 @@ export function CorrectiveActionForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -873,6 +886,7 @@ export function CorrectiveActionForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -885,6 +899,7 @@ export function CorrectiveActionForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

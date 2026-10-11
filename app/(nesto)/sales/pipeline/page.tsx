@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { Target } from "lucide-react";
 
@@ -53,6 +53,7 @@ export default async function PipelinePage({
 }
 
 async function Pipeline({ context, companyParam }: { context: UserContext; companyParam: string | undefined }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const grouped = inGroupWorkspace(context);
   const [pipeline, companies] = await Promise.all([
@@ -80,10 +81,10 @@ async function Pipeline({ context, companyParam }: { context: UserContext; compa
         <h2 className="text-card font-semibold text-fg">{t("pipeline.openPipeline")}</h2>
         {/* Grouped by currency, never summed across them (PRD #17 §31, §103). */}
         <p className="mt-2 text-page font-semibold tabular-nums text-fg">
-          {totalsLabel(pipeline.totals)}
+          {totalsLabel(pipeline.totals, locale)}
         </p>
         <p className="mt-1 text-table text-fg-subtle">
-          {t("pipeline.weighted", { amount: weightedTotalsLabel(pipeline.totals) })}
+          {t("pipeline.weighted", { amount: weightedTotalsLabel(pipeline.totals, locale) })}
         </p>
       </section>
 

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2, UserRoundCog } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -274,6 +275,7 @@ function DelegationList({
   onRevoke: (row: ApprovalDelegationDTO) => void;
   who: (row: ApprovalDelegationDTO) => React.ReactNode;
 }) {
+  const locale = useLocale();
   const t = useApprovalsTranslations();
   const word = useApprovalsWord();
   return (
@@ -290,7 +292,7 @@ function DelegationList({
                   {who(row)} · {word(row.providerLabel)}
                 </span>
                 <span className="block text-meta text-fg-muted">
-                  {formatDay(row.startsAt)} – {formatDay(new Date(new Date(row.endsAt).getTime() - 1).toISOString())}
+                  {formatDay(row.startsAt, locale)} – {formatDay(new Date(new Date(row.endsAt).getTime() - 1).toISOString(), locale)}
                   {row.reason ? ` · ${row.reason}` : ""}
                 </span>
               </span>

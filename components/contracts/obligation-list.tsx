@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ClipboardList, Plus } from "lucide-react";
 
@@ -22,12 +23,12 @@ import {
   createObligationTaskAction,
   saveObligationAction,
 } from "@/lib/actions/contracts";
+import { formatDate } from "@/lib/i18n/format";
 import type { ContractObligationDTO } from "@/lib/modules/contracts/contract.types";
 import {
   OBLIGATION_TYPES,
   obligationTypeLabels,
 } from "@/lib/modules/contracts/obligations/obligation.status";
-import { formatDate } from "@/lib/utils/format";
 import { contractsLabel, useContractsTranslations } from "./contracts-text";
 import { FormSelect } from "@/components/ui/form-select";
 
@@ -53,6 +54,7 @@ export function ContractObligationList({
   canCreate: boolean;
   members: { value: string; label: string }[];
 }) {
+  const locale = useLocale();
   const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
@@ -119,7 +121,7 @@ export function ContractObligationList({
                 <div className="flex gap-2">
                   <dt className="text-fg-subtle">{t("obligations.due")}</dt>
                   <dd className="text-fg">
-                    {obligation.dueDate ? formatDate(obligation.dueDate) : t("obligations.noDueDate")}
+                    {obligation.dueDate ? formatDate(obligation.dueDate, locale) : t("obligations.noDueDate")}
                   </dd>
                 </div>
                 <div className="flex gap-2">

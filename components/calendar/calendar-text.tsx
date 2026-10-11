@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { calendarEn } from "@/lib/i18n/modules/calendar/en";
 import { calendarLabel, type CalendarLabelGroup } from "@/lib/i18n/modules/calendar/labels";
 import { createTranslator, type MessageKey, type Translate } from "@/lib/i18n/translator";
-import { intlLocale, type DayWords } from "./calendar-model";
+import { type DayWords } from "./calendar-model";
 
 export type CalendarKey = MessageKey<"calendar">;
 export { calendarLabel, type CalendarLabelGroup };
@@ -27,12 +27,12 @@ export function useCalendarTranslations(): Translate<"calendar"> {
   }, [t]);
 }
 
-/** The reader's words for days and the locale dates are written in (English keeps en-GB). */
+/** The reader's words for days and the language dates are written in. */
 export function useDayWords(): DayWords {
   const t = useCalendarTranslations();
   const locale = useLocale();
   return React.useMemo(
-    () => ({ locale: intlLocale(locale), today: t("days.today"), tomorrow: t("days.tomorrow"), yesterday: t("days.yesterday") }),
+    () => ({ locale, today: t("days.today"), tomorrow: t("days.tomorrow"), yesterday: t("days.yesterday") }),
     [t, locale],
   );
 }

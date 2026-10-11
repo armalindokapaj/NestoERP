@@ -10,6 +10,7 @@ import { flat, keepPageInRange, orNotFound, pageHref, registerMeta, type SearchP
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { NoResultsState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
+import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
 import { contractorsOpen } from "@/lib/modules/contractors/contractor.permissions";
 import { workPackageListSchema } from "@/lib/modules/contractors/contractor.schema";
 import { WORK_PACKAGE_STATUSES, WORK_PACKAGE_STATUS_LABELS } from "@/lib/modules/contractors/contractor.types";
@@ -45,8 +46,8 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
         searchPlaceholder={t("structurePages.workPackageSearch")}
         searchParam="q"
         filters={[
-          { param: "status", label: t("structurePages.status"), options: WORK_PACKAGE_STATUSES.map((value) => ({ value, label: WORK_PACKAGE_STATUS_LABELS[value] })) },
-          { param: "discipline", label: t("structurePages.discipline"), options: DISCIPLINES.map((value) => ({ value, label: DISCIPLINE_LABELS[value] })) },
+          { param: "status", label: t("structurePages.status"), options: WORK_PACKAGE_STATUSES.map((value) => ({ value, label: contractorsLabel(tContractors, "workPackageStatus", value, WORK_PACKAGE_STATUS_LABELS[value]) })) },
+          { param: "discipline", label: t("structurePages.discipline"), options: DISCIPLINES.map((value) => ({ value, label: contractorsLabel(tContractors, "discipline", value, DISCIPLINE_LABELS[value]) })) },
         ]}
       />
       {result.items.length === 0 && hasActiveFilters(search, ["q", "status", "discipline"]) ? (

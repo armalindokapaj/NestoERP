@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { FilePen } from "lucide-react";
@@ -12,9 +13,9 @@ import { structureApi } from "@/components/project-structure/structure-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { formatDate, formatRelativeTime } from "@/lib/i18n/format";
 import { CONTRACT_REQUEST_STATUS_LABELS, type ContractRequestDTO } from "@/lib/modules/contracts/units/unit-contract.types";
 import { cn } from "@/lib/utils/cn";
-import { formatDate, formatRelativeTime } from "@/lib/utils/format";
 import { contractsLabel, useContractsTranslations } from "../contracts-text";
 
 /**
@@ -24,6 +25,7 @@ import { contractsLabel, useContractsTranslations } from "../contracts-text";
  * unit's Legal section, where the contract is drafted from the request.
  */
 export function ContractRequestQueue({ items, view, canCreate, canDecline }: { items: ContractRequestDTO[]; view: "open" | "closed"; canCreate: boolean; canDecline: boolean }) {
+  const locale = useLocale();
   const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
@@ -68,17 +70,17 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
                   </div>
                   <p className="mt-1 text-table text-fg-muted">
                     {row.client ? row.client.name : t("requests.clientHidden")}
-                    {row.deal ? ` · ${row.deal.name}` : ""}{t("requests.agreed", { amount: amountLabel(row.agreedPrice, row.currency) })}
+                    {row.deal ? ` · ${row.deal.name}` : ""}{t("requests.agreed", { amount: amountLabel(row.agreedPrice, row.currency, locale) })}
                   </p>
                   <p className="mt-0.5 text-meta text-fg-subtle">
-                    {t("requests.requested", { when: formatRelativeTime(row.requestedAt) })}
+                    {t("requests.requested", { when: formatRelativeTime(row.requestedAt, locale) })}
                     {row.requestedBy ? (
                       <>
                         {t("requests.by")}
                         <PersonLink memberId={row.requestedByMemberId} name={row.requestedBy} />
                       </>
                     ) : null}
-                    {row.status === "OPEN" && row.reservation.status === "ACTIVE" ? t("requests.reservedUntil", { date: formatDate(row.reservation.expiresAt) }) : ""}
+                    {row.status === "OPEN" && row.reservation.status === "ACTIVE" ? t("requests.reservedUntil", { date: formatDate(row.reservation.expiresAt, locale) }) : ""}
                     {row.contract ? ` · ${row.contract.number}` : ""}
                   </p>
                   {row.notes ? <p className="mt-1 whitespace-pre-line text-table text-fg">{row.notes}</p> : null}

@@ -16,6 +16,7 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { addLocalDays, daysBetween, localDate } from "@/lib/modules/calendar/calendar.time";
 import { filesOpen } from "@/lib/modules/engineering/engineering.permissions";
 import { resolveEngineeringSettings } from "@/lib/modules/engineering/engineering.settings";
@@ -354,7 +355,7 @@ async function settleExpiry(companyId: string, row: WorkerRow, todayDate: string
       entityId: row.id,
       actorMemberId: null,
       projectId: null,
-      payload: { memberIds, title: row.title, contractorName: row.contractor.legalName, typeLabel: COMPLIANCE_TYPE_LABELS[row.type as ComplianceType], expiresAt: expires, dateLabel: dateLabel(expires) },
+      payload: { memberIds, title: row.title, contractorName: row.contractor.legalName, typeLabel: COMPLIANCE_TYPE_LABELS[row.type as ComplianceType], expiresAt: expires, dateLabel: dateLabel(expires, SOURCE_LOCALE) },
     });
     return { moved: moving, notified: next };
   });

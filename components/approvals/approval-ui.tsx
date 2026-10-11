@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
+import { numberText } from "@/lib/i18n/format";
 import type { ApprovalMoney, ApprovalPriority, ApprovalProviderKey, DueState, UnifiedApprovalItem, UnifiedApprovalStatus } from "@/lib/modules/approvals/approvals.types";
 import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
@@ -106,25 +109,25 @@ export function DueBadge({ item }: { item: Pick<UnifiedApprovalItem, "dueAt" | "
   );
 }
 
-export function formatMoney(amount: ApprovalMoney | null): string | null {
+export function formatMoney(amount: ApprovalMoney | null, locale: Locale): string | null {
   if (!amount) return null;
   const value = Number(amount.value);
   try {
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency: amount.currency, maximumFractionDigits: value % 1 === 0 ? 0 : 2 }).format(value);
+    return numberText(value, { style: "currency", currency: amount.currency, maximumFractionDigits: value % 1 === 0 ? 0 : 2 }, locale);
   } catch {
     return `${amount.currency} ${value.toFixed(2)}`;
   }
 }
 
 /** "13 Sep 2026, 14:32" (PRD #41 §211). */
-export function formatStamp(iso: string | null | undefined): string {
+export function formatStamp(iso: string | null | undefined, locale: Locale): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+  return dateText(new Date(iso), { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }, locale);
 }
 
-export function formatDay(iso: string | null | undefined): string {
+export function formatDay(iso: string | null | undefined, locale: Locale): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
+  return dateText(new Date(iso), { day: "numeric", month: "short", year: "numeric" }, locale);
 }
 
 /** "Waiting 3 days" (PRD #41 §166). */
@@ -136,7 +139,7 @@ export function waitingText(requestedAt: string, now = new Date(), t: Translate<
   return t("time.waitingDays", { count: days });
 }
 
-export function relativeText(iso: string, now = new Date(), t: Translate<"approvals"> = englishApprovals): string {
+export function relativeText(iso: string, now = new Date(), t: Translate<"approvals"> = englishApprovals, locale: Locale): string {
   const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000);
   if (minutes < 1) return t("time.justNow");
   if (minutes < 60) return t("time.minutesAgo", { count: minutes });
@@ -144,7 +147,7 @@ export function relativeText(iso: string, now = new Date(), t: Translate<"approv
   if (hours < 24) return t("time.hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
   if (days < 30) return t("time.daysAgo", { count: days });
-  return formatDay(iso);
+  return formatDay(iso, locale);
 }
 
 export function initials(name: string): string {

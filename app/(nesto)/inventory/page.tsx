@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, Package } from "lucide-react";
 
@@ -16,7 +17,6 @@ import {
 } from "@/lib/modules/inventory/overview/overview.service";
 import { stockLevelLabels } from "@/lib/modules/inventory/inventory.status";
 import { inventoryLabel } from "@/components/inventory/inventory-labels";
-import { formatDate } from "@/lib/utils/format";
 import { formatQuantity } from "@/components/inventory/inventory-format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,6 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * cannot see reservations gets a working page rather than one with holes in it.
  */
 export default async function InventoryOverviewPage() {
+  const locale = await getLocale();
   const context = await requireModule("inventory");
   const t = await getTranslations("inventory");
   const experience = resolveModuleExperience(context, "inventory");
@@ -80,7 +81,7 @@ export default async function InventoryOverviewPage() {
                 id: row.id,
                 href: `/inventory/items/${row.id}`,
                 title: `${row.sku} — ${row.name}`,
-                meta: `${formatQuantity(row.stock?.onHand)} ${row.baseUnit} · ${inventoryLabel(t, "stockLevel", row.level, stockLevelLabels[row.level])}`,
+                meta: `${formatQuantity(row.stock?.onHand, locale)} ${row.baseUnit} · ${inventoryLabel(t, "stockLevel", row.level, stockLevelLabels[row.level])}`,
               }))}
             />
           ) : null}
@@ -94,7 +95,7 @@ export default async function InventoryOverviewPage() {
                 id: row.id,
                 href: `/inventory/receipts/${row.id}`,
                 title: `${row.receiptNumber} — ${row.warehouse.name}`,
-                meta: `${t("columns.lineCount", { count: row.lineCount })} · ${formatDate(row.receiptDate)}`,
+                meta: `${t("columns.lineCount", { count: row.lineCount })} · ${formatDate(row.receiptDate, locale)}`,
               }))}
             />
           ) : null}
@@ -108,7 +109,7 @@ export default async function InventoryOverviewPage() {
                 id: row.id,
                 href: `/inventory/issues/${row.id}`,
                 title: `${row.issueNumber} — ${row.project?.code ?? t("columns.general")}`,
-                meta: `${t("columns.lineCount", { count: row.lineCount })} · ${formatDate(row.issueDate)}`,
+                meta: `${t("columns.lineCount", { count: row.lineCount })} · ${formatDate(row.issueDate, locale)}`,
               }))}
             />
           ) : null}
@@ -122,7 +123,7 @@ export default async function InventoryOverviewPage() {
                 id: row.id,
                 href: `/inventory/items/${row.item.id}`,
                 title: `${row.reservationNumber} — ${row.item.name}`,
-                meta: `${formatQuantity(row.remainingQuantity)} ${row.item.baseUnit}${row.expiresAt ? ` · ${t("overview.expires", { date: formatDate(row.expiresAt) })}` : ""}`,
+                meta: `${formatQuantity(row.remainingQuantity, locale)} ${row.item.baseUnit}${row.expiresAt ? ` · ${t("overview.expires", { date: formatDate(row.expiresAt, locale) })}` : ""}`,
               }))}
             />
           ) : null}

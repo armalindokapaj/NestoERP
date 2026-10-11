@@ -8,8 +8,9 @@ import { PaymentTable } from "@/components/finance/payment-table";
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
+import type { Locale } from "@/lib/i18n/config";
+import { formatDate, formatDateTime, numberText } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { loadInvoice } from "../invoice-context";
 
 type Params = { params: Promise<{ invoiceId: string }> };
@@ -25,6 +26,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function InvoiceDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { invoiceId } = await params;
   const { context, invoice } = await loadInvoice(invoiceId);
 
@@ -81,7 +83,7 @@ export default async function InvoiceDetailPage({ params }: Params) {
                     </td>
                     <td className="py-2.5 text-right tabular-nums text-fg-muted">
                       {/* The stored price, to its four decimals, on screen — not only in a hover title (AUD-04 §5, MW-09, D-02-05). */}
-                      {unitPriceLabel(line.unitPrice, invoice.currency)}
+                      {unitPriceLabel(line.unitPrice, invoice.currency, locale)}
                     </td>
                     <td className="py-2.5 text-right tabular-nums text-fg-muted">
                       {line.taxRate}%
@@ -145,12 +147,12 @@ export default async function InvoiceDetailPage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: t("columns.issued"), value: formatDate(invoice.issueDate) },
-                { label: t("columns.due"), value: formatDate(invoice.dueDate) },
+                { label: t("columns.issued"), value: formatDate(invoice.issueDate, locale) },
+                { label: t("columns.due"), value: formatDate(invoice.dueDate, locale) },
                 { label: t("form.currency"), value: invoice.currency },
                 {
                   label: t("invoices.sent"),
-                  value: invoice.sentAt ? formatDateTime(invoice.sentAt) : t("invoices.notYet"),
+                  value: invoice.sentAt ? formatDateTime(invoice.sentAt, locale) : t("invoices.notYet"),
                 },
                 { label: t("invoices.raisedBy"), value: invoice.createdBy ? <PersonLink memberId={invoice.createdBy.memberId} name={invoice.createdBy.fullName} /> : "—" },
               ]}
@@ -206,14 +208,14 @@ function SummaryRow({ label, children }: { label: string; children: React.ReactN
  * The decimal string goes to `Intl` as a string, so no float rounds it
  * (AUD-01); money totals keep `formatAmount`'s two decimals.
  */
-function unitPriceLabel(amount: string, currency: string): string {
+function unitPriceLabel(amount: string, currency: string, locale: Locale): string {
   try {
-    return new Intl.NumberFormat("en-GB", {
+    return numberText(amount as unknown as number, {
       style: "currency",
       currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
-    }).format(amount as unknown as number);
+    }, locale);
   } catch {
     return `${amount} ${currency}`;
   }

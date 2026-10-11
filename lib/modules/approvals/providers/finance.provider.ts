@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import * as financeApprovals from "@/lib/modules/finance/approvals/approval.service";
 import { approveBudget, rejectBudget, returnBudget } from "@/lib/modules/finance/budgets/budget.service";
 import { approveCommitment, rejectCommitment, returnCommitment } from "@/lib/modules/finance/commitments/commitment.service";
@@ -67,6 +68,7 @@ export const financeApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.invoice.findMany({
           where: { AND: [buildInvoiceScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -98,16 +100,16 @@ export const financeApprovalProvider = createCycleProvider({
               summary: [
                 { label: "Client", value: row.client.name },
                 { label: "Project", value: row.project?.name ?? "—" },
-                { label: "Issue date", value: formatDate(row.issueDate) },
-                { label: "Payment due", value: formatDate(row.dueDate) },
-                { label: "Subtotal", value: formatAmount(row.subtotal, row.currency) },
-                { label: "Tax", value: formatAmount(row.taxAmount, row.currency) },
-                { label: "Total", value: formatAmount(row.totalAmount, row.currency), emphasis: "strong" },
+                { label: "Issue date", value: formatDate(row.issueDate, locale) },
+                { label: "Payment due", value: formatDate(row.dueDate, locale) },
+                { label: "Subtotal", value: formatAmount(row.subtotal, row.currency, locale) },
+                { label: "Tax", value: formatAmount(row.taxAmount, row.currency, locale) },
+                { label: "Total", value: formatAmount(row.totalAmount, row.currency, locale), emphasis: "strong" },
               ],
               description: row.notes,
               warnings:
                 row.dueDate < startOfToday()
-                  ? [{ code: "PAYMENT_DUE_PASSED", message: `Payment was due ${formatDate(row.dueDate)}, before this invoice was approved.`, severity: "WARNING" }]
+                  ? [{ code: "PAYMENT_DUE_PASSED", message: `Payment was due ${formatDate(row.dueDate, locale)}, before this invoice was approved.`, severity: "WARNING" }]
                   : [],
             },
           ]),
@@ -142,6 +144,7 @@ export const financeApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.expense.findMany({
           where: { AND: [buildExpenseScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -175,10 +178,10 @@ export const financeApprovalProvider = createCycleProvider({
                 { label: "Payee", value: row.payeeName ?? "—" },
                 { label: "Category", value: labelOf(row.category) },
                 { label: "Project", value: row.project?.name ?? "Company overhead" },
-                { label: "Expense date", value: formatDate(row.expenseDate) },
-                { label: "Net", value: formatAmount(row.netAmount, row.currency) },
-                { label: "Tax", value: formatAmount(row.taxAmount, row.currency) },
-                { label: "Total", value: formatAmount(row.totalAmount, row.currency), emphasis: "strong" },
+                { label: "Expense date", value: formatDate(row.expenseDate, locale) },
+                { label: "Net", value: formatAmount(row.netAmount, row.currency, locale) },
+                { label: "Tax", value: formatAmount(row.taxAmount, row.currency, locale) },
+                { label: "Total", value: formatAmount(row.totalAmount, row.currency, locale), emphasis: "strong" },
               ],
               description: row.notes,
             },
@@ -214,6 +217,7 @@ export const financeApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.projectBudget.findMany({
           where: { AND: [buildBudgetScopeWhere(context), { id: { in: ids } }] },
           select: { id: true, name: true, version: true, currency: true, totalAmount: true, notes: true, projectId: true, project: PROJECT },
@@ -241,13 +245,13 @@ export const financeApprovalProvider = createCycleProvider({
                 summary: [
                   { label: "Project", value: `${row.project.code} · ${row.project.name}` },
                   { label: "Version", value: String(row.version) },
-                  { label: "Total budget", value: formatAmount(row.totalAmount, row.currency), emphasis: "strong" },
-                  ...(standing && standing.id !== row.id ? [{ label: `Approved v${standing.version}`, value: formatAmount(standing.totalAmount, standing.currency) }] : []),
+                  { label: "Total budget", value: formatAmount(row.totalAmount, row.currency, locale), emphasis: "strong" },
+                  ...(standing && standing.id !== row.id ? [{ label: `Approved v${standing.version}`, value: formatAmount(standing.totalAmount, standing.currency, locale) }] : []),
                 ],
                 description: row.notes,
                 warnings:
                   delta && delta.gt(0)
-                    ? [{ code: "BUDGET_INCREASE", message: `Raises the approved budget by ${formatAmount(delta, row.currency)}.`, severity: "WARNING" }]
+                    ? [{ code: "BUDGET_INCREASE", message: `Raises the approved budget by ${formatAmount(delta, row.currency, locale)}.`, severity: "WARNING" }]
                     : [],
               },
             ];
@@ -283,6 +287,7 @@ export const financeApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.commitment.findMany({
           where: { AND: [buildCommitmentScopeWhere(context), { id: { in: ids } }] },
           select: { id: true, reference: true, description: true, counterpartyName: true, category: true, currency: true, amount: true, expectedDate: true, notes: true, project: PROJECT },
@@ -303,8 +308,8 @@ export const financeApprovalProvider = createCycleProvider({
                 { label: "Counterparty", value: row.counterpartyName ?? "—" },
                 { label: "Category", value: labelOf(row.category) },
                 { label: "Project", value: row.project?.name ?? "—" },
-                { label: "Expected", value: formatDate(row.expectedDate) },
-                { label: "Amount", value: formatAmount(row.amount, row.currency), emphasis: "strong" },
+                { label: "Expected", value: formatDate(row.expectedDate, locale) },
+                { label: "Amount", value: formatAmount(row.amount, row.currency, locale), emphasis: "strong" },
               ],
               description: row.notes,
             },

@@ -5,6 +5,7 @@ import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { getTranslations } from "@/lib/i18n/server";
 import { previewInvite } from "@/lib/modules/team/invitations/invite.service";
 import { AcceptInviteForm } from "./accept-invite-form";
@@ -32,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AcceptInvitePage({ params }: Params) {
   const { token } = await params;
 
-  const [invite, session, m] = await Promise.all([previewInvite(token), auth(), getTranslations("misc")]);
+  const [invite, session, m, tr] = await Promise.all([previewInvite(token), auth(), getTranslations("misc"), getTranslations("roles")]);
   const signedInUserId = session?.user?.id ?? null;
 
   return (
@@ -56,7 +57,7 @@ export default async function AcceptInvitePage({ params }: Params) {
                   {m("invite.join", { company: invite.companyName })}
                 </h1>
                 <p className="mb-6 mt-1.5 text-body text-fg-muted">
-                  {m("invite.invitedNew", { role: invite.roleName })}
+                  {m("invite.invitedNew", { role: adminRoleName(tr, invite.roleName) })}
                 </p>
                 <AcceptInviteForm token={token} email={invite.email} />
               </>
@@ -66,7 +67,7 @@ export default async function AcceptInvitePage({ params }: Params) {
                   {m("invite.join", { company: invite.companyName })}
                 </h1>
                 <p className="mb-6 mt-1.5 text-body text-fg-muted">
-                  {m("invite.invitedSignedIn", { email: invite.email, role: invite.roleName })}
+                  {m("invite.invitedSignedIn", { email: invite.email, role: adminRoleName(tr, invite.roleName) })}
                 </p>
                 <JoinButton token={token} companyName={invite.companyName} />
               </>

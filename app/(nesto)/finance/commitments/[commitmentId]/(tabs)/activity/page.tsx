@@ -5,11 +5,12 @@ import { History } from "lucide-react";
 import { Pagination } from "@/components/data/pagination";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatDateTime } from "@/lib/i18n/format";
 import { listRecordActivity } from "@/lib/modules/finance/finance.activity";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadCommitment } from "../../commitment-context";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 
 type Params = {
   params: Promise<{ commitmentId: string }>;
@@ -23,6 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CommitmentActivityPage({ params, searchParams }: Params) {
   const t = await getTranslations("finance");
+  const locale = await getLocale();
   const { commitmentId } = await params;
   const { context, commitment } = await loadCommitment(commitmentId);
 
@@ -54,10 +56,10 @@ export default async function CommitmentActivityPage({ params, searchParams }: P
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
                   {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("activity.someone")}</span>}{" "}
-                  {entry.message ?? entry.action}
+                  {localizeActivity(locale, entry) ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {formatDateTime(entry.createdAt)}
+                  {formatDateTime(entry.createdAt, locale)}
                 </p>
               </li>
             ))}

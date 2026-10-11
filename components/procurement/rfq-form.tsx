@@ -44,6 +44,7 @@ export function RfqForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -54,6 +55,7 @@ export function RfqForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
 }) {
   const t = useProcurementTranslations();
@@ -70,6 +72,7 @@ export function RfqForm({
       module="procurement"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

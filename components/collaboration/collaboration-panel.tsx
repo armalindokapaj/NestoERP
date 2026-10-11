@@ -4,6 +4,7 @@ import * as React from "react";
 import { Bell, BellOff, MessageSquare, Pencil, RotateCw, Trash2 } from "lucide-react";
 
 import { useApprovalDraft } from "@/components/approvals/approval-drafts";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { PersonLink } from "@/components/people/person-link";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { formatRelativeTime } from "@/lib/i18n/format";
 import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
 import { outcomeOf } from "@/lib/unsaved/outcome";
 import { useCommonTranslations } from "@/components/i18n/common-text";
 import type { MessageKey, Translate } from "@/lib/i18n/translator";
 import type { CommentDTO, MentionableMemberDTO, ThreadDTO } from "@/lib/core/collaboration/collaboration.service";
 import { cn } from "@/lib/utils/cn";
-import { formatRelativeTime } from "@/lib/utils/format";
 import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
 
 /**
@@ -321,6 +322,7 @@ function CommentItem({
   onArchived: () => void;
   mentionSource: string;
 }) {
+  const locale = useLocale();
   const toast = useToast();
   const t = useCommonTranslations();
   const [editing, setEditing] = React.useState(false);
@@ -332,7 +334,7 @@ function CommentItem({
   // Relative time is computed after mount: the server has no business guessing
   // the reader's clock (and a mismatch is a hydration warning).
   const [relative, setRelative] = React.useState<string | null>(null);
-  React.useEffect(() => setRelative(formatRelativeTime(comment.createdAt)), [comment.createdAt]);
+  React.useEffect(() => setRelative(formatRelativeTime(comment.createdAt, locale)), [comment.createdAt, locale]);
   // A mention notification opens at its comment (Activity Center §43): scrolled to and briefly highlighted.
   const itemRef = React.useRef<HTMLLIElement>(null);
   const [targeted, setTargeted] = React.useState(false);

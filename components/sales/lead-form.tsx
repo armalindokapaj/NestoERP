@@ -51,6 +51,7 @@ export function LeadForm({
   excludeLeadId,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -62,6 +63,7 @@ export function LeadForm({
   excludeLeadId?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
 }) {
   const t = useSalesTranslations();
@@ -117,6 +119,7 @@ export function LeadForm({
       module="sales"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

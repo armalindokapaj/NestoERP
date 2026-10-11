@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SectionBoundary } from "@/components/modules/page-section";
 import { ListSectionSkeleton } from "@/components/modules/section-skeletons";
 import { WhatIsThis } from "@/components/help/what-is-this";
+import { formatDate, numberText } from "@/lib/i18n/format";
 import { getProject3DAvailability } from "@/lib/modules/project-3d/project-3d.viewer";
 import { listProjectMedia } from "@/lib/modules/project-media/project-media.service";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
@@ -24,8 +25,9 @@ import type { ProjectActivityDTO } from "@/lib/modules/projects/project.types";
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
-import { formatDate, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import { loadProject, } from "./project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
@@ -70,6 +72,7 @@ function ExperienceTile({ href, title, detail, icon, large = false, newTab = fal
  * nothing to show.
  */
 export default async function ProjectOverviewPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
   const t = await getTranslations("projects");
@@ -155,12 +158,12 @@ export default async function ProjectOverviewPage({ params }: Params) {
           <div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("overview.project")}</p><h2 id="summary-title" className="mt-1 text-section font-semibold text-fg">{t("overview.summary")}</h2>{project.description ? <p className="mt-3 line-clamp-5 max-w-2xl text-body leading-6 text-fg-muted">{project.description}</p> : <p className="mt-3 text-body text-fg-subtle">{t("overview.noDescription")}</p>}</div>
           <dl className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
             <Summary label={t("overview.projectManager")} value={project.projectManager ? <span className="flex flex-wrap items-center gap-2"><PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />{!project.projectManager.membershipActive ? <Badge tone="warning">{t("overview.inactive")}</Badge> : null}</span> : t("overview.unassigned")} />
-            <Summary label={t("overview.expectedCompletion")} value={project.schedule.endDate ? formatDate(project.schedule.endDate) : t("overview.notSet")} />
+            <Summary label={t("overview.expectedCompletion")} value={project.schedule.endDate ? formatDate(project.schedule.endDate, locale) : t("overview.notSet")} />
             <Summary label={t("overview.location")} value={orDash([project.location.city, project.location.country].filter(Boolean).join(", "))} />
             <Summary label={t("overview.projectType")} value={project.projectType?.name ?? t("overview.notSet")} />
-            <Summary label={t("overview.totalArea")} value={project.builtArea === null ? t("overview.notSet") : `${project.builtArea.toLocaleString("en-US")} m²`} />
+            <Summary label={t("overview.totalArea")} value={project.builtArea === null ? t("overview.notSet") : `${numberText(project.builtArea, undefined, locale, "en-US")} m²`} />
             <Summary label={t("overview.progress")} value={<Suspense fallback={<Skeleton className="h-4 w-12" />}><ProgressValue progress={progress} /></Suspense>} />
-            {lastChange ? <Summary label={t("overview.lastEditedBy")} value={<span data-testid="project-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatDate(lastChange.at)}</span>} /> : null}
+            {lastChange ? <Summary label={t("overview.lastEditedBy")} value={<span data-testid="project-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatDate(lastChange.at, locale)}</span>} /> : null}
             {sourceOpportunity ? (
               <Suspense fallback={null}>
                 <SourceOpportunity opportunity={sourceOpportunity} />
@@ -264,15 +267,17 @@ async function MyWork({ myWork }: { myWork: Promise<ProjectWorkItem[]> }) {
 }
 
 async function Upcoming({ upcoming }: { upcoming: Promise<ProjectUpcomingItem[]> }) {
+  const locale = await getLocale();
   const items = await upcoming;
   const t = await getTranslations("projects");
-  return <section className="nesto-card p-5" aria-labelledby="upcoming-title"><h2 id="upcoming-title" className="text-card font-semibold text-fg">{t("overview.upcoming")}</h2>{items.length ? <ul className="mt-4 divide-y divide-line">{items.map((item) => <li key={item.id}><Link href={item.href} className="flex gap-3 py-3 first:pt-0 hover:text-accent-strong"><Clock3 className="mt-0.5 size-4 shrink-0 text-fg-subtle" /><span className="min-w-0"><span className="block truncate text-table font-medium text-fg">{item.title}</span><span className="mt-0.5 block text-meta text-fg-subtle">{t(`overview.upcomingKind.${item.kind}`)} · {formatDate(item.at)}</span></span></Link></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noUpcoming")}</p>}</section>;
+  return <section className="nesto-card p-5" aria-labelledby="upcoming-title"><h2 id="upcoming-title" className="text-card font-semibold text-fg">{t("overview.upcoming")}</h2>{items.length ? <ul className="mt-4 divide-y divide-line">{items.map((item) => <li key={item.id}><Link href={item.href} className="flex gap-3 py-3 first:pt-0 hover:text-accent-strong"><Clock3 className="mt-0.5 size-4 shrink-0 text-fg-subtle" /><span className="min-w-0"><span className="block truncate text-table font-medium text-fg">{item.title}</span><span className="mt-0.5 block text-meta text-fg-subtle">{t(`overview.upcomingKind.${item.kind}`)} · {formatDate(item.at, locale)}</span></span></Link></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noUpcoming")}</p>}</section>;
 }
 
 async function RecentActivity({ projectId, activity }: { projectId: string; activity: Promise<{ data: ProjectActivityDTO[] }> }) {
   const entries = (await activity).data;
   const t = await getTranslations("projects");
-  return <section className="nesto-card p-5" aria-labelledby="activity-title"><div className="flex items-center justify-between gap-3"><h2 id="activity-title" className="text-card font-semibold text-fg">{t("overview.recentActivity")}</h2>{entries.length ? <Link href={`/projects/${projectId}/activity`} className="text-meta font-medium text-accent-strong">{t("overview.viewAll")}</Link> : null}</div>{entries.length ? <ul className="mt-4 space-y-4">{entries.map((entry) => <li key={entry.id} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" aria-hidden="true" /><p className="min-w-0 text-table text-fg"><span className="font-medium">{entry.actor ?? "NESTO"}</span> {entry.message}<span className="mt-0.5 block text-meta text-fg-subtle">{formatDate(entry.createdAt)}</span></p></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noActivity")}</p>}</section>;
+  const locale = await getLocale();
+  return <section className="nesto-card p-5" aria-labelledby="activity-title"><div className="flex items-center justify-between gap-3"><h2 id="activity-title" className="text-card font-semibold text-fg">{t("overview.recentActivity")}</h2>{entries.length ? <Link href={`/projects/${projectId}/activity`} className="text-meta font-medium text-accent-strong">{t("overview.viewAll")}</Link> : null}</div>{entries.length ? <ul className="mt-4 space-y-4">{entries.map((entry) => <li key={entry.id} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" aria-hidden="true" /><p className="min-w-0 text-table text-fg"><span className="font-medium">{entry.actor ?? "NESTO"}</span> {localizeActivity(locale, entry)}<span className="mt-0.5 block text-meta text-fg-subtle">{formatDate(entry.createdAt, locale)}</span></p></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noActivity")}</p>}</section>;
 }
 
 async function MediaLibrary({ projectId, media }: { projectId: string; media: Media }) {

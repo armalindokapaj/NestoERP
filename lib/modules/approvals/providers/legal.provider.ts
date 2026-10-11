@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { approveAmendment, rejectAmendment, returnAmendment } from "@/lib/modules/contracts/amendments/amendment.service";
 import * as legalApprovals from "@/lib/modules/contracts/approvals/approval.service";
 import { canSeeCommercial } from "@/lib/modules/contracts/contract.dto";
@@ -58,6 +59,7 @@ export const legalApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.contract.findMany({
           where: { AND: [buildContractScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -82,10 +84,10 @@ export const legalApprovalProvider = createCycleProvider({
             const counterparty = row.counterpartyName ?? row.client?.name ?? null;
             const warnings: RecordFacts["warnings"] = [];
             if (row.effectiveDate && row.effectiveDate < today) {
-              warnings.push({ code: "EFFECTIVE_DATE_PASSED", message: `It was due to take effect ${formatDate(row.effectiveDate)}, before approval.`, severity: "WARNING" });
+              warnings.push({ code: "EFFECTIVE_DATE_PASSED", message: `It was due to take effect ${formatDate(row.effectiveDate, locale)}, before approval.`, severity: "WARNING" });
             }
             if (row.expiryDate && row.expiryDate.getTime() - today.getTime() < 30 * DAY) {
-              warnings.push({ code: "CONTRACT_EXPIRES_SOON", message: `It expires ${formatDate(row.expiryDate)}.`, severity: "WARNING" });
+              warnings.push({ code: "CONTRACT_EXPIRES_SOON", message: `It expires ${formatDate(row.expiryDate, locale)}.`, severity: "WARNING" });
             }
             return [
               row.id,
@@ -102,9 +104,9 @@ export const legalApprovalProvider = createCycleProvider({
                   { label: "Type", value: labelOf(row.contractType) },
                   { label: "Counterparty", value: counterparty ?? "—" },
                   { label: "Project", value: row.project?.name ?? "—" },
-                  { label: "Effective", value: formatDate(row.effectiveDate) },
-                  { label: "Expires", value: formatDate(row.expiryDate) },
-                  ...(commercial ? [{ label: "Value", value: formatAmount(row.contractValue, row.currency), emphasis: "strong" as const }] : []),
+                  { label: "Effective", value: formatDate(row.effectiveDate, locale) },
+                  { label: "Expires", value: formatDate(row.expiryDate, locale) },
+                  ...(commercial ? [{ label: "Value", value: formatAmount(row.contractValue, row.currency, locale), emphasis: "strong" as const }] : []),
                 ],
                 description: row.summary,
                 warnings,
@@ -145,6 +147,7 @@ export const legalApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.contractAmendment.findMany({
           where: { AND: [buildAmendmentScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -179,15 +182,15 @@ export const legalApprovalProvider = createCycleProvider({
                 ...(commercial ? valueSignals(row.valueDelta?.abs() ?? null) : {}),
                 summary: [
                   { label: "Contract", value: `${row.contract.contractNumber} · ${row.contract.title}` },
-                  { label: "Effective", value: formatDate(row.effectiveDate) },
+                  { label: "Effective", value: formatDate(row.effectiveDate, locale) },
                   ...(commercial
                     ? [
-                        { label: "Value change", value: formatAmount(row.valueDelta, currency), emphasis: row.valueDelta && row.valueDelta.gt(0) ? ("warning" as const) : ("normal" as const) },
-                        { label: "Value before", value: formatAmount(row.previousContractValue, currency) },
-                        { label: "Value after", value: formatAmount(row.newContractValue, currency), emphasis: "strong" as const },
+                        { label: "Value change", value: formatAmount(row.valueDelta, currency, locale), emphasis: row.valueDelta && row.valueDelta.gt(0) ? ("warning" as const) : ("normal" as const) },
+                        { label: "Value before", value: formatAmount(row.previousContractValue, currency, locale) },
+                        { label: "Value after", value: formatAmount(row.newContractValue, currency, locale), emphasis: "strong" as const },
                       ]
                     : []),
-                  ...(row.newExpiryDate ? [{ label: "New expiry", value: formatDate(row.newExpiryDate) }] : []),
+                  ...(row.newExpiryDate ? [{ label: "New expiry", value: formatDate(row.newExpiryDate, locale) }] : []),
                 ],
                 description: row.summary,
               },

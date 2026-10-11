@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
+import { publishActivityChange } from "@/lib/activity/client";
 import { LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
 
 /**
@@ -14,6 +15,9 @@ import { LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
  * full reload, and the root layout hands client components the new dictionary.
  * `choice` moves at once, so the control answers the click before the refresh
  * has landed.
+ *
+ * The bell keeps its own list, fetched from the API and held for a while; it
+ * is told to read again, or it would go on showing the old language.
  */
 export function useChangeLocale() {
   const router = useRouter();
@@ -27,6 +31,7 @@ export function useChangeLocale() {
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
     document.documentElement.lang = next;
     startTransition(() => router.refresh());
+    publishActivityChange();
   }
 
   return { choice, change, isPending };

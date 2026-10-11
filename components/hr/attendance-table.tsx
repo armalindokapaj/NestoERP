@@ -2,10 +2,10 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { hrLabel } from "./hr-labels";
 import type { AttendanceDTO } from "@/lib/modules/hr/hr.types";
-import { formatDate } from "@/lib/utils/format";
 import { formatTimeOfDay, formatWorkedMinutes } from "./hr-format";
 
 /**
@@ -28,6 +28,7 @@ export async function AttendanceTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hr");
   const columns: TableColumn<AttendanceDTO>[] = [
     ...(showEmployee
@@ -42,7 +43,7 @@ export async function AttendanceTable({
               <span className="min-w-0">
                 <span className="block truncate">{record.employee.fullName}</span>
                 <span className="block truncate text-meta font-normal text-fg-subtle">
-                  {formatDate(record.date)}
+                  {formatDate(record.date, locale)}
                 </span>
               </span>
             ),
@@ -57,7 +58,7 @@ export async function AttendanceTable({
             sortKey: sort ? "date" : undefined,
             label: t("attendance.date"),
             primary: true,
-            render: (record: AttendanceDTO) => <span>{formatDate(record.date)}</span>,
+            render: (record: AttendanceDTO) => <span>{formatDate(record.date, locale)}</span>,
           },
         ]),
     ...(showEmployee
@@ -71,7 +72,7 @@ export async function AttendanceTable({
             label: t("attendance.date"),
             hideBelow: "xl" as const,
             render: (record: AttendanceDTO) => (
-              <span className="text-fg-muted">{formatDate(record.date)}</span>
+              <span className="text-fg-muted">{formatDate(record.date, locale)}</span>
             ),
           },
         ]

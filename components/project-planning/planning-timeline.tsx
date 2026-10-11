@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { ChevronRight } from "lucide-react";
 
-import { addLocalDays, dateLabel, daysBetween, MONTHS } from "@/lib/modules/project-planning/planning.dates";
+import type { Locale } from "@/lib/i18n/config";
+import { monthName } from "@/lib/i18n/format";
+import { addLocalDays, dateLabel, daysBetween } from "@/lib/modules/project-planning/planning.dates";
 import { type DependencyEdgeDTO, type MilestoneSummaryDTO, type PhaseSummaryDTO } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 import { markerColor, useVarianceLabel } from "./planning-ui";
@@ -41,7 +43,7 @@ export function defaultZoom(start: string | null, end: string | null): TimelineZ
   return span <= 120 ? "week" : span <= 540 ? "month" : "quarter";
 }
 
-function ticks(start: string, end: string, zoom: TimelineZoom): Array<{ date: string; label: string; major: boolean }> {
+function ticks(start: string, end: string, zoom: TimelineZoom, locale: Locale): Array<{ date: string; label: string; major: boolean }> {
   const result: Array<{ date: string; label: string; major: boolean }> = [];
   const [sy, sm] = start.split("-").map(Number);
   if (zoom === "week") {
@@ -50,7 +52,7 @@ function ticks(start: string, end: string, zoom: TimelineZoom): Array<{ date: st
     day = addLocalDays(day, (8 - (weekday === 0 ? 7 : weekday)) % 7);
     while (day <= end) {
       const [, month, date] = day.split("-").map(Number);
-      result.push({ date: day, label: `${date} ${MONTHS[month - 1]}`, major: date <= 7 });
+      result.push({ date: day, label: `${date} ${monthName(month, "short", locale)}`, major: date <= 7 });
       day = addLocalDays(day, 7);
     }
     return result;
@@ -61,7 +63,7 @@ function ticks(start: string, end: string, zoom: TimelineZoom): Array<{ date: st
     const date = `${year}-${String(month).padStart(2, "0")}-01`;
     if (date > end) break;
     if (date >= start && (zoom === "month" || (month - 1) % 3 === 0)) {
-      result.push({ date, label: zoom === "month" ? `${MONTHS[month - 1]}${month === 1 ? ` ${year}` : ""}` : `Q${Math.floor((month - 1) / 3) + 1} ${year}`, major: month === 1 });
+      result.push({ date, label: zoom === "month" ? `${monthName(month, "short", locale)}${month === 1 ? ` ${year}` : ""}` : `Q${Math.floor((month - 1) / 3) + 1} ${year}`, major: month === 1 });
     }
     month += 1;
     if (month > 12) {
@@ -97,6 +99,7 @@ export function PlanningTimeline({
   onOpenPhase: (id: string) => void;
   showPhasesWithoutMatches?: boolean;
 }) {
+  const locale = useLocale();
   const t = useTranslations("projects");
   const varianceLabel = useVarianceLabel();
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -156,7 +159,7 @@ export function PlanningTimeline({
   const last = virtual ? Math.min(rows.length, Math.ceil((viewport.top + viewport.height) / ROW) + OVERSCAN) : rows.length;
   const visible = rows.slice(first, last);
   const heightPx = HEADER + rows.length * ROW;
-  const tickList = ticks(start, end, zoom);
+  const tickList = ticks(start, end, zoom, locale);
   const todayX = x(today) + perDay / 2;
 
   const edges = dependencies
@@ -272,7 +275,7 @@ export function PlanningTimeline({
                         onClick={() => onOpenPhase(phase.id)}
                         className="absolute top-1/2 h-3.5 -translate-y-1/2 overflow-hidden rounded-full border border-line-strong/60 bg-line/70 hover:border-line-strong"
                         style={{ left: x(span.start), width: Math.max(8, (daysBetween(span.start, span.end) + 1) * perDay) }}
-                        title={`${phase.name}: ${dateLabel(span.start)} – ${dateLabel(span.end)} · ${t(`milestoneStatus.${phase.status}`)} · ${progress}%`}
+                        title={`${phase.name}: ${dateLabel(span.start, locale)} – ${dateLabel(span.end, locale)} · ${t(`milestoneStatus.${phase.status}`)} · ${progress}%`}
                         aria-hidden="true"
                         tabIndex={-1}
                         data-testid="timeline-phase-bar"
@@ -288,7 +291,7 @@ export function PlanningTimeline({
             const date = milestone.displayDate;
             const color = markerColor(milestone.status, milestone.delayed);
             const baselineShown = milestone.baselineDate && date && milestone.baselineDate !== date;
-            const label = `${milestone.name}, ${date ? dateLabel(date) : t("timeline.noDate")}, ${milestone.delayed ? t("timeline.delayed") : t(`milestoneStatus.${milestone.status}`)}${milestone.critical ? t("timeline.criticalSuffix") : ""}, ${varianceLabel(milestone.varianceDays)}`;
+            const label = `${milestone.name}, ${date ? dateLabel(date, locale) : t("timeline.noDate")}, ${milestone.delayed ? t("timeline.delayed") : t(`milestoneStatus.${milestone.status}`)}${milestone.critical ? t("timeline.criticalSuffix") : ""}, ${varianceLabel(milestone.varianceDays)}`;
             return (
               <div key={row.id} className="absolute left-0 flex border-b border-line/40" style={{ top, height: ROW, width: LEFT + width }} data-testid="timeline-row">
                 <button type="button" onClick={() => onOpenMilestone(milestone.id)} className="sticky left-0 z-10 flex items-center gap-2 border-r border-line bg-surface pl-9 pr-4 text-left text-table text-fg hover:text-accent-strong" style={{ width: LEFT, minWidth: LEFT }} aria-label={label}>
@@ -299,7 +302,7 @@ export function PlanningTimeline({
                   {baselineShown ? (
                     <>
                       <span aria-hidden="true" className="absolute top-1/2 h-px bg-fg-subtle/50" style={{ left: Math.min(centre(milestone.baselineDate!), centre(date!)), width: Math.abs(centre(date!) - centre(milestone.baselineDate!)) }} />
-                      <span aria-hidden="true" className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] border-[1.5px] border-fg-subtle bg-surface" style={{ left: centre(milestone.baselineDate!) }} title={t("timeline.baselineOn", { date: dateLabel(milestone.baselineDate) })} />
+                      <span aria-hidden="true" className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] border-[1.5px] border-fg-subtle bg-surface" style={{ left: centre(milestone.baselineDate!) }} title={t("timeline.baselineOn", { date: dateLabel(milestone.baselineDate, locale) })} />
                     </>
                   ) : null}
                   {date ? (
@@ -332,7 +335,7 @@ export function PlanningTimeline({
         <div role="tooltip" className="pointer-events-none fixed z-[70] w-64 rounded-lg border border-line bg-surface px-3 py-2 shadow-dialog" style={{ left: Math.min(hover.x + 14, window.innerWidth - 272), top: hover.y + 14 }}>
           <p className="text-table font-medium text-fg">{hover.milestone.name}</p>
           <p className="text-meta text-fg-muted">
-            {hover.milestone.status === "COMPLETED" ? t("timeline.achieved") : t("timeline.forecast")} {dateLabel(hover.milestone.displayDate)} · {hover.milestone.delayed ? t("timeline.delayed") : t(`milestoneStatus.${hover.milestone.status}`)}
+            {hover.milestone.status === "COMPLETED" ? t("timeline.achieved") : t("timeline.forecast")} {dateLabel(hover.milestone.displayDate, locale)} · {hover.milestone.delayed ? t("timeline.delayed") : t(`milestoneStatus.${hover.milestone.status}`)}
           </p>
           <p className="text-meta text-fg-muted">
             {hover.milestone.owner ? hover.milestone.owner.name : t("timeline.noOwner")} · {varianceLabel(hover.milestone.varianceDays)}

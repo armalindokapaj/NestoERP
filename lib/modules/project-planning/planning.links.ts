@@ -9,6 +9,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { readableDailyLogWhere } from "@/lib/modules/daily-logs/daily-log.permissions";
 import { readableMeetingWhere } from "@/lib/modules/meetings/meeting.permissions";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
@@ -150,6 +151,7 @@ export type MilestoneOptions = {
 
 /** Only what the server would accept from this writer (§159, §198, §199). */
 export async function milestoneOptions(context: UserContext, milestoneId: string): Promise<MilestoneOptions> {
+  const locale = await getRequestLocale();
   const milestone = await findReadableMilestone(context, milestoneId);
   const projectId = milestone.projectId;
   const [members, milestones, edges, links, tasks, meetings, logs] = await Promise.all([
@@ -170,7 +172,7 @@ export async function milestoneOptions(context: UserContext, milestoneId: string
     // A milestone that already waits on this one cannot also come before it (§37).
     milestones: milestones.map((row) => ({ id: row.id, label: row.name, status: STATUS_LABELS[row.status], blocked: existing.includes(row.id) || wouldCreateCycle(graph, row.id, milestone.id) })),
     tasks: tasks.map((row) => ({ id: row.id, label: row.title, status: row.status, linked: linkedTasks.has(row.id) })),
-    meetings: meetings.map((row) => ({ id: row.id, label: `${row.title} · ${dateLabel(row.startsAt.toISOString().slice(0, 10))}`, linked: linked.has(`meeting:${row.id}`) })),
-    dailyLogs: logs.map((row) => ({ id: row.id, label: `Daily log · ${dateLabel(dateOf(row.workDate))}`, linked: linked.has(`daily_log:${row.id}`) })),
+    meetings: meetings.map((row) => ({ id: row.id, label: `${row.title} · ${dateLabel(row.startsAt.toISOString().slice(0, 10), locale)}`, linked: linked.has(`meeting:${row.id}`) })),
+    dailyLogs: logs.map((row) => ({ id: row.id, label: `Daily log · ${dateLabel(dateOf(row.workDate), locale)}`, linked: linked.has(`daily_log:${row.id}`) })),
   };
 }

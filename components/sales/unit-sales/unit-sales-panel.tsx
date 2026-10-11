@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -17,9 +18,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/components/ui/toast";
 import { FieldsDialog } from "@/components/finance/unit-finance/fields-dialog";
 import { UnitContractStatusBadge } from "@/components/finance/unit-finance/finance-status";
+import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/i18n/format";
 import { COMMERCIAL_SOURCE_LABELS, UNIT_COMMERCIAL_STATUS_LABELS, UNIT_SOLD_RULE_LABELS, UNIT_PRICE_BASIS_LABELS, UNIT_RESERVATION_STATUS_LABELS, type ReservationDTO, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import { failureMessage } from "@/components/project-structure/structure-ui";
-import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/utils/format";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
 import { soldMissingText } from "./sold-missing";
@@ -37,6 +38,7 @@ import { CorrectDialog, dateValue, PriceDialog, ReasonDialog, ReopenDialog, Rese
 type Open = "price" | "hold" | "reserve" | "extend" | "release" | "sold" | "notSold" | "reopen" | "correct" | "putOnSale" | "takeOff" | "releaseHold" | "requestApproval" | "approveSale" | "rejectSale" | null;
 
 export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; initialAction?: string | null }) {
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const toast = useToast();
@@ -117,7 +119,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
               {t("unitSales.sales")}
             </h2>
             <CommercialStatusBadge status={status} />
-            {sales.statusChangedAt ? <span className="text-meta text-fg-subtle">{t("unitSales.since", { date: formatDate(sales.statusChangedAt) })}</span> : null}
+            {sales.statusChangedAt ? <span className="text-meta text-fg-subtle">{t("unitSales.since", { date: formatDate(sales.statusChangedAt, locale) })}</span> : null}
           </div>
 
           {!sales.sellable && (status === "NOT_FOR_SALE" || status === "FOR_SALE" || status === "ON_HOLD") ? (
@@ -129,9 +131,9 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
           <DetailGrid
             className="mt-4"
             items={[
-              { label: t("unitSales.askingPrice"), value: <span className="tabular-nums" data-testid="asking-price">{moneyLabel(sales.askingPrice, sales.currency)}</span> },
-              { label: t("unitSales.pricePerSqm"), value: <span className="tabular-nums" data-testid="price-per-sqm">{sales.priceBasis === "FIXED_UNIT_PRICE" ? "—" : perSqmLabel(sales.pricePerSqm, sales.currency)}</span> },
-              { label: t("unitSales.priceBasis"), value: `${salesLabel(t, "priceBasis", sales.priceBasis, UNIT_PRICE_BASIS_LABELS[sales.priceBasis])}${sales.basisArea ? ` · ${areaText(sales.basisArea)}` : ""}` },
+              { label: t("unitSales.askingPrice"), value: <span className="tabular-nums" data-testid="asking-price">{moneyLabel(sales.askingPrice, sales.currency, locale)}</span> },
+              { label: t("unitSales.pricePerSqm"), value: <span className="tabular-nums" data-testid="price-per-sqm">{sales.priceBasis === "FIXED_UNIT_PRICE" ? "—" : perSqmLabel(sales.pricePerSqm, sales.currency, locale)}</span> },
+              { label: t("unitSales.priceBasis"), value: `${salesLabel(t, "priceBasis", sales.priceBasis, UNIT_PRICE_BASIS_LABELS[sales.priceBasis])}${sales.basisArea ? ` · ${areaText(sales.basisArea, locale)}` : ""}` },
               ...(status === "ON_HOLD"
                 ? [
                     {
@@ -139,7 +141,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                       value: (
                         <>
                           {sales.heldBy ? <PersonLink memberId={sales.heldByMemberId} name={sales.heldBy} /> : "—"}
-                          {sales.holdUntil ? t("unitSales.until", { date: formatDate(sales.holdUntil) }) : ""}
+                          {sales.holdUntil ? t("unitSales.until", { date: formatDate(sales.holdUntil, locale) }) : ""}
                         </>
                       ),
                     },
@@ -242,10 +244,10 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                     <Badge tone={row.status === "ACTIVE" ? "info" : row.status === "CONVERTED_TO_SALE" ? "success" : "default"}>{salesLabel(t, "reservationStatus", row.status, UNIT_RESERVATION_STATUS_LABELS[row.status])}</Badge>
                     <span className="font-medium text-fg">{row.client?.name ?? t("unitSales.clientHidden")}</span>
                     {row.deal ? <span className="text-fg-muted">· {row.deal.name}</span> : null}
-                    <span className="ml-auto tabular-nums text-fg-muted">{moneyLabel(row.agreedPrice, row.currency)}</span>
+                    <span className="ml-auto tabular-nums text-fg-muted">{moneyLabel(row.agreedPrice, row.currency, locale)}</span>
                   </div>
                   <p className="mt-0.5 text-meta text-fg-subtle">
-                    {formatDate(row.reservedAt)} – {formatDate(row.closedAt ?? row.expiresAt)}
+                    {formatDate(row.reservedAt, locale)} – {formatDate(row.closedAt ?? row.expiresAt, locale)}
                     {row.salesperson ? (
                       <>
                         {" · "}
@@ -274,7 +276,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                   <Link href={`/sales/opportunities/${deal.id}`} className="truncate font-medium text-fg hover:underline">
                     {deal.name}
                   </Link>
-                  <span className="tabular-nums text-fg-muted">{moneyLabel(deal.agreedPrice, deal.currency)}</span>
+                  <span className="tabular-nums text-fg-muted">{moneyLabel(deal.agreedPrice, deal.currency, locale)}</span>
                 </li>
               ))}
             </ul>
@@ -292,11 +294,11 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
               {sales.priceHistory.map((row) => (
                 <li key={row.id} className="py-2 text-table">
                   <p className="tabular-nums text-fg">
-                    {row.oldPrice ? `${moneyLabel(row.oldPrice, row.oldCurrency)} → ` : ""}
-                    <span className="font-medium">{moneyLabel(row.newPrice, row.currency)}</span>
+                    {row.oldPrice ? `${moneyLabel(row.oldPrice, row.oldCurrency, locale)} → ` : ""}
+                    <span className="font-medium">{moneyLabel(row.newPrice, row.currency, locale)}</span>
                   </p>
                   <p className="text-meta text-fg-subtle">
-                    {formatDateTime(row.changedAt)}
+                    {formatDateTime(row.changedAt, locale)}
                     {row.changedBy ? (
                       <>
                         {" · "}
@@ -326,7 +328,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
                     <span className="font-medium">{salesLabel(t, "commercialStatus", row.toStatus, UNIT_COMMERCIAL_STATUS_LABELS[row.toStatus])}</span>
                   </p>
                   <p className="text-meta text-fg-subtle">
-                    {formatDateTime(row.changedAt)} · {row.actor ? <PersonLink memberId={row.actorMemberId} name={row.actor} /> : salesLabel(t, "commercialSource", row.source, COMMERCIAL_SOURCE_LABELS[row.source])}
+                    {formatDateTime(row.changedAt, locale)} · {row.actor ? <PersonLink memberId={row.actorMemberId} name={row.actor} /> : salesLabel(t, "commercialSource", row.source, COMMERCIAL_SOURCE_LABELS[row.source])}
                   </p>
                   {row.reason ? <p className="text-meta text-fg-muted">{row.reason}</p> : null}
                 </li>
@@ -363,7 +365,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
             open={open === "extend"}
             onClose={() => setOpen(null)}
             title={t("unitSales.extendTitle", { unit: sales.unitCode })}
-            description={t("unitSales.extendDescription", { date: formatDate(reservation.expiresAt) })}
+            description={t("unitSales.extendDescription", { date: formatDate(reservation.expiresAt, locale) })}
             confirmLabel={t("unitSales.extend")}
             url={`/api/unit-reservations/${reservation.id}/extend`}
             body={{ expectedVersion: reservation.version }}
@@ -394,7 +396,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
         open={open === "sold"}
         onOpenChange={(value) => !value && setOpen(null)}
         title={t("unitSales.soldTitle", { unit: sales.unitCode })}
-        description={t("unitSales.soldDescription", { client: reservation?.client?.name ?? t("unitSales.theClient"), price: moneyLabel(reservation?.agreedPrice ?? null, reservation?.currency ?? null) })}
+        description={t("unitSales.soldDescription", { client: reservation?.client?.name ?? t("unitSales.theClient"), price: moneyLabel(reservation?.agreedPrice ?? null, reservation?.currency ?? null, locale) })}
         confirmLabel={t("unitSales.markSold")}
         destructive={false}
         pending={pending}
@@ -422,6 +424,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
 }
 
 function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
+  const locale = useLocale();
   const expires = new Date(reservation.expiresAt);
   const left = expires.getTime() - Date.now();
   const soon = left < 86_400_000;
@@ -433,17 +436,17 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
           {t("unitSales.reservation")}
         </h2>
         {/* Past its date and not yet closed by the expiry job, which runs every few minutes (§25). */}
-        <Badge tone={soon ? "warning" : "info"}>{left <= 0 ? t("unitSales.expiredReleasing") : t("unitSales.expires", { when: formatRelativeTime(expires) })}</Badge>
+        <Badge tone={soon ? "warning" : "info"}>{left <= 0 ? t("unitSales.expiredReleasing") : t("unitSales.expires", { when: formatRelativeTime(expires, locale) })}</Badge>
       </div>
       <DetailGrid
         className="mt-4"
         items={[
           { label: t("unitSales.client"), value: reservation.client ? <Link href={`/clients/${reservation.client.id}`} className="font-medium hover:underline" data-testid="reservation-client">{reservation.client.name}</Link> : t("unitSales.hidden") },
           { label: t("unitSales.deal"), value: reservation.deal ? <Link href={`/sales/opportunities/${reservation.deal.id}`} className="font-medium hover:underline" data-testid="reservation-deal">{reservation.deal.name}</Link> : t("unitSales.hidden") },
-          { label: t("unitSales.reserved"), value: formatDate(reservation.reservedAt) },
-          { label: t("unitSales.expiresLabel"), value: <span data-testid="reservation-expires">{formatDateTime(reservation.expiresAt)}</span> },
+          { label: t("unitSales.reserved"), value: formatDate(reservation.reservedAt, locale) },
+          { label: t("unitSales.expiresLabel"), value: <span data-testid="reservation-expires">{formatDateTime(reservation.expiresAt, locale)}</span> },
           { label: t("unitSales.salesperson"), value: reservation.salesperson ? <PersonLink memberId={reservation.salespersonMemberId} name={reservation.salesperson} /> : "—" },
-          { label: t("unitSales.agreedPrice"), value: <span className="tabular-nums" data-testid="agreed-price">{moneyLabel(reservation.agreedPrice, reservation.currency)}</span> },
+          { label: t("unitSales.agreedPrice"), value: <span className="tabular-nums" data-testid="agreed-price">{moneyLabel(reservation.agreedPrice, reservation.currency, locale)}</span> },
         ]}
       />
       {reservation.notes ? <p className="mt-4 whitespace-pre-line text-table text-fg-muted">{reservation.notes}</p> : null}
@@ -453,7 +456,7 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
           <ul className="mt-1 space-y-1">
             {reservation.extensions.map((extension) => (
               <li key={extension.extendedAt} className="text-meta text-fg-muted">
-                {formatDate(extension.oldExpiresAt)} → {formatDate(extension.newExpiresAt)}
+                {formatDate(extension.oldExpiresAt, locale)} → {formatDate(extension.newExpiresAt, locale)}
                 {extension.extendedBy ? (
                   <>
                     {" · "}

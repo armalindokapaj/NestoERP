@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { PackageCheck } from "lucide-react";
@@ -38,6 +38,7 @@ export default async function LowStockPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const locale = await getLocale();
   const context = await requireModule("inventory");
   if (!can(context, "inventory.low_stock.view") || !canSeeStock(context)) {
     redirect("/access-denied");
@@ -83,7 +84,7 @@ export default async function LowStockPage({
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
-          {formatQuantity(row.stock?.onHand)} {row.baseUnit}
+          {formatQuantity(row.stock?.onHand, locale)} {row.baseUnit}
         </span>
       ),
     },
@@ -95,7 +96,7 @@ export default async function LowStockPage({
       align: "right",
       hideBelow: "md",
       render: (row) => (
-        <span className="tabular-nums">{formatQuantity(row.stock?.available)}</span>
+        <span className="tabular-nums">{formatQuantity(row.stock?.available, locale)}</span>
       ),
     },
     {
@@ -109,7 +110,7 @@ export default async function LowStockPage({
         row.reorderPoint === null ? (
           <span className="text-fg-subtle">—</span>
         ) : (
-          <span className="tabular-nums text-fg-muted">{formatQuantity(row.reorderPoint)}</span>
+          <span className="tabular-nums text-fg-muted">{formatQuantity(row.reorderPoint, locale)}</span>
         ),
     },
     {
@@ -123,7 +124,7 @@ export default async function LowStockPage({
         row.minimumStock === null ? (
           <span className="text-fg-subtle">—</span>
         ) : (
-          <span className="tabular-nums text-fg-muted">{formatQuantity(row.minimumStock)}</span>
+          <span className="tabular-nums text-fg-muted">{formatQuantity(row.minimumStock, locale)}</span>
         ),
     },
     {

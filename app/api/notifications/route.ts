@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { apiOk, withContext } from "@/lib/api/respond";
 import { listNotificationsForWorkspace } from "@/lib/core/notifications/notification.service";
+import { getRequestLocale } from "@/lib/i18n/server";
+import { localizeNotification } from "@/lib/i18n/system";
 
 const querySchema = z.object({
   readState: z.enum(["UNREAD", "READ"]).optional(),
@@ -27,7 +29,9 @@ export async function GET(request: Request) {
         before: params.get("before") ?? undefined,
         limit: params.get("limit") ?? undefined,
       });
-      return apiOk(await listNotificationsForWorkspace(context, query));
+      const [page, locale] = await Promise.all([listNotificationsForWorkspace(context, query), getRequestLocale()]);
+      // Titles and bodies are stored in English and answered in the reader's language.
+      return apiOk({ ...page, data: page.data.map((row) => localizeNotification(locale, row)) });
     },
     { group: "read" },
   );

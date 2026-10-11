@@ -153,6 +153,7 @@ export const procurementEn = {
     },
     priority: { LOW: "Low", MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical" },
     category: {
+      UNCATEGORISED: "Uncategorised",
       MATERIALS: "Materials",
       EQUIPMENT: "Equipment",
       SUBCONTRACT: "Subcontract",

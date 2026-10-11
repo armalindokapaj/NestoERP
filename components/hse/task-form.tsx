@@ -29,6 +29,7 @@ export function HseTaskForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={t("forms.createTask")}
+      saveKind="create"
       pendingLabel={t("page.creating")}
     >
       <FormSection

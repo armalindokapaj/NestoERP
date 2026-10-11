@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import Link from "@/components/navigation/nav-link";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { AssignProjectCompany } from "@/components/platform/project-assignment";
@@ -10,10 +11,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDate } from "@/lib/i18n/format";
 import { getPlatformProjectDetail, projectCompanyOptions, projectModules, projectUsers } from "@/lib/modules/platform/platform-projects.query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
 import { threeDLabel } from "../../organizations/_detail/labels";
 
 export async function generateMetadata() {
@@ -30,6 +31,7 @@ const TABS = [["overview", "project.tabs.overview"], ["companies", "project.tabs
  * administration; its business records stay in the tenant workspace.
  */
 export default async function PlatformProjectPage({ params, searchParams }: Props) {
+  const locale = await getLocale();
   const [{ projectId }, { tab: rawTab, from }] = await Promise.all([params, searchParams]);
   const t = await getTranslations("adminOrgs");
   const context = await requirePlatformContext();
@@ -80,8 +82,8 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
               [t("project.usersLabel"), project.members],
               [t("project.units"), project.units],
               [t("project.threeD"), threeDLabel(t, project.threeD.state)],
-              [t("project.created"), formatDate(project.createdAt)],
-              [t("project.updated"), formatDate(project.updatedAt)],
+              [t("project.created"), formatDate(project.createdAt, locale)],
+              [t("project.updated"), formatDate(project.updatedAt, locale)],
             ] as const).map(([name, value]) => <div key={name}><dt className="text-meta text-fg-subtle">{name}</dt><dd className="text-body text-fg">{value}</dd></div>)}
           </dl>
           {project.description ? <p className="mt-4 text-table text-fg-muted">{project.description}</p> : null}
@@ -153,7 +155,7 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
 }
 
 async function UsersTab({ context, projectId }: { context: Awaited<ReturnType<typeof requirePlatformContext>>; projectId: string }) {
-  const t = await getTranslations("adminOrgs");
+  const [t, tr] = await Promise.all([getTranslations("adminOrgs"), getTranslations("roles")]);
   const rows = await projectUsers(context, projectId);
   return (
     <section className="nesto-card overflow-hidden" aria-label={t("project.tabs.users")}>
@@ -162,7 +164,7 @@ async function UsersTab({ context, projectId }: { context: Awaited<ReturnType<ty
           <Table stack aria-label={t("project.users.label")}>
             <TableHead><TableRow><TableHeaderCell>{t("project.users.user")}</TableHeaderCell><TableHeaderCell>{t("common.role")}</TableHeaderCell><TableHeaderCell>{t("common.status")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
-              {rows.map((row) => <TableRow key={row.id}><TableCell><span className="font-medium text-fg">{row.name}</span>{row.primary ? <span className="ml-2 text-meta text-fg-subtle">{t("project.users.primary")}</span> : null}<p className="font-mono text-micro text-fg-subtle">{row.username}</p></TableCell><TableCell>{row.role}</TableCell><TableCell><AdminStatusBadge status={row.status} /></TableCell></TableRow>)}
+              {rows.map((row) => <TableRow key={row.id}><TableCell><span className="font-medium text-fg">{row.name}</span>{row.primary ? <span className="ml-2 text-meta text-fg-subtle">{t("project.users.primary")}</span> : null}<p className="font-mono text-micro text-fg-subtle">{row.username}</p></TableCell><TableCell>{adminRoleName(tr, row.role)}</TableCell><TableCell><AdminStatusBadge status={row.status} /></TableCell></TableRow>)}
             </TableBody>
           </Table>
         </div>

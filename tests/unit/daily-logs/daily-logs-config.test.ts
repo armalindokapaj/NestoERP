@@ -82,8 +82,8 @@ describe("site days (§16-§19, §104-§106, §250)", () => {
   });
 
   it("labels dates the same way everywhere", () => {
-    expect(dateLabel("2026-09-14")).toBe("14 Sep 2026");
-    expect(longDateLabel("2026-09-14")).toBe("Monday 14 Sep 2026");
+    expect(dateLabel("2026-09-14", "en")).toBe("14 Sep 2026");
+    expect(longDateLabel("2026-09-14", "en")).toBe("Monday 14 Sep 2026");
     expect(minutesBetween("07:30", "09:15")).toBe(105);
   });
 });

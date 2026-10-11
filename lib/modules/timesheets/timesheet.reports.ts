@@ -9,6 +9,7 @@ import { buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope"
 import type { UserContext } from "@/lib/context/types";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { localDate } from "@/lib/modules/calendar/calendar.time";
 import { MODULE, projectLogWhere, seesEntryDetail, teamMemberWhere, timesheetsOpen } from "./timesheet.permissions";
 import type { projectSummaryQuerySchema, teamQuerySchema } from "./timesheet.schema";
@@ -46,6 +47,7 @@ const TIMESHEET_ROLES = ROLE_KEYS.filter((role) => (permissionsForRole(role) as 
 
 /** Everyone whose week this reader oversees, for one week (§87-§89, §153). */
 export async function listTeamTimesheets(context: UserContext, query: z.infer<typeof teamQuerySchema>): Promise<TeamTimesheetListDTO> {
+  const locale = await getRequestLocale();
   assertModule(context, MODULE);
   if (!timesheetsOpen(context) || !(can(context, "timesheet.team.view") || can(context, "timesheet.approve"))) throw new AccessError("FORBIDDEN");
   const started = Date.now();
@@ -159,7 +161,7 @@ export async function listTeamTimesheets(context: UserContext, query: z.infer<ty
   return {
     periodStart,
     periodEnd: weekEndOf(periodStart),
-    weekLabel: weekLabel(periodStart),
+    weekLabel: weekLabel(periodStart, locale),
     rows,
     counts,
     departments: [...departments].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),

@@ -9,6 +9,7 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { addLocalDays, localDate } from "@/lib/modules/calendar/calendar.time";
 import { notifyEngineering } from "./engineering.notify";
 import { DOCUMENT_RECORD, MODULE, RFI_RECORD, SUBMITTAL_RECORD } from "./engineering.permissions";
@@ -116,11 +117,11 @@ function reminderPasses(companyId: string, today: string, horizon: string): Remi
     prisma.technicalSubmittal.findMany({ where: { ...reviewsDue(companyId, dueAt), ...idAfter(after) }, orderBy: { id: "asc" }, take: BATCH, select: SUBMITTAL_ROW });
   const rfi = (row: RfiAttentionRow, memberIds: Array<string | null>): Reminder => {
     const due = dateOf(row.dueAt)!;
-    return { id: row.id, projectId: row.projectId, due, memberIds, payload: { number: row.rfiNumber, subject: row.subject, dueDate: due, dateLabel: dateLabel(due) } };
+    return { id: row.id, projectId: row.projectId, due, memberIds, payload: { number: row.rfiNumber, subject: row.subject, dueDate: due, dateLabel: dateLabel(due, SOURCE_LOCALE) } };
   };
   const submittal = (row: SubmittalAttentionRow, memberIds: Array<string | null>): Reminder => {
     const due = dateOf(row.dueAt)!;
-    return { id: row.id, projectId: row.projectId, due, memberIds, payload: { number: row.submittalNumber, title: row.title, dueDate: due, dateLabel: dateLabel(due) } };
+    return { id: row.id, projectId: row.projectId, due, memberIds, payload: { number: row.submittalNumber, title: row.title, dueDate: due, dateLabel: dateLabel(due, SOURCE_LOCALE) } };
   };
   return [
     {

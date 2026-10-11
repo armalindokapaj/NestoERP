@@ -3,7 +3,7 @@ import Link from "@/components/navigation/nav-link";
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import type { StockRowDTO } from "@/lib/modules/inventory/inventory.types";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { formatQuantity } from "./inventory-format";
 import { StockLevelBadge } from "./stock-level-badge";
 
@@ -29,6 +29,7 @@ export async function StockTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<StockRowDTO>[] = [];
 
@@ -96,7 +97,7 @@ export async function StockTable({
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
-          {formatQuantity(row.onHand)} {row.item.baseUnit}
+          {formatQuantity(row.onHand, locale)} {row.item.baseUnit}
         </span>
       ),
     },
@@ -108,7 +109,7 @@ export async function StockTable({
       align: "right",
       hideBelow: "lg",
       render: (row) => (
-        <span className="tabular-nums text-fg-muted">{formatQuantity(row.reserved)}</span>
+        <span className="tabular-nums text-fg-muted">{formatQuantity(row.reserved, locale)}</span>
       ),
     },
     {
@@ -119,7 +120,7 @@ export async function StockTable({
       sortKey: sort ? "available" : undefined,
       label: t("columns.available"),
       align: "right",
-      render: (row) => <span className="tabular-nums">{formatQuantity(row.available)}</span>,
+      render: (row) => <span className="tabular-nums">{formatQuantity(row.available, locale)}</span>,
     },
     {
       key: "level",

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { ArrowDown, ArrowUp, CalendarRange, Flag, GanttChart, LayoutDashboard, ListTree, Lock, MoreHorizontal, Network, Plus, Search, SlidersHorizontal, Unlock } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -74,6 +74,7 @@ function writeUrl(params: Record<string, string | null>) {
 }
 
 export function PlanningShell({ initial, initialView, initialMilestone, initialQuick }: { initial: ProjectPlanningOverviewDTO; initialView: View | null; initialMilestone: string | null; initialQuick: Quick | null }) {
+  const locale = useLocale();
   const t = useTranslations("projects");
   const tUi = useTranslations("ui");
   const toast = useToast();
@@ -446,7 +447,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                       {upcoming.map((milestone) => (
                         <li key={milestone.id}>
                           <button type="button" onClick={() => open(milestone.id)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-row-hover" data-testid="upcoming-milestone">
-                            <span className="w-14 shrink-0 text-meta font-medium tabular-nums text-fg-muted">{shortDateLabel(milestone.displayDate)}</span>
+                            <span className="w-14 shrink-0 text-meta font-medium tabular-nums text-fg-muted">{shortDateLabel(milestone.displayDate, locale)}</span>
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-table font-medium text-fg">{milestone.name}</span>
                               <span className="block truncate text-meta text-fg-muted">
@@ -481,7 +482,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                               <span className="block truncate text-table font-medium text-fg">{milestone.name}</span>
                               <span className="block truncate text-meta text-fg-muted">
                                 <OwnerName owner={milestone.owner} plain />
-                                {milestone.delayed ? t("planning.daysPast", { count: milestone.overdueDays, date: dateLabel(milestone.forecastDate ?? milestone.plannedDate) }) : ""}
+                                {milestone.delayed ? t("planning.daysPast", { count: milestone.overdueDays, date: dateLabel(milestone.forecastDate ?? milestone.plannedDate, locale) }) : ""}
                               </span>
                             </span>
                             <Variance days={milestone.varianceDays} short className="text-table" />
@@ -528,7 +529,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                             <MilestoneStatusBadge status={phase.status} />
                           </span>
                           <span className="mt-0.5 block text-meta text-fg-muted">
-                            {phase.span ? `${shortDateLabel(phase.span.start)} – ${dateLabel(phase.span.end)}` : t("planning.noDates")} · {t("planning.phaseMilestones", { done: phase.completedCount, total: phase.milestoneCount })}
+                            {phase.span ? `${shortDateLabel(phase.span.start, locale)} – ${dateLabel(phase.span.end, locale)}` : t("planning.noDates")} · {t("planning.phaseMilestones", { done: phase.completedCount, total: phase.milestoneCount })}
                             {phase.owner ? ` · ${phase.owner.name}` : ""}
                           </span>
                         </button>
@@ -595,14 +596,14 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                                 <button type="button" className="text-table font-medium text-fg hover:text-accent-strong" onClick={() => predecessor && open(predecessor.id)}>
                                   {predecessor?.name}
                                 </button>
-                                <span className="block text-meta text-fg-muted">{predecessor ? `${t(`milestoneStatus.${predecessor.status}`)} · ${dateLabel(predecessor.displayDate)}` : ""}</span>
+                                <span className="block text-meta text-fg-muted">{predecessor ? `${t(`milestoneStatus.${predecessor.status}`)} · ${dateLabel(predecessor.displayDate, locale)}` : ""}</span>
                               </td>
                               <td className="px-3 py-2.5 text-fg-subtle" aria-hidden="true">→</td>
                               <td className="px-3 py-2.5">
                                 <button type="button" className="text-table font-medium text-fg hover:text-accent-strong" onClick={() => successor && open(successor.id)}>
                                   {successor?.name}
                                 </button>
-                                <span className="block text-meta text-fg-muted">{successor ? `${t(`milestoneStatus.${successor.status}`)} · ${dateLabel(successor.displayDate)}` : ""}</span>
+                                <span className="block text-meta text-fg-muted">{successor ? `${t(`milestoneStatus.${successor.status}`)} · ${dateLabel(successor.displayDate, locale)}` : ""}</span>
                               </td>
                               <td className="px-3 py-2.5 text-table tabular-nums text-fg-muted">{edge.lagDays ? t("planning.lagDays", { count: edge.lagDays }) : "—"}</td>
                               <td className="px-4 py-2.5 text-table">

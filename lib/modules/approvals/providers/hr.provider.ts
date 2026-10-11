@@ -3,6 +3,7 @@ import type { LeaveRequestStatus, Prisma } from "@prisma/client";
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { approveLeave, leaveSubmissionVersion, rejectLeave } from "@/lib/modules/hr/leave/leave.service";
 import { buildLeaveScopeWhere } from "@/lib/modules/hr/hr.scope";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
@@ -85,6 +86,7 @@ function mayDecide(context: UserContext): boolean {
 }
 
 async function buildItems(context: UserContext, entries: Array<{ row: LeaveRow; sortAt: Date }>): Promise<ProviderItem[]> {
+  const locale = await getRequestLocale();
   const rows = entries.map((entry) => entry.row);
   const names = await memberNames(context.companyId, rows.flatMap((row) => [row.companyMemberId, row.approvedByMemberId, row.rejectedByMemberId]));
   const today = startOfToday();
@@ -108,7 +110,7 @@ async function buildItems(context: UserContext, entries: Array<{ row: LeaveRow; 
         approvalId: row.id,
         sourceLabel: "Leave request",
         title: `${person.name} — ${leaveTypeLabels[row.leaveType]}`,
-        subtitle: `${formatDate(row.startDate)} – ${formatDate(row.endDate)} · ${row.days.toFixed(1)} days`,
+        subtitle: `${formatDate(row.startDate, locale)} – ${formatDate(row.endDate, locale)} · ${row.days.toFixed(1)} days`,
         reference: null,
         status,
         priority: pending && startsSoon ? "HIGH" : "NORMAL",
@@ -203,6 +205,7 @@ export const hrApprovalProvider: ApprovalProvider = {
   },
 
   async detail(context, approvalId): Promise<ProviderDetail | null> {
+    const locale = await getRequestLocale();
     const row = await prisma.leaveRequest.findFirst({
       where: { AND: [buildLeaveScopeWhere(context), { id: approvalId, companyId: context.companyId, submittedAt: { not: null } }] },
       select: SELECT,
@@ -250,7 +253,7 @@ export const hrApprovalProvider: ApprovalProvider = {
 
     const warnings = [];
     if (row.status === "PENDING" && row.startDate < startOfToday()) {
-      warnings.push({ code: "LEAVE_STARTED", message: `This leave began ${formatDate(row.startDate)} without a decision.`, severity: "WARNING" as const });
+      warnings.push({ code: "LEAVE_STARTED", message: `This leave began ${formatDate(row.startDate, locale)} without a decision.`, severity: "WARNING" as const });
     }
     if (remaining && remaining.lt(row.days) && row.leaveType === "ANNUAL") {
       warnings.push({ code: "INSUFFICIENT_BALANCE", message: `Only ${remaining.toFixed(1)} days of this leave remain for ${year}.`, severity: "WARNING" as const });
@@ -264,8 +267,8 @@ export const hrApprovalProvider: ApprovalProvider = {
       summary: [
         { label: "Employee", value: item.requester.name, person: row.companyMemberId ? { memberId: row.companyMemberId } : { employeeId: row.employeeProfileId } },
         { label: "Leave type", value: leaveTypeLabels[row.leaveType] },
-        { label: "From", value: formatDate(row.startDate) },
-        { label: "To", value: formatDate(row.endDate) },
+        { label: "From", value: formatDate(row.startDate, locale) },
+        { label: "To", value: formatDate(row.endDate, locale) },
         { label: "Days", value: row.days.toFixed(1), emphasis: "strong" },
         ...(remaining ? [{ label: `Remaining ${year}`, value: `${remaining.toFixed(1)} days` }] : []),
       ],

@@ -1,3 +1,6 @@
+import type { Locale } from "@/lib/i18n/config";
+import * as localised from "@/lib/i18n/format";
+
 /**
  * Supported currencies (PRD #15 §29, §207).
  *
@@ -38,21 +41,8 @@ export function normalizeCurrency(value: string): string {
  * The amount arrives as a decimal string and is handed to `Intl` unchanged, so
  * the only thing a float ever touches is the pixels (PRD #15 §302).
  */
-export function formatAmount(amount: string, currency: string, locale = "en-GB"): string {
-  const value = Number.parseFloat(amount);
-  if (!Number.isFinite(value)) return `${amount} ${currency}`;
-
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    // An unknown code must not take the page down with it.
-    return `${amount} ${currency}`;
-  }
+export function formatAmount(amount: string, currency: string, locale: Locale): string {
+  return localised.formatAmount(amount, currency, locale);
 }
 
 export const currencyOptions = SUPPORTED_CURRENCIES.map((code) => ({

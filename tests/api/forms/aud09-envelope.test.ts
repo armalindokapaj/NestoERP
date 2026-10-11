@@ -35,7 +35,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 const { apiOk, withContext, readJson } = await import("@/lib/api/respond");
-const { actionFailure, describeFailure, validationFailure, fieldLabel } = await import("@/lib/actions/result");
+// The English reading itself: the exported builders also word the answer for the reader (lib/i18n/errors).
+const { readActionFailure: actionFailure, describeFailure, readValidationFailure: validationFailure, fieldLabel } = await import("@/lib/actions/result");
 const taskRoute = await import("@/app/api/tasks/route");
 const taskActions = await import("@/lib/actions/tasks");
 

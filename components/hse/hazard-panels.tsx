@@ -154,6 +154,7 @@ export function HazardAssessForm({ hazard }: { hazard: HazardDetailDTO }) {
       action={action}
       cancelHref={`/hse/hazards/${hazard.id}`}
       submitLabel={t("page.saveAssessment")}
+      saveKind="save"
       pendingLabel={t("page.saving")}
       versionUpdatedAt={hazard.updatedAt}
     >

@@ -3,9 +3,11 @@
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
 
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
+import type { Locale } from "@/lib/i18n/config";
 import type { ApprovalTab, UnifiedApprovalItem } from "@/lib/modules/approvals/approvals.types";
 import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
@@ -164,9 +166,10 @@ function RowMain({
   /** A link after the meta line, in the Group workspace. */
   extra?: React.ReactNode;
 }) {
+  const locale = useLocale();
   const t = useApprovalsTranslations();
   const word = useApprovalsWord();
-  const amount = formatMoney(item.amount);
+  const amount = formatMoney(item.amount, locale);
   return (
     <span className="min-w-0 flex-1">
       <span className={lead ? "flex flex-wrap items-center gap-x-2 gap-y-1" : "flex items-center gap-2"}>
@@ -187,10 +190,10 @@ function RowMain({
             {item.project ? <span className="truncate">{item.project.name}</span> : null}
             {!amount && !item.project && item.subtitle ? <span className="truncate">{item.subtitle}</span> : null}
           </span>
-          <span className="mt-1 block text-meta text-fg-subtle">{rowMeta(item, tab, t)}</span>
+          <span className="mt-1 block text-meta text-fg-subtle">{rowMeta(item, tab, t, locale)}</span>
         </>
       ) : (
-        <span className="mt-0.5 block truncate text-meta text-fg-subtle">{[amount, item.project?.name, rowMeta(item, tab, t)].filter(Boolean).join(" · ")}</span>
+        <span className="mt-0.5 block truncate text-meta text-fg-subtle">{[amount, item.project?.name, rowMeta(item, tab, t, locale)].filter(Boolean).join(" · ")}</span>
       )}
       {extra ? <span className="mt-1 block text-meta">{extra}</span> : null}
     </span>
@@ -207,21 +210,21 @@ function RowBadges({ item, tab }: { item: UnifiedApprovalItem; tab: ApprovalTab 
   );
 }
 
-function rowMeta(item: UnifiedApprovalItem, tab: ApprovalTab, t: Translate<"approvals">): string {
+function rowMeta(item: UnifiedApprovalItem, tab: ApprovalTab, t: Translate<"approvals">, locale: Locale): string {
   const now = new Date();
   const requestedBy = t("list.requestedBy", { name: item.requester.name });
   if (tab === "waiting") {
     return `${requestedBy} · ${waitingText(item.requestedAt, now, t)}${item.onBehalfOf ? ` · ${t("list.forPerson", { name: item.onBehalfOf.name })}` : ""}`;
   }
   if ((tab === "approved" || tab === "rejected" || tab === "returned") && item.sortAt) {
-    return `${requestedBy} · ${t("list.decided", { when: relativeText(item.sortAt, now, t) })}`;
+    return `${requestedBy} · ${t("list.decided", { when: relativeText(item.sortAt, now, t, locale) })}`;
   }
   if (tab === "requested") {
     return item.status === "PENDING"
       ? `${item.stepLabel ? `${t("list.withStep", { step: item.stepLabel })} · ` : ""}${waitingText(item.requestedAt, now, t)}`
-      : `${item.decidedBy ? `${item.decidedBy.name} · ` : ""}${item.decidedAt ? relativeText(item.decidedAt, now, t) : ""}`;
+      : `${item.decidedBy ? `${item.decidedBy.name} · ` : ""}${item.decidedAt ? relativeText(item.decidedAt, now, t, locale) : ""}`;
   }
-  return `${requestedBy} · ${relativeText(item.requestedAt, now, t)}`;
+  return `${requestedBy} · ${relativeText(item.requestedAt, now, t, locale)}`;
 }
 
 export function ListSkeleton({ rows = 6 }: { rows?: number }) {

@@ -169,7 +169,7 @@ export function FormFields({
   );
 }
 
-/** What a submit label says about the step (AUD-03 §3): an ordinary save, a create, or a workflow step. */
+/** What an English submit label says about the step (AUD-03 §3). Only a fallback: every call site passes `saveKind`. */
 function saveKindOf(submitLabel: string): SaveKind {
   if (/^(create|add|new|log|record|raise|report|start|register)\b/i.test(submitLabel)) return "create";
   if (/^(save|update)\b/i.test(submitLabel)) return "save";
@@ -189,7 +189,7 @@ function sameValues(a: FormValues, b: FormValues): boolean {
  * Cancel — asks while anything typed is unsaved. A submit that is an ordinary
  * save offers "Save and continue" through the same path as its own button; a
  * workflow step (Verify, Assign, Void…) is never run from the prompt. Pass
- * `saveKind` when the submit label does not say which it is.
+ * `saveKind` always: a label in another language does not say which it is.
  */
 export function FormDialog({
   open,

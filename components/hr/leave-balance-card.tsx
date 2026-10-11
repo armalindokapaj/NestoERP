@@ -1,5 +1,5 @@
 import type { LeaveBalanceDTO } from "@/lib/modules/hr/hr.types";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { hrLabel } from "./hr-labels";
 import { formatDays } from "./hr-format";
 
@@ -19,6 +19,7 @@ export async function LeaveBalanceCard({
   year: number;
   title?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hr");
   return (
     <section className="nesto-card p-5">
@@ -43,16 +44,16 @@ export async function LeaveBalanceCard({
                 {balance.tracked ? (
                   <>
                     <span className="text-table font-semibold tabular-nums text-fg">
-                      {formatDays(balance.availableDays)}
+                      {formatDays(balance.availableDays, locale)}
                     </span>
                     <span className="text-meta text-fg-subtle">
                       {" "}
-                      {t("balance.ofDaysLeft", { days: formatDays(balance.entitledDays) })}
+                      {t("balance.ofDaysLeft", { days: formatDays(balance.entitledDays, locale) })}
                     </span>
                   </>
                 ) : (
                   <span className="text-table tabular-nums text-fg-muted">
-                    {t("balance.daysTaken", { days: formatDays(balance.usedDays) })}
+                    {t("balance.daysTaken", { days: formatDays(balance.usedDays, locale) })}
                   </span>
                 )}
               </dd>

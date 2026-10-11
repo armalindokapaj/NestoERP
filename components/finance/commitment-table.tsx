@@ -3,9 +3,11 @@ import type { TableSortConfig } from "@/components/data/sort-header";
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { CommitmentSummaryDTO } from "@/lib/modules/finance/finance.types";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { moduleName } from "@/lib/i18n/modules/organization/labels";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 
 /** The commitment list (PRD #15 §171). */
 export async function CommitmentTable({ commitments, listId = "finance.commitments", sort }: {
@@ -15,7 +17,9 @@ export async function CommitmentTable({ commitments, listId = "finance.commitmen
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("finance");
+  const tModules = await getTranslations("modules");
   const columns: TableColumn<CommitmentSummaryDTO>[] = [
     {
       key: "description",
@@ -60,7 +64,7 @@ export async function CommitmentTable({ commitments, listId = "finance.commitmen
       hideBelow: "lg",
       render: (commitment) => (
         <span className="text-fg-muted">
-          {commitment.expectedDate ? formatDate(commitment.expectedDate) : "—"}
+          {commitment.expectedDate ? formatDate(commitment.expectedDate, locale) : "—"}
         </span>
       ),
     },
@@ -88,7 +92,7 @@ export async function CommitmentTable({ commitments, listId = "finance.commitmen
           {/* A commitment another module owns is marked, because Finance shows
               it but does not edit it (PRD #15 §128). */}
           {commitment.source.module ? (
-            <Badge tone="default">{commitment.source.module}</Badge>
+            <Badge tone="default">{moduleName(tModules, commitment.source.module, commitment.source.module)}</Badge>
           ) : null}
         </span>
       ),

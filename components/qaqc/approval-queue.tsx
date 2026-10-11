@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 
@@ -12,8 +13,8 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { inspectionLifecycleAction, ncrLifecycleAction } from "@/lib/actions/qaqc";
+import { formatRelativeTime } from "@/lib/i18n/format";
 import type { QualityApprovalDTO } from "@/lib/modules/qaqc/qaqc.types";
-import { formatRelativeTime } from "@/lib/utils/format";
 
 import { useQaqcTranslations } from "./qaqc-text";
 
@@ -30,6 +31,7 @@ import { useQaqcTranslations } from "./qaqc-text";
  * CW-05).
  */
 export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }) {
+  const locale = useLocale();
   const router = useRouter();
   const t = useQaqcTranslations();
   const toast = useToast();
@@ -90,7 +92,7 @@ export function ApprovalQueue({ approvals }: { approvals: QualityApprovalDTO[] }
                   ) : (
                     t("common.somebody")
                   )}{" "}
-                  {formatRelativeTime(approval.submittedAt)}
+                  {formatRelativeTime(approval.submittedAt, locale)}
                 </p>
               </div>
 

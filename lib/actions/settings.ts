@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
 import { validationFailure } from "@/lib/actions/result";
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { MODULE_KEYS } from "@/config/modules";
 import { requireCompanyContext } from "@/lib/context/current-user";
 import {
@@ -34,8 +35,8 @@ import {
 type ActionResult = { ok: true } | { ok: false; message: string; fieldErrors?: Record<string, string[]> };
 
 /** A refused parse, said beside its fields rather than thrown as "may have saved" (AUD-09 §3, §6). */
-function invalid(error: z.ZodError): ActionResult {
-  const failure = validationFailure(error);
+async function invalid(error: z.ZodError): Promise<ActionResult> {
+  const failure = await validationFailure(error);
   return { ok: false, message: failure.error, fieldErrors: failure.fieldErrors };
 }
 
@@ -61,12 +62,12 @@ async function run(fn: () => Promise<unknown>, paths: string[]): Promise<ActionR
       // integration — comes back as a message. Anything about who the caller
       // is still surfaces as the error it is.
       if (error.code === "CONFLICT" || error.code === "VALIDATION_ERROR") {
-        return { ok: false, message: MESSAGES[detailCode(error)] ?? error.message };
+        return localizeActionFailure({ ok: false, message: MESSAGES[detailCode(error)] ?? error.message });
       }
       throw error;
     }
     const code = error instanceof Error ? error.message : "";
-    return { ok: false, message: MESSAGES[code] ?? "That change could not be saved." };
+    return localizeActionFailure({ ok: false, message: MESSAGES[code] ?? "That change could not be saved." });
   }
 }
 
@@ -125,7 +126,7 @@ export async function setModuleEnabledAction(
 ): Promise<ActionResult> {
   const context = await requireCompanyContext();
   const parsed = moduleToggleArgs.safeParse({ moduleKey, enabled });
-  if (!parsed.success) return { ok: false, message: MESSAGES.MODULE_NOT_FOUND };
+  if (!parsed.success) return localizeActionFailure({ ok: false, message: MESSAGES.MODULE_NOT_FOUND });
   return run(() => setModuleEnabled(context, parsed.data.moduleKey, parsed.data.enabled), [
     "/settings/modules",
     "/dashboard",

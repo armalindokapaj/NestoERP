@@ -38,6 +38,7 @@ export function CommitmentForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -47,6 +48,7 @@ export function CommitmentForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
 }) {
   const t = useFinanceTranslations();
@@ -56,6 +58,7 @@ export function CommitmentForm({
       module="finance"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

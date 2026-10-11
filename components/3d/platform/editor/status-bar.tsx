@@ -1,3 +1,6 @@
+import { useLocale } from "@/components/i18n/i18n-provider";
+import { numberText } from "@/lib/i18n/format";
+import { useEditorWord } from "./editor-text";
 "use client";
 
 /*
@@ -18,28 +21,30 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function StatusBar({ stats, qualityPreset, effectiveRenderScale, warnings = 0 }: { stats: PerfStats | null; qualityPreset?: string; effectiveRenderScale?: number | null; warnings?: number }) {
+  const editorServerText = useEditorWord();
+  const locale = useLocale();
   return (
-    <div role="status" aria-label="Renderer status" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line bg-canvas px-4 py-1.5 text-[11px]">
+    <div role="status" aria-label={editorServerText("Renderer status")} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line bg-canvas px-4 py-1.5 text-[11px]">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <Stat label="FPS" value={stats ? String(Math.round(stats.fps)) : "—"} />
-        <Stat label="Frame" value={stats ? `${Math.round(stats.frameTimeMs * 10) / 10}ms` : "—"} />
-        <Stat label="Draw calls" value={stats ? String(stats.drawCalls) : "—"} />
-        <Stat label="Tris" value={stats ? stats.triangles.toLocaleString() : "—"} />
+        <Stat label={editorServerText("Frame")} value={stats ? `${Math.round(stats.frameTimeMs * 10) / 10}ms` : "—"} />
+        <Stat label={editorServerText("Draw calls")} value={stats ? String(stats.drawCalls) : "—"} />
+        <Stat label={editorServerText("Tris")} value={stats ? numberText(stats.triangles, undefined, locale, "en-US") : "—"} />
         <span className="hidden xl:contents">
-          <Stat label="Textures" value={stats ? String(stats.textures) : "—"} />
+          <Stat label={editorServerText("Textures")} value={stats ? String(stats.textures) : "—"} />
           <Stat label="DPR" value={stats ? stats.dpr.toFixed(2) : "—"} />
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="text-fg-subtle">
-          Quality Profile{" "}
+          {editorServerText("Quality Profile")}{" "}
           <span className="text-fg-muted">
             {qualityPreset ?? "—"}
-            {effectiveRenderScale != null && ` · ${Math.round(effectiveRenderScale * 100)}% scale`}
+            {effectiveRenderScale != null && ` ${editorServerText("· {0}% scale", Math.round(effectiveRenderScale * 100))}`}
           </span>
         </span>
         <span className="text-fg-subtle">
-          Warnings <span className="text-fg-muted">{warnings}</span>
+          {editorServerText("Warnings")} <span className="text-fg-muted">{warnings}</span>
         </span>
       </div>
     </div>

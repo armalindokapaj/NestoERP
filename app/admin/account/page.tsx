@@ -11,9 +11,9 @@ import {
   signOutPlatformEverywhereAction,
 } from "@/lib/actions/platform-account";
 import { requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDateTime } from "@/lib/i18n/format";
 import { getPlatformAccount } from "@/lib/modules/platform/platform-account.service";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDateTime } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminAccess");
@@ -26,6 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * bar, rather than among the console's administrative destinations.
  */
 export default async function PlatformAccountPage() {
+  const locale = await getLocale();
   const t = await getTranslations("adminAccess");
   const context = await requirePlatformContext();
   const account = await getPlatformAccount(context);
@@ -46,12 +47,12 @@ export default async function PlatformAccountPage() {
         </div>
         <p className="mt-1 text-table text-fg-muted">
           {account.recoveryEmail
-            ? t("account.recoveryWith", { email: account.recoveryEmail, date: formatDateTime(account.recoveryEmailVerifiedAt!) })
+            ? t("account.recoveryWith", { email: account.recoveryEmail, date: formatDateTime(account.recoveryEmailVerifiedAt!, locale) })
             : t("account.recoveryWithout")}
         </p>
         {account.pendingRecoveryEmail ? (
           <p role="status" className="mt-3 rounded-md border border-line bg-surface-muted px-3 py-2 text-table text-fg-muted">
-            {t("account.pending", { email: account.pendingRecoveryEmail.email, date: formatDateTime(account.pendingRecoveryEmail.expiresAt) })}
+            {t("account.pending", { email: account.pendingRecoveryEmail.email, date: formatDateTime(account.pendingRecoveryEmail.expiresAt, locale) })}
           </p>
         ) : null}
         <div className="mt-4">
@@ -77,8 +78,8 @@ export default async function PlatformAccountPage() {
               current: session.current,
               device: session.device,
               companyName: null,
-              startedLabel: formatDateTime(session.createdAt),
-              expiresLabel: formatDateTime(session.expiresAt),
+              startedLabel: formatDateTime(session.createdAt, locale),
+              expiresLabel: formatDateTime(session.expiresAt, locale),
             }))}
           />
         </div>

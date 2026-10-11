@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { ZodError } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { actionFailure, validationFailure } from "@/lib/actions/result";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
@@ -49,17 +50,17 @@ function revalidateHr(employeeId?: string) {
   revalidatePath("/dashboard");
 }
 
-function toResult(error: unknown): HrActionResult {
+async function toResult(error: unknown): Promise<HrActionResult> {
   // The people a new employee might already be, for HR to choose from (E-04 §92, §176).
   if (error instanceof AccessError) {
     const details = error.details as { code?: string; candidates?: ProbableDuplicate[] } | undefined;
-    if (details?.code === "PROBABLE_DUPLICATE") return { ok: false, error: error.message, duplicates: details.candidates ?? [] };
+    if (details?.code === "PROBABLE_DUPLICATE") return localizeActionFailure({ ok: false, error: error.message, duplicates: details.candidates ?? [] });
   }
   // One reading of every other failure for both transports (AUD-09 §3, §6).
   return actionFailure(error, "hr");
 }
 
-function invalid(error: ZodError): HrActionResult {
+async function invalid(error: ZodError): Promise<HrActionResult> {
   return validationFailure(error);
 }
 

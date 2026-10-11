@@ -10,6 +10,7 @@ import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.se
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { documentListQuerySchema } from "@/lib/modules/documents/document.schema";
 import { listDocuments } from "@/lib/modules/documents/document.service";
 import { buildReceiptScopeWhere as buildInventoryReceiptScopeWhere } from "@/lib/modules/inventory/inventory.scope";
@@ -123,7 +124,7 @@ export async function createDailyLog(context: UserContext, input: { projectId: s
         data: { companyId: context.companyId, projectId: project.id, workDate: businessInstant(input.workDate), createdByMemberId: context.membershipId, lateEntry: age > 0 },
         select: { id: true },
       });
-      await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_CREATED", message: `started the daily log for ${dateLabel(input.workDate)}` });
+      await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_CREATED", message: `started the daily log for ${dateLabel(input.workDate, SOURCE_LOCALE)}` });
       await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_CREATED, entity: { type: RECORD, id: log.id, label: `Daily log ${input.workDate}` }, after: { projectId: project.id, workDate: input.workDate, lateEntry: age > 0 } }, { tx });
       return log;
     });

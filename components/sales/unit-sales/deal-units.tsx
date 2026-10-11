@@ -1,10 +1,10 @@
 import Link from "@/components/navigation/nav-link";
 
 import type { UserContext } from "@/lib/context/types";
+import { formatDate } from "@/lib/i18n/format";
 import { listDealUnits } from "@/lib/modules/sales/units/unit-sales.service";
 import { UNIT_RESERVATION_STATUS_LABELS, type UnitReservationStatus } from "@/lib/modules/sales/units/unit-sales.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { SalesLabel } from "@/components/sales/sales-text";
 import { CommercialStatusBadge, moneyLabel } from "./commercial-status";
 import { DealUnitRemove } from "./deal-unit-remove";
@@ -16,6 +16,7 @@ import { DealUnitRemove } from "./deal-unit-remove";
  * deal holds reserved or sold cannot be taken out here.
  */
 export async function DealUnits({ context, opportunityId, canEdit }: { context: UserContext; opportunityId: string; canEdit: boolean }) {
+  const locale = await getLocale();
   const units = await listDealUnits(context, opportunityId);
   const t = await getTranslations("sales");
   return (
@@ -41,10 +42,10 @@ export async function DealUnits({ context, opportunityId, canEdit }: { context: 
                 {unit.reservation ? (
                   <span className="text-meta text-fg-subtle">
                     <SalesLabel group="reservationStatus" value={unit.reservation.status} fallback={UNIT_RESERVATION_STATUS_LABELS[unit.reservation.status as UnitReservationStatus]} />
-                    {unit.reservation.status === "ACTIVE" ? t("unitSales.reservedUntil", { date: formatDate(unit.reservation.expiresAt) }) : ""}
+                    {unit.reservation.status === "ACTIVE" ? t("unitSales.reservedUntil", { date: formatDate(unit.reservation.expiresAt, locale) }) : ""}
                   </span>
                 ) : null}
-                <span className="ml-auto tabular-nums text-fg">{moneyLabel(unit.agreedPrice, unit.currency)}</span>
+                <span className="ml-auto tabular-nums text-fg">{moneyLabel(unit.agreedPrice, unit.currency, locale)}</span>
                 {canEdit && !held ? <DealUnitRemove opportunityId={opportunityId} unitId={unit.unitId} unitCode={unit.unitCode} /> : null}
               </li>
             );

@@ -82,7 +82,7 @@ describe("dates, variance and delay (§15-§20, §44-§46, §279)", () => {
   it("suggests a successor's earliest forecast from its predecessors and their lag, ignoring cancelled ones", () => {
     expect(earliestAfter([{ ...milestone({ forecastDate: "2026-10-30" }), lagDays: 7 }, { ...milestone({ status: "COMPLETED", actualDate: "2026-10-01", forecastDate: "2026-11-30" }), lagDays: 0 }])).toBe("2026-11-06");
     expect(earliestAfter([{ ...milestone({ status: "CANCELLED", forecastDate: "2027-01-01" }), lagDays: 0 }])).toBeNull();
-    expect(dateLabel("2026-10-30")).toBe("30 Oct 2026");
+    expect(dateLabel("2026-10-30", "en")).toBe("30 Oct 2026");
   });
 });
 

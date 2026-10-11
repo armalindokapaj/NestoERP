@@ -14,18 +14,19 @@ import { Input } from "@/components/ui/input";
 import type { AccessLevel, DataScope } from "@/config/access";
 import { MODULE_KEYS, modules as moduleRegistry } from "@/config/modules";
 import { defaultAccessFor } from "@/config/role-defaults";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { MEMBERSHIP_ROLE_KEYS, isMembershipRoleKey, positionLabels, roleLabel, roles, type RoleKey } from "@/config/roles";
 import { can, canAny } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { moduleName, organizationLabel } from "@/lib/i18n/modules/organization/labels";
 import type { Translate } from "@/lib/i18n/translator";
 import type { UserContext } from "@/lib/context/types";
 import { accessCheckOptions, accessCheckQuerySchema, diagnoseAccess, type AccessDiagnosisDTO } from "@/lib/modules/organization/access-diagnostics.service";
 import { grantListQuerySchema, grantOptions, listAccessGrants, type GrantStatus } from "@/lib/modules/organization/access-grant.service";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
 import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -44,6 +45,11 @@ const SOURCE_LABELS: Record<string, string> = { ROLE: "Role", POSITION: "Positio
 type T = Translate<"organization">;
 type Modules = Translate<"modules">;
 
+/** A position named by its English label (the diagnosis lists the ones a person holds that way). */
+const positionByLabel = (t: T, label: string) => {
+  const key = (Object.keys(positionLabels) as Array<keyof typeof positionLabels>).find((candidate) => positionLabels[candidate] === label);
+  return key ? organizationLabel(t, "positionLevel", key, label) : label;
+};
 const level = (t: T, value: AccessLevel) => organizationLabel(t, "level", value, LEVEL_LABELS[value]);
 
 function access(t: T, cell: { accessLevel: AccessLevel; scope: DataScope }) {
@@ -109,6 +115,7 @@ export default async function AccessPage({ searchParams }: Props) {
 }
 
 async function GrantsView({ context, status }: { context: UserContext; status: string | undefined }) {
+  const locale = await getLocale();
   const query = grantListQuerySchema.parse({ status: status === "all" ? "all" : "live" });
   const [grants, options, t, modules] = await Promise.all([listAccessGrants(context, query), grantOptions(context), getTranslations("organization"), getTranslations("modules")]);
   const chip = (active: boolean) =>
@@ -151,7 +158,7 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
                 {grant.reason ? ` — ${grant.reason}` : ""}
               </p>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-meta text-fg-muted">{grant.revokedAt ? t("access.revokedOn", { date: formatDate(grant.revokedAt) }) : grant.expiresAt ? t("access.untilDate", { date: formatDate(grant.expiresAt) }) : t("access.untilRevoked")}</p>
+                <p className="text-meta text-fg-muted">{grant.revokedAt ? t("access.revokedOn", { date: formatDate(grant.revokedAt, locale) }) : grant.expiresAt ? t("access.untilDate", { date: formatDate(grant.expiresAt, locale) }) : t("access.untilRevoked")}</p>
                 {grant.canRevoke ? <RevokeGrantButton grantId={grant.id} holder={grant.holder.name} module={moduleName(modules, grant.module.key, grant.module.label)} /> : null}
               </div>
             </li>
@@ -191,7 +198,7 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
                     </span>
                     {grant.reason ? <span className="block text-meta text-fg-subtle">{grant.reason}</span> : null}
                   </TableCell>
-                  <TableCell>{grant.revokedAt ? t("access.revokedOn", { date: formatDate(grant.revokedAt) }) : grant.expiresAt ? formatDate(grant.expiresAt) : t("access.untilRevoked")}</TableCell>
+                  <TableCell>{grant.revokedAt ? t("access.revokedOn", { date: formatDate(grant.revokedAt, locale) }) : grant.expiresAt ? formatDate(grant.expiresAt, locale) : t("access.untilRevoked")}</TableCell>
                   <TableCell className="text-right">{grant.canRevoke ? <RevokeGrantButton grantId={grant.id} holder={grant.holder.name} module={moduleName(modules, grant.module.key, grant.module.label)} /> : null}</TableCell>
                 </TableRow>
               ))}
@@ -264,7 +271,7 @@ async function RolesView({ role: requested, t }: { role: string | undefined; t: 
 }
 
 async function CheckView({ context, params }: { context: UserContext; params: Record<string, string | string[] | undefined> }) {
-  const [options, t, modules] = await Promise.all([accessCheckOptions(context), getTranslations("organization"), getTranslations("modules")]);
+  const [options, t, modules, tr] = await Promise.all([accessCheckOptions(context), getTranslations("organization"), getTranslations("modules"), getTranslations("roles")]);
   const parsed = accessCheckQuerySchema.safeParse({ userId: one(params.userId), targetCompanyId: one(params.targetCompanyId), permission: one(params.permission) });
   let diagnosis: AccessDiagnosisDTO | null = null;
   let notFound = false;
@@ -308,12 +315,12 @@ async function CheckView({ context, params }: { context: UserContext; params: Re
       </form>
 
       {notFound ? <EmptyState title={t("access.nothingToCheck")} description={t("access.notInGroup")} /> : null}
-      {diagnosis ? <Diagnosis diagnosis={diagnosis} t={t} modules={modules} /> : null}
+      {diagnosis ? <Diagnosis diagnosis={diagnosis} t={t} modules={modules} tr={tr} /> : null}
     </section>
   );
 }
 
-function Diagnosis({ diagnosis, t, modules }: { diagnosis: AccessDiagnosisDTO; t: T; modules: Modules }) {
+function Diagnosis({ diagnosis, t, modules, tr }: { diagnosis: AccessDiagnosisDTO; t: T; modules: Modules; tr: Translate<"roles"> }) {
   const reasons: Record<string, string> = {
     HELD: "Held.",
     BLOCKED: "Not held: nothing works until the blockers above are cleared.",
@@ -340,7 +347,7 @@ function Diagnosis({ diagnosis, t, modules }: { diagnosis: AccessDiagnosisDTO; t
             })()}
           </h2>
           <span className="text-meta text-fg-subtle">
-            {diagnosis.membership ? `${diagnosis.membership.role.label} · ${diagnosis.position.label}` : t("access.noMembership")}
+            {diagnosis.membership ? `${adminRoleName(tr, diagnosis.membership.role.label)} · ${organizationLabel(t, "positionLevel", diagnosis.position.level, diagnosis.position.label)}` : t("access.noMembership")}
           </span>
         </div>
         {diagnosis.blockers.length > 0 ? (
@@ -357,7 +364,7 @@ function Diagnosis({ diagnosis, t, modules }: { diagnosis: AccessDiagnosisDTO; t
         {diagnosis.position.heldThrough.length > 0 ? (
           <p className="text-table text-fg-muted">
             {t("access.heldThrough")}{" "}
-            {diagnosis.position.heldThrough.map((row) => `${row.level}, ${row.department} (${row.where})`).join("; ")}.
+            {diagnosis.position.heldThrough.map((row) => `${positionByLabel(t, row.level)}, ${row.department} (${row.where})`).join("; ")}.
           </p>
         ) : null}
         {diagnosis.grants.length > 0 ? (

@@ -1,3 +1,5 @@
+import { localizeClient } from "@/lib/i18n/errors/client";
+
 /**
  * Reading a typed number (AUD-09 §4, FV-06).
  *
@@ -107,7 +109,7 @@ function malformed(rule: DecimalRule, raw: string): DecimalParse {
   return {
     ok: false,
     code: "DECIMAL_MALFORMED",
-    message: `${rule.label} "${raw}" is not a number. Use digits and one decimal separator, e.g. ${example(rule.scale)}.`,
+    message: localizeClient(`${rule.label} "${raw}" is not a number. Use digits and one decimal separator, e.g. ${example(rule.scale)}.`),
   };
 }
 
@@ -119,13 +121,13 @@ function malformed(rule: DecimalRule, raw: string): DecimalParse {
 export function parseDecimalInput(input: string, rule: DecimalRule): DecimalParse {
   const raw = String(input ?? "").trim();
   if (raw === "") {
-    return { ok: false, code: "DECIMAL_REQUIRED", message: `Enter ${article(rule.label)} ${rule.label.toLowerCase()}.` };
+    return { ok: false, code: "DECIMAL_REQUIRED", message: localizeClient(`Enter ${article(rule.label)} ${rule.label.toLowerCase()}.`) };
   }
   if (EXPONENT.test(raw)) {
     return {
       ok: false,
       code: "DECIMAL_MALFORMED",
-      message: `${rule.label} "${raw}" is not a number. Write it in full, without an exponent, e.g. ${example(rule.scale)}.`,
+      message: localizeClient(`${rule.label} "${raw}" is not a number. Write it in full, without an exponent, e.g. ${example(rule.scale)}.`),
     };
   }
 
@@ -147,14 +149,14 @@ export function parseDecimalInput(input: string, rule: DecimalRule): DecimalPars
     return {
       ok: false,
       code: "DECIMAL_MIXED_SEPARATORS",
-      message: `${rule.label} "${raw}" mixes a point and a comma. Use one decimal separator and no thousands separator, e.g. ${example(rule.scale)}.`,
+      message: localizeClient(`${rule.label} "${raw}" mixes a point and a comma. Use one decimal separator and no thousands separator, e.g. ${example(rule.scale)}.`),
     };
   }
   if (points > 1 || commas > 1) {
     return {
       ok: false,
       code: "DECIMAL_MIXED_SEPARATORS",
-      message: `${rule.label} "${raw}" has more than one separator. Write it without thousands separators, e.g. ${example(rule.scale)}.`,
+      message: localizeClient(`${rule.label} "${raw}" has more than one separator. Write it without thousands separators, e.g. ${example(rule.scale)}.`),
     };
   }
   if (commas === 1) {
@@ -163,7 +165,7 @@ export function parseDecimalInput(input: string, rule: DecimalRule): DecimalPars
       return {
         ok: false,
         code: "DECIMAL_AMBIGUOUS_SEPARATOR",
-        message: `${rule.label} "${raw}" is ambiguous: write ${whole}${fraction} for ${whole} thousand ${fraction}, or ${whole}.${fraction} for ${whole} point ${fraction}.`,
+        message: localizeClient(`${rule.label} "${raw}" is ambiguous: write ${whole}${fraction} for ${whole} thousand ${fraction}, or ${whole}.${fraction} for ${whole} point ${fraction}.`),
       };
     }
     body = body.replace(",", ".");
@@ -176,23 +178,24 @@ export function parseDecimalInput(input: string, rule: DecimalRule): DecimalPars
   const isZero = /^0*$/.test(whole) && /^0*$/.test(fraction);
 
   if (negative && !isZero && !rule.allowNegative) {
-    return { ok: false, code: "DECIMAL_NEGATIVE", message: `${rule.label} cannot be negative.` };
+    return { ok: false, code: "DECIMAL_NEGATIVE", message: localizeClient(`${rule.label} cannot be negative.`) };
   }
   if (fraction.length > rule.scale) {
     return {
       ok: false,
       code: "DECIMAL_TOO_PRECISE",
-      message:
+      message: localizeClient(
         rule.scale === 0
           ? `${rule.label} must be a whole number, e.g. ${example(0)}.`
           : `${rule.label} can have at most ${rule.scale} decimal place${rule.scale === 1 ? "" : "s"}, e.g. ${example(rule.scale)}.`,
+      ),
     };
   }
   if (whole.length > rule.maxIntegerDigits) {
     return {
       ok: false,
       code: "DECIMAL_TOO_LARGE",
-      message: `${rule.label} is too large: at most ${rule.maxIntegerDigits} digits before the decimal point.`,
+      message: localizeClient(`${rule.label} is too large: at most ${rule.maxIntegerDigits} digits before the decimal point.`),
     };
   }
 
@@ -201,10 +204,10 @@ export function parseDecimalInput(input: string, rule: DecimalRule): DecimalPars
   const value = negative && !isZero ? `-${canonical}` : canonical;
 
   if (rule.min !== undefined && compareDecimal(value, rule.min) < 0) {
-    return { ok: false, code: "DECIMAL_TOO_SMALL", message: `${rule.label} must be at least ${rule.min}.` };
+    return { ok: false, code: "DECIMAL_TOO_SMALL", message: localizeClient(`${rule.label} must be at least ${rule.min}.`) };
   }
   if (rule.max !== undefined && compareDecimal(value, rule.max) > 0) {
-    return { ok: false, code: "DECIMAL_TOO_LARGE", message: `${rule.label} must be at most ${rule.max}.` };
+    return { ok: false, code: "DECIMAL_TOO_LARGE", message: localizeClient(`${rule.label} must be at most ${rule.max}.`) };
   }
   return { ok: true, value };
 }

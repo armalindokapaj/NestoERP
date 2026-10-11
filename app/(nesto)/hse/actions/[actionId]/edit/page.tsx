@@ -55,6 +55,7 @@ export default async function EditHseActionPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/actions/${actionId}`}
         submitLabel={t("page.saveAction")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={action.updatedAt}
         projects={options.projects.map((project) => ({

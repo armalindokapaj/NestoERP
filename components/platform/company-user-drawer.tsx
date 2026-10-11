@@ -4,7 +4,7 @@ import * as React from "react";
 import { MoreHorizontal } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi, failureMessage, isFailure } from "@/components/engineering/engineering-api";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -17,14 +17,16 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/compone
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
 import type { CompanyUserDetail, CompanyUserRemovalPreview } from "@/lib/modules/platform/company-users.service";
 import { FormSelect } from "@/components/ui/form-select";
 
 export type CompanyUsersApi = { command: string };
 export type CompanyUserOptions = { roles: { key: string; name: string }[]; departments: { id: string; name: string }[]; projects: { id: string; name: string }[] };
 
-const dateFormat = (value: string) => new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-const dateTimeFormat = (value: string) => new Date(value).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const dateFormat = (value: string, locale: Locale) => dateText(new Date(value), { day: "numeric", month: "short", year: "numeric" }, locale);
+const dateTimeFormat = (value: string, locale: Locale) => dateText(new Date(value), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, locale);
 const field = "h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-table text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
 type Load = { state: "loading" } | { state: "error"; message: string } | { state: "gone" } | { state: "ready"; detail: CompanyUserDetail };
@@ -49,6 +51,7 @@ export function CompanyUserDrawer(props: { companyId: string; companyName: strin
 }
 
 function DrawerBody({ open, userId, companyId, companyName, groupName, api, options, platform = true, leadershipHref }: { open: boolean; userId: string; companyId: string; companyName: string; groupName: string | null; api: CompanyUsersApi; options: CompanyUserOptions; platform?: boolean; leadershipHref?: string }) {
+  const locale = useLocale();
   const t = useTranslations("adminOrgs");
   const tr = useTranslations("roles");
   const router = useRouter();
@@ -173,7 +176,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                     <dt className="text-fg-subtle">{t("companyUsers.fieldPosition")}</dt><dd className="text-fg">{detail.jobTitle ?? "—"}</dd>
                     <dt className="text-fg-subtle">{t("companyUsers.fieldSource")}</dt><dd className="text-fg" data-testid="company-user-source">{sourceLabel}</dd>
                     <dt className="text-fg-subtle">{t("companyUsers.sectionProjects")}</dt><dd className="text-fg tabular-nums">{detail.projects}</dd>
-                    {detail.joinedAt ? (<><dt className="text-fg-subtle">{t("companyUsers.fieldJoined")}</dt><dd className="text-fg">{dateFormat(detail.joinedAt)}</dd></>) : null}
+                    {detail.joinedAt ? (<><dt className="text-fg-subtle">{t("companyUsers.fieldJoined")}</dt><dd className="text-fg">{dateFormat(detail.joinedAt, locale)}</dd></>) : null}
                   </dl>
                 </section>
 
@@ -194,7 +197,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                   {detail.projectAccess.length === 0 ? <p className="text-table text-fg-muted">{t("companyUsers.noProjectAccess")}</p> : (
                     <ul className="divide-y divide-line rounded-lg border border-line">
                       {detail.projectAccess.map((row) => (
-                        <li key={row.projectId} className="px-3 py-2"><p className="text-table font-medium text-fg">{row.projectName}</p>{row.role ? <p className="text-meta text-fg-muted">{row.role}</p> : null}</li>
+                        <li key={row.projectId} className="px-3 py-2"><p className="text-table font-medium text-fg">{row.projectName}</p>{row.role ? <p className="text-meta text-fg-muted">{role(row.role)}</p> : null}</li>
                       ))}
                     </ul>
                   )}
@@ -207,7 +210,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                       {activity.map((row) => (
                         <li key={row.id} className="py-2">
                           <p className="text-table text-fg">{t(`companyUsers.act.${row.actionKey as ActivityKey}`)}{row.detail ? <span className="text-fg-muted"> · {row.detail}</span> : null}</p>
-                          <p className="text-meta text-fg-subtle">{dateTimeFormat(row.occurredAt)}{row.actorName ? ` · ${row.actorName}` : ""}</p>
+                          <p className="text-meta text-fg-subtle">{dateTimeFormat(row.occurredAt, locale)}{row.actorName ? ` · ${row.actorName}` : ""}</p>
                         </li>
                       ))}
                     </ul>

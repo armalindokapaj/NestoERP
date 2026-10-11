@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
@@ -42,6 +43,7 @@ export function QuoteComparison({
   canSelect: boolean;
   canDisqualify: boolean;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useProcurementTranslations();
@@ -132,7 +134,7 @@ export function QuoteComparison({
         <p className="text-table text-fg-muted">
           {t("comparison.lowestPrefix")}{" "}
           <span className="font-medium text-fg">{lowest.supplier.name}</span>
-          {lowest.pricing ? t("comparison.at", { amount: formatAmount(lowest.pricing.totalAmount, lowest.pricing.currency) }) : ""}.{" "}
+          {lowest.pricing ? t("comparison.at", { amount: formatAmount(lowest.pricing.totalAmount, lowest.pricing.currency, locale) }) : ""}.{" "}
           {t("comparison.lowestNote")}
         </p>
       ) : null}
@@ -182,7 +184,7 @@ export function QuoteComparison({
                     ? items.map((item) => (
                         <td key={item.id} className="px-5 py-3 text-right tabular-nums text-fg-muted">
                           {row.itemTotals[item.id] && row.pricing
-                            ? formatAmount(row.itemTotals[item.id]!, row.pricing.currency)
+                            ? formatAmount(row.itemTotals[item.id]!, row.pricing.currency, locale)
                             : "—"}
                         </td>
                       ))
@@ -191,7 +193,7 @@ export function QuoteComparison({
                   {canCompare ? (
                     <td className="px-5 py-3 text-right tabular-nums font-medium text-fg">
                       {row.pricing
-                        ? formatAmount(row.pricing.totalAmount, row.pricing.currency)
+                        ? formatAmount(row.pricing.totalAmount, row.pricing.currency, locale)
                         : "—"}
                     </td>
                   ) : null}
@@ -248,7 +250,7 @@ export function QuoteComparison({
                 {canCompare ? (
                   <>
                     <dt className="text-fg-subtle">{t("common.total")}</dt>
-                    <dd className="text-right font-medium tabular-nums text-fg">{row.pricing ? formatAmount(row.pricing.totalAmount, row.pricing.currency) : "—"}</dd>
+                    <dd className="text-right font-medium tabular-nums text-fg">{row.pricing ? formatAmount(row.pricing.totalAmount, row.pricing.currency, locale) : "—"}</dd>
                   </>
                 ) : null}
                 <dt className="text-fg-subtle">{t("comparison.leadTime")}</dt>
@@ -263,7 +265,7 @@ export function QuoteComparison({
                         <dt className="min-w-0 break-words text-fg-muted">
                           {item.description} <span className="text-fg-subtle">· {item.quantity} {item.unit}</span>
                         </dt>
-                        <dd className="shrink-0 tabular-nums text-fg">{row.itemTotals[item.id] && row.pricing ? formatAmount(row.itemTotals[item.id]!, row.pricing.currency) : "—"}</dd>
+                        <dd className="shrink-0 tabular-nums text-fg">{row.itemTotals[item.id] && row.pricing ? formatAmount(row.itemTotals[item.id]!, row.pricing.currency, locale) : "—"}</dd>
                       </div>
                     ))}
                   </dl>

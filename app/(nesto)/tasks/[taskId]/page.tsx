@@ -11,9 +11,11 @@ import { TaskActions } from "@/components/tasks/task-actions";
 import { WhatIsThis } from "@/components/help/what-is-this";
 import { Badge } from "@/components/ui/badge";
 import { can, canAccessModule } from "@/lib/access/can";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import { loadTask, taskBreadcrumbs } from "./task-context";
 
 type Params = { params: Promise<{ taskId: string }> };
@@ -39,6 +41,8 @@ export default async function TaskDetailPage({ params }: Params) {
   const { taskId } = await params;
   const { context, task } = await loadTask(taskId);
   const t = await getTranslations("tasks");
+  const tCommon = await getTranslations("common");
+  const locale = await getLocale();
 
   const archived = task.archivedAt !== null || task.status === "ARCHIVED";
   const showDocuments = canAccessModule(context, "documents") && can(context, "document.view");
@@ -91,14 +95,14 @@ export default async function TaskDetailPage({ params }: Params) {
           },
           {
             label: t("fields.due"),
-            value: task.schedule.dueDate ? formatDate(task.schedule.dueDate) : t("common.noDueDate"),
+            value: task.schedule.dueDate ? formatDate(task.schedule.dueDate, locale) : t("common.noDueDate"),
           },
           // The record this work came from, when the reader can open it
           // (PRD #38 §45, §47).
           ...(task.parent
             ? [
                 {
-                  label: t("detail.raisedFrom", { noun: task.parent.noun.toLowerCase() }),
+                  label: t("detail.raisedFrom", { noun: recordTypeName(tCommon, task.parent.type, task.parent.noun).toLowerCase() }),
                   value: (
                     <Link href={task.parent.href} className="text-fg transition-colors hover:text-accent" data-testid="task-parent-link">
                       {task.parent.label}
@@ -136,7 +140,7 @@ export default async function TaskDetailPage({ params }: Params) {
           <p className="text-table font-semibold text-warning-strong">{t("detail.blocked")}</p>
           <p className="mt-1 whitespace-pre-wrap text-table text-fg [overflow-wrap:anywhere]">{task.blocked.reason ?? t("detail.noReason")}</p>
           {task.blocked.since ? (
-            <p className="mt-1 text-meta text-fg-subtle">{t("detail.since", { date: formatDateTime(task.blocked.since) })}</p>
+            <p className="mt-1 text-meta text-fg-subtle">{t("detail.since", { date: formatDateTime(task.blocked.since, locale) })}</p>
           ) : null}
         </div>
       ) : null}
@@ -158,12 +162,12 @@ export default async function TaskDetailPage({ params }: Params) {
                 { label: t("fields.priority"), value: <PriorityBadge priority={task.priority} /> },
                 {
                   label: t("fields.startDate"),
-                  value: task.schedule.startDate ? formatDate(task.schedule.startDate) : "—",
+                  value: task.schedule.startDate ? formatDate(task.schedule.startDate, locale) : "—",
                 },
                 {
                   label: t("fields.completed"),
                   value: task.schedule.completedAt
-                    ? formatDateTime(task.schedule.completedAt)
+                    ? formatDateTime(task.schedule.completedAt, locale)
                     : "—",
                 },
               ]}
@@ -202,10 +206,10 @@ export default async function TaskDetailPage({ params }: Params) {
             <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.createdBy")} value={task.creator ? <PersonLink memberId={task.creator.memberId} name={task.creator.fullName} /> : "—"} />
-              <Meta label={t("detail.created")} value={formatDateTime(task.createdAt)} />
-              <Meta label={t("detail.updated")} value={formatDateTime(task.updatedAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(task.createdAt, locale)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(task.updatedAt, locale)} />
               {task.archivedAt ? (
-                <Meta label={t("detail.archived")} value={formatDateTime(task.archivedAt)} />
+                <Meta label={t("detail.archived")} value={formatDateTime(task.archivedAt, locale)} />
               ) : null}
             </dl>
           </section>
@@ -229,9 +233,9 @@ export default async function TaskDetailPage({ params }: Params) {
                     <li key={entry.id} className="text-table">
                       <p className="text-fg [overflow-wrap:anywhere]">
                         {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("common.someone")}</span>}{" "}
-                        {entry.message ?? entry.action}
+                        {localizeActivity(locale, entry) ?? entry.action}
                       </p>
-                      <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>
+                      <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt, locale)}</p>
                     </li>
                   ))}
                 </ul>

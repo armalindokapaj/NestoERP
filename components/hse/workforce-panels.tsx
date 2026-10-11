@@ -73,6 +73,7 @@ export function IncidentPeople({ incidentId, people, canEdit, employees }: { inc
         ]}
         initial={{ involvement: "INVOLVED" }}
         submitLabel={t("people.addButton")}
+        saveKind="create"
         module="hse"
         testId="incident-person-dialog"
         onSubmit={async (payload) => {
@@ -129,6 +130,7 @@ export function PermitWorkers({ permitId, workers, canEdit, employees, crews }: 
           { name: "crewId", label: t("workers.orCrew"), type: "select", emptyLabel: "—", options: crews, wide: true },
         ]}
         submitLabel={t("people.addButton")}
+        saveKind="create"
         module="hse"
         testId="permit-worker-dialog"
         onSubmit={async (payload) => {

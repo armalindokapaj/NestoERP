@@ -68,6 +68,7 @@ export default async function EditRfqPage({ params }: Params) {
         versionUpdatedAt={rfq.updatedAt}
         cancelHref={`/procurement/rfqs/${rfq.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         suppliers={options.suppliers.map((supplier) => ({
           value: supplier.id,

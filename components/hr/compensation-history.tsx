@@ -3,9 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
 import { Wallet } from "lucide-react";
+import { formatDate } from "@/lib/i18n/format";
 import type { CompensationDTO } from "@/lib/modules/hr/hr.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { hrLabel } from "./hr-labels";
 
 /**
@@ -17,6 +17,7 @@ import { hrLabel } from "./hr-labels";
  */
 
 export async function CompensationHistory({ records }: { records: CompensationDTO[] }) {
+  const locale = await getLocale();
   const t = await getTranslations("hr");
   if (records.length === 0) {
     return (
@@ -47,8 +48,8 @@ export async function CompensationHistory({ records }: { records: CompensationDT
                 {record.isCurrent ? <Badge tone="success">{t("compensation.current")}</Badge> : null}
               </div>
               <p className="mt-1 text-meta text-fg-subtle">
-                {formatDate(record.effectiveFrom)} —{" "}
-                {record.effectiveTo ? formatDate(record.effectiveTo) : t("compensation.open")}
+                {formatDate(record.effectiveFrom, locale)} —{" "}
+                {record.effectiveTo ? formatDate(record.effectiveTo, locale) : t("compensation.open")}
               </p>
             </div>
             <p className="text-meta text-fg-subtle">

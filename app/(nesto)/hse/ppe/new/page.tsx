@@ -44,6 +44,7 @@ export default async function NewPpeCheckPage() {
         action={createPpeCheckAction}
         cancelHref="/hse/ppe"
         submitLabel={t("page.recordCheck")}
+        saveKind="create"
         pendingLabel={t("page.recording")}
         projects={options.projects.map((project) => ({
           value: project.id,

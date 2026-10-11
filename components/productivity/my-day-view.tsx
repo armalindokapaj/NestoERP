@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
 import { getTranslations } from "@/lib/i18n/server";
 import { businessDate, daysBetween, localTime } from "@/lib/core/time/zoned-time";
 import type { MyDayDTO, MyDaySection } from "@/lib/modules/productivity/my-day.service";
@@ -34,7 +35,7 @@ export async function MyDayView({ day, locale, canCreateTask, canComplete }: { d
     day.approvals.status !== "error" &&
     day.events.status !== "error";
 
-  const heading = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", timeZone: day.timezone }).format(new Date(day.generatedAt));
+  const heading = dateText(new Date(day.generatedAt), { weekday: "long", day: "numeric", month: "long", timeZone: day.timezone }, locale, "en");
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6" data-testid="my-day">

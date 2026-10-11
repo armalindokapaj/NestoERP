@@ -1,8 +1,8 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { RfqSummaryDTO } from "@/lib/modules/procurement/procurement.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /** The enquiry list (PRD #19 §252). */
 export async function RfqTable({
@@ -12,6 +12,7 @@ export async function RfqTable({
   rfqs: RfqSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("procurement");
   const columns: TableColumn<RfqSummaryDTO>[] = [
     {
@@ -63,7 +64,7 @@ export async function RfqTable({
       render: (row) =>
         row.responseDueDate ? (
           <span className={row.overdue ? "text-warning-strong" : undefined}>
-            {formatDate(row.responseDueDate)}
+            {formatDate(row.responseDueDate, locale)}
             {row.overdue ? t("rfqs.overdueSuffix") : ""}
           </span>
         ) : (

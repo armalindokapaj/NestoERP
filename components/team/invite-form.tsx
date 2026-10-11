@@ -12,6 +12,8 @@ import {
   selectClass,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useTranslations } from "@/components/i18n/i18n-provider";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { useTeamTranslations } from "@/components/team/team-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +115,7 @@ function InviteFields({
   const router = useRouter();
   const formRef = React.useRef<HTMLFormElement>(null);
   const t = useTeamTranslations();
+  const tr = useTranslations("roles");
   const save = useEditorSave({
     formRef,
     action: inviteMemberAction,
@@ -171,7 +174,7 @@ function InviteFields({
               </option>
               {roles.map((role) => (
                 <option key={role.value} value={role.value}>
-                  {role.label}
+                  {adminRoleName(tr, role.label)}
                 </option>
               ))}
             </FormSelect>

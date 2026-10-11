@@ -6,10 +6,11 @@ import { History } from "lucide-react";
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink, membershipHref } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
+import { formatDate } from "@/lib/i18n/format";
 import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 import { loadEmployee } from "../../employee-context";
 
 type Params = { params: Promise<{ employeeId: string }> };
@@ -29,6 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * E-03 §107), and access is Team's decision (E-03 §92).
  */
 export default async function EmploymentTabPage({ params }: Params) {
+  const locale = await getLocale();
   const { employeeId } = await params;
   const { context, employee } = await loadEmployee(employeeId, "/employment");
 
@@ -59,8 +61,8 @@ export default async function EmploymentTabPage({ params }: Params) {
             },
             { label: t("fields.employmentType"), value: hrLabel(t, "employmentType", employee.employmentType) },
             { label: t("columns.status"), value: hrLabel(t, "employmentStatus", employee.employmentStatus) },
-            { label: employee.employmentStatus === "PLANNED" ? t("fields.plannedStart") : t("fields.startDate"), value: employee.startDate ? formatDate(employee.startDate) : "—" },
-            { label: employee.employmentStatus === "ENDED" ? t("progress.lastDay") : t("fields.plannedEnd"), value: employee.endDate ? formatDate(employee.endDate) : "—" },
+            { label: employee.employmentStatus === "PLANNED" ? t("fields.plannedStart") : t("fields.startDate"), value: employee.startDate ? formatDate(employee.startDate, locale) : "—" },
+            { label: employee.employmentStatus === "ENDED" ? t("progress.lastDay") : t("fields.plannedEnd"), value: employee.endDate ? formatDate(employee.endDate, locale) : "—" },
           ]}
         />
       </section>
@@ -72,7 +74,7 @@ export default async function EmploymentTabPage({ params }: Params) {
           columns={3}
           items={[
             { label: t("fields.employeeNumber"), value: orDash(employee.employeeNumber) },
-            { label: t("fields.probationEnds"), value: employee.probationEndDate ? formatDate(employee.probationEndDate) : "—" },
+            { label: t("fields.probationEnds"), value: employee.probationEndDate ? formatDate(employee.probationEndDate, locale) : "—" },
             { label: t("fields.weeklyHours"), value: orDash(employee.weeklyHours) },
             { label: t("meta.onboarding"), value: hrLabel(t, "progressStatus", employee.onboardingStatus) },
             { label: t("meta.offboarding"), value: hrLabel(t, "progressStatus", employee.offboardingStatus) },

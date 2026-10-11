@@ -1,6 +1,7 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -19,7 +20,6 @@ import { requireModule } from "@/lib/context/current-user";
 import { pendingCycle } from "@/lib/modules/qaqc/approvals/approval.service";
 import * as ncrs from "@/lib/modules/qaqc/ncrs/ncr.service";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ ncrId: string }> };
 
@@ -43,6 +43,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * still missing.
  */
 export default async function NcrPage({ params }: Params) {
+  const locale = await getLocale();
   const { ncrId } = await params;
   const context = await requireModule("qaqc");
   const t = await getTranslations("qaqc");
@@ -87,7 +88,7 @@ export default async function NcrPage({ params }: Params) {
               t("common.notAssigned")
             ),
           },
-          { label: t("detail.due"), value: ncr.dueDate ? formatDate(ncr.dueDate) : t("common.noDate") },
+          { label: t("detail.due"), value: ncr.dueDate ? formatDate(ncr.dueDate, locale) : t("common.noDate") },
         ]}
         actions={
           <>
@@ -228,16 +229,16 @@ export default async function NcrPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("detail.raised")} value={formatDateTime(ncr.createdAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(ncr.createdAt, locale)} />
               {ncr.submittedAt ? (
-                <Meta label={t("detail.submitted")} value={formatDateTime(ncr.submittedAt)} />
+                <Meta label={t("detail.submitted")} value={formatDateTime(ncr.submittedAt, locale)} />
               ) : null}
               {ncr.approvedAt ? (
                 <Meta
                   label={t("ncrPage.closureApproved")}
                   value={
                     <>
-                      {formatDateTime(ncr.approvedAt)}
+                      {formatDateTime(ncr.approvedAt, locale)}
                       {ncr.approvedBy ? (
                         <>
                           {" "}
@@ -253,7 +254,7 @@ export default async function NcrPage({ params }: Params) {
                   label={t("ncrPage.closureRejected")}
                   value={
                     <>
-                      {formatDateTime(ncr.rejectedAt)}
+                      {formatDateTime(ncr.rejectedAt, locale)}
                       {ncr.rejectedBy ? (
                         <>
                           {" "}
@@ -265,7 +266,7 @@ export default async function NcrPage({ params }: Params) {
                 />
               ) : null}
               {ncr.closedAt ? (
-                <Meta label={t("detail.closed")} value={formatDateTime(ncr.closedAt)} />
+                <Meta label={t("detail.closed")} value={formatDateTime(ncr.closedAt, locale)} />
               ) : null}
             </dl>
           </section>

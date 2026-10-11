@@ -44,8 +44,8 @@ export const threeDSq: typeof threeDEn = {
   },
   hud: {
     backTo: "Kthehu te {project}",
-    rangeMinimum: "{label} minimumi",
-    rangeMaximum: "{label} maksimumi",
+    rangeMinimum: "{label}: minimumi",
+    rangeMaximum: "{label}: maksimumi",
     placeholderImage: "Imazh zëvendësues: {kind}",
   },
 };

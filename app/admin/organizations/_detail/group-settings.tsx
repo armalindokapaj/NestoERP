@@ -1,7 +1,7 @@
+import { formatDate } from "@/lib/i18n/format";
 import type { getGroupImplementation } from "@/lib/modules/platform/platform-implementation.service";
 import { LogoUpload } from "@/components/platform/logo-upload";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Props = { implementation: Awaited<ReturnType<typeof getGroupImplementation>> };
 
@@ -11,11 +11,12 @@ type Props = { implementation: Awaited<ReturnType<typeof getGroupImplementation>
  * Lifecycle); company settings stay on each company.
  */
 export async function GroupSettings({ implementation }: Props) {
+  const locale = await getLocale();
   const t = await getTranslations("adminOrgs");
   const { group } = implementation;
   const rows: [string, string | null][] = [
     [t("group.settings.groupName"), group.name], [t("group.settings.code"), group.slug], [t("group.settings.legalName"), group.legalName], [t("group.settings.country"), group.country], [t("group.settings.timeZone"), group.timezone], [t("group.settings.currency"), group.currency],
-    [t("group.settings.activeSince"), group.activatedAt ? formatDate(group.activatedAt) : null],
+    [t("group.settings.activeSince"), group.activatedAt ? formatDate(group.activatedAt, locale) : null],
   ];
   return (
     <div className="space-y-5">

@@ -1,19 +1,20 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 
-import { useFinanceTranslations } from "@/components/finance/finance-text";
+import { unitContractStatusText, useFinanceTranslations } from "@/components/finance/finance-text";
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
-import { UNIT_CONTRACT_STATUS_LABELS, type ContractStatusKey } from "@/lib/modules/contracts/units/unit-contract.types";
+import { formatDate } from "@/lib/i18n/format";
+import { type ContractStatusKey } from "@/lib/modules/contracts/units/unit-contract.types";
 import type { FINANCE_INVENTORY_SORTS } from "@/lib/modules/finance/units/unit-finance.schema";
 import { type FinanceInventoryDTO, type FinanceInventoryRowDTO, type UnitFinancialStatus } from "@/lib/modules/finance/units/unit-finance.types";
-import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { amountLabel, FinancialStatusBadge, UnitContractStatusBadge } from "./finance-status";
 import { FormSelect } from "@/components/ui/form-select";
@@ -63,6 +64,7 @@ function queryString(filters: FinanceFilters, page: number): string {
 }
 
 export function FinanceInventory({ projectId, initial, initialFilters, buildings, unitTypes }: { projectId: string; initial: FinanceInventoryDTO; initialFilters: FinanceFilters; buildings: Place[]; unitTypes: Array<{ id: string; name: string }> }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const [filters, setFilters] = React.useState(initialFilters);
   const [search, setSearch] = React.useState(initialFilters.q);
@@ -143,7 +145,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
             ) : (
               list.totals.map((row) => (
                 <p key={row.currency} className={cn("mt-2 break-words text-card font-semibold tabular-nums sm:text-page", key === "overdue" && Number(row.overdue) > 0 ? "text-danger-strong" : "text-fg")} data-testid={`finance-total-${key}`}>
-                  {amountLabel(row[key], row.currency)}
+                  {amountLabel(row[key], row.currency, locale)}
                 </p>
               ))
             )}
@@ -206,7 +208,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
           <FilterSelect idKey="building" label={t("inventory.building")} value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
           <FilterSelect idKey="floor" label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floor.name }))} />
           <FilterSelect idKey="unit-type" label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
-          <FilterSelect idKey="contract-status" label={t("inventory.contractStatus")} value={filters.contractStatus} onChange={(contractStatus) => setFilter({ contractStatus })} options={CONTRACT_STATUSES.map((status) => ({ value: status, label: UNIT_CONTRACT_STATUS_LABELS[status] }))} />
+          <FilterSelect idKey="contract-status" label={t("inventory.contractStatus")} value={filters.contractStatus} onChange={(contractStatus) => setFilter({ contractStatus })} options={CONTRACT_STATUSES.map((status) => ({ value: status, label: unitContractStatusText(t, status) }))} />
           <FilterSelect idKey="overdue" label={t("inventory.overdue")} value={filters.overdue} onChange={(overdue) => setFilter({ overdue })} options={[{ value: "1", label: t("inventory.onlyOverdue") }]} />
           <FilterSelect idKey="currency" label={t("inventory.currency")} value={filters.currency} onChange={(currency) => setFilter({ currency })} options={["EUR", "ALL", "USD", "GBP"].map((code) => ({ value: code, label: code }))} />
           <div className="flex min-w-0 flex-col gap-1">
@@ -277,15 +279,15 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                         "—"
                       )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{amountLabel(row.contractValue, row.currency)}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums text-fg-muted">{amountLabel(row.paidAmount, row.currency)}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{amountLabel(row.outstandingAmount, row.currency)}</TableCell>
-                    <TableCell className={cn("whitespace-nowrap text-right tabular-nums", Number(row.overdueAmount ?? 0) > 0 ? "text-danger-strong" : "text-fg-muted")}>{amountLabel(row.overdueAmount, row.currency)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">{amountLabel(row.contractValue, row.currency, locale)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums text-fg-muted">{amountLabel(row.paidAmount, row.currency, locale)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">{amountLabel(row.outstandingAmount, row.currency, locale)}</TableCell>
+                    <TableCell className={cn("whitespace-nowrap text-right tabular-nums", Number(row.overdueAmount ?? 0) > 0 ? "text-danger-strong" : "text-fg-muted")}>{amountLabel(row.overdueAmount, row.currency, locale)}</TableCell>
                     <TableCell className="whitespace-nowrap text-fg-muted">
                       {row.nextDue ? (
                         <>
-                          <span className="tabular-nums">{amountLabel(row.nextDue.amount, row.currency)}</span>
-                          <span className="block text-meta text-fg-subtle">{formatDate(row.nextDue.dueDate)}</span>
+                          <span className="tabular-nums">{amountLabel(row.nextDue.amount, row.currency, locale)}</span>
+                          <span className="block text-meta text-fg-subtle">{formatDate(row.nextDue.dueDate, locale)}</span>
                         </>
                       ) : (
                         "—"
@@ -307,17 +309,17 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-body font-semibold text-fg">{row.unitCode}</span>
                     <FinancialStatusBadge status={row.financialStatus} />
-                    <span className="ml-auto text-body font-medium tabular-nums text-fg">{amountLabel(row.outstandingAmount, row.currency)}</span>
+                    <span className="ml-auto text-body font-medium tabular-nums text-fg">{amountLabel(row.outstandingAmount, row.currency, locale)}</span>
                   </span>
                   <span className="mt-0.5 block text-meta text-fg-subtle">
                     {row.building} · {row.floor}
-                    {row.contract ? ` · ${row.contract.number} · ${UNIT_CONTRACT_STATUS_LABELS[row.contract.status as ContractStatusKey] ?? row.contract.status}` : ""}
+                    {row.contract ? ` · ${row.contract.number} · ${unitContractStatusText(t, row.contract.status)}` : ""}
                   </span>
                   {row.contract ? (
                     <span className="mt-1 block text-meta text-fg-muted">
-                      {t("inventory.paidOf", { paid: amountLabel(row.paidAmount, row.currency), value: amountLabel(row.contractValue, row.currency) })}
-                      {Number(row.overdueAmount ?? 0) > 0 ? t("inventory.overdueSuffix", { amount: amountLabel(row.overdueAmount, row.currency) }) : ""}
-                      {row.nextDue ? t("inventory.nextSuffix", { date: formatDate(row.nextDue.dueDate) }) : ""}
+                      {t("inventory.paidOf", { paid: amountLabel(row.paidAmount, row.currency, locale), value: amountLabel(row.contractValue, row.currency, locale) })}
+                      {Number(row.overdueAmount ?? 0) > 0 ? t("inventory.overdueSuffix", { amount: amountLabel(row.overdueAmount, row.currency, locale) }) : ""}
+                      {row.nextDue ? t("inventory.nextSuffix", { date: formatDate(row.nextDue.dueDate, locale) }) : ""}
                     </span>
                   ) : null}
                   {row.client ? <span className="mt-0.5 block text-meta text-fg-muted">{row.client.name}</span> : null}

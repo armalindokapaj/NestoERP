@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import * as hseApprovals from "@/lib/modules/hse/approvals/approval.service";
 import { buildIncidentScopeWhere, buildInspectionScopeWhere, buildPermitScopeWhere, buildRiskAssessmentScopeWhere } from "@/lib/modules/hse/hse.scope";
 import { closeIncident } from "@/lib/modules/hse/incidents/incident.service";
@@ -54,6 +55,7 @@ export const hseApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.hseInspection.findMany({
           where: { AND: [buildInspectionScopeWhere(context), { id: { in: ids } }] },
           select: { id: true, inspectionNumber: true, inspectionType: true, result: true, inspectionDate: true, locationText: true, summary: true, project: PROJECT },
@@ -75,7 +77,7 @@ export const hseApprovalProvider = createCycleProvider({
                 { label: "Result", value: labelOf(row.result), emphasis: row.result === "FAIL" ? "warning" : "strong" },
                 { label: "Project", value: row.project?.name ?? "—" },
                 { label: "Location", value: row.locationText ?? "—" },
-                { label: "Inspected", value: formatDate(row.inspectionDate) },
+                { label: "Inspected", value: formatDate(row.inspectionDate, locale) },
               ],
               description: row.summary,
             },
@@ -104,6 +106,7 @@ export const hseApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.hseRiskAssessment.findMany({
           where: { AND: [buildRiskAssessmentScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -143,7 +146,7 @@ export const hseApprovalProvider = createCycleProvider({
                   { label: "Activity", value: row.activityType ?? "—" },
                   { label: "Hazards", value: String(row.items.length) },
                   { label: "Highest remaining risk", value: worst ? labelOf(worst) : "—", emphasis: worst === "HIGH" || worst === "CRITICAL" ? "warning" : "normal" },
-                  { label: "Assessed", value: formatDate(row.assessmentDate) },
+                  { label: "Assessed", value: formatDate(row.assessmentDate, locale) },
                 ],
                 description: row.description,
                 warnings: worst === "CRITICAL" ? [{ code: "CRITICAL_RESIDUAL_RISK", message: "At least one hazard remains critical after controls.", severity: "CRITICAL" }] : [],
@@ -180,6 +183,7 @@ export const hseApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.hseWorkPermit.findMany({
           where: { AND: [buildPermitScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -201,7 +205,7 @@ export const hseApprovalProvider = createCycleProvider({
         return new Map(
           rows.map((row): [string, RecordFacts] => {
             const warnings: NonNullable<RecordFacts["warnings"]> = [];
-            if (row.validFrom < today) warnings.push({ code: "PERMIT_START_PASSED", message: `The permit was due to start ${formatDate(row.validFrom)}.`, severity: "WARNING" });
+            if (row.validFrom < today) warnings.push({ code: "PERMIT_START_PASSED", message: `The permit was due to start ${formatDate(row.validFrom, locale)}.`, severity: "WARNING" });
             if (row.riskAssessment && row.riskAssessment.status !== "APPROVED") {
               warnings.push({ code: "RISK_ASSESSMENT_NOT_APPROVED", message: `Its risk assessment ${row.riskAssessment.assessmentNumber} is not approved yet.`, severity: "CRITICAL" });
             }
@@ -221,7 +225,7 @@ export const hseApprovalProvider = createCycleProvider({
                   { label: "Type", value: labelOf(row.permitType) },
                   { label: "Project", value: row.project.name },
                   { label: "Location", value: row.locationText },
-                  { label: "Valid", value: `${formatDate(row.validFrom)} – ${formatDate(row.validUntil)}`, emphasis: "strong" },
+                  { label: "Valid", value: `${formatDate(row.validFrom, locale)} – ${formatDate(row.validUntil, locale)}`, emphasis: "strong" },
                   { label: "Risk assessment", value: row.riskAssessment?.assessmentNumber ?? "—" },
                   { label: "PPE", value: row.ppeRequirements ?? "—" },
                 ],
@@ -254,6 +258,7 @@ export const hseApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.hseIncident.findMany({
           where: { AND: [buildIncidentScopeWhere(context), { id: { in: ids } }] },
           select: { id: true, incidentNumber: true, title: true, incidentType: true, severity: true, occurredAt: true, rootCause: true, closureNote: true, project: PROJECT },
@@ -275,7 +280,7 @@ export const hseApprovalProvider = createCycleProvider({
                 { label: "Severity", value: labelOf(row.severity), emphasis: row.severity === "HIGH" || row.severity === "CRITICAL" ? "warning" : "normal" },
                 { label: "Type", value: labelOf(row.incidentType) },
                 { label: "Project", value: row.project?.name ?? "—" },
-                { label: "Occurred", value: formatDate(row.occurredAt) },
+                { label: "Occurred", value: formatDate(row.occurredAt, locale) },
                 { label: "Root cause", value: row.rootCause ?? "—" },
               ],
               description: row.closureNote,

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDateTime } from "@/lib/i18n/format";
 import * as templates from "@/lib/modules/hse/templates/template.service";
 import {
   inspectionTypeLabels,
@@ -16,8 +17,8 @@ import {
   severityLabels,
 } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ templateId: string }> };
 
@@ -34,6 +35,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One safety checklist (PRD #22 §43, §45, §349). */
 export default async function TemplatePage({ params }: Params) {
+  const locale = await getLocale();
   const { templateId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -104,7 +106,7 @@ export default async function TemplatePage({ params }: Params) {
                 "—"
               ),
             },
-            { label: t("record.created"), value: formatDateTime(template.createdAt) },
+            { label: t("record.created"), value: formatDateTime(template.createdAt, locale) },
           ]}
         />
       </section>

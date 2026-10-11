@@ -8,11 +8,13 @@ import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { AccessError } from "@/lib/access/guards";
+import { formatDate } from "@/lib/i18n/format";
 import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
 import { getEmploymentHistory } from "@/lib/modules/hr/employment/employment.query";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import type { Locale } from "@/lib/i18n/config";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 import { loadEmployee } from "../../employee-context";
 
 type Params = { params: Promise<{ employeeId: string }> };
@@ -22,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("meta.employmentHistory") };
 }
 
-const period = (from: string, to: string | null, now: string) => `${formatDate(from)} – ${to ? formatDate(to) : now}`;
+const period = (from: string, to: string | null, now: string, locale: Locale) => `${formatDate(from, locale)} – ${to ? formatDate(to, locale) : now}`;
 
 /**
  * Employment history (E-03 §55-§58, §123-§131, §162, §169, §171).
@@ -34,6 +36,7 @@ const period = (from: string, to: string | null, now: string) => `${formatDate(f
  * the current record is not the history (§56, §195).
  */
 export default async function EmploymentHistoryPage({ params }: Params) {
+  const locale = await getLocale();
   const { employeeId } = await params;
   const { context, employee } = await loadEmployee(employeeId, "/history");
   if (!employee.capabilities.canViewHistory) notFound();
@@ -65,7 +68,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                 <div className="space-y-0.5">
                   <p className="flex flex-wrap items-center gap-2 text-table font-medium text-fg">
                     {hrLabel(t, "changeType", change.type)}
-                    <Badge tone={change.status === "FAILED" ? "danger" : "info"}>{change.status === "FAILED" ? hrLabel(t, "changeStatus", "FAILED") : t("history.scheduledFor", { date: formatDate(change.effectiveDate) })}</Badge>
+                    <Badge tone={change.status === "FAILED" ? "danger" : "info"}>{change.status === "FAILED" ? hrLabel(t, "changeStatus", "FAILED") : t("history.scheduledFor", { date: formatDate(change.effectiveDate, locale) })}</Badge>
                   </p>
                   <p className="text-meta text-fg-muted">{change.summary}</p>
                   {change.failureReason ? <p className="text-meta text-danger-strong">{change.failureReason}</p> : null}
@@ -75,7 +78,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
                     </p>
                   ) : null}
                 </div>
-                {change.canCancel ? <CancelScheduledChange employeeId={employeeId} changeId={change.id} label={t("history.changeOn", { change: hrLabel(t, "changeType", change.type).toLowerCase(), date: formatDate(change.effectiveDate) })} /> : null}
+                {change.canCancel ? <CancelScheduledChange employeeId={employeeId} changeId={change.id} label={t("history.changeOn", { change: hrLabel(t, "changeType", change.type).toLowerCase(), date: formatDate(change.effectiveDate, locale) })} /> : null}
               </li>
             ))}
           </ul>
@@ -114,7 +117,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
           <tbody>
             {history.assignments.map((row) => (
               <tr key={row.id} className={row.supersededAt ? "border-t border-line text-fg-subtle line-through decoration-fg-subtle/40" : "border-t border-line"} data-testid={row.supersededAt ? "assignment-superseded" : "assignment-row"}>
-                <td className="py-2 pr-3 whitespace-nowrap">{period(row.startDate, row.endDate, now)}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">{period(row.startDate, row.endDate, now, locale)}</td>
                 <td className="py-2 pr-3">{orDash(row.jobTitle)}</td>
                 <td className="py-2 pr-3">{orDash(row.department?.name)}</td>
                 <td className="py-2 pr-3">{row.manager ? <PersonLink memberId={row.manager.memberId} name={row.manager.name} /> : "—"}</td>
@@ -172,7 +175,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
           <tbody>
             {history.statuses.map((row) => (
               <tr key={row.id} className={row.supersededAt ? "border-t border-line text-fg-subtle line-through decoration-fg-subtle/40" : "border-t border-line"}>
-                <td className="py-2 pr-3 whitespace-nowrap">{period(row.effectiveFrom, row.effectiveTo, now)}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">{period(row.effectiveFrom, row.effectiveTo, now, locale)}</td>
                 <td className="py-2 pr-3">{hrLabel(t, "employmentStatus", row.status)}</td>
                 <td className="py-2 pr-3">{hrLabel(t, "statusReason", row.reason)}</td>
                 {caps.canViewPrivateReason ? <td className="py-2 pr-3">{orDash(row.privateReason)}</td> : null}
@@ -207,7 +210,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
               .filter((row) => row.status === "APPLIED" || row.status === "CANCELLED")
               .map((row) => (
                 <li key={row.id}>
-                  {t("history.pastRow", { change: hrLabel(t, "changeType", row.type), date: formatDate(row.effectiveDate), status: hrLabel(t, "changeStatus", row.status).toLowerCase() })}
+                  {t("history.pastRow", { change: hrLabel(t, "changeType", row.type), date: formatDate(row.effectiveDate, locale), status: hrLabel(t, "changeStatus", row.status).toLowerCase() })}
                   {row.cancelReason ? ` (${row.cancelReason})` : ""}
                 </li>
               ))}

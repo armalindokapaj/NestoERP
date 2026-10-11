@@ -9,13 +9,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate } from "@/lib/i18n/format";
 import { leaveYearOf, today } from "@/lib/modules/hr/hr.calendar";
 import { leaveListQuerySchema } from "@/lib/modules/hr/hr.schema";
 import { attentionList, getHrOverview } from "@/lib/modules/hr/overview/overview.service";
 import * as leave from "@/lib/modules/hr/leave/leave.service";
-import { formatDate } from "@/lib/utils/format";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("hr");
@@ -32,6 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * compensation figures at all (PRD #16 §22).
  */
 export default async function HrOverviewPage() {
+  const locale = await getLocale();
   const context = await requireModule("hr");
   const experience = resolveModuleExperience(context, "hr");
 
@@ -154,7 +155,7 @@ export default async function HrOverviewPage() {
                       href={`/hr/leave/${request.id}`}
                       className="min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
                     >
-                      {formatDate(request.startDate)} — {formatDate(request.endDate)}
+                      {formatDate(request.startDate, locale)} — {formatDate(request.endDate, locale)}
                     </Link>
                     <span className="shrink-0 text-meta text-fg-subtle">{hrLabel(t, "leaveStatus", request.status)}</span>
                   </li>
@@ -211,7 +212,7 @@ export default async function HrOverviewPage() {
   );
 }
 
-function AttentionPanel({
+async function AttentionPanel({
   title,
   rows,
   emptyLabel,
@@ -220,6 +221,7 @@ function AttentionPanel({
   rows: { employeeId: string; fullName: string; date: string | null }[];
   emptyLabel: string;
 }) {
+  const locale = await getLocale();
   return (
     <section className="nesto-card p-5">
       <h2 className="text-card font-semibold text-fg">{title}</h2>
@@ -236,7 +238,7 @@ function AttentionPanel({
                 {row.fullName}
               </Link>
               <span className="shrink-0 text-meta tabular-nums text-fg-subtle">
-                {row.date ? formatDate(row.date) : "—"}
+                {row.date ? formatDate(row.date, locale) : "—"}
               </span>
             </li>
           ))}

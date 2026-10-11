@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { OrderTable } from "@/components/procurement/order-table";
@@ -11,7 +12,7 @@ import { requireModule } from "@/lib/context/current-user";
 import * as orders from "@/lib/modules/procurement/orders/order.service";
 import * as suppliers from "@/lib/modules/procurement/suppliers/supplier.service";
 import { supplierTypeLabels } from "@/lib/modules/procurement/procurement.status";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
 type Params = { params: Promise<{ supplierId: string }> };
@@ -29,6 +30,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** Supplier detail (PRD #19 §36). */
 export default async function SupplierDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { supplierId } = await params;
   const context = await requireModule("procurement");
 
@@ -181,10 +183,10 @@ export default async function SupplierDetailPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label={t("suppliers.added")} value={formatDateTime(supplier.createdAt)} />
-              <Meta label={t("common.updated")} value={formatDateTime(supplier.updatedAt)} />
+              <Meta label={t("suppliers.added")} value={formatDateTime(supplier.createdAt, locale)} />
+              <Meta label={t("common.updated")} value={formatDateTime(supplier.updatedAt, locale)} />
               {supplier.archivedAt ? (
-                <Meta label={t("suppliers.archived")} value={formatDateTime(supplier.archivedAt)} />
+                <Meta label={t("suppliers.archived")} value={formatDateTime(supplier.archivedAt, locale)} />
               ) : null}
             </dl>
           </section>

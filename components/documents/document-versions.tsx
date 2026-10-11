@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Check, Download, History, Loader2, Send, Upload, X } from "lucide-react";
 
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { formatDateTime } from "@/lib/i18n/format";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import {
   acceptedTypesText,
@@ -32,7 +34,6 @@ import type {
   DocumentVersionDTO,
   VersionHistoryDTO,
 } from "@/lib/modules/documents/versions/version.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { startDownload } from "@/lib/navigation/start-download";
 import type { Translate } from "@/lib/i18n/translator";
 import { documentsLabel, uploadErrorText, useDocumentsTranslations } from "./documents-text";
@@ -243,6 +244,7 @@ function VersionRow({
   onRequestReview: () => void;
   onDecide: (review: DocumentReviewDTO, outcome: "approve" | "reject") => void;
 }) {
+  const locale = useLocale();
   const t = useDocumentsTranslations();
   const state = REVIEW_STATE[version.reviewState];
   const note = storageNote(t, version.storageStatus);
@@ -261,7 +263,7 @@ function VersionRow({
             {version.fileName ?? t("versions.unnamed")} · {formatFileSize(version.sizeBytes)}
           </p>
           <p className="text-meta text-fg-subtle">
-            {version.uploadedBy ? <PersonLink memberId={version.uploadedBy.memberId} name={version.uploadedBy.fullName} /> : t("versions.someone")} · {formatDateTime(version.createdAt)}
+            {version.uploadedBy ? <PersonLink memberId={version.uploadedBy.memberId} name={version.uploadedBy.fullName} /> : t("versions.someone")} · {formatDateTime(version.createdAt, locale)}
           </p>
           {version.changeNote ? (
             <p className="mt-2 whitespace-pre-wrap text-table text-fg">{version.changeNote}</p>
@@ -305,8 +307,8 @@ function VersionRow({
                 ) : null}
               </div>
               <p className="text-meta text-fg-subtle">
-                {t("versions.requestedBy")} <PersonLink memberId={review.requestedBy.memberId} name={review.requestedBy.fullName} /> · {formatDateTime(review.requestedAt)}
-                {review.decidedAt ? t("versions.decided", { date: formatDateTime(review.decidedAt) }) : ""}
+                {t("versions.requestedBy")} <PersonLink memberId={review.requestedBy.memberId} name={review.requestedBy.fullName} /> · {formatDateTime(review.requestedAt, locale)}
+                {review.decidedAt ? t("versions.decided", { date: formatDateTime(review.decidedAt, locale) }) : ""}
               </p>
               {review.dueDate && review.status === "PENDING" ? <p className="text-meta text-fg-subtle">{t("versions.neededBy", { date: review.dueDate })}</p> : null}
               {review.requestNote ? <p className="mt-1 whitespace-pre-wrap text-fg-muted">“{review.requestNote}”</p> : null}

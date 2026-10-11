@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
@@ -29,6 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * and issued; an issued one is fixed, and a mistake is voided and reissued.
  */
 export default async function TransmittalPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId, transmittalId } = await params;
   const context = await requireModule("engineering");
   const item = await orNotFound(getTransmittal(context, transmittalId));
@@ -131,7 +132,7 @@ export default async function TransmittalPage({ params }: Params) {
                 { label: t("details.to"), value: item.recipientText },
                 { label: t("details.contractor"), value: <Ref value={item.contractor} /> },
                 { label: t("details.workPackage"), value: <Ref value={item.workPackage} /> },
-                { label: t("details.issued"), value: item.issuedAt ? dateLabel(item.issuedAt) : t("details.notIssued") },
+                { label: t("details.issued"), value: item.issuedAt ? dateLabel(item.issuedAt, locale) : t("details.notIssued") },
                 { label: t("details.issuedBy"), value: item.issuedBy ? <PersonLink memberId={item.issuedBy.id} name={item.issuedBy.name} /> : null },
               ]}
             />

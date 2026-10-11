@@ -5,6 +5,7 @@ import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
 import { delegationsTo } from "@/lib/core/approvals/approval-delegations";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { buildDocumentAccessWhere, findReadableDocument } from "@/lib/modules/documents/document.parent-access";
 import { formatFileSize, isPreviewable } from "@/lib/modules/documents/document.files";
 import { decideReview } from "@/lib/modules/documents/versions/review.service";
@@ -222,6 +223,7 @@ export const documentReviewProvider: ApprovalProvider = {
   },
 
   async detail(context, approvalId): Promise<ProviderDetail | null> {
+    const locale = await getRequestLocale();
     const row = await prisma.documentReview.findFirst({ where: { id: approvalId, companyId: context.companyId }, select: SELECT });
     if (!row) return null;
     const document = await findReadableDocument(context, row.documentId);
@@ -286,7 +288,7 @@ export const documentReviewProvider: ApprovalProvider = {
 
     const warnings = [];
     if (row.status === "PENDING" && row.dueAt && row.dueAt < startOfToday()) {
-      warnings.push({ code: "REVIEW_OVERDUE", message: `The review was due ${formatDate(row.dueAt)}.`, severity: "WARNING" as const });
+      warnings.push({ code: "REVIEW_OVERDUE", message: `The review was due ${formatDate(row.dueAt, locale)}.`, severity: "WARNING" as const });
     }
     if (row.version.reviewState === "SUPERSEDED") warnings.push({ code: "VERSION_SUPERSEDED", message: "A newer approved version has replaced this one.", severity: "INFO" as const });
     if (item.onBehalfOf) warnings.push({ code: "DELEGATED", message: `You would decide this on behalf of ${item.onBehalfOf.name}, under their delegation.`, severity: "INFO" as const });
@@ -304,7 +306,7 @@ export const documentReviewProvider: ApprovalProvider = {
         { label: "File", value: row.version.originalFileName ?? "—" },
         { label: "Size", value: row.version.sizeBytes ? formatFileSize(row.version.sizeBytes) : "—" },
         { label: "Project", value: full?.project?.name ?? "—" },
-        { label: "Due", value: formatDate(row.dueAt) },
+        { label: "Due", value: formatDate(row.dueAt, locale) },
       ],
       description: row.requestNote,
       warnings,

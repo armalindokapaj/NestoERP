@@ -40,6 +40,7 @@ export default async function NewTemplatePage() {
         action={createTemplateAction}
         cancelHref="/qaqc/templates"
         submitLabel={t("templatePage.create")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
       />
     </div>

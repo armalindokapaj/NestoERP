@@ -5,6 +5,8 @@ import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { isFailure } from "@/components/project-planning/planning-api";
 import { parseOptionalDecimal, type DecimalRule } from "@/lib/forms/decimal";
+import type { Locale } from "@/lib/i18n/config";
+import { numberText as localisedNumber } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils/cn";
 
 export { failureMessage, isFailure, planningApi as structureApi } from "@/components/project-planning/planning-api";
@@ -78,8 +80,8 @@ export function Steps({ steps, current }: { steps: string[]; current: number }) 
   );
 }
 
-export function areaText(value: string | null): string {
-  return value === null ? "—" : `${Number(value).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`;
+export function areaText(value: string | null, locale: Locale): string {
+  return value === null ? "—" : `${localisedNumber(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 }, locale, "en")} m²`;
 }
 
 export function countText(value: number | null): string {

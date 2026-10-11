@@ -11,6 +11,7 @@ import {
   type SelectOption,
 } from "@/components/forms/record-form";
 import { useFinanceTranslations } from "@/components/finance/finance-text";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { localToday } from "./local-date";
@@ -59,6 +60,7 @@ export function ExpenseForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -73,8 +75,10 @@ export function ExpenseForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
 }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const [currency, setCurrency] = React.useState(values?.currency || defaultCurrency);
   const [net, setNet] = React.useState(values?.netAmount ?? "");
@@ -96,6 +100,7 @@ export function ExpenseForm({
       module="finance"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -228,7 +233,7 @@ export function ExpenseForm({
           <p className="text-table text-fg-muted">
             {t("lines.totalPreview")}{" "}
             <span className="font-semibold tabular-nums text-fg">
-              {total !== null ? formatAmount(total, currency) : "—"}
+              {total !== null ? formatAmount(total, currency, locale) : "—"}
             </span>
           </p>
         </div>

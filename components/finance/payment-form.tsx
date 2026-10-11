@@ -10,6 +10,7 @@ import {
   type FormActionResult,
 } from "@/components/forms/record-form";
 import { useFinanceTranslations } from "@/components/finance/finance-text";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Input } from "@/components/ui/input";
 import { localToday } from "./local-date";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +46,7 @@ export function PaymentForm({
   defaultTargetId?: string;
   cancelHref: string;
 }) {
+  const locale = useLocale();
   const t = useFinanceTranslations();
   const [targetId, setTargetId] = React.useState(defaultTargetId ?? targets[0]?.id ?? "");
   const target = targets.find((entry) => entry.id === targetId);
@@ -56,6 +58,7 @@ export function PaymentForm({
       module="finance"
       cancelHref={cancelHref}
       submitLabel={direction === "RECEIPT" ? t("paymentForm.recordReceipt") : t("paymentForm.recordPayment")}
+      saveKind="create"
       pendingLabel={t("paymentForm.recording")}
     >
       <FormSection
@@ -85,7 +88,7 @@ export function PaymentForm({
             </option>
             {targets.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {t("paymentForm.targetOption", { label: entry.label, amount: formatAmount(entry.outstanding, entry.currency) })}
+                {t("paymentForm.targetOption", { label: entry.label, amount: formatAmount(entry.outstanding, entry.currency, locale) })}
               </option>
             ))}
           </FormSelect>
@@ -97,7 +100,7 @@ export function PaymentForm({
           required
           hint={
             target
-              ? t("paymentForm.outstandingIn", { amount: formatAmount(target.outstanding, target.currency), currency: target.currency })
+              ? t("paymentForm.outstandingIn", { amount: formatAmount(target.outstanding, target.currency, locale), currency: target.currency })
               : undefined
           }
         >

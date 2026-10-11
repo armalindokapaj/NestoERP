@@ -71,6 +71,7 @@ export default async function NewAttendancePage() {
         }
         cancelHref="/hr/attendance"
         submitLabel={t("attendance.recordDaySubmit")}
+        saveKind="create"
         pendingLabel={t("attendance.recording")}
       />
     </div>

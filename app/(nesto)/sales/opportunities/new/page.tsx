@@ -48,6 +48,7 @@ export default async function NewOpportunityPage() {
         clients={clients}
         cancelHref="/sales/opportunities"
         submitLabel={t("pages.createOpportunity")}
+        saveKind="create"
         pendingLabel={t("pages.creating")}
       />
     </div>

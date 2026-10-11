@@ -13,6 +13,7 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { localDate } from "@/lib/modules/calendar/calendar.time";
 import { resolveApprover } from "./timesheet.approvers";
@@ -109,7 +110,7 @@ export async function submitTimesheet(
   const approver = await resolveApprover(context.companyId, context.membershipId);
   if (!approver) throw fail("TIMESHEET_NO_APPROVER", "Nobody is set to approve your timesheets yet. Ask HR to assign an approver.", "VALIDATION_ERROR");
 
-  const label = weekLabel(dateOf(week.periodStart));
+  const label = weekLabel(dateOf(week.periodStart), SOURCE_LOCALE);
   await prisma.$transaction(async (tx) => {
     const moved = await tx.timesheet.updateMany({
       where: { id: week.id, version: input.expectedVersion, status: { in: [...EDITABLE_STATUSES] } },
@@ -182,7 +183,7 @@ async function decide(context: UserContext, timesheetId: string, outcome: Outcom
   }
   if (week.status !== "SUBMITTED") throw fail("TIMESHEET_ALREADY_DECIDED", "This week is not waiting for a decision.");
 
-  const label = weekLabel(dateOf(week.periodStart));
+  const label = weekLabel(dateOf(week.periodStart), SOURCE_LOCALE);
   await prisma.$transaction(async (tx) => {
     // The company's own cycle, newest first (AUD-10 §4, A11): never a row matched by record id alone.
     const cycle = await tx.timesheetApproval.findFirst({ where: { companyId: context.companyId, recordId: week.id, status: "PENDING" }, orderBy: [{ submittedAt: "desc" }, { id: "desc" }], select: { id: true, submittedByMemberId: true } });
@@ -273,7 +274,7 @@ export async function reopenTimesheet(context: UserContext, timesheetId: string,
   if (week.memberId === context.membershipId) throw fail("TIMESHEET_SELF_REOPEN_BLOCKED", "Somebody else reopens your approved week.", "FORBIDDEN");
   if (week.status !== "APPROVED") throw fail("TIMESHEET_NOT_APPROVED", "Only an approved week is reopened.");
 
-  const label = weekLabel(dateOf(week.periodStart));
+  const label = weekLabel(dateOf(week.periodStart), SOURCE_LOCALE);
   await prisma.$transaction(async (tx) => {
     const moved = await tx.timesheet.updateMany({
       where: { id: week.id, status: "APPROVED", version: week.version },

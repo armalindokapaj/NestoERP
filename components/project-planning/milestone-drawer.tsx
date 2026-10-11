@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useStatusText } from "@/components/i18n/common-text";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { AlertTriangle, Check, FileText, Link2, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Upload, X } from "lucide-react";
 
@@ -181,8 +182,10 @@ function MilestoneDrawerBody({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const locale = useLocale();
   const t = useTranslations("projects");
   const tUi = useTranslations("ui");
+  const statusText = useStatusText();
   const varianceLabel = useVarianceLabel();
   const toast = useToast();
   const closeDrawer = useDialogClose();
@@ -439,12 +442,12 @@ function MilestoneDrawerBody({
                 <div>
                   <dt className="text-meta text-fg-subtle">{detail.status === "COMPLETED" ? t("drawer.actual") : t("drawer.forecast")}</dt>
                   <dd className="text-table font-semibold tabular-nums text-fg" data-testid="drawer-forecast">
-                    {dateLabel(detail.status === "COMPLETED" ? detail.actualDate : (detail.forecastDate ?? detail.plannedDate))}
+                    {dateLabel(detail.status === "COMPLETED" ? detail.actualDate : (detail.forecastDate ?? detail.plannedDate), locale)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-meta text-fg-subtle">{t("drawer.baseline")}</dt>
-                  <dd className="text-table tabular-nums text-fg">{dateLabel(detail.baselineDate)}</dd>
+                  <dd className="text-table tabular-nums text-fg">{dateLabel(detail.baselineDate, locale)}</dd>
                 </div>
                 <div>
                   <dt className="text-meta text-fg-subtle">{t("drawer.variance")}</dt>
@@ -514,7 +517,7 @@ function MilestoneDrawerBody({
                 ) : null}
                 {detail.suggestion.forecastDate && caps?.canEdit ? (
                   <p className="flex flex-wrap items-center gap-2 text-table text-fg-muted">
-                    {t("drawer.predecessorsSuggest")} <span className="font-medium text-fg">{dateLabel(detail.suggestion.forecastDate)}</span>.
+                    {t("drawer.predecessorsSuggest")} <span className="font-medium text-fg">{dateLabel(detail.suggestion.forecastDate, locale)}</span>.
                     <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={pending} onClick={() => void act(() => planningApi(`${base}/quick-update`, { body: { expectedVersion: detail.version, forecastDate: detail.suggestion.forecastDate, forecastReason: t("drawer.followsPredecessors") } }), t("drawer.forecastUpdated"))}>
                       {t("drawer.useIt")}
                     </Button>
@@ -599,7 +602,7 @@ function MilestoneDrawerBody({
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2 border-b border-line/60 pb-1.5">
                     <dt className="text-fg-muted">{label}</dt>
-                    <dd className="tabular-nums text-fg">{dateLabel(value)}</dd>
+                    <dd className="tabular-nums text-fg">{dateLabel(value, locale)}</dd>
                   </div>
                 ))}
               </dl>
@@ -669,7 +672,7 @@ function MilestoneDrawerBody({
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-fg">{row.name}</span>
                             <span className="text-meta text-fg-muted">
-                              {row.delayed ? <span className="text-danger-strong">{t("drawer.daysLate", { count: row.overdueDays })}</span> : t(`milestoneStatus.${row.status}`)} · {dateLabel(row.targetDate)}
+                              {row.delayed ? <span className="text-danger-strong">{t("drawer.daysLate", { count: row.overdueDays })}</span> : t(`milestoneStatus.${row.status}`)} · {dateLabel(row.targetDate, locale)}
                               {row.lagDays ? t("drawer.lagSuffix", { days: row.lagDays }) : ""}
                             </span>
                           </span>
@@ -736,7 +739,7 @@ function MilestoneDrawerBody({
                         )}
                         <span className="text-meta text-fg-muted">
                           {t(`taskLink.${task.linkType}`)}
-                          {task.status ? ` · ${task.status.replace("_", " ").toLowerCase()}` : ""}
+                          {task.status ? ` · ${statusText(task.status).toLowerCase()}` : ""}
                         </span>
                       </span>
                       {caps?.canLinkTasks ? (
@@ -862,7 +865,7 @@ function MilestoneDrawerBody({
                           <span className="text-meta text-fg-muted">
                             {t(`severity.${blocker.severity}`)}
                             {blocker.owner ? <> · <PersonLink memberId={blocker.owner.memberId} name={blocker.owner.name} /></> : null}
-                            {blocker.dueDate ? t("drawer.due", { date: dateLabel(blocker.dueDate) }) : ""}
+                            {blocker.dueDate ? t("drawer.due", { date: dateLabel(blocker.dueDate, locale) }) : ""}
                             {blocker.overdue ? <span className="text-danger-strong">{t("drawer.overdue")}</span> : null}
                             {blocker.resolvedAt ? <>{t("drawer.resolved")}{blocker.resolvedBy ? <> {t("drawer.by")} <PersonLink memberId={blocker.resolvedBy.memberId} name={blocker.resolvedBy.name} /></> : null}</> : null}
                           </span>
@@ -1006,7 +1009,7 @@ function MilestoneDrawerBody({
                       <span className="font-medium text-fg">{entry.action}</span>
                       <span className="text-meta text-fg-muted">
                         {" "}
-                        · {entry.actorName ? <PersonLink memberId={entry.actorMemberId} name={entry.actorName} /> : "NESTO"} · {dateLabel(entry.occurredAt.slice(0, 10))}
+                        · {entry.actorName ? <PersonLink memberId={entry.actorMemberId} name={entry.actorName} /> : "NESTO"} · {dateLabel(entry.occurredAt.slice(0, 10), locale)}
                       </span>
                       {entry.note ? <span className="block text-meta text-fg-muted">{entry.note}</span> : null}
                     </li>
@@ -1021,7 +1024,7 @@ function MilestoneDrawerBody({
             </Section>
 
             <p className="px-5 pb-6 pt-2 text-meta text-fg-subtle">
-              {varianceLabel(detail.varianceDays)}{t("drawer.created", { date: dateLabel(detail.createdAt.slice(0, 10)) })}
+              {varianceLabel(detail.varianceDays)}{t("drawer.created", { date: dateLabel(detail.createdAt.slice(0, 10), locale) })}
               {detail.createdBy ? <> {t("drawer.by")} <PersonLink memberId={detail.createdBy.memberId} name={detail.createdBy.name} /></> : null}
             </p>
 

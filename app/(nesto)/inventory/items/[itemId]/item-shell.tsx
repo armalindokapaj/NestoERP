@@ -9,7 +9,7 @@ import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
 import * as items from "@/lib/modules/inventory/items/item.service";
 import { itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "@/components/inventory/inventory-labels";
 import type { ItemDetailDTO } from "@/lib/modules/inventory/inventory.types";
 import { formatQuantity } from "@/components/inventory/inventory-format";
@@ -62,6 +62,7 @@ export async function ItemPageShell({
   item: ItemDetailDTO;
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const totals = item.byLocation.reduce(
     (running, row) => ({
@@ -94,15 +95,15 @@ export async function ItemPageShell({
             ? [
                 {
                   label: t("columns.onHand"),
-                  value: `${formatQuantity(totals.onHand.toFixed(4))} ${item.baseUnit}`,
+                  value: `${formatQuantity(totals.onHand.toFixed(4), locale)} ${item.baseUnit}`,
                 },
                 {
                   label: t("columns.reserved"),
-                  value: `${formatQuantity(totals.reserved.toFixed(4))} ${item.baseUnit}`,
+                  value: `${formatQuantity(totals.reserved.toFixed(4), locale)} ${item.baseUnit}`,
                 },
                 {
                   label: t("columns.available"),
-                  value: `${formatQuantity(totals.available.toFixed(4))} ${item.baseUnit}`,
+                  value: `${formatQuantity(totals.available.toFixed(4), locale)} ${item.baseUnit}`,
                 },
               ]
             : [{ label: t("columns.unit"), value: item.baseUnit }]

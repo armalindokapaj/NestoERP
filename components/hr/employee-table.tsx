@@ -2,10 +2,11 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { hrLabel } from "./hr-labels";
 import type { EmployeeSummaryDTO } from "@/lib/modules/hr/hr.types";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 
 /**
  * The employee list (PRD #16 §40).
@@ -21,6 +22,7 @@ export async function EmployeeTable({ employees, listId = "hr.employees", sort }
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hr");
   const columns: TableColumn<EmployeeSummaryDTO>[] = [
     {
@@ -117,7 +119,7 @@ export async function EmployeeTable({ employees, listId = "hr.employees", sort }
       hideBelow: "lg",
       render: (employee) => (
         <span className="text-fg-muted">
-          {employee.startDate ? formatDate(employee.startDate) : "—"}
+          {employee.startDate ? formatDate(employee.startDate, locale) : "—"}
         </span>
       ),
     },

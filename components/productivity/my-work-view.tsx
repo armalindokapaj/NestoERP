@@ -6,7 +6,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { Boxes, CalendarClock, History, Loader2, Star, X } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import { useOpenRecord } from "@/components/workspace/use-open-record";
 import type { ModuleKey } from "@/config/modules";
+import { dateText } from "@/lib/i18n/format";
 import type { MyWorkItemDTO, MyWorkPageDTO, MyWorkTab } from "@/lib/modules/productivity/my-work.service";
 import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 import { publishMyWorkChange, subscribeMyWork } from "@/lib/productivity/client";
@@ -47,6 +48,7 @@ const selectClass = "h-9 max-w-full rounded-md border border-line bg-surface px-
  * session is in.
  */
 export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnabled }: { tab: MyWorkTab; query: MyWorkQuery; initial: MyWorkPageDTO; favoritesEnabled: boolean; recentEnabled: boolean }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const tModules = useTranslations("modules");
@@ -285,7 +287,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
                       {/* Phones keep the subtitle and the when, not only company · module · project (AUD-04 §5, D-01-14, MW-05). */}
                       {item.subtitle ? <span className="block truncate text-meta text-fg-muted">{item.subtitle}</span> : null}
                       <span className="block truncate text-meta text-fg-muted md:hidden">
-                        {[item.company?.name, moduleLabel(item.moduleKey), item.project?.name, now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now, t)) : null].filter(Boolean).join(" · ")}
+                        {[item.company?.name, moduleLabel(item.moduleKey), item.project?.name, now ? (tab === "favorites" ? dateText(new Date(item.at), {}, locale) : relativeTime(item.at, now, t)) : null].filter(Boolean).join(" · ")}
                       </span>
                     </span>
                   </a>
@@ -293,7 +295,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
                   <span className="hidden truncate text-table text-fg-muted md:block">{moduleLabel(item.moduleKey)}</span>
                   <span className="hidden truncate text-table text-fg-muted md:block">{item.project?.name ?? "—"}</span>
                   <span className="hidden text-meta tabular-nums text-fg-subtle md:block" title={item.at}>
-                    {now ? (tab === "favorites" ? new Date(item.at).toLocaleDateString() : relativeTime(item.at, now, t)) : ""}
+                    {now ? (tab === "favorites" ? dateText(new Date(item.at), {}, locale) : relativeTime(item.at, now, t)) : ""}
                   </span>
                   <Button type="button" variant="ghost" size="icon-sm" aria-label={tab === "favorites" ? t("myWork.removeFavorite", { title: item.title }) : t("myWork.removeRecent", { title: item.title })} onClick={(event) => {
                     // The row leaves at once; focus the next one, not <body> (AUD-11 §4, AV-04).

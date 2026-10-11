@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -13,7 +14,7 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as requests from "@/lib/modules/qaqc/requests/request.service";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ requestId: string }> };
 
@@ -31,6 +32,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One inspection request (PRD #21 §35). */
 export default async function RequestPage({ params }: Params) {
+  const locale = await getLocale();
   const { requestId } = await params;
   const context = await requireModule("qaqc");
   const t = await getTranslations("qaqc");
@@ -76,7 +78,7 @@ export default async function RequestPage({ params }: Params) {
           },
           {
             label: t("detail.neededBy"),
-            value: request.requiredByDate ? formatDate(request.requiredByDate) : t("common.noDate"),
+            value: request.requiredByDate ? formatDate(request.requiredByDate, locale) : t("common.noDate"),
           },
           { label: t("detail.inspections"), value: String(request.inspectionCount) },
         ]}
@@ -123,7 +125,7 @@ export default async function RequestPage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: t("detail.raisedOn"), value: formatDate(request.requestedDate) },
+                { label: t("detail.raisedOn"), value: formatDate(request.requestedDate, locale) },
               ]}
             />
 
@@ -166,10 +168,10 @@ export default async function RequestPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("detail.raised")} value={formatDateTime(request.createdAt)} />
-              <Meta label={t("detail.updated")} value={formatDateTime(request.updatedAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(request.createdAt, locale)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(request.updatedAt, locale)} />
               {request.cancelledAt ? (
-                <Meta label={t("detail.cancelled")} value={formatDateTime(request.cancelledAt)} />
+                <Meta label={t("detail.cancelled")} value={formatDateTime(request.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

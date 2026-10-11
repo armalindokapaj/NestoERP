@@ -6,10 +6,10 @@ import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDateTime } from "@/lib/i18n/format";
 import { getAuditLogEvent } from "@/lib/modules/platform/platform-audit.query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
-import { formatDateTime } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminAccess");
@@ -20,6 +20,7 @@ type Props = { params: Promise<{ eventId: string }> };
 
 /** One audit event as recorded, with its redacted before/after (Admin Audit PRD #6 §66). */
 export default async function AuditEventPage({ params }: Props) {
+  const locale = await getLocale();
   const { eventId } = await params;
   const tr = await getTranslations("roles");
   const t = await getTranslations("adminAccess");
@@ -37,7 +38,7 @@ export default async function AuditEventPage({ params }: Props) {
       <Breadcrumbs items={[{ label: t("audit.event.breadcrumbRoot"), href: "/admin/audit" }, { label: action }]} />
       <header>
         <h1 className="text-page font-semibold text-fg">{action}</h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted"><span>{formatDateTime(event.occurredAt)}</span><AdminStatusBadge status={event.severity} /><span className="font-mono text-meta">{event.actionKey}</span></div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted"><span>{formatDateTime(event.occurredAt, locale)}</span><AdminStatusBadge status={event.severity} /><span className="font-mono text-meta">{event.actionKey}</span></div>
       </header>
       <section className="nesto-card p-5" aria-label={t("audit.event.sectionLabel")}>
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">

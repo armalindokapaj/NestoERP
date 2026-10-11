@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -12,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as returns from "@/lib/modules/inventory/documents/return.service";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ returnId: string }> };
 
@@ -30,6 +30,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One return (PRD #20 §123, §126, §127). */
 export default async function ReturnPage({ params }: Params) {
+  const locale = await getLocale();
   const { returnId } = await params;
   const context = await requireModule("inventory");
   const t = await getTranslations("inventory");
@@ -55,7 +56,7 @@ export default async function ReturnPage({ params }: Params) {
         status={record.status}
         badges={<Badge tone="info">{record.project.code}</Badge>}
         meta={[
-          { label: t("detail.returned"), value: formatDate(record.returnDate) },
+          { label: t("detail.returned"), value: formatDate(record.returnDate, locale) },
           { label: t("columns.lines"), value: String(record.lineCount) },
           { label: t("fields.returnedBy"), value: record.returnedBy ? <PersonLink memberId={record.returnedBy.memberId} name={record.returnedBy.fullName} /> : "—" },
         ]}
@@ -110,7 +111,7 @@ export default async function ReturnPage({ params }: Params) {
                 },
                 { label: t("columns.backInto"), value: record.warehouse.name },
                 { label: t("detail.draftedBy"), value: record.createdBy ? <PersonLink memberId={record.createdBy.memberId} name={record.createdBy.fullName} /> : "—" },
-                { label: t("detail.drafted"), value: formatDateTime(record.createdAt) },
+                { label: t("detail.drafted"), value: formatDateTime(record.createdAt, locale) },
                 { label: t("columns.postedBy"), value: record.postedBy ? <PersonLink memberId={record.postedBy.memberId} name={record.postedBy.fullName} /> : "—" },
               ]}
             />

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import type { ZodError } from "zod";
 
 import { AccessError } from "@/lib/access/guards";
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { actionFailure } from "@/lib/actions/result";
 import { invalidInput, readSubmittedLines, scalarFormValues } from "@/lib/modules/finance/finance.form-data";
 import { parseDecimalInput } from "@/lib/modules/finance/finance.decimal";
@@ -63,8 +64,8 @@ function revalidateProcurement(recordPath?: string) {
  * ordered, and a supplier that looks like one already on file. The form
  * re-asks with a confirmation instead of simply failing (PRD #19 §31, §139).
  */
-function toResult(error: unknown): ProcurementActionResult {
-  const failure = actionFailure(error, "procurement");
+async function toResult(error: unknown): Promise<ProcurementActionResult> {
+  const failure = await actionFailure(error, "procurement");
   // The over-receipt question carries its lines back (PRD #19 §139).
   const lines = error instanceof AccessError ? (error.details as { lines?: unknown } | undefined)?.lines : undefined;
   return lines === undefined ? failure : { ...failure, details: lines };
@@ -75,8 +76,8 @@ function toResult(error: unknown): ProcurementActionResult {
  * is `items.<index>.<field>`, the index being the row's submitted position, so
  * the editor can put it on that row.
  */
-function invalid(error: ZodError, submitted: number[] | null = null): ProcurementActionResult {
-  return invalidInput(error, submitted ? { items: submitted } : {});
+async function invalid(error: ZodError, submitted: number[] | null = null): Promise<ProcurementActionResult> {
+  return localizeActionFailure(invalidInput(error, submitted ? { items: submitted } : {}));
 }
 
 /**

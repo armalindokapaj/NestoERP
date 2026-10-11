@@ -10,11 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import * as toolbox from "@/lib/modules/hse/toolbox/toolbox.service";
 import { attendanceLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ talkId: string }> };
 
@@ -31,6 +32,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One toolbox talk (PRD #22 §129, §132, §320). */
 export default async function ToolboxTalkPage({ params }: Params) {
+  const locale = await getLocale();
   const { talkId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -63,7 +65,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
         }
         meta={[
           { label: t("record.project"), value: talk.project?.code ?? t("record.companyWide") },
-          { label: t("toolbox.detail.date"), value: formatDate(talk.talkDate) },
+          { label: t("toolbox.detail.date"), value: formatDate(talk.talkDate, locale) },
           {
             label: t("toolbox.detail.conductedBy"),
             value: talk.conductedBy ? (
@@ -178,12 +180,12 @@ export default async function ToolboxTalkPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("toolbox.detail.recorded")} value={formatDateTime(talk.createdAt)} />
+              <Meta label={t("toolbox.detail.recorded")} value={formatDateTime(talk.createdAt, locale)} />
               {talk.completedAt ? (
-                <Meta label={t("toolbox.detail.completed")} value={formatDateTime(talk.completedAt)} />
+                <Meta label={t("toolbox.detail.completed")} value={formatDateTime(talk.completedAt, locale)} />
               ) : null}
               {talk.cancelledAt ? (
-                <Meta label={t("record.cancelled")} value={formatDateTime(talk.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(talk.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

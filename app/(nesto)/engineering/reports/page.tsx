@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
+import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
 import { engineeringLabel, type EngineeringLabelGroup } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 
@@ -46,9 +47,11 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
   const experience = resolveModuleExperience(context, "engineering");
   const projectId = one((await searchParams).projectId) ?? null;
   const t = await getTranslations("engineering");
+  const tContractors = await getTranslations("contractors");
   const door = engineeringProjectDoor(context, "rfi.view");
   // A stored value's bar reads in the reader's language; a contractor's name stays as it is.
   const translated = (rows: Breakdown, group: EngineeringLabelGroup): Breakdown => rows.map((row) => ({ ...row, label: engineeringLabel(t, group, row.key, row.label) }));
+  const byContractor = (rows: Breakdown): Breakdown => rows.map((row) => (row.key === "none" ? { ...row, label: t("reports.noContractor") } : row));
   const [report, projects] = await Promise.all([orNotFound(engineeringReport(context, { projectId })), door ? prisma.project.findMany({ where: { AND: [door, { archivedAt: null }] }, orderBy: { name: "asc" }, take: 200, select: { id: true, name: true } }) : []]);
   return (
     <ModulePage experience={experience} activeSection="reports" title={t("reports.title")} description={t("reports.description")}>
@@ -66,7 +69,7 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
         </MetricStrip>
         <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2">
           <Panel title={t("reports.rfisByContractor")}>
-            <Bars rows={report.rfis.byContractor} empty={t("reports.noRfis")} />
+            <Bars rows={byContractor(report.rfis.byContractor)} empty={t("reports.noRfis")} />
           </Panel>
           <Panel title={t("reports.rfisByDiscipline")}>
             <Bars rows={translated(report.rfis.byDiscipline, "discipline")} empty={t("reports.noRfis")} />
@@ -78,7 +81,7 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
             <Bars rows={translated(report.submittals.byType, "submittalType")} empty={t("reports.noSubmittals")} />
           </Panel>
           <Panel title={t("reports.submittalsByContractor")}>
-            <Bars rows={report.submittals.byContractor} empty={t("reports.noSubmittals")} />
+            <Bars rows={byContractor(report.submittals.byContractor)} empty={t("reports.noSubmittals")} />
           </Panel>
           <Panel title={t("reports.documentsByDiscipline")}>
             <Bars rows={translated(report.documents.byDiscipline, "discipline")} empty={t("reports.noDocuments")} />
@@ -88,7 +91,7 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
           </Panel>
           {report.compliance ? (
             <Panel title={t("reports.contractorCompliance")}>
-              <Bars rows={report.compliance.byStatus} empty={t("reports.noCompliance")} />
+              <Bars rows={report.compliance.byStatus.map((row) => ({ ...row, label: contractorsLabel(tContractors, "complianceStatus", row.key, row.label) }))} empty={t("reports.noCompliance")} />
             </Panel>
           ) : null}
         </div>

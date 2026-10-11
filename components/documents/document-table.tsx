@@ -5,11 +5,11 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
+import { formatDate } from "@/lib/i18n/format";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import type { DocumentSummaryDTO } from "@/lib/modules/documents/document.types";
-import { formatDate } from "@/lib/utils/format";
 import { contextLabel, fileTypeLabel, storageMessageLabel } from "@/lib/i18n/modules/documents/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Documents list (PRD #13 §71–§74, §176).
@@ -40,8 +40,11 @@ export async function DocumentTable({
   /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const sortable = Boolean(sort);
   const t = await getTranslations("documents");
+  const tCommon = await getTranslations("common");
+  const tModules = await getTranslations("modules");
   const columns: TableColumn<DocumentSummaryDTO>[] = [
     {
       key: "name",
@@ -110,7 +113,7 @@ export async function DocumentTable({
       id: "context",
       label: t("table.context"),
       hideBelow: "lg",
-      render: (document) => <span className="text-fg-muted">{contextLabel(t, document.context.label)}</span>,
+      render: (document) => <span className="text-fg-muted">{contextLabel(t, document.context.label, { ...document.context, common: tCommon, modules: tModules })}</span>,
     },
     {
       key: "related",
@@ -186,7 +189,7 @@ export async function DocumentTable({
       sortKey: sortable ? "updated" : undefined,
       label: t("table.updated"),
       hideBelow: "md",
-      render: (document) => <span className="text-fg-muted">{formatDate(document.updatedAt)}</span>,
+      render: (document) => <span className="text-fg-muted">{formatDate(document.updatedAt, locale)}</span>,
     },
   ];
 
@@ -204,7 +207,7 @@ export async function DocumentTable({
         facts: ["type", "context", "updated"],
         omit: showStatus ? ["status"] : [],
         status: showStatus ? (document) => <StatusBadge status={document.status} /> : undefined,
-        label: (document) => [document.name, fileTypeLabel(t, document.typeLabel), formatDate(document.updatedAt)].join(", "),
+        label: (document) => [document.name, fileTypeLabel(t, document.typeLabel), formatDate(document.updatedAt, locale)].join(", "),
       }}
       rowHref={group ? undefined : (document) => `/documents/${document.id}`}
     />

@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/i18n/config";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 import type { ContractCommercialDTO, CurrencyTotal } from "@/lib/modules/contracts/contract.types";
 import { englishContracts } from "@/lib/i18n/modules/contracts/labels";
@@ -15,12 +16,12 @@ import type { Translate } from "@/lib/i18n/translator";
  */
 export function commercialLabel(
   commercial: ContractCommercialDTO | null,
-  t: Translate<"contracts"> = englishContracts,
+  t: Translate<"contracts"> = englishContracts, locale: Locale,
 ): string | null {
   if (!commercial) return null;
   // English: "Not priced".
   if (commercial.contractValue === null || commercial.currency === null) return t("format.notPriced");
-  return formatAmount(commercial.contractValue, commercial.currency);
+  return formatAmount(commercial.contractValue, commercial.currency, locale);
 }
 
 /**
@@ -29,9 +30,9 @@ export function commercialLabel(
  * Several currencies are listed, never summed: V0.1 has no FX engine, so the
  * only honest presentation is side by side (PRD #18 §65, §447).
  */
-export function totalsLabel(totals: CurrencyTotal[] | null): string {
+export function totalsLabel(totals: CurrencyTotal[] | null, locale: Locale): string {
   if (!totals || totals.length === 0) return "—";
-  return totals.map((total) => formatAmount(total.value, total.currency)).join(" · ");
+  return totals.map((total) => formatAmount(total.value, total.currency, locale)).join(" · ");
 }
 
 /** "Expires in 18 days", "Expired 4 days ago", "No fixed expiry" (PRD #18 §490, §491). */

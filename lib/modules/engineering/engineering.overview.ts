@@ -4,6 +4,7 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertModule } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { addLocalDays, daysBetween } from "@/lib/modules/calendar/calendar.time";
 import { contractorProjectDoor, contractorsOpen, readableAssignmentWhere, readableComplianceWhere, readableWorkPackageWhere } from "@/lib/modules/contractors/contractor.permissions";
 import { COMPLIANCE_ALERT_STATUSES, COMPLIANCE_STATUS_LABELS, COMPLIANCE_TYPE_LABELS, OPEN_WORK_PACKAGE_STATUSES, type ComplianceStatus } from "@/lib/modules/contractors/contractor.types";
@@ -165,20 +166,23 @@ export async function myEngineeringWork(context: UserContext): Promise<MyEnginee
 export type WidgetItem = { id: string; title: string; subtitle?: string; meta?: string; status?: string; href: string };
 
 export async function rfisAssignedToMeWidget(context: UserContext, limit: number): Promise<WidgetItem[]> {
+  const locale = await getRequestLocale();
   if (!engineeringOpen(context)) return [];
   const { items } = await listRfis(context, { assignee: "me", open: false, awaiting: true, overdue: false, page: 1, projectId: null, q: null, contractorId: null, workPackageId: null });
   return items
     .slice(0, limit)
-    .map((row) => ({ id: row.id, title: `${row.rfiNumber} · ${row.subject}`, subtitle: [row.projectName, row.dueAt ? `due ${dateLabel(row.dueAt)}` : null].filter(Boolean).join(" · "), status: row.overdue ? "OVERDUE" : row.status, href: row.href }));
+    .map((row) => ({ id: row.id, title: `${row.rfiNumber} · ${row.subject}`, subtitle: [row.projectName, row.dueAt ? `due ${dateLabel(row.dueAt, locale)}` : null].filter(Boolean).join(" · "), status: row.overdue ? "OVERDUE" : row.status, href: row.href }));
 }
 
 export async function reviewsAwaitingMeWidget(context: UserContext, limit: number): Promise<WidgetItem[]> {
+  const locale = await getRequestLocale();
   if (!engineeringOpen(context)) return [];
   const { reviews } = await myEngineeringWork(context);
-  return reviews.slice(0, limit).map((row) => ({ id: `${row.kind}:${row.id}`, title: `${row.number}${row.revisionCode ? ` Rev ${row.revisionCode}` : ""} · ${row.title}`, subtitle: [row.projectName, row.dueAt ? `due ${dateLabel(row.dueAt)}` : null].filter(Boolean).join(" · "), status: row.overdue ? "OVERDUE" : "UNDER_REVIEW", href: row.href }));
+  return reviews.slice(0, limit).map((row) => ({ id: `${row.kind}:${row.id}`, title: `${row.number}${row.revisionCode ? ` Rev ${row.revisionCode}` : ""} · ${row.title}`, subtitle: [row.projectName, row.dueAt ? `due ${dateLabel(row.dueAt, locale)}` : null].filter(Boolean).join(" · "), status: row.overdue ? "OVERDUE" : "UNDER_REVIEW", href: row.href }));
 }
 
 export async function contractorComplianceWidget(context: UserContext, limit: number): Promise<WidgetItem[]> {
+  const locale = await getRequestLocale();
   if (!contractorsOpen(context, "contractor_compliance.view")) return [];
   const rows = await prisma.contractorComplianceItem.findMany({
     where: { AND: [readableComplianceWhere(context), { archivedAt: null, status: { in: COMPLIANCE_ALERT_STATUSES } }] },
@@ -186,7 +190,7 @@ export async function contractorComplianceWidget(context: UserContext, limit: nu
     take: limit,
     select: { id: true, title: true, type: true, status: true, expiresAt: true, contractorId: true, contractor: { select: { legalName: true } } },
   });
-  return rows.map((row) => ({ id: row.id, title: `${row.title} · ${row.contractor.legalName}`, subtitle: [COMPLIANCE_TYPE_LABELS[row.type], row.expiresAt ? `${row.status === "EXPIRED" ? "expired" : "expires"} ${dateLabel(dateOf(row.expiresAt))}` : COMPLIANCE_STATUS_LABELS[row.status as ComplianceStatus]].join(" · "), status: row.status, href: `/contractors/${row.contractorId}/compliance?item=${row.id}` }));
+  return rows.map((row) => ({ id: row.id, title: `${row.title} · ${row.contractor.legalName}`, subtitle: [COMPLIANCE_TYPE_LABELS[row.type], row.expiresAt ? `${row.status === "EXPIRED" ? "expired" : "expires"} ${dateLabel(dateOf(row.expiresAt), locale)}` : COMPLIANCE_STATUS_LABELS[row.status as ComplianceStatus]].join(" · "), status: row.status, href: `/contractors/${row.contractorId}/compliance?item=${row.id}` }));
 }
 
 /** Where engineering is stuck across the reader's projects: late answers and late reviews (§277). */

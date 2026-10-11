@@ -7,6 +7,8 @@ import type { UserContext } from "@/lib/context/types";
 import { delegationsTo } from "@/lib/core/approvals/approval-delegations";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { dateText } from "@/lib/i18n/format";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { localDate } from "@/lib/modules/calendar/calendar.time";
 import { leaveTypeLabels } from "@/lib/modules/hr/hr.status";
 import { resolveApprover } from "./timesheet.approvers";
@@ -132,6 +134,7 @@ const TIMESHEET_SELECT = {
 } as const;
 
 async function buildWeek(context: UserContext, input: { memberId: string; periodStart: string; timesheet: TimesheetRow | null; settings: TimesheetSettingsDTO }): Promise<TimesheetWeekDTO> {
+  const locale = await getRequestLocale();
   const { memberId, periodStart, timesheet, settings } = input;
   const today = localDate(new Date(), settings.timezone);
   const days = weekDays(periodStart);
@@ -190,7 +193,7 @@ async function buildWeek(context: UserContext, input: { memberId: string; period
 
   const warnings: TimesheetWarning[] = [];
   for (const day of dayDTOs) {
-    if (day.totalMinutes > LONG_DAY_MINUTES) warnings.push({ code: "LONG_DAY", message: `${formatMinutes(day.totalMinutes)} logged on ${new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(businessInstant(day.date))}.`, severity: "WARNING" });
+    if (day.totalMinutes > LONG_DAY_MINUTES) warnings.push({ code: "LONG_DAY", message: `${formatMinutes(day.totalMinutes)} logged on ${dateText(businessInstant(day.date), { weekday: "long", timeZone: "UTC" }, locale)}.`, severity: "WARNING" });
     if (day.attendanceMinutes !== null && day.attendanceMinutes - day.totalMinutes >= 60 && day.date <= today) {
       warnings.push({ code: "ATTENDANCE_DIFFERENCE", message: `Attendance shows ${formatMinutes(day.attendanceMinutes)} on ${day.date}, with ${formatMinutes(day.totalMinutes)} logged.`, severity: "INFO" });
     }
@@ -331,6 +334,7 @@ export async function taskOptions(context: UserContext, projectId: string, q?: s
 
 /** The member's latest weeks, newest first, for the dashboard (§183). */
 export async function myRecentWeeks(context: UserContext, count: number) {
+  const locale = await getRequestLocale();
   if (!timesheetsOpen(context)) return [];
   const settings = await resolveTimesheetSettings(context.companyId);
   const current = weekStartOf(localDate(new Date(), settings.timezone), settings.weekStartsOn);
@@ -347,7 +351,7 @@ export async function myRecentWeeks(context: UserContext, count: number) {
     const total = row ? (minutes.get(row.id) ?? 0) : 0;
     return {
       periodStart: start,
-      label: weekLabel(start),
+      label: weekLabel(start, locale),
       status: (row?.status ?? "DRAFT") as TimesheetStatus,
       totalMinutes: total,
       totalLabel: formatMinutes(total),

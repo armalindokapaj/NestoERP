@@ -85,6 +85,7 @@ export default async function NewBudgetPage({
         lockedCurrency={approvedCurrency}
         cancelHref="/finance/budgets"
         submitLabel={t("budgets.create")}
+        saveKind="create"
         pendingLabel={t("revise.creating")}
       />
     </div>

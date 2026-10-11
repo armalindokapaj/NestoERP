@@ -10,19 +10,20 @@ import { contractBreadcrumbs, contractContext } from "../contract-context";
 import { ContractTabs } from "../contract-tabs";
 import { pendingCycle } from "@/lib/modules/contracts/approvals/approval.service";
 import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ contractId: string }> };
 
 /** The record's frame: header and tabs stay mounted while the tab content swaps beneath them. */
 export default async function ContractTabsLayout({ children, params }: Params & { children: React.ReactNode }) {
+  const locale = await getLocale();
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
   const t = await getTranslations("contracts");
   const may = contract.capabilities;
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle = may.canApprove || may.canReject ? await pendingCycle(context, "CONTRACT", contract.id) : null;
-  const value = commercialLabel(contract.commercial, t);
+  const value = commercialLabel(contract.commercial, t, locale);
 
   return (
     <div className="space-y-5">

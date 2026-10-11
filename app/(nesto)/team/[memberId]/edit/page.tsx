@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { MemberForm } from "@/components/team/member-form";
 import { updateMemberAction } from "@/lib/actions/team";
 import { getTranslations } from "@/lib/i18n/server";
@@ -28,7 +29,7 @@ export default async function EditMemberPage({ params }: Params) {
   if (!member.capabilities.canEditMembership) redirect(`/team/${memberId}`);
 
   const options = await teamFormOptions(context);
-  const t = await getTranslations("team");
+  const [t, tr] = await Promise.all([getTranslations("team"), getTranslations("roles")]);
 
   // The member's current role must stay selectable even when the reader could
   // not assign it themselves — otherwise saving a job title would silently
@@ -50,7 +51,7 @@ export default async function EditMemberPage({ params }: Params) {
       <RecordContextHeader
         breadcrumbs={memberBreadcrumbs(t, member, t("member.crumbEdit"))}
         title={member.profile.fullName}
-        subtitle={member.membership.role.name}
+        subtitle={adminRoleName(tr, member.membership.role.name)}
         status={member.membership.status}
       />
 

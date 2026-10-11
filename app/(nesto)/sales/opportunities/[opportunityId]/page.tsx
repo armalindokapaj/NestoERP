@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { RecordHeader } from "@/components/modules/record-header";
@@ -21,7 +22,6 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { RecordTasks } from "@/components/tasks/record-tasks";
 import { formatAmount } from "@/components/sales/sales-format";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
-import { formatDate } from "@/lib/utils/format";
 import { opportunityContext } from "./opportunity-context";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -33,6 +33,7 @@ type Params = { params: Promise<{ opportunityId: string }> };
 
 /** Opportunity detail (PRD #17 §285). */
 export default async function OpportunityPage({ params }: Params) {
+  const locale = await getLocale();
   const { opportunityId } = await params;
   const { context, opportunity } = await opportunityContext(opportunityId);
   const t = await getTranslations("sales");
@@ -62,7 +63,7 @@ export default async function OpportunityPage({ params }: Params) {
         meta={[
           {
             label: t("detail.value"),
-            value: formatAmount(opportunity.estimatedValue, opportunity.currency),
+            value: formatAmount(opportunity.estimatedValue, opportunity.currency, locale),
           },
           {
             label: t("detail.probability"),
@@ -70,15 +71,15 @@ export default async function OpportunityPage({ params }: Params) {
           },
           {
             label: t("detail.weighted"),
-            value: formatAmount(opportunity.weightedValue, opportunity.currency),
+            value: formatAmount(opportunity.weightedValue, opportunity.currency, locale),
           },
           { label: t("detail.owner"), value: <PersonLink memberId={opportunity.owner.memberId} name={opportunity.owner.fullName} /> },
           {
             label: opportunity.actualCloseDate ? t("detail.closed") : t("detail.expectedClose"),
             value: opportunity.actualCloseDate
-              ? formatDate(opportunity.actualCloseDate)
+              ? formatDate(opportunity.actualCloseDate, locale)
               : opportunity.expectedCloseDate
-                ? formatDate(opportunity.expectedCloseDate)
+                ? formatDate(opportunity.expectedCloseDate, locale)
                 : "—",
           },
         ]}
@@ -175,11 +176,11 @@ export default async function OpportunityPage({ params }: Params) {
             </div>
             <div>
               <dt className="nesto-eyebrow text-fg-subtle">{t("detail.inStageSince")}</dt>
-              <dd className="mt-0.5 text-table text-fg">{formatDate(opportunity.stageChangedAt)}</dd>
+              <dd className="mt-0.5 text-table text-fg">{formatDate(opportunity.stageChangedAt, locale)}</dd>
             </div>
             <div>
               <dt className="nesto-eyebrow text-fg-subtle">{t("detail.created")}</dt>
-              <dd className="mt-0.5 text-table text-fg">{formatDate(opportunity.createdAt)}</dd>
+              <dd className="mt-0.5 text-table text-fg">{formatDate(opportunity.createdAt, locale)}</dd>
             </div>
           </dl>
 

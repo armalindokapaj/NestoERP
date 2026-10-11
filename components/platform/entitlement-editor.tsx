@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { adminModuleText } from "@/components/platform/admin-modules";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { FormSelect } from "@/components/ui/form-select";
+import { dateText } from "@/lib/i18n/format";
 
 type Mode = "INHERIT" | "ENABLED" | "DISABLED" | "TRIAL";
 type ModuleRow = {
@@ -36,6 +37,7 @@ export function EntitlementEditor({ companyId, version, plan, plans, modules, ca
   companyId: string; version: number; plan: { id: string | null; name: string };
   plans: Array<{ value: string; label: string }>; modules: ModuleRow[]; canManage: boolean;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useTranslations("adminOrgs");
@@ -161,7 +163,7 @@ export function EntitlementEditor({ companyId, version, plan, plans, modules, ca
                   </td>
                   <td className="px-4 py-2.5">
                     <AdminStatusBadge status={row.state} />
-                    {row.state === "Trial" && row.override?.endsAt ? <span className="ml-1 text-meta text-fg-subtle">{t("editor.untilDate", { date: new Date(row.override.endsAt).toLocaleDateString("en-GB") })}</span> : null}
+                    {row.state === "Trial" && row.override?.endsAt ? <span className="ml-1 text-meta text-fg-subtle">{t("editor.untilDate", { date: dateText(new Date(row.override.endsAt), {}, locale) })}</span> : null}
                     {row.entitled && !row.switchedOn && row.source !== "core" ? <p className="text-meta text-fg-subtle">{t("editor.switchedOff")}</p> : null}
                   </td>
                 </tr>

@@ -84,7 +84,7 @@ describe("weeks (§11, §12)", () => {
     expect(weekStartOf("2026-09-13", 1)).toBe("2026-09-07");
     expect(weekStartOf("2026-09-13", 7)).toBe("2026-09-13");
     expect(weekStartOf("2026-09-12", 7)).toBe("2026-09-06");
-    expect(weekLabel("2026-09-07")).toBe("7–13 Sep 2026");
+    expect(weekLabel("2026-09-07", "en")).toBe("7–13 Sep 2026");
   });
 });
 

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import { redirect } from "next/navigation";
 import { History } from "lucide-react";
 
@@ -8,7 +10,6 @@ import { RecordContextHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import * as projects from "@/lib/modules/projects/project.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadProject, } from "../project-context";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
@@ -32,6 +33,7 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
   const { page } = await searchParams;
   const { context, project } = await loadProject(projectId);
   const t = await getTranslations("projects");
+  const locale = await getLocale();
   const actions = projects.projectActions(context);
 
   if (!actions.canViewActivity) redirect("/access-denied");
@@ -65,9 +67,9 @@ export default async function ProjectActivityPage({ params, searchParams }: Para
             {activity.data.map((entry) => (
               <li key={entry.id} className="flex flex-wrap items-baseline gap-x-2 py-3 first:pt-0 last:pb-0">
                 <span className="text-table font-medium text-fg">{entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : "NESTO"}</span>
-                <span className="text-table text-fg-muted">{entry.message ?? entry.action}</span>
+                <span className="text-table text-fg-muted">{localizeActivity(locale, entry) ?? entry.action}</span>
                 <span className="ml-auto text-meta tabular-nums text-fg-subtle">
-                  {formatDateTime(entry.createdAt)}
+                  {formatDateTime(entry.createdAt, locale)}
                 </span>
               </li>
             ))}

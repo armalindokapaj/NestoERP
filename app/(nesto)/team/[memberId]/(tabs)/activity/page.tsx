@@ -5,9 +5,10 @@ import { History } from "lucide-react";
 import { Pagination } from "@/components/data/pagination";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import * as team from "@/lib/modules/team/team.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadMember } from "../../member-context";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
 
@@ -33,6 +34,7 @@ export default async function MemberActivityPage({ params, searchParams }: Param
 
   if (!member.capabilities.canViewActivity) notFound();
   const t = await getTranslations("team");
+  const locale = await getLocale();
 
   const query = await searchParams;
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
@@ -57,10 +59,10 @@ export default async function MemberActivityPage({ params, searchParams }: Param
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
                   {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("member.someone")}</span>}{" "}
-                  {entry.message ?? entry.action}
+                  {localizeActivity(locale, entry) ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {formatDateTime(entry.createdAt)}
+                  {formatDateTime(entry.createdAt, locale)}
                 </p>
               </li>
             ))}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -15,7 +16,6 @@ import { requireModule } from "@/lib/context/current-user";
 import * as movements from "@/lib/modules/inventory/movements/movement.service";
 import * as reservations from "@/lib/modules/inventory/reservations/reservation.service";
 import { movementListQuerySchema } from "@/lib/modules/inventory/inventory.schema";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ reservationId: string }> };
 
@@ -39,6 +39,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * already spoken for (PRD #20 §166).
  */
 export default async function ReservationPage({ params }: Params) {
+  const locale = await getLocale();
   const { reservationId } = await params;
   const context = await requireModule("inventory");
   const t = await getTranslations("inventory");
@@ -90,15 +91,15 @@ export default async function ReservationPage({ params }: Params) {
         meta={[
           {
             label: t("columns.reserved"),
-            value: `${formatQuantity(reservation.quantity)} ${reservation.item.baseUnit}`,
+            value: `${formatQuantity(reservation.quantity, locale)} ${reservation.item.baseUnit}`,
           },
           {
             label: t("detail.stillHeld"),
-            value: `${formatQuantity(reservation.remainingQuantity)} ${reservation.item.baseUnit}`,
+            value: `${formatQuantity(reservation.remainingQuantity, locale)} ${reservation.item.baseUnit}`,
           },
           {
             label: t("columns.required"),
-            value: reservation.requiredDate ? formatDate(reservation.requiredDate) : "—",
+            value: reservation.requiredDate ? formatDate(reservation.requiredDate, locale) : "—",
           },
         ]}
         actions={<ReservationRowActions reservation={reservation} />}
@@ -146,11 +147,11 @@ export default async function ReservationPage({ params }: Params) {
                 },
                 {
                   label: t("detail.takenSoFar"),
-                  value: `${formatQuantity(reservation.fulfilledQuantity)} ${reservation.item.baseUnit}`,
+                  value: `${formatQuantity(reservation.fulfilledQuantity, locale)} ${reservation.item.baseUnit}`,
                 },
                 {
                   label: t("fields.expires"),
-                  value: reservation.expiresAt ? formatDate(reservation.expiresAt) : t("detail.noExpiry"),
+                  value: reservation.expiresAt ? formatDate(reservation.expiresAt, locale) : t("detail.noExpiry"),
                 },
               ]}
             />
@@ -174,7 +175,7 @@ export default async function ReservationPage({ params }: Params) {
             <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.reservedBy")} value={reservation.createdBy ? <PersonLink memberId={reservation.createdBy.memberId} name={reservation.createdBy.fullName} /> : "—"} />
-              <Meta label={t("detail.created")} value={formatDateTime(reservation.createdAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(reservation.createdAt, locale)} />
             </dl>
           </section>
         </div>

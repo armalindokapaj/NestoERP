@@ -148,6 +148,7 @@ export const procurementSq: typeof procurementEn = {
     },
     priority: { LOW: "I ulët", MEDIUM: "Mesatar", HIGH: "I lartë", CRITICAL: "Kritik" },
     category: {
+      UNCATEGORISED: "Pa kategori",
       MATERIALS: "Materiale",
       EQUIPMENT: "Pajisje",
       SUBCONTRACT: "Nënkontratë",

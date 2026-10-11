@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { EditorStateScreen } from "@/components/3d/platform/editor/EditorStateScreen";
 import { Button } from "@/components/ui/button";
 import { AccessError } from "@/lib/access/guards";
+import { getEditorTranslations } from "@/lib/3d/platform/editor-text-server";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { authorizeProject3DEditor } from "@/lib/modules/project-3d/project-3d.editor";
 
@@ -22,13 +23,14 @@ export default async function ExperienceEditorAccess({ children, params }: { chi
     if (!(error instanceof AccessError)) throw error;
     if (error.code === "NOT_FOUND") notFound();
     if (error.code !== "FORBIDDEN") throw error;
+    const editorServerText = await getEditorTranslations();
     return (
       <EditorStateScreen
-        code="Access denied"
-        title="You can't author this Experience."
-        actions={<Button asChild variant="secondary"><a href="/admin/3d">Open 3D Experiences</a></Button>}
+        code={editorServerText("Access denied")}
+        title={editorServerText("You can't author this Experience.")}
+        actions={<Button asChild variant="secondary"><a href="/admin/3d">{editorServerText("Open 3D Experiences")}</a></Button>}
       >
-        The 3D Experience Editor needs the Platform Admin 3D authoring permission. Contact a Platform Administrator if you need it.
+        {editorServerText("The 3D Experience Editor needs the Platform Admin 3D authoring permission. Contact a Platform Administrator if you need it.")}
       </EditorStateScreen>
     );
   }

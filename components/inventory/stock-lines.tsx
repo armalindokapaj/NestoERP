@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { CellError, DecimalCell, RemovedLineNotice, useLineRows, useRowErrors } from "@/components/finance/line-rows";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,6 +95,7 @@ export function StockLinesEditor({
   fromWarehouseId?: string;
   toWarehouseId?: string;
 }) {
+  const locale = useLocale();
   const t = useInventoryTranslations();
   const positiveQuantity = (value: string) => (isPositiveDecimal(value) ? null : t("lines.quantityPositive"));
   const nonZeroDelta = (value: string) => (isZeroDecimal(value) ? t("lines.deltaNonZero") : null);
@@ -301,9 +303,9 @@ export function StockLinesEditor({
 
               {held ? (
                 <p className="text-meta text-fg-subtle">
-                  <span className="tabular-nums text-fg">{formatQuantity(held.onHand)}</span>{" "}
+                  <span className="tabular-nums text-fg">{formatQuantity(held.onHand, locale)}</span>{" "}
                   {t("lines.onHandHere")}{" "}
-                  <span className="tabular-nums text-fg">{formatQuantity(held.available)}</span>{" "}
+                  <span className="tabular-nums text-fg">{formatQuantity(held.available, locale)}</span>{" "}
                   {t("lines.available")}
                   {variant === "adjustment" && line.quantityDelta
                     ? (() => {
@@ -312,7 +314,7 @@ export function StockLinesEditor({
                           <>
                             {` · ${t("lines.wouldBecome")} `}
                             <span className="tabular-nums text-fg">
-                              {formatQuantity(result)}
+                              {formatQuantity(result, locale)}
                             </span>
                           </>
                         );

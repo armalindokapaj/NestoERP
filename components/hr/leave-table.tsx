@@ -2,10 +2,10 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { hrLabel } from "./hr-labels";
 import type { LeaveRequestDTO } from "@/lib/modules/hr/hr.types";
-import { formatDate } from "@/lib/utils/format";
 import { formatDays } from "./hr-format";
 
 /**
@@ -29,6 +29,7 @@ export async function LeaveTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hr");
   const columns: TableColumn<LeaveRequestDTO>[] = [
     ...(showEmployee
@@ -79,7 +80,7 @@ export async function LeaveTable({
       valueType: "date",
       sortKey: sort ? "start" : undefined,
       label: t("leave.from"),
-      render: (request) => <span className="text-fg-muted">{formatDate(request.startDate)}</span>,
+      render: (request) => <span className="text-fg-muted">{formatDate(request.startDate, locale)}</span>,
     },
     {
       key: "to",
@@ -87,7 +88,7 @@ export async function LeaveTable({
       valueType: "date",
       label: t("leave.to"),
       hideBelow: "md",
-      render: (request) => <span className="text-fg-muted">{formatDate(request.endDate)}</span>,
+      render: (request) => <span className="text-fg-muted">{formatDate(request.endDate, locale)}</span>,
     },
     {
       key: "days",
@@ -96,7 +97,7 @@ export async function LeaveTable({
       label: t("attendance.days"),
       align: "right",
       render: (request) => (
-        <span className="tabular-nums text-fg">{formatDays(request.days)}</span>
+        <span className="tabular-nums text-fg">{formatDays(request.days, locale)}</span>
       ),
     },
     {

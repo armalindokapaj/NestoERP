@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { ArrowUpRight, ListPlus, Loader2, Plus, SquareCheckBig } from "lucide-react";
 
@@ -12,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
+import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
 import { ACTION_STATUS_LABELS, type ActionTaskHandoff, type MeetingActionItemDTO, type MeetingDetailDTO } from "@/lib/modules/meetings/meeting.types";
-import { statusLabel } from "@/lib/utils/status";
+import { useStatusText } from "@/components/i18n/common-text";
 import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
 import { cn } from "@/lib/utils/cn";
 import { ActionStatusToggle } from "./action-status-toggle";
@@ -33,8 +36,8 @@ import { FormSelect } from "@/components/ui/form-select";
  * follows it; its own status control is replaced by the link.
  */
 
-function dueLabel(date: string): string {
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+function dueLabel(date: string, locale: Locale): string {
+  return dateText(new Date(`${date}T12:00:00Z`), { day: "numeric", month: "short", timeZone: "UTC" }, locale);
 }
 
 export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; openOnly?: boolean; limit?: number }) {
@@ -204,7 +207,9 @@ function ActionRow({
   onChange: (detail: MeetingDetailDTO) => void;
   onConvert: () => void;
 }) {
+  const locale = useLocale();
   const t = useMeetingsTranslations();
+  const statusText = useStatusText();
   const closed = action.status === "DONE" || action.status === "CANCELLED";
   return (
     <li
@@ -234,7 +239,7 @@ function ActionRow({
           ) : (
             <span className="text-fg-subtle">{t("common.unassigned")}</span>
           )}
-          {action.dueDate ? <span className={cn("tabular-nums", action.overdue && "font-medium text-danger-strong")}>{action.overdue ? t("actions.overdueDate", { date: dueLabel(action.dueDate) }) : t("actions.dueDate", { date: dueLabel(action.dueDate) })}</span> : null}
+          {action.dueDate ? <span className={cn("tabular-nums", action.overdue && "font-medium text-danger-strong")}>{action.overdue ? t("actions.overdueDate", { date: dueLabel(action.dueDate, locale) }) : t("actions.dueDate", { date: dueLabel(action.dueDate, locale) })}</span> : null}
           {action.status === "IN_PROGRESS" ? <Badge tone="info">{meetingsLabel(t, "actionStatus", "IN_PROGRESS", ACTION_STATUS_LABELS.IN_PROGRESS)}</Badge> : null}
           {action.status === "CANCELLED" ? <Badge>{meetingsLabel(t, "actionStatus", "CANCELLED", ACTION_STATUS_LABELS.CANCELLED)}</Badge> : null}
         </span>
@@ -246,14 +251,14 @@ function ActionRow({
               href={action.task.href}
               className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-meta font-medium text-fg hover:border-line-strong"
               data-testid="action-task-link"
-              aria-label={t("actions.linkedTask", { status: statusLabel(action.task.status) })}
+              aria-label={t("actions.linkedTask", { status: statusText(action.task.status) })}
             >
               <SquareCheckBig aria-hidden="true" className="size-3.5 text-fg-subtle" />
-              {statusLabel(action.task.status)}
+              {statusText(action.task.status)}
               <ArrowUpRight aria-hidden="true" className="size-3 text-fg-subtle" />
             </Link>
           ) : (
-            <span className="text-meta text-fg-subtle">{t("actions.taskStatus", { status: statusLabel(action.task.status) })}</span>
+            <span className="text-meta text-fg-subtle">{t("actions.taskStatus", { status: statusText(action.task.status) })}</span>
           )
         ) : action.capabilities.canConvertToTask ? (
           <Button type="button" size="sm" variant="ghost" onClick={onConvert} disabled={pending}>

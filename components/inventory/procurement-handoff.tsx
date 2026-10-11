@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { PackagePlus } from "lucide-react";
 
@@ -130,6 +131,7 @@ function HandoffForm({
   locations: LocationOption[];
   onClose: () => void;
 }) {
+  const locale = useLocale();
   const t = useInventoryTranslations();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [warehouseId, setWarehouseId] = React.useState("");
@@ -218,7 +220,7 @@ function HandoffForm({
                 <p className="text-meta text-fg-subtle">
                   {t("handoff.accepted")}{" "}
                   <span className="tabular-nums text-fg">
-                    {formatQuantity(line.acceptedQuantity)} {line.unit}
+                    {formatQuantity(line.acceptedQuantity, locale)} {line.unit}
                   </span>
                 </p>
 

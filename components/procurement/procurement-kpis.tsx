@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 import type {
   ProcurementCompanyFiguresDTO,
@@ -23,6 +23,7 @@ export async function ProcurementKpiGrid({
   /** The Group workspace: a card whose page belongs to one company is not a link there (Workspace Context §25, §29). */
   group?: boolean;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("procurement");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
@@ -56,7 +57,7 @@ export async function ProcurementKpiGrid({
   if (overview.committedValue) {
     cards.push({
       label: t("kpis.committedValue"),
-      value: totalsLabel(overview.committedValue),
+      value: totalsLabel(overview.committedValue, locale),
       hint: group
         ? t("kpis.committedGroupHint")
         : t("kpis.committedHint"),
@@ -121,6 +122,7 @@ export async function ProcurementKpiGrid({
  * single figure here.
  */
 export async function ProcurementCompanyBreakdown({ companies }: { companies: ProcurementCompanyFiguresDTO[] }) {
+  const locale = await getLocale();
   if (companies.length === 0) return null;
   const t = await getTranslations("procurement");
 
@@ -146,7 +148,7 @@ export async function ProcurementCompanyBreakdown({ companies }: { companies: Pr
                 <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{row.openRequests}</td>
                 <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{row.ordersAwaitingReceipt}</td>
                 <td className="py-2 pr-3 text-right tabular-nums text-fg-muted">{row.overdueOrders}</td>
-                <td className="py-2 text-right tabular-nums text-fg">{totalsLabel(row.committedValue)}</td>
+                <td className="py-2 text-right tabular-nums text-fg">{totalsLabel(row.committedValue, locale)}</td>
               </tr>
             ))}
           </tbody>

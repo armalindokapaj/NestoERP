@@ -80,6 +80,7 @@ export default async function ReinspectPage({ params }: Params) {
         action={action}
         cancelHref={`/qaqc/inspections/${parent.id}`}
         submitLabel={t("inspectionPage.raiseReinspection")}
+        saveKind="create"
         pendingLabel={t("common.raising")}
       >
         <FormSection

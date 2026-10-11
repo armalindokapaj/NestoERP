@@ -1,5 +1,6 @@
+import { dateText } from "@/lib/i18n/format";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Image from "next/image";
 import Link from "@/components/navigation/nav-link";
 import { Box, Building2, CalendarClock, Layers3, Orbit, PackageOpen } from "lucide-react";
@@ -21,6 +22,7 @@ const selectClass = "h-10 w-full rounded-md border border-line-strong bg-surface
 type Search = { q?: string; group?: string; company?: string; state?: string; publication?: string; entitlement?: string; tab?: string; configure?: string };
 
 export default async function ThreeDExperiencesPage({ searchParams }: { searchParams: Promise<Search> }) {
+  const locale = await getLocale();
   const t = await getTranslations("adminPlatform");
   const context = await requirePlatformContext();
   const raw = await searchParams;
@@ -66,7 +68,7 @@ export default async function ThreeDExperiencesPage({ searchParams }: { searchPa
             <Stat icon={<Box />} label={t("threeD.index.modelSlots")} value={String(experience.models.slots)} />
             <Stat icon={<PackageOpen />} label={t("threeD.index.releases")} value={String(experience.releases)} />
           </dl>
-          <div className="mt-4 flex items-center justify-between gap-3"><p className="text-meta text-fg-subtle"><CalendarClock className="mr-1 inline size-3.5" />{experience.activeRelease ? t("threeD.index.releaseLine", { number: experience.activeRelease.releaseNumber, date: new Date(experience.activeRelease.publishedAt).toLocaleDateString() }) : t("threeD.index.neverPublished")}</p><Button asChild size="sm"><Link href={`/admin/3d/projects/${experience.projectId}`}>{t("threeD.index.open")}</Link></Button></div>
+          <div className="mt-4 flex items-center justify-between gap-3"><p className="text-meta text-fg-subtle"><CalendarClock className="mr-1 inline size-3.5" />{experience.activeRelease ? t("threeD.index.releaseLine", { number: experience.activeRelease.releaseNumber, date: dateText(new Date(experience.activeRelease.publishedAt), {}, locale, "en-US") }) : t("threeD.index.neverPublished")}</p><Button asChild size="sm"><Link href={`/admin/3d/projects/${experience.projectId}`}>{t("threeD.index.open")}</Link></Button></div>
         </div>
       </article>)}
     </section> : <section className="nesto-card flex min-h-80 flex-col items-center justify-center p-8 text-center"><span className="rounded-2xl bg-accent-soft p-4 text-accent-strong"><Orbit className="size-8" /></span><h2 className="mt-4 text-card font-semibold text-fg">{t("threeD.index.emptyTitle")}</h2><p className="mt-1 max-w-md text-body text-fg-muted">{t("threeD.index.emptyBody")}</p><div className="mt-5 flex gap-2"><NewExperienceDialog groups={groups} triggerLabel={t("threeD.index.createExperience")} />{Object.keys(query).length ? <Button asChild variant="secondary"><Link href="/admin/3d">{t("threeD.index.clearFilters")}</Link></Button> : null}</div></section>}

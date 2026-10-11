@@ -82,6 +82,7 @@ export default async function NewContractPage({
         action={createContractAction}
         cancelHref="/contracts/all"
         submitLabel={t("newPage.create")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
         canEditCommercial={commercial}
         canEditConfidential={confidential}

@@ -4,7 +4,7 @@ import Link from "@/components/navigation/nav-link";
 import { EmptyNote, Facts, Panel, ReviewBadge } from "@/components/engineering/engineering-ui";
 import { orNotFound } from "@/components/engineering/page-helpers";
 import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { requireModule } from "@/lib/context/current-user";
 import { listContractorAssignments } from "@/lib/modules/contractors/contractor.assignments";
 import { listContractorCompliance } from "@/lib/modules/contractors/contractor.compliance";
@@ -20,6 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** The contractor at a glance (PRD #46 §160): who they are, where they work, what is out of date. */
 export default async function ContractorOverviewPage({ params }: Params) {
+  const locale = await getLocale();
   const { contractorId } = await params;
   const context = await requireModule("contractors");
   const contractor = await orNotFound(getContractor(context, contractorId));
@@ -66,7 +67,7 @@ export default async function ContractorOverviewPage({ params }: Params) {
                       <Link href={`/contractors/${contractor.id}/compliance?item=${item.id}`} className="text-table font-medium text-fg hover:underline">
                         {item.title}
                       </Link>
-                      <p className="text-meta text-fg-muted">{item.expiresAt ? t(item.status === "EXPIRED" ? "overview.expired" : "overview.expires", { date: dateLabel(item.expiresAt) }) : t("overview.notOnFile")}</p>
+                      <p className="text-meta text-fg-muted">{item.expiresAt ? t(item.status === "EXPIRED" ? "overview.expired" : "overview.expires", { date: dateLabel(item.expiresAt, locale) }) : t("overview.notOnFile")}</p>
                     </div>
                     <ReviewBadge status={item.status} label={contractorsLabel(t, "complianceStatus", item.status, COMPLIANCE_STATUS_LABELS[item.status])} />
                   </li>

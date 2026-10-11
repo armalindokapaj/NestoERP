@@ -7,14 +7,15 @@ import { buildClientScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { moduleAndPermissions, recordDefinitions } from "@/lib/core/records/record.registry";
 import { prisma } from "@/lib/database/prisma";
+import { formatRelativeTime } from "@/lib/i18n/format";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { buildPaymentScopeWhere } from "@/lib/modules/finance/finance.scope";
 import { buildAttendanceScopeWhere, buildEmployeeScopeWhere } from "@/lib/modules/hr/hr.scope";
 import { buildTransferScopeWhere } from "@/lib/modules/inventory/inventory.scope";
 import { readablePhaseWhere } from "@/lib/modules/project-planning/planning.permissions";
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import { buildTeamScopeWhere } from "@/lib/modules/team/team.scope";
-import { formatRelativeTime } from "@/lib/utils/format";
-import type { WidgetActivityItem } from "./dashboard.types";
+import { ACTIVITY_ACTION, type WidgetActivityItem } from "./dashboard.types";
 
 /**
  * The Recent Activity widget (PRD #4 §15, PRD #47 §59, §175).
@@ -202,6 +203,7 @@ export async function loadRecentActivity(context: UserContext, take = RECENT_ACT
 
 /** The same entries with when each happened, so a view across companies can merge them in order. */
 export async function loadRecentActivityRows(context: UserContext, take = RECENT_ACTIVITY_SIZE): Promise<Array<{ item: WidgetActivityItem; at: Date }>> {
+  const locale = await getRequestLocale();
   const sources = readableActivitySources(context);
   if (sources.length === 0) return [];
   const bySource = new Map(sources.map((source) => [sourceKey(source.module, source.entityType), source]));
@@ -255,7 +257,8 @@ export async function loadRecentActivityRows(context: UserContext, take = RECENT
         actor: row.actorMember ? `${row.actorMember.user.firstName} ${row.actorMember.user.lastName}` : "NESTO",
         actorMemberId: row.actorMember ? row.actorMemberId : null,
         message: row.message ?? row.action,
-        createdAt: formatRelativeTime(row.createdAt),
+        [ACTIVITY_ACTION]: row.action,
+        createdAt: formatRelativeTime(row.createdAt, locale),
       },
     }));
 }

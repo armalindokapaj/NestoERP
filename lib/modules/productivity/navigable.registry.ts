@@ -4,6 +4,9 @@ import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import type { Locale } from "@/lib/i18n/config";
+import { dayText } from "@/lib/i18n/format";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { NAVIGABLE_LABELS, NAVIGABLE_TYPES, isNavigableType, type NavigableType } from "./navigable.types";
 
 /**
@@ -39,8 +42,7 @@ type Provider = {
   resolveMany(context: UserContext, ids: string[]): Promise<Array<Omit<NavigableEntityDTO, "moduleKey">>>;
 };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const day = (instant: Date) => `${instant.getUTCDate()} ${MONTHS[instant.getUTCMonth()]} ${instant.getUTCFullYear()}`;
+const day = (instant: Date, locale: Locale) => dayText(instant.toISOString().slice(0, 10), "d MMM yyyy", locale);
 const inIds = (ids: string[]) => ({ id: { in: ids } });
 
 /**
@@ -103,12 +105,13 @@ const PROVIDERS: Provider[] = [
     moduleKey: "meetings",
     permissions: ["meeting.view"],
     async resolveMany(context, ids) {
+      const locale = await getRequestLocale();
       const { readableMeetingWhere } = await import("@/lib/modules/meetings/meeting.permissions");
       const rows = await prisma.meeting.findMany({ where: { AND: [readableMeetingWhere(context), inIds(ids)] }, select: { id: true, title: true, status: true, startsAt: true, project: { select: { id: true, name: true } } } });
       const open = await openProjectIds(context, rows.map((row) => row.project?.id));
       return rows.map((row) => {
         const project = projectRef(row.project, open);
-        return { entityType: "meeting", entityId: row.id, title: row.title, subtitle: [`Meeting · ${day(row.startsAt)}`, project?.name].filter(Boolean).join(" · "), href: `/meetings/${row.id}`, iconKey: "meeting", status: row.status, project };
+        return { entityType: "meeting", entityId: row.id, title: row.title, subtitle: [`Meeting · ${day(row.startsAt, locale)}`, project?.name].filter(Boolean).join(" · "), href: `/meetings/${row.id}`, iconKey: "meeting", status: row.status, project };
       });
     },
   },
@@ -117,9 +120,10 @@ const PROVIDERS: Provider[] = [
     moduleKey: "dailyLogs",
     permissions: ["daily_log.view"],
     async resolveMany(context, ids) {
+      const locale = await getRequestLocale();
       const { readableDailyLogWhere } = await import("@/lib/modules/daily-logs/daily-log.permissions");
       const rows = await prisma.dailyLog.findMany({ where: { AND: [readableDailyLogWhere(context), inIds(ids)] }, select: { id: true, workDate: true, status: true, projectId: true, project: { select: { name: true } } } });
-      return rows.map((row) => ({ entityType: "daily_log", entityId: row.id, title: `Daily log · ${day(row.workDate)}`, subtitle: row.project.name, href: `/projects/${row.projectId}/daily-logs/${row.id}`, iconKey: "daily_log", status: row.status, project: { id: row.projectId, name: row.project.name } }));
+      return rows.map((row) => ({ entityType: "daily_log", entityId: row.id, title: `Daily log · ${day(row.workDate, locale)}`, subtitle: row.project.name, href: `/projects/${row.projectId}/daily-logs/${row.id}`, iconKey: "daily_log", status: row.status, project: { id: row.projectId, name: row.project.name } }));
     },
   },
   {

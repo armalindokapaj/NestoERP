@@ -10,6 +10,7 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { executiveMemberIds, notifyMilestone, PLANNING_CONDITIONS, settleMilestoneAttention, type MilestoneRef } from "./planning.attention";
 import { businessInstant, dateLabel, dateOf } from "./planning.dates";
@@ -187,7 +188,7 @@ export async function updateMilestone(context: UserContext, milestoneId: string,
       await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.id, action, message: `marked ${input.name} ${STATUS_LABELS[input.status].toLowerCase()}` });
     }
     if (forecastChanged) {
-      await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.id, action: "MILESTONE_FORECAST_CHANGED", message: `moved the forecast of ${input.name} to ${dateLabel(input.forecastDate)}`, metadata: { note: input.forecastReason ?? `${dateLabel(before.forecastDate)} → ${dateLabel(input.forecastDate)}` } });
+      await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.id, action: "MILESTONE_FORECAST_CHANGED", message: `moved the forecast of ${input.name} to ${dateLabel(input.forecastDate, SOURCE_LOCALE)}`, metadata: { note: input.forecastReason ?? `${dateLabel(before.forecastDate, SOURCE_LOCALE)} → ${dateLabel(input.forecastDate, SOURCE_LOCALE)}` } });
     }
     if (ownerChanged) {
       await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.id, action: "MILESTONE_OWNER_CHANGED", message: `changed the owner of ${input.name}` });
@@ -205,7 +206,7 @@ export async function updateMilestone(context: UserContext, milestoneId: string,
         projectName: row.project.name,
         actorMemberId: context.membershipId,
         memberIds: [input.ownerMemberId, row.project.projectManagerMemberId],
-        payload: { actorName: context.fullName, change: forecastChanged ? `Forecast ${dateLabel(before.forecastDate)} → ${dateLabel(input.forecastDate)}` : `Now ${STATUS_LABELS[input.status]}` },
+        payload: { actorName: context.fullName, change: forecastChanged ? `Forecast ${dateLabel(before.forecastDate, SOURCE_LOCALE)} → ${dateLabel(input.forecastDate, SOURCE_LOCALE)}` : `Now ${STATUS_LABELS[input.status]}` },
       });
     }
     return next;
@@ -255,7 +256,7 @@ export async function completeMilestone(context: UserContext, milestoneId: strin
     const next = await bump(tx, row.id, input.expectedVersion, { status: "COMPLETED", actualDate: businessInstant(actualDate), progressPercent: new Prisma.Decimal(100), completionNote: input.completionNote, completedByMemberId: context.membershipId, statusChangedAt: new Date() });
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.id, action: "MILESTONE_COMPLETED", message: `completed ${row.name}`, metadata: input.completionNote ? { note: input.completionNote } : undefined });
     await recordUserAction(context, { actionKey: AuditAction.PROJECT_MILESTONE_COMPLETED, entity: { type: RECORD, id: row.id, label: row.name }, projectId: row.projectId, before: { status: row.status, actualDate: null }, after: { status: "COMPLETED", actualDate } }, { tx });
-    await notifyMilestone(tx, { eventType: NotificationEvent.MILESTONE_COMPLETED, milestone: refOf(row), projectName: row.project.name, actorMemberId: context.membershipId, memberIds: [row.ownerMemberId, row.project.projectManagerMemberId], payload: { actorName: context.fullName, dateLabel: dateLabel(actualDate) } });
+    await notifyMilestone(tx, { eventType: NotificationEvent.MILESTONE_COMPLETED, milestone: refOf(row), projectName: row.project.name, actorMemberId: context.membershipId, memberIds: [row.ownerMemberId, row.project.projectManagerMemberId], payload: { actorName: context.fullName, dateLabel: dateLabel(actualDate, SOURCE_LOCALE) } });
     return next;
   });
   await resolveAttentionForRecord(prisma, context.companyId, RECORD, row.id, [...PLANNING_CONDITIONS]);
@@ -302,7 +303,7 @@ export async function changeBaseline(context: UserContext, milestoneId: string, 
   const executives = settings.notifyExecutivesOnCriticalChanges && row.critical && row.externallyCommitted ? await executiveMemberIds(prisma, context.companyId) : [];
   const version = await prisma.$transaction(async (tx) => {
     const next = await bump(tx, row.id, input.expectedVersion, { baselineDate: businessInstant(input.newBaselineDate) });
-    await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.id, action: "MILESTONE_BASELINE_CHANGED", message: previous ? `changed the baseline of ${row.name} from ${dateLabel(previous)} to ${dateLabel(input.newBaselineDate)}` : `set the baseline of ${row.name} to ${dateLabel(input.newBaselineDate)}`, metadata: input.reason ? { note: input.reason } : undefined });
+    await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: row.id, action: "MILESTONE_BASELINE_CHANGED", message: previous ? `changed the baseline of ${row.name} from ${dateLabel(previous, SOURCE_LOCALE)} to ${dateLabel(input.newBaselineDate, SOURCE_LOCALE)}` : `set the baseline of ${row.name} to ${dateLabel(input.newBaselineDate, SOURCE_LOCALE)}`, metadata: input.reason ? { note: input.reason } : undefined });
     await recordUserAction(context, { actionKey: AuditAction.PROJECT_MILESTONE_BASELINE_CHANGED, entity: { type: RECORD, id: row.id, label: row.name }, projectId: row.projectId, before: { baselineDate: previous }, after: { baselineDate: input.newBaselineDate }, reason: input.reason }, { tx });
     await notifyMilestone(tx, {
       eventType: NotificationEvent.BASELINE_CHANGED,
@@ -310,7 +311,7 @@ export async function changeBaseline(context: UserContext, milestoneId: string, 
       projectName: row.project.name,
       actorMemberId: context.membershipId,
       memberIds: [row.project.projectManagerMemberId, row.ownerMemberId, ...executives],
-      payload: { actorName: context.fullName, change: `${dateLabel(previous)} → ${dateLabel(input.newBaselineDate)}`, reason: input.reason ?? "" },
+      payload: { actorName: context.fullName, change: `${dateLabel(previous, SOURCE_LOCALE)} → ${dateLabel(input.newBaselineDate, SOURCE_LOCALE)}`, reason: input.reason ?? "" },
     });
     return next;
   });

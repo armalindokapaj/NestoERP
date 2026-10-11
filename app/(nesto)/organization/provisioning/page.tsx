@@ -9,12 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { statusText } from "@/lib/i18n/modules/common/labels";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { PROVISIONING_STATUSES, provisioningListQuerySchema } from "@/lib/modules/organization/provisioning/provisioning.schema";
 import { listProvisioningRequests } from "@/lib/modules/organization/provisioning/provisioning.service";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
-import { statusLabel } from "@/lib/utils/status";
 import { Pagination } from "@/components/data/pagination";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
@@ -32,13 +33,14 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
  * every company's requests.
  */
 export default async function ProvisioningPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const context = await requireModule("organization");
   if (!can(context, "organization.provisioning_request.view")) redirect("/access-denied");
 
   const params = await searchParams;
   const query = provisioningListQuerySchema.parse({ status: one(params.status), page: one(params.page) });
   const list = await listProvisioningRequests(context, query);
-  const t = await getTranslations("organization");
+  const [t, tc, tr] = await Promise.all([getTranslations("organization"), getTranslations("common"), getTranslations("roles")]);
   // Every request is reachable page by page — the page used to show the first 25 and no way on (AUD-08 §4, DT-05).
   if (list.meta.page !== query.page) redirect(listPageRedirect("/organization/provisioning", params, list.meta.page));
   const chip = (active: boolean) =>
@@ -58,7 +60,7 @@ export default async function ProvisioningPage({ searchParams }: Props) {
           </Link>
           {PROVISIONING_STATUSES.map((status) => (
             <Link key={status} href={`/organization/provisioning?status=${status}`} className={chip(query.status === status)}>
-              {statusLabel(status)}
+              {statusText(tc, status)}
             </Link>
           ))}
         </nav>
@@ -88,11 +90,11 @@ export default async function ProvisioningPage({ searchParams }: Props) {
                     </TableCell>
                     <TableCell>{request.company.name}</TableCell>
                     <TableCell>{request.department.name}</TableCell>
-                    <TableCell>{request.role.label}</TableCell>
+                    <TableCell>{adminRoleName(tr, request.role.label)}</TableCell>
                     <TableCell>
                       <StatusBadge status={request.status} />
                     </TableCell>
-                    <TableCell>{request.submittedAt ? formatDate(request.submittedAt) : "—"}</TableCell>
+                    <TableCell>{request.submittedAt ? formatDate(request.submittedAt, locale) : "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

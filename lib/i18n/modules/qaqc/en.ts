@@ -710,6 +710,7 @@ export const qaqcEn = {
     noun: "approvals",
   },
   reports: {
+    noProject: "No project",
     passRate: "Pass rate",
     passRateBody: "Decided inspections only. One that nobody has signed off is not yet a pass or a failure.",
     nothingDecided: "Nothing decided yet",

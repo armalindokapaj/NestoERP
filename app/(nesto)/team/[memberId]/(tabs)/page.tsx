@@ -3,10 +3,13 @@ import Link from "@/components/navigation/nav-link";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { Avatar } from "@/components/ui/avatar";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import * as team from "@/lib/modules/team/team.service";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { loadMember } from "../member-context";
 
 type Params = { params: Promise<{ memberId: string }> };
@@ -33,7 +36,8 @@ export default async function MemberOverviewPage({ params }: Params) {
   const { context, member } = await loadMember(memberId);
 
   const may = member.capabilities;
-  const t = await getTranslations("team");
+  const [t, tr] = await Promise.all([getTranslations("team"), getTranslations("roles")]);
+  const locale = await getLocale();
 
   const activity = may.canViewActivity
     ? await team.listMemberActivity(context, memberId, { page: 1, limit: 5 })
@@ -85,7 +89,7 @@ export default async function MemberOverviewPage({ params }: Params) {
           <DetailGrid
             className="mt-4"
             items={[
-              { label: t("member.role"), value: member.membership.role.name },
+              { label: t("member.role"), value: adminRoleName(tr, member.membership.role.name) },
               { label: t("member.department"), value: orDash(member.membership.department?.name) },
               { label: t("member.jobTitle"), value: orDash(member.membership.jobTitle) },
               {
@@ -101,7 +105,7 @@ export default async function MemberOverviewPage({ params }: Params) {
               {
                 label: t("member.invited"),
                 value: member.membership.invitedAt
-                  ? formatDate(member.membership.invitedAt)
+                  ? formatDate(member.membership.invitedAt, locale)
                   : "—",
               },
               {
@@ -111,7 +115,7 @@ export default async function MemberOverviewPage({ params }: Params) {
                     ? t("member.accessRemoved")
                     : t("member.deactivated"),
                 value: member.membership.deactivatedAt
-                  ? formatDate(member.membership.deactivatedAt)
+                  ? formatDate(member.membership.deactivatedAt, locale)
                   : "—",
               },
               // Present only when the reader holds the security-metadata grant,
@@ -122,7 +126,7 @@ export default async function MemberOverviewPage({ params }: Params) {
                     {
                       label: t("member.lastLogin"),
                       value: member.securityMetadata.lastLoginAt
-                        ? formatDateTime(member.securityMetadata.lastLoginAt)
+                        ? formatDateTime(member.securityMetadata.lastLoginAt, locale)
                         : t("member.never"),
                     },
                   ]
@@ -166,10 +170,10 @@ export default async function MemberOverviewPage({ params }: Params) {
                 <li key={entry.id} className="py-2.5 first:pt-0">
                   <p className="text-table text-fg">
                     {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("member.someone")}</span>}{" "}
-                    {entry.message ?? entry.action}
+                    {localizeActivity(locale, entry) ?? entry.action}
                   </p>
                   <p className="mt-0.5 text-meta text-fg-subtle">
-                    {formatDateTime(entry.createdAt)}
+                    {formatDateTime(entry.createdAt, locale)}
                   </p>
                 </li>
               ))}

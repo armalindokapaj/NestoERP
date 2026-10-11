@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "lucide-react";
 
@@ -110,6 +110,7 @@ function UnitActionSheet({ unit, href, index, count, actions }: { unit: UnitDTO;
 }
 
 export function UnitTable({ projectId, list, showLocation, actions, onPage, loading }: { projectId: string; list: UnitListDTO; showLocation: boolean; actions: UnitRowActions; onPage: (page: number) => void; loading: boolean }) {
+  const locale = useLocale();
   const href = (unit: UnitDTO) => `/projects/${projectId}/units/${unit.id}`;
   const t = useTranslations("projects");
   // "1–50 of 73", "0 results", and a count on a single page too (AUD-08 §4, DT-05).
@@ -171,8 +172,8 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                 </TableCell>
                 <TableCell className="text-fg-muted">{unit.position ? t(`position.${unit.position}`) : "—"}</TableCell>
                 <TableCell className="text-fg-muted">{unit.orientation ? t(`orientation.${unit.orientation}`) : "—"}</TableCell>
-                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.internalArea)}</TableCell>
-                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.saleableArea)}</TableCell>
+                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.internalArea, locale)}</TableCell>
+                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.saleableArea, locale)}</TableCell>
                 <TableCell className="text-right tabular-nums">{countText(unit.rooms)}</TableCell>
                 <TableCell className="text-right tabular-nums">{countText(unit.bedrooms)}</TableCell>
                 <TableCell className="text-right">
@@ -190,7 +191,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
           const more = [
             unit.orientation ? t(`orientation.${unit.orientation}`) : null,
             unit.position ? t(`position.${unit.position}`) : null,
-            unit.areas.internalArea !== null ? t("unitTable.internalSuffix", { area: areaText(unit.areas.internalArea) }) : null,
+            unit.areas.internalArea !== null ? t("unitTable.internalSuffix", { area: areaText(unit.areas.internalArea, locale) }) : null,
             unit.rooms !== null ? t("unitTable.roomsSuffix", { count: countText(unit.rooms) }) : null,
           ].filter(Boolean);
           return (
@@ -210,7 +211,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
               subtitle={
                 <span className="text-meta text-fg-subtle">
                   {showLocation ? `${unit.building.name} · ${unit.floor.name} · ` : ""}
-                  {t("unitTable.saleableSuffix", { area: areaText(unit.areas.saleableArea) })}
+                  {t("unitTable.saleableSuffix", { area: areaText(unit.areas.saleableArea, locale) })}
                   {unit.bedrooms !== null ? t("unitTable.bed", { count: unit.bedrooms }) : ""}
                 </span>
               }

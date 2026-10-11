@@ -41,7 +41,7 @@ export type ActionResult = { ok: true; meta?: TaskMutationMeta; redirectTo?: str
  * conflict review, AUD-02 §7), field errors under their paths, and never a
  * raw database error (PRD #11 §249).
  */
-function toResult(error: unknown): TaskActionFailure {
+async function toResult(error: unknown): Promise<TaskActionFailure> {
   return actionFailure(error, "tasks");
 }
 

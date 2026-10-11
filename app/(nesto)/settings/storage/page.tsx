@@ -4,14 +4,22 @@ import { HardDrive } from "lucide-react";
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import type { MessageKey, Translate } from "@/lib/i18n/translator";
 import { formatFileSize } from "@/lib/modules/documents/document.files";
 import {
   getCompanyStorageSummary,
   listLargestFiles,
 } from "@/lib/modules/documents/storage/summary.service";
-import { formatDate } from "@/lib/utils/format";
 import { requireSettingsSection } from "../settings-access";
+
+/** A stored file's storage state in words; a state the dictionary lacks keeps its lower-cased value. */
+function storageStatusText(t: Translate<"settings">, status: string): string {
+  const key = `storage.status.${status}` as MessageKey<"settings">;
+  const text = t(key);
+  return text === key ? status.toLowerCase() : text;
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -27,6 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * control entirely (PRD #29 §113, §246).
  */
 export default async function StorageSettingsPage() {
+  const locale = await getLocale();
   const context = await requireSettingsSection("storage");
 
   const [summary, largest, t] = await Promise.all([
@@ -106,12 +115,12 @@ export default async function StorageSettingsPage() {
                 <div className="min-w-0">
                   <p className="truncate text-table font-medium text-fg">{file.name}</p>
                   <p className="text-meta text-fg-subtle">
-                    {t("storage.added", { date: formatDate(file.createdAt) })}
+                    {t("storage.added", { date: formatDate(file.createdAt, locale) })}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   {file.storageStatus !== "AVAILABLE" ? (
-                    <Badge tone="warning">{file.storageStatus.toLowerCase()}</Badge>
+                    <Badge tone="warning">{storageStatusText(t, file.storageStatus)}</Badge>
                   ) : null}
                   <span className="text-table tabular-nums text-fg-muted">
                     {formatFileSize(file.sizeBytes)}

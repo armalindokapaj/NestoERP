@@ -11,6 +11,7 @@ import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.re
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { addLocalDays, dateLabel, dateOf, isClosed, localDate, targetDateOf } from "./planning.dates";
 import { MODULE, RECORD } from "./planning.permissions";
 import { resolvePlanningSettings } from "./planning.settings";
@@ -248,7 +249,7 @@ async function sendReminder(companyId: string, eventType: string, row: Milestone
       projectName: row.project.name,
       actorMemberId: null,
       memberIds,
-      payload: { targetDate: target, dateLabel: dateLabel(target) },
+      payload: { targetDate: target, dateLabel: dateLabel(target, SOURCE_LOCALE) },
     });
     return true;
   });

@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { MODULE_KEYS, type ModuleKey } from "@/config/modules";
 import { isPermission, type Permission } from "@/config/permissions";
 import { permissionsForRole } from "@/config/role-defaults";
-import { HELP_VERSION, MODULE_HELP } from "@/lib/help/help-content";
+import { HELP_VERSION, MODULE_HELP, helpContent } from "@/lib/help/help-content";
+import { MODULE_HELP_SQ } from "@/lib/help/help-content.sq";
 import { helpHref, moduleForHelpSlug } from "@/lib/help/help-routes";
 import { START_HERE_LIMIT, startHereFor, type StartHereAccess } from "@/lib/modules/dashboard/dashboard.start-here";
 
@@ -67,6 +68,41 @@ describe("module Help (UX-16)", () => {
     expect(HELP_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}\.\d+$/);
     const header = readFileSync(join(process.cwd(), "components/modules/module-page.tsx"), "utf8");
     expect(header).toContain("<HelpEntry");
+  });
+
+  it("has the Albanian help in the same shape as the English, list for list", () => {
+    expect(Object.keys(MODULE_HELP_SQ).sort()).toEqual(Object.keys(MODULE_HELP).sort());
+    for (const key of MODULE_KEYS) {
+      const en = MODULE_HELP[key];
+      const sq = MODULE_HELP_SQ[key];
+      expect(sq.terms.length, `${key} terms`).toBe(en.terms.length);
+      expect(sq.actions.length, `${key} actions`).toBe(en.actions.length);
+    }
+    const joined = helpContent("sq");
+    expect(helpContent("en")).toBe(MODULE_HELP);
+    for (const key of MODULE_KEYS) {
+      expect(joined[key].actions.map((a) => [a.permission, a.href])).toEqual(MODULE_HELP[key].actions.map((a) => [a.permission, a.href]));
+    }
+  });
+
+  it("writes no empty and no English-identical Albanian, except proper nouns and codes", () => {
+    const KEPT = new Set(["RFI", "NCR", "Draft", "Incident", "Person", "Modul"]);
+    const pairs: [string, string, string][] = [];
+    for (const key of MODULE_KEYS) {
+      const en = MODULE_HELP[key];
+      const sq = MODULE_HELP_SQ[key];
+      pairs.push([`${key}.purpose`, en.purpose, sq.purpose], [`${key}.permissions`, en.permissions, sq.permissions]);
+      en.terms.forEach((term, i) => {
+        pairs.push([`${key}.terms[${i}].term`, term.term, sq.terms[i].term], [`${key}.terms[${i}].meaning`, term.meaning, sq.terms[i].meaning]);
+      });
+      en.actions.forEach((action, i) => {
+        pairs.push([`${key}.actions[${i}].label`, action.label, sq.actions[i].label], [`${key}.actions[${i}].description`, action.description, sq.actions[i].description]);
+      });
+    }
+    for (const [where, english, albanian] of pairs) {
+      expect(albanian.trim().length, where).toBeGreaterThan(0);
+      if (!KEPT.has(english)) expect(albanian, where).not.toBe(english);
+    }
   });
 
   it("is loaded by its own page, never with the module (no help text in the module header's bundle)", () => {

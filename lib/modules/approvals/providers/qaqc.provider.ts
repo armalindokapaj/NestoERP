@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import * as qualityApprovals from "@/lib/modules/qaqc/approvals/approval.service";
 import { approveInspection, rejectInspection } from "@/lib/modules/qaqc/inspections/inspection.service";
 import { approveNcr, rejectNcr } from "@/lib/modules/qaqc/ncrs/ncr.service";
@@ -48,6 +49,7 @@ export const qaqcApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.qualityInspection.findMany({
           where: { AND: [buildInspectionScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -81,7 +83,7 @@ export const qaqcApprovalProvider = createCycleProvider({
                 { label: "Result", value: labelOf(row.result), emphasis: row.result === "FAIL" ? "warning" : "strong" },
                 { label: "Project", value: row.project?.name ?? "—" },
                 { label: "Location", value: row.locationText ?? "—" },
-                { label: "Inspected", value: formatDate(row.inspectionDate) },
+                { label: "Inspected", value: formatDate(row.inspectionDate, locale) },
                 { label: "Inspector", value: `${row.assignedInspector.user.firstName} ${row.assignedInspector.user.lastName}`, person: { memberId: row.assignedInspectorMemberId } },
               ],
               description: row.summary,
@@ -117,6 +119,7 @@ export const qaqcApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.nonConformanceReport.findMany({
           where: { AND: [buildNcrScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -150,7 +153,7 @@ export const qaqcApprovalProvider = createCycleProvider({
                 { label: "Project", value: row.project?.name ?? "—" },
                 { label: "Root cause", value: row.rootCause ?? "—" },
                 { label: "Corrective action", value: row.correctiveActionSummary ?? "—" },
-                { label: "Action due", value: formatDate(row.dueDate) },
+                { label: "Action due", value: formatDate(row.dueDate, locale) },
               ],
               description: row.description,
             },

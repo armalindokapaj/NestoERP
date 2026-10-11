@@ -1,7 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 
 import type { ContractOverviewDTO } from "@/lib/modules/contracts/contract.types";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { totalsLabel } from "./contract-format";
 
 /**
@@ -13,6 +13,7 @@ import { totalsLabel } from "./contract-format";
  * on it.
  */
 export async function ContractKpiGrid({ overview }: { overview: ContractOverviewDTO }) {
+  const locale = await getLocale();
   const t = await getTranslations("contracts");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
@@ -45,7 +46,7 @@ export async function ContractKpiGrid({ overview }: { overview: ContractOverview
   if (overview.visible.commercial && overview.activeValue) {
     cards.push({
       label: t("kpis.activeValue"),
-      value: totalsLabel(overview.activeValue),
+      value: totalsLabel(overview.activeValue, locale),
       hint: t("kpis.activeValueHint"),
       href: "/contracts/reports",
     });

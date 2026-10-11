@@ -1,5 +1,7 @@
+import { dayText } from "@/lib/i18n/format";
 import { addLocalDays, daysBetween, isLocalDate, localDate } from "@/lib/modules/calendar/calendar.time";
 import { CLOSED_STATUSES, type MilestoneStatus } from "./planning.types";
+import type { Locale } from "@/lib/i18n/config";
 
 /**
  * Planning date rules (PRD #44 §15-§20, §44-§46, §67, §162, §279, §280). Pure and client-safe.
@@ -95,22 +97,17 @@ export function earliestAfter(predecessors: Array<DatedMilestone & { lagDays: nu
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "30 Oct 2026" — spelled out, so the server and every browser agree. */
-export function dateLabel(date: string | null): string {
-  if (!date) return "—";
-  const [year, month, day] = date.split("-").map(Number);
-  return `${day} ${MONTHS[month - 1]} ${year}`;
+export function dateLabel(date: string | null, locale: Locale): string {
+  return date ? dayText(date, "d MMM yyyy", locale) : "—";
 }
 
 /** "30 Oct". */
-export function shortDateLabel(date: string | null): string {
-  if (!date) return "—";
-  const [, month, day] = date.split("-").map(Number);
-  return `${day} ${MONTHS[month - 1]}`;
+export function shortDateLabel(date: string | null, locale: Locale): string {
+  return date ? dayText(date, "d MMM", locale) : "—";
 }
 
-export function monthLabel(date: string): string {
-  const [year, month] = date.split("-").map(Number);
-  return `${MONTHS[month - 1]} ${year}`;
+export function monthLabel(date: string, locale: Locale): string {
+  return dayText(date, "MMM yyyy", locale);
 }
 
 export { addLocalDays, daysBetween, isLocalDate, localDate, MONTHS };

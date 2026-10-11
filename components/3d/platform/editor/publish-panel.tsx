@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import type { Project3DConfig } from "@/lib/3d/runtime/types";
 import { cn } from "@/lib/utils/cn";
 import { GroupCard, SectionHeading } from "./rozaris-fields";
+import { useEditorWord } from "./editor-text";
 
 /*
  * The Rozaris Web3D editor's Publish panel (panels/PublishPanel.tsx): the
@@ -41,6 +42,7 @@ function unitBlockNames(version: Version): string[] {
 }
 
 export function PublishPanel({ slots, units, draft, managementHref }: { slots: Slot[]; units: Unit[]; draft: Project3DConfig; managementHref: string }) {
+  const editorServerText = useEditorWord();
   // The version a release would carry: each model's newest one that is ready.
   const chosen = slots.flatMap((slot) => {
     const version = slot.versions.find((candidate) => candidate.asset) ?? slot.versions[0];
@@ -55,45 +57,45 @@ export function PublishPanel({ slots, units, draft, managementHref }: { slots: S
   const mappedUnitIds = new Set(unitsModels.flatMap(({ version }) => version.unitBindings.map((link) => link.unitId)));
   const missingUnits = units.filter((unit) => !mappedUnitIds.has(unit.id));
 
-  if (chosen.length === 0) return <p className="p-3 text-xs text-fg-subtle">Upload a model on the Scene tab first.</p>;
+  if (chosen.length === 0) return <p className="p-3 text-xs text-fg-subtle">{editorServerText("Upload a model on the Scene tab first.")}</p>;
 
   return (
     <div className="space-y-3">
-      <SectionHeading>Preview</SectionHeading>
+      <SectionHeading>{editorServerText("Preview")}</SectionHeading>
       <GroupCard>
         <a href={`${managementHref}/viewer`} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted">
-          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Open Company Viewer
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> {editorServerText("Open Company Viewer")}
         </a>
-        <p className="mt-1 px-1 text-[10px] text-fg-subtle">Shows the currently PUBLISHED release, not this draft. Save publishes your changes as a new release.</p>
+        <p className="mt-1 px-1 text-[10px] text-fg-subtle">{editorServerText("Shows the currently PUBLISHED release, not this draft. Save publishes your changes as a new release.")}</p>
         <a href={`${managementHref}/releases`} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted">
-          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Open Releases
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> {editorServerText("Open Releases")}
         </a>
       </GroupCard>
 
-      <SectionHeading>Validation</SectionHeading>
+      <SectionHeading>{editorServerText("Validation")}</SectionHeading>
       <GroupCard>
         {chosen.map(({ slot, version }) => (
           <CheckRow
             key={slot.id}
             ok={version.validationStatus === "READY" || version.validationStatus === "ready" ? true : /warn/i.test(version.validationStatus) ? "warn" : false}
-            label={`${slot.displayName} v${version.version} · GLB validation: ${version.validationStatus.toLowerCase()}`}
+            label={editorServerText("{0} v{1} · GLB validation: {2}", slot.displayName, version.version, version.validationStatus.toLowerCase())}
             detail={issuesOf(version).join(", ") || undefined}
           />
         ))}
-        <CheckRow ok={brokenLinks.length === 0} label={`Unit links: ${links.length} mapped`} detail={brokenLinks.length > 0 ? `${brokenLinks.length} reference a unit that no longer exists` : undefined} />
-        <CheckRow ok={hasOpeningShot ? true : "warn"} label={hasOpeningShot ? "Opening Shot set" : "No Shots saved — a default framing will be used"} />
-        <CheckRow ok="warn" label={`${sectionCount} section(s) authored`} detail={sectionCount === 0 ? "Optional — informational only" : undefined} />
+        <CheckRow ok={brokenLinks.length === 0} label={editorServerText("Unit links: {0} mapped", links.length)} detail={brokenLinks.length > 0 ? editorServerText("{0} reference a unit that no longer exists", brokenLinks.length) : undefined} />
+        <CheckRow ok={hasOpeningShot ? true : "warn"} label={hasOpeningShot ? editorServerText("Opening Shot set") : editorServerText("No Shots saved — a default framing will be used")} />
+        <CheckRow ok="warn" label={editorServerText("{0} section(s) authored", sectionCount)} detail={sectionCount === 0 ? editorServerText("Optional — informational only") : undefined} />
         {unitsModels.map(({ slot, version }) => {
           const mapped = new Set(version.unitBindings.map((link) => link.meshName));
           const unmapped = unitBlockNames(version).filter((name) => !mapped.has(name));
           return (
             <div key={`units-${slot.id}`}>
-              <CheckRow ok={!!slot.transformParentSlotId} label={slot.transformParentSlotId ? `${slot.displayName}: Building anchor set` : `${slot.displayName}: No Building anchor set`} detail={slot.transformParentSlotId ? undefined : "Set the Building Anchor on the Units tab so the blocks follow the building"} />
-              <CheckRow ok={unmapped.length === 0} label={`Unit blocks: ${unmapped.length} unmapped`} detail={unmapped.length > 0 ? unmapped.slice(0, 5).join(", ") : undefined} />
+              <CheckRow ok={!!slot.transformParentSlotId} label={slot.transformParentSlotId ? editorServerText("{0}: Building anchor set", slot.displayName) : editorServerText("{0}: No Building anchor set", slot.displayName)} detail={slot.transformParentSlotId ? undefined : editorServerText("Set the Building Anchor on the Units tab so the blocks follow the building")} />
+              <CheckRow ok={unmapped.length === 0} label={editorServerText("Unit blocks: {0} unmapped", unmapped.length)} detail={unmapped.length > 0 ? unmapped.slice(0, 5).join(", ") : undefined} />
             </div>
           );
         })}
-        {unitsModels.length ? <CheckRow ok={missingUnits.length === 0} label={`Units missing a block: ${missingUnits.length}`} detail={missingUnits.length > 0 ? missingUnits.slice(0, 5).map((unit) => unit.unitCode).join(", ") : undefined} /> : null}
+        {unitsModels.length ? <CheckRow ok={missingUnits.length === 0} label={editorServerText("Units missing a block: {0}", missingUnits.length)} detail={missingUnits.length > 0 ? missingUnits.slice(0, 5).map((unit) => unit.unitCode).join(", ") : undefined} /> : null}
       </GroupCard>
     </div>
   );

@@ -58,6 +58,7 @@ export default async function EditTemplatePage({ params }: Params) {
             ? t("page.saveAsVersion", { version: template.version + 1 })
             : t("page.saveChecklist")
         }
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={template.updatedAt}
         usageCount={template.usageCount}

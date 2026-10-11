@@ -70,6 +70,7 @@ export function TemplateForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   usageCount = 0,
   currentVersion = 1,
@@ -79,6 +80,7 @@ export function TemplateForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   usageCount?: number;
   currentVersion?: number;
@@ -102,6 +104,7 @@ export function TemplateForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

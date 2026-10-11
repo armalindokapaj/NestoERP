@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import {
@@ -43,6 +44,7 @@ export function ReservationForm({
   defaults?: { inventoryItemId?: string; warehouseId?: string; projectId?: string };
   cancelHref: string;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useInventoryTranslations();
@@ -211,7 +213,7 @@ export function ReservationForm({
 
           {held ? (
             <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">
-              <span className="tabular-nums text-fg">{formatQuantity(held.available)}</span>{" "}
+              <span className="tabular-nums text-fg">{formatQuantity(held.available, locale)}</span>{" "}
               {t("reservationForm.availableBefore")}
               {availableAfter === null ? null : (
                 <>
@@ -223,7 +225,7 @@ export function ReservationForm({
                         : "tabular-nums text-fg"
                     }
                   >
-                    {formatQuantity(availableAfter)}
+                    {formatQuantity(availableAfter, locale)}
                   </span>{" "}
                   {t("reservationForm.after")}
                 </>

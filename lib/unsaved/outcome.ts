@@ -1,3 +1,4 @@
+import { localizeClient } from "@/lib/i18n/errors/client";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 
 /**
@@ -58,9 +59,9 @@ export function isStaleWorkspaceRefusal(thrown: unknown): boolean {
   return Boolean(thrown && typeof thrown === "object" && "digest" in thrown && String((thrown as { digest: unknown }).digest).startsWith(STALE_WORKSPACE_DIGEST));
 }
 
-/** The copy for an outcome that kept the draft (§6). */
+/** The copy for an outcome that kept the draft (§6), in the reader's language where the browser is told one. */
 export const OUTCOME_COPY = {
-  notSaved: "Changes weren't saved. Your entries are still here.",
-  unknown: "We couldn't confirm whether this saved. Check the record before trying again.",
-  staleWorkspace: "Your workspace changed in another tab, so nothing was saved. Your entries are still here.",
-} as const;
+  get notSaved() { return localizeClient("Changes weren't saved. Your entries are still here."); },
+  get unknown() { return localizeClient("We couldn't confirm whether this saved. Check the record before trying again."); },
+  get staleWorkspace() { return localizeClient("Your workspace changed in another tab, so nothing was saved. Your entries are still here."); },
+};

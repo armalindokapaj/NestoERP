@@ -13,12 +13,13 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as inspections from "@/lib/modules/hse/inspections/inspection.service";
 import { inspectionResultLabels, inspectionTypeLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ inspectionId: string }> };
 
@@ -35,6 +36,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One safety inspection (PRD #22 §33, §37, §38). */
 export default async function InspectionPage({ params }: Params) {
+  const locale = await getLocale();
   const { inspectionId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -84,7 +86,7 @@ export default async function InspectionPage({ params }: Params) {
           },
           {
             label: t("inspection.detail.scheduled"),
-            value: inspection.scheduledDate ? formatDate(inspection.scheduledDate) : "—",
+            value: inspection.scheduledDate ? formatDate(inspection.scheduledDate, locale) : "—",
           },
           {
             label: t("inspection.detail.result"),
@@ -178,7 +180,7 @@ export default async function InspectionPage({ params }: Params) {
                 {
                   label: t("inspection.detail.inspected"),
                   value: inspection.inspectionDate
-                    ? formatDate(inspection.inspectionDate)
+                    ? formatDate(inspection.inspectionDate, locale)
                     : "—",
                 },
                 {
@@ -191,13 +193,13 @@ export default async function InspectionPage({ params }: Params) {
                 },
                 {
                   label: t("inspection.detail.submitted"),
-                  value: inspection.submittedAt ? formatDateTime(inspection.submittedAt) : "—",
+                  value: inspection.submittedAt ? formatDateTime(inspection.submittedAt, locale) : "—",
                 },
                 {
                   label: t("inspection.detail.approved"),
                   value: inspection.approvedAt ? (
                     <>
-                      {formatDate(inspection.approvedAt)}
+                      {formatDate(inspection.approvedAt, locale)}
                       {inspection.approvedBy ? (
                         <>
                           {" "}
@@ -211,7 +213,7 @@ export default async function InspectionPage({ params }: Params) {
                 },
                 {
                   label: t("record.closed"),
-                  value: inspection.closedAt ? formatDate(inspection.closedAt) : "—",
+                  value: inspection.closedAt ? formatDate(inspection.closedAt, locale) : "—",
                 },
               ]}
             />

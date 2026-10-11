@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { guardNavigation, useRouter } from "@/components/navigation/guarded-router";
 import { CalendarClock, ChevronDown, Loader2, MapPin, RotateCw, TriangleAlert, Users, Video, X } from "lucide-react";
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { UnsavedIndicator } from "@/components/unsaved/editor-status";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { dateText } from "@/lib/i18n/format";
 import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { instantFromLocal } from "@/lib/modules/calendar/calendar.time";
@@ -168,6 +170,7 @@ function focusFirstInvalid(found: Record<string, string>) {
 }
 
 export function MeetingForm(props: MeetingFormProps) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useMeetingsTranslations();
@@ -746,7 +749,7 @@ export function MeetingForm(props: MeetingFormProps) {
           <p className="nesto-eyebrow text-fg-subtle">{meetingsLabel(t, "type", state.meetingType, MEETING_TYPE_LABELS[state.meetingType as keyof typeof MEETING_TYPE_LABELS])}</p>
           <p className="mt-1.5 break-words text-card font-semibold text-fg">{state.title.trim() || t("form.untitled")}</p>
           <p className="mt-2 text-table text-fg-muted">
-            {state.date ? new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${state.date}T12:00:00Z`)) : "—"}
+            {state.date ? dateText(new Date(`${state.date}T12:00:00Z`), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }, locale) : "—"}
           </p>
           <p className="text-table text-fg-muted">
             {state.startTime}–{state.endTime}

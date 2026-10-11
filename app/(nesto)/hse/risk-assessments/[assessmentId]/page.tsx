@@ -13,12 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as risk from "@/lib/modules/hse/risk-assessments/risk.service";
 import { riskLevelLabels } from "@/lib/modules/hse/hse.risk";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ assessmentId: string }> };
 
@@ -35,6 +36,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One risk assessment (PRD #22 §100, §104, §318). */
 export default async function RiskAssessmentPage({ params }: Params) {
+  const locale = await getLocale();
   const { assessmentId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -90,10 +92,10 @@ export default async function RiskAssessmentPage({ params }: Params) {
               "—"
             ),
           },
-          { label: t("risk.detail.assessed"), value: formatDate(assessment.assessmentDate) },
+          { label: t("risk.detail.assessed"), value: formatDate(assessment.assessmentDate, locale) },
           {
             label: t("risk.detail.review"),
-            value: assessment.reviewDate ? formatDate(assessment.reviewDate) : t("record.noDate"),
+            value: assessment.reviewDate ? formatDate(assessment.reviewDate, locale) : t("record.noDate"),
           },
         ]}
         actions={<RiskAssessmentActions assessment={assessment} cycle={cycle} />}
@@ -183,7 +185,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
                       },
                       {
                         label: t("risk.detail.byWhen"),
-                        value: item.dueDate ? formatDate(item.dueDate) : "—",
+                        value: item.dueDate ? formatDate(item.dueDate, locale) : "—",
                       },
                     ]}
                   />
@@ -229,16 +231,16 @@ export default async function RiskAssessmentPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("record.created")} value={formatDateTime(assessment.createdAt)} />
+              <Meta label={t("record.created")} value={formatDateTime(assessment.createdAt, locale)} />
               {assessment.submittedAt ? (
-                <Meta label={t("inspection.detail.submitted")} value={formatDateTime(assessment.submittedAt)} />
+                <Meta label={t("inspection.detail.submitted")} value={formatDateTime(assessment.submittedAt, locale)} />
               ) : null}
               {assessment.approvedAt ? (
                 <Meta
                   label={t("inspection.detail.approved")}
                   value={
                     <>
-                      {formatDateTime(assessment.approvedAt)}
+                      {formatDateTime(assessment.approvedAt, locale)}
                       {assessment.approvedBy ? (
                         <>
                           {" "}
@@ -250,7 +252,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
                 />
               ) : null}
               {assessment.archivedAt ? (
-                <Meta label={t("risk.detail.archived")} value={formatDateTime(assessment.archivedAt)} />
+                <Meta label={t("risk.detail.archived")} value={formatDateTime(assessment.archivedAt, locale)} />
               ) : null}
             </dl>
           </section>

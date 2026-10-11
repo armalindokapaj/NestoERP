@@ -5,9 +5,9 @@ import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/i18n/format";
 import { securityScope, listDevices, securityDashboard, type DeviceFilters } from "@/lib/modules/security/security.service";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDateTime } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { requireSettingsSection } from "../settings-access";
 import { FormSelect } from "@/components/ui/form-select";
 
@@ -31,6 +31,7 @@ const pick = <T extends string>(value: string | string[] | undefined, allowed: r
  * person may administer.
  */
 export default async function MobileDevicesPage({ searchParams }: Params) {
+  const locale = await getLocale();
   const context = await requireSettingsSection("mobile-devices");
   const params = await searchParams;
   const filters: DeviceFilters = {
@@ -108,7 +109,7 @@ export default async function MobileDevicesPage({ searchParams }: Params) {
                   <TableCell><Badge tone={STATUS_TONE[row.status]}>{t(`devices.status.${row.status}`)}</Badge></TableCell>
                   <TableCell><Badge tone={COMPLIANCE_TONE[row.complianceState as keyof typeof COMPLIANCE_TONE] ?? "default"}>{t(`devices.compliance.${row.complianceState as "COMPLIANT"}`)}</Badge></TableCell>
                   <TableCell>{row.appVersion}</TableCell>
-                  <TableCell>{formatDateTime(row.lastSeenAt)}</TableCell>
+                  <TableCell>{formatDateTime(row.lastSeenAt, locale)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

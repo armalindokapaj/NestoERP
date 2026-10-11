@@ -42,6 +42,7 @@ export default async function ProjectsPage({ searchParams }: Props) {
   const create = canCreate ? (
     <PlatformCommandButton
       label={t("projects.create.label")}
+      saveKind="create"
       title={t("projects.create.title")}
       description={t("projects.create.description")}
       action="project.create"

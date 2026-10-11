@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { ModulePage } from "@/components/modules/module-page";
@@ -38,6 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * with the company shown, and committed spend is also broken down by company.
  */
 export default async function ReportsPage() {
+  const locale = await getLocale();
   const context = await requireModule("procurement");
   if (!(await canReadProcurement(context, "procurement.report.view"))) redirect("/access-denied");
 
@@ -52,7 +53,7 @@ export default async function ReportsPage() {
         <section className="nesto-card p-5">
           <h2 className="text-card font-semibold text-fg">{t("reports.openOrders")}</h2>
           <p className="mt-1 text-page font-semibold text-fg">
-            {totalsLabel(reports.openOrders.totals)}
+            {totalsLabel(reports.openOrders.totals, locale)}
           </p>
           <p className="mt-1 text-meta text-fg-subtle">
             {t("reports.openOrdersNote", { count: reports.openOrders.count })}
@@ -65,8 +66,8 @@ export default async function ReportsPage() {
             <SpendPanel t={t} title={t("reports.spendByCompany")} rows={reports.spendByCompany} showCompany={false} />
           ) : null}
           <SpendPanel t={t} title={t("reports.spendBySupplier")} rows={reports.spendBySupplier} />
-          <SpendPanel t={t} title={t("reports.spendByProject")} rows={reports.spendByProject} />
-          <SpendPanel t={t} title={t("reports.spendByCategory")} rows={reports.spendByCategory} />
+          <SpendPanel t={t} title={t("reports.spendByProject")} rows={reports.spendByProject} kind="project" />
+          <SpendPanel t={t} title={t("reports.spendByCategory")} rows={reports.spendByCategory} kind="category" />
 
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">{t("reports.deliveryPerformance")}</h2>
@@ -129,18 +130,22 @@ export default async function ReportsPage() {
   );
 }
 
-function SpendPanel({
+async function SpendPanel({
   t,
   title,
   rows,
   showCompany = true,
+  kind,
 }: {
   t: Translate<"procurement">;
   title: string;
   rows: { key: string; label: string; count: number; totals: CurrencyTotal[]; company?: CompanyRef }[];
   /** A row that is one company's own record names it; the by-company panel already does by its label. */
   showCompany?: boolean;
+  /** Which grouping the rows are, so its stored placeholder bucket ("No project", "Uncategorised") reads in the reader's language. */
+  kind?: "project" | "category";
 }) {
+  const locale = await getLocale();
   return (
     <section className="nesto-card p-5">
       <h2 className="text-card font-semibold text-fg">{title}</h2>
@@ -151,14 +156,14 @@ function SpendPanel({
           {rows.slice(0, 8).map((row) => (
             <div key={row.key} className="flex items-baseline justify-between gap-3">
               <dt className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-table text-fg-muted">
-                <span className="min-w-0 break-words">{row.label}</span>
+                <span className="min-w-0 break-words">{spendRowLabel(t, kind, row)}</span>
                 {showCompany && row.company ? <CompanyTag name={row.company.name} /> : null}
                 <span className="text-meta text-fg-subtle">
                   {t("common.orderCount", { count: row.count })}
                 </span>
               </dt>
               <dd className="shrink-0 tabular-nums text-table font-medium text-fg">
-                {totalsLabel(row.totals)}
+                {totalsLabel(row.totals, locale)}
               </dd>
             </div>
           ))}
@@ -166,4 +171,10 @@ function SpendPanel({
       )}
     </section>
   );
+}
+
+function spendRowLabel(t: Translate<"procurement">, kind: "project" | "category" | undefined, row: { key: string; label: string }): string {
+  if (kind === "project") return row.key === "none" || row.key.endsWith(":none") ? t("common.noProject") : row.label;
+  if (kind === "category") return procurementLabel(t, "category", row.key, row.label);
+  return row.label;
 }

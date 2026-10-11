@@ -11,6 +11,7 @@ import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate } from "@/lib/i18n/format";
 import type { DocumentSummaryDTO } from "@/lib/modules/documents/document.types";
 import {
   getDocumentOverviewForWorkspace,
@@ -18,10 +19,9 @@ import {
   listRecentForWorkspace,
   workspaceExperience,
 } from "@/lib/modules/documents/document.workspace";
-import { formatDate } from "@/lib/utils/format";
 import { fileTypeLabel, contextLabel } from "@/lib/i18n/modules/documents/labels";
 import type { Translate } from "@/lib/i18n/translator";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("documents");
@@ -42,6 +42,8 @@ export default async function DocumentsOverviewPage() {
   const group = inGroupWorkspace(context);
   const experience = workspaceExperience(context, resolveModuleExperience(context, "documents"));
   const t = await getTranslations("documents");
+  const tCommon = await getTranslations("common");
+  const tModules = await getTranslations("modules");
 
   const [stats, recent, mine] = await Promise.all([
     getDocumentOverviewForWorkspace(context),
@@ -99,9 +101,11 @@ export default async function DocumentsOverviewPage() {
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            <DocumentPanel t={t} title={t("overview.recentDocuments")} href="/documents/recent" documents={recent} />
+            <DocumentPanel t={t} tCommon={tCommon} tModules={tModules} title={t("overview.recentDocuments")} href="/documents/recent" documents={recent} />
             <DocumentPanel
               t={t}
+              tCommon={tCommon}
+              tModules={tModules}
               title={t("overview.yourUploads")}
               href="/documents/all?mine=true"
               documents={mine}
@@ -116,19 +120,24 @@ export default async function DocumentsOverviewPage() {
 
 const LINK_CLASS = "block truncate text-table font-medium text-fg transition-colors hover:text-accent";
 
-function DocumentPanel({
+async function DocumentPanel({
   t,
+  tCommon,
+  tModules,
   title,
   href,
   documents: rows,
   emptyMessage,
 }: {
   t: Translate<"documents">;
+  tCommon: Translate<"common">;
+  tModules: Translate<"modules">;
   title: string;
   href: string;
   documents: DocumentSummaryDTO[];
   emptyMessage?: string;
 }) {
+  const locale = await getLocale();
   return (
     <section className="nesto-card p-5">
       <div className="flex items-center justify-between gap-3">
@@ -168,12 +177,12 @@ function DocumentPanel({
                   </Link>
                 )}
                 <p className="truncate text-meta text-fg-subtle">
-                  {fileTypeLabel(t, document.typeLabel)} · {document.context.relatedRecordName ?? contextLabel(t, document.context.label)}
+                  {fileTypeLabel(t, document.typeLabel)} · {document.context.relatedRecordName ?? contextLabel(t, document.context.label, { ...document.context, common: tCommon, modules: tModules })}
                 </p>
                 {document.company ? <CompanyTag name={document.company.name} className="mt-1" /> : null}
               </div>
               <span className="shrink-0 text-meta tabular-nums text-fg-muted">
-                {formatDate(document.updatedAt)}
+                {formatDate(document.updatedAt, locale)}
               </span>
             </li>
           ))}

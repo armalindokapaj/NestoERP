@@ -24,6 +24,7 @@ export function InvestigationForm({ incident }: { incident: IncidentDetailDTO })
       action={action}
       cancelHref={`/hse/incidents/${incident.id}`}
       submitLabel={t("forms.saveFindings")}
+      saveKind="save"
       pendingLabel={t("page.saving")}
       versionUpdatedAt={incident.updatedAt}
     >

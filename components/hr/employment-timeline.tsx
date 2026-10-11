@@ -3,9 +3,9 @@ import { ArrowRight, FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDate } from "@/lib/i18n/format";
 import type { TimelineEventDTO } from "@/lib/modules/hr/employment/employment.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * An employment timeline, newest first (E-03 §123-§131, §173).
@@ -16,6 +16,7 @@ import { getTranslations } from "@/lib/i18n/server";
  * is a real `<time>`.
  */
 export async function EmploymentTimeline({ events, showCompany = false, emptyText }: { events: TimelineEventDTO[]; showCompany?: boolean; emptyText?: string }) {
+  const locale = await getLocale();
   const t = await getTranslations("hr");
   if (events.length === 0) return <p className="text-table text-fg-muted">{emptyText ?? t("timeline.empty")}</p>;
   return (
@@ -25,7 +26,7 @@ export async function EmploymentTimeline({ events, showCompany = false, emptyTex
           <span aria-hidden="true" className="absolute -left-[1.625rem] top-1.5 size-2.5 rounded-full border-2 border-surface bg-accent" />
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <time dateTime={event.date} className="text-meta font-medium text-fg-muted">
-              {formatDate(event.date)}
+              {formatDate(event.date, locale)}
             </time>
             <h3 className="text-table font-semibold text-fg">{event.title}</h3>
             {showCompany ? <span className="text-meta text-fg-subtle">· {event.company.name}</span> : null}

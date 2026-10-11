@@ -19,7 +19,10 @@ export const peopleSq: typeof peopleEn = {
       WORK_PERMIT: "Leje pune",
       SAFETY_CERTIFICATE: "Certifikatë sigurie",
       TRAINING_CERTIFICATE: "Certifikatë trajnimi",
+      OTHER: "Kualifikim tjetër",
     },
+    grantScope: { SYSTEM: "Sistemi", GROUP: "Grupi", COMPANY: "Kompania", DEPARTMENT: "Departamenti", PROJECT: "Projekti", RECORD: "Regjistrimi", ASSIGNED: "E caktuar", SELF: "Vetja" },
+    grantLevel: { NONE: "Asnjë", VIEW: "Shikim", CONTRIBUTE: "Kontribut", APPROVE: "Miratim", MANAGE: "Menaxhim" },
     visibility: {
       PRIVATE: "Vetëm unë",
       EMPLOYEE_AND_HR: "Unë dhe HR",

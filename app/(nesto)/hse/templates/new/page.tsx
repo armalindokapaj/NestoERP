@@ -40,6 +40,7 @@ export default async function NewTemplatePage() {
         action={createTemplateAction}
         cancelHref="/hse/templates"
         submitLabel={t("page.createChecklist")}
+        saveKind="create"
         pendingLabel={t("page.creating")}
       />
     </div>

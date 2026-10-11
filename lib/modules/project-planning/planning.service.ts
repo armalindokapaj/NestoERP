@@ -8,6 +8,7 @@ import type { UserContext } from "@/lib/context/types";
 import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { documentListQuerySchema } from "@/lib/modules/documents/document.schema";
 import { listDocuments } from "@/lib/modules/documents/document.service";
 import { isFavorite } from "@/lib/modules/productivity/favorites.service";
@@ -194,6 +195,7 @@ type EdgeRow = { id: string; predecessorMilestoneId: string; successorMilestoneI
 const UPCOMING_DAYS = 30;
 
 export async function summarize(companyId: string, rows: MilestoneRow[], edges: EdgeRow[], today: string): Promise<{ milestones: MilestoneSummaryDTO[]; dependencies: DependencyEdgeDTO[] }> {
+  const locale = await getRequestLocale();
   const ids = rows.map((row) => row.id);
   const [links, blockers, people] = await Promise.all([
     ids.length ? prisma.projectMilestoneTaskLink.findMany({ where: { milestoneId: { in: ids } }, select: { milestoneId: true, taskId: true } }) : [],
@@ -231,7 +233,7 @@ export async function summarize(companyId: string, rows: MilestoneRow[], edges: 
     const successorTarget = targetDateOf(successor);
     let warning: string | null = null;
     if (late > 0) warning = `Predecessor delayed ${late} ${late === 1 ? "day" : "days"}`;
-    else if (!isClosed(successor.status) && earliest && successorTarget && successorTarget < earliest) warning = `Successor is forecast before ${dateLabel(earliest)}`;
+    else if (!isClosed(successor.status) && earliest && successorTarget && successorTarget < earliest) warning = `Successor is forecast before ${dateLabel(earliest, locale)}`;
     return { id: edge.id, predecessorId: edge.predecessorMilestoneId, successorId: edge.successorMilestoneId, lagDays: edge.lagDays, satisfied: predecessor.status === "COMPLETED", warning };
   });
 
@@ -248,7 +250,7 @@ export async function summarize(companyId: string, rows: MilestoneRow[], edges: 
       const earliest = earliestAfter(predecessors.map(({ edge, predecessor }) => ({ ...predecessor, lagDays: edge.lagDays })));
       const target = targetDateOf(date);
       if (late > 0) dependencyWarning = `Predecessor delayed ${late} ${late === 1 ? "day" : "days"}`;
-      else if (earliest && target && target < earliest) dependencyWarning = `Forecast is before its predecessors allow (${dateLabel(earliest)})`;
+      else if (earliest && target && target < earliest) dependencyWarning = `Forecast is before its predecessors allow (${dateLabel(earliest, locale)})`;
     }
     const blockerCounts = openBlockers.get(row.id) ?? { open: 0, critical: 0 };
     return {

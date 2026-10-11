@@ -8,12 +8,12 @@ import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
+import { formatRelativeTime } from "@/lib/i18n/format";
 import { organizationGroupOptions } from "@/lib/modules/platform/platform-organizations.query";
 import { listUsersDirectory } from "@/lib/modules/platform/platform-users.query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import { cn } from "@/lib/utils/cn";
-import { formatRelativeTime } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminAccess");
@@ -29,6 +29,7 @@ const SCOPES = [["", "any"], ["platform", "platform"], ["group", "group"], ["com
  * status, scope and group; paged on the server.
  */
 export default async function UsersPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const raw = Object.fromEntries(Object.entries(await searchParams).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
   const tr = await getTranslations("roles");
   const t = await getTranslations("adminAccess");
@@ -64,7 +65,7 @@ export default async function UsersPage({ searchParams }: Props) {
                     <TableCell className="max-md:hidden">{row.organization}</TableCell>
                     <TableCell>{adminRoleName(tr, row.role)}</TableCell>
                     <TableCell className="max-lg:hidden">{enumLabel(t, "enums.userScope", row.scope)}</TableCell>
-                    <TableCell className="max-sm:hidden">{row.lastActive ? formatRelativeTime(row.lastActive) : t("common.never")}</TableCell>
+                    <TableCell className="max-sm:hidden">{row.lastActive ? formatRelativeTime(row.lastActive, locale) : t("common.never")}</TableCell>
                     <TableCell><AdminStatusBadge status={row.status} /></TableCell>
                   </TableRow>
                 ))}

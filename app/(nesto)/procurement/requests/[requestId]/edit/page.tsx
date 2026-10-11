@@ -68,6 +68,7 @@ export default async function EditRequestPage({ params }: Params) {
         versionUpdatedAt={request.updatedAt}
         cancelHref={`/procurement/requests/${request.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,

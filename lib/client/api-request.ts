@@ -1,3 +1,4 @@
+import { localizeClient } from "@/lib/i18n/errors/client";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 
@@ -78,13 +79,17 @@ export type ApiRequestInit = {
 
 const READ_METHODS = new Set(["GET", "HEAD"]);
 
+/**
+ * The helper's own words, in the reader's language where the browser is told one (lib/i18n/errors/client.ts).
+ * Getters, so that every reader of a line takes the language the page has at that moment.
+ */
 export const API_COPY = {
-  readNetwork: "Check your connection and try again.",
-  readTimeout: "This is taking longer than expected. Try again.",
-  aborted: "The request was replaced by a newer one.",
-  rateLimited: (seconds?: number) => (seconds ? `Too many requests. Try again in ${seconds} seconds.` : "Too many requests. Try again in a moment."),
-  generic: "Something went wrong.",
-} as const;
+  get readNetwork() { return localizeClient("Check your connection and try again."); },
+  get readTimeout() { return localizeClient("This is taking longer than expected. Try again."); },
+  get aborted() { return localizeClient("The request was replaced by a newer one."); },
+  rateLimited: (seconds?: number) => localizeClient(seconds ? `Too many requests. Try again in ${seconds} seconds.` : "Too many requests. Try again in a moment."),
+  get generic() { return localizeClient("Something went wrong."); },
+};
 
 type Envelope = { data?: unknown; error?: { code?: string; message?: string; details?: Record<string, unknown>; fieldErrors?: Record<string, string[]> } };
 

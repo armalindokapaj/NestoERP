@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import * as salesApprovals from "@/lib/modules/sales/approvals/approval.service";
 import { approveProposal, rejectProposal, returnProposal } from "@/lib/modules/sales/proposals/proposal.service";
 import { buildProposalScopeWhere } from "@/lib/modules/sales/sales.scope";
@@ -42,6 +43,7 @@ export const salesApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.proposal.findMany({
           where: { AND: [buildProposalScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -76,15 +78,15 @@ export const salesApprovalProvider = createCycleProvider({
                 { label: "Client", value: row.client.name },
                 { label: "Opportunity", value: row.opportunity.name },
                 { label: "Lines", value: String(row._count.lineItems) },
-                { label: "Valid until", value: formatDate(row.validUntil) },
-                { label: "Subtotal", value: formatAmount(row.subtotal, row.currency) },
-                { label: "Tax", value: formatAmount(row.taxAmount, row.currency) },
-                { label: "Total", value: formatAmount(row.totalAmount, row.currency), emphasis: "strong" },
+                { label: "Valid until", value: formatDate(row.validUntil, locale) },
+                { label: "Subtotal", value: formatAmount(row.subtotal, row.currency, locale) },
+                { label: "Tax", value: formatAmount(row.taxAmount, row.currency, locale) },
+                { label: "Total", value: formatAmount(row.totalAmount, row.currency, locale), emphasis: "strong" },
               ],
               description: row.notes,
               warnings:
                 row.validUntil && row.validUntil < startOfToday()
-                  ? [{ code: "PROPOSAL_LAPSED", message: `The proposal's validity ended ${formatDate(row.validUntil)}.`, severity: "WARNING" }]
+                  ? [{ code: "PROPOSAL_LAPSED", message: `The proposal's validity ended ${formatDate(row.validUntil, locale)}.`, severity: "WARNING" }]
                   : [],
             },
           ]),

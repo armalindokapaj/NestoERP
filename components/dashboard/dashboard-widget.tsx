@@ -5,9 +5,11 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { widgetSpanClasses } from "@/components/dashboard/dashboard-grid";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
-import type { AlertPriority, ResolvedWidget } from "@/lib/modules/dashboard/dashboard.types";
+import { ACTIVITY_ACTION, type AlertPriority, type ResolvedWidget, type WidgetActivityItem, type WidgetAlert } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
-import { getTranslations } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/config";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity, localizeAttention } from "@/lib/i18n/system";
 import type { Translate } from "@/lib/i18n/translator";
 import { widgetText } from "./config-text";
 
@@ -39,6 +41,24 @@ function splitFigure(title: string): { figure: string; rest: string } | null {
 }
 
 /**
+ * An alert as this reader is shown it. One that is an attention item is stored
+ * in English beside its condition and found in the reader's language
+ * (lib/i18n/system); a figure the dashboard counted itself has no condition
+ * and is left as it is.
+ */
+function alertFor(locale: Locale, alert: WidgetAlert): WidgetAlert {
+  if (!alert.conditionKey) return alert;
+  const said = localizeAttention(locale, { conditionKey: alert.conditionKey, title: alert.title, body: alert.detail });
+  return { ...alert, title: said.title, detail: said.body ?? alert.detail };
+}
+
+/** An activity row's phrase as this reader is shown it: found by the action code stored beside it. */
+function activityPhrase(locale: Locale, item: WidgetActivityItem): string {
+  const action = item[ACTIVITY_ACTION];
+  return action ? localizeActivity(locale, { action, message: item.message }) : item.message;
+}
+
+/**
  * A link that, on a group widget, enters the company the row is about before it
  * goes on (Workspace Context §74); an ordinary link everywhere else.
  */
@@ -60,6 +80,7 @@ function RowLink({ href, companyId, className, children }: { href: string; compa
 /** `fill`: rendered inside a cell that already carries the span (NAV-03 streamed dashboard). */
 export async function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidget; fill?: boolean }) {
   const t = await getTranslations("dashboard");
+  const locale = await getLocale();
   const { definition, payload } = widget;
 
   const isEmpty =
@@ -119,7 +140,7 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
                 <span>{incomplete}</span>
               </p>
             ) : null}
-            {isEmpty ? (incomplete ? null : <p className="text-table text-fg-subtle">{widgetText(t, definition.key, "emptyMessage", definition.emptyMessage)}</p>) : <WidgetBody payload={payload} t={t} />}
+            {isEmpty ? (incomplete ? null : <p className="text-table text-fg-subtle">{widgetText(t, definition.key, "emptyMessage", definition.emptyMessage)}</p>) : <WidgetBody payload={payload} t={t} locale={locale} />}
           </>
         )}
       </div>
@@ -127,7 +148,7 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
   );
 }
 
-function WidgetBody({ payload, t }: { payload: ResolvedWidget["payload"]; t: Translate<"dashboard"> }) {
+function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]; t: Translate<"dashboard">; locale: Locale }) {
   switch (payload.kind) {
     case "list":
       return (
@@ -203,7 +224,8 @@ function WidgetBody({ payload, t }: { payload: ResolvedWidget["payload"]; t: Tra
     case "alerts":
       return (
         <ul className="divide-y divide-line">
-          {payload.items.map((item) => {
+          {payload.items.map((alert) => {
+            const item = alertFor(locale, alert);
             const tone = ALERT_TONE[item.priority];
             const ToneIcon = tone.icon;
             const split = splitFigure(item.title);
@@ -272,7 +294,7 @@ function WidgetBody({ payload, t }: { payload: ResolvedWidget["payload"]; t: Tra
               />
               <div className="min-w-0">
                 <p className="text-table text-fg">
-                  {item.actorMemberId ? <PersonLink memberId={item.actorMemberId} name={item.actor} /> : <span className="font-medium">{item.actor}</span>} {item.message}
+                  {item.actorMemberId ? <PersonLink memberId={item.actorMemberId} name={item.actor} /> : <span className="font-medium">{item.actor}</span>} {activityPhrase(locale, item)}
                 </p>
                 <p className="text-meta text-fg-subtle">{item.context ? `${item.createdAt} · ${item.context}` : item.createdAt}</p>
               </div>

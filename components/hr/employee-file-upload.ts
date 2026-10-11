@@ -1,6 +1,10 @@
 "use client";
 
+import * as React from "react";
+
+import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";
 import type { ApiFailure } from "@/components/engineering/engineering-api";
+import { useHrTranslations } from "@/components/hr/hr-text";
 import {
   authoriseUpload,
   completeUploadSession,
@@ -31,6 +35,21 @@ import {
  * of E-02 §197 — and nothing here deletes it.
  */
 
+/**
+ * What an upload can say, in the reader's language: its own two sentences, and a
+ * way to read the upload client's English messages back (`uploadErrorText`).
+ */
+export type FileWords = { incomplete: string; pending: string; read: (message: string) => string };
+
+export function useFileWords(): FileWords {
+  const t = useHrTranslations();
+  const tDocuments = useDocumentsTranslations();
+  return React.useMemo(
+    () => ({ incomplete: t("employeeDocs.uploadFailed"), pending: t("employeeDocs.stillChecking"), read: (message) => uploadErrorText(tDocuments, message) }),
+    [t, tDocuments],
+  );
+}
+
 type Upload = { key: string; documentId: string | null; sessionId: string | null; done: boolean };
 
 /** Per chosen file, per employment: the upload it is (FV-18). */
@@ -44,14 +63,24 @@ function uploadFor(file: File, scope: string): Upload {
   return upload;
 }
 
-function asApiFailure(error: unknown): ApiFailure {
-  if (error instanceof UploadFailure) return { status: error.status, code: error.code, message: error.message, details: error.details };
-  if (error && typeof error === "object" && "code" in error && "message" in error) return error as ApiFailure;
-  return { status: 0, code: "UPLOAD_FAILED", message: "The file could not be uploaded.", details: {} };
+/** A failure's messages, and the ones it lists per field, read back in the reader's language. */
+function readFailure(failure: ApiFailure, words: FileWords): ApiFailure {
+  const details = Object.fromEntries(
+    Object.entries(failure.details ?? {}).map(([field, value]) => [field, Array.isArray(value) ? value.map((item) => (typeof item === "string" ? words.read(item) : item)) : value]),
+  );
+  const fields = failure.fields ? Object.fromEntries(Object.entries(failure.fields).map(([field, message]) => [field, words.read(message)])) : undefined;
+  const fieldErrors = failure.fieldErrors ? Object.fromEntries(Object.entries(failure.fieldErrors).map(([field, list]) => [field, list.map(words.read)])) : undefined;
+  return { ...failure, message: words.read(failure.message), details, ...(fields ? { fields } : {}), ...(fieldErrors ? { fieldErrors } : {}) };
+}
+
+function asApiFailure(error: unknown, words: FileWords): ApiFailure {
+  if (error instanceof UploadFailure) return readFailure({ status: error.status, code: error.code, message: error.message, details: error.details }, words);
+  if (error && typeof error === "object" && "code" in error && "message" in error) return readFailure(error as ApiFailure, words);
+  return { status: 0, code: "UPLOAD_FAILED", message: words.incomplete, details: {} };
 }
 
 /** Waits for the scan to settle, a minute and a half at most, then gives the file back to the maintenance worker (§197). */
-async function settled(documentId: string): Promise<void> {
+async function settled(documentId: string, words: FileWords): Promise<void> {
   const verdict = await settleUpload(documentId, { windowMs: 90_000 });
   if (verdict.state === "ready") return;
   if (verdict.state === "rejected") throw { status: 0, code: "FILE_REJECTED", message: verdict.message, details: { file: [verdict.message] } } satisfies ApiFailure;
@@ -60,7 +89,7 @@ async function settled(documentId: string): Promise<void> {
   throw {
     status: 0,
     code: "FILE_PENDING",
-    message: "The file is still being checked. Submit again in a moment, or file it from the list once it is ready.",
+    message: words.pending,
     details: {},
   } satisfies ApiFailure;
 }
@@ -70,16 +99,16 @@ async function settled(documentId: string): Promise<void> {
  * enforces (AUD-09 §8). Throws the form's usual failure shape, keyed on
  * `file`, so the dialog shows it beside the file input.
  */
-export function checkEmployeeFile(file: File): void {
+export function checkEmployeeFile(file: File, words: FileWords): void {
   const check = precheckFile(file);
-  if (!check.ok) throw { status: 400, code: check.code, message: check.message, details: { file: [check.message] } } satisfies ApiFailure;
+  if (!check.ok) throw { status: 400, code: check.code, message: words.read(check.message), details: { file: [words.read(check.message)] } } satisfies ApiFailure;
 }
 
 /** Uploads a file onto an employment and resolves with its canonical document id once it is available. */
-export async function uploadToEmployment(employmentId: string, file: File, name: string): Promise<string> {
+export async function uploadToEmployment(employmentId: string, file: File, name: string, words: FileWords): Promise<string> {
   const upload = uploadFor(file, `employment:${employmentId}`);
   if (upload.done && upload.documentId) return upload.documentId;
-  checkEmployeeFile(file);
+  checkEmployeeFile(file, words);
   try {
     if (!upload.documentId) {
       const grant = await authoriseUpload(
@@ -113,17 +142,17 @@ export async function uploadToEmployment(employmentId: string, file: File, name:
         }
         throw error;
       });
-      if (!done) return uploadToEmployment(employmentId, file, name);
+      if (!done) return uploadToEmployment(employmentId, file, name, words);
       if (done.status === "AVAILABLE") {
         upload.done = true;
         return upload.documentId;
       }
     }
-    await settled(upload.documentId!);
+    await settled(upload.documentId!, words);
     upload.done = true;
     return upload.documentId!;
   } catch (error) {
-    const failure = asApiFailure(error);
+    const failure = asApiFailure(error, words);
     // Refused for good: the next submit of the same file must not replay it.
     if (["FILE_REJECTED", "FILE_TYPE_NOT_ALLOWED", "FILE_TYPE_MISMATCH", "FILE_TOO_LARGE", "UPLOAD_KEY_REUSED", "UPLOAD_ABORTED", "UPLOAD_SESSION_EXPIRED"].includes(failure.code)) {
       uploads.get(file)?.delete(`employment:${employmentId}`);
@@ -133,8 +162,8 @@ export async function uploadToEmployment(employmentId: string, file: File, name:
 }
 
 /** A new version of a file already filed (§61): the same logical document, never a second one (§189). */
-export async function uploadNewVersion(documentId: string, file: File): Promise<void> {
-  checkEmployeeFile(file);
+export async function uploadNewVersion(documentId: string, file: File, words: FileWords): Promise<void> {
+  checkEmployeeFile(file, words);
   // One chosen file, one version: a retry after a lost answer is not version N+1.
   const upload = uploadFor(file, `version:${documentId}`);
   if (upload.done) return;
@@ -146,7 +175,7 @@ export async function uploadNewVersion(documentId: string, file: File): Promise<
     }
     upload.done = true;
   } catch (error) {
-    throw asApiFailure(error);
+    throw asApiFailure(error, words);
   }
 }
 

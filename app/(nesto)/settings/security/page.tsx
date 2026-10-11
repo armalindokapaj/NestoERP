@@ -5,11 +5,11 @@ import { DeviceList, type OwnDeviceRow } from "@/components/security/device-list
 import { NativeDeviceCard } from "@/components/settings/native-device-card";
 import { SessionList } from "@/components/settings/session-list";
 import { requireSettingsSection } from "../settings-access";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { prisma } from "@/lib/database/prisma";
 import * as account from "@/lib/modules/account/account.service";
 import { ownDevices, listOwnSecurityEvents } from "@/lib/modules/security/security.service";
-import { formatDateTime } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -22,6 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * has it, in either workspace.
  */
 export default async function SecuritySettingsPage() {
+  const locale = await getLocale();
   const context = await requireSettingsSection("security");
   const [t, sessions, devices, events, revokedByMe] = await Promise.all([
     getTranslations("security"),
@@ -47,8 +48,8 @@ export default async function SecuritySettingsPage() {
     pushEnabled: device.pushEnabled,
     activeSessions: device.activeSessions,
     current: device.current,
-    lastActiveLabel: formatDateTime(device.lastSeenAt),
-    firstSeenLabel: formatDateTime(device.firstSeenAt),
+    lastActiveLabel: formatDateTime(device.lastSeenAt, locale),
+    firstSeenLabel: formatDateTime(device.firstSeenAt, locale),
     dataRemoval: device.dataRemoval ? { mode: device.dataRemoval.mode, confirmed: Boolean(device.dataRemoval.confirmedAt) } : null,
     canRestore: restorable.has(device.id),
   }));
@@ -77,9 +78,9 @@ export default async function SecuritySettingsPage() {
               device: session.device,
               client: session.client,
               companyName: session.companyName,
-              lastActiveLabel: formatDateTime(session.lastActiveAt),
-              startedLabel: formatDateTime(session.createdAt),
-              expiresLabel: formatDateTime(session.expiresAt),
+              lastActiveLabel: formatDateTime(session.lastActiveAt, locale),
+              startedLabel: formatDateTime(session.createdAt, locale),
+              expiresLabel: formatDateTime(session.expiresAt, locale),
             }))}
           />
         </div>
@@ -94,7 +95,7 @@ export default async function SecuritySettingsPage() {
             {events.map((event) => (
               <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-table">
                 <span className="text-fg">{t(`events.types.${event.type}`)}</span>
-                <span className="text-meta text-fg-subtle">{formatDateTime(event.at)}</span>
+                <span className="text-meta text-fg-subtle">{formatDateTime(event.at, locale)}</span>
               </li>
             ))}
           </ul>

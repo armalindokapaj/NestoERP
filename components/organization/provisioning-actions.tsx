@@ -4,12 +4,14 @@ import * as React from "react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, ReasonDialog, useCommand } from "@/components/engineering/form-kit";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { formatDateTime } from "@/lib/i18n/format";
 import type { ProvisionResultDTO, ProvisioningDetailDTO } from "@/lib/modules/organization/provisioning/provisioning.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { useOrganizationTranslations } from "./organization-text";
 
 type Open = "approve" | "reject" | "return" | "start" | "provision" | "cancel" | null;
@@ -21,8 +23,10 @@ type Open = "approve" | "reject" | "return" | "start" | "provision" | "cancel" |
  * again (PRD #50 §18).
  */
 export function ProvisioningActions({ request }: { request: ProvisioningDetailDTO }) {
+  const locale = useLocale();
   const { pending, run } = useCommand();
   const t = useOrganizationTranslations();
+  const tr = useTranslations("roles");
   const [open, setOpen] = React.useState<Open>(null);
   const [created, setCreated] = React.useState<ProvisionResultDTO | null>(null);
   const base = `/api/organization/user-provisioning-requests/${request.id}`;
@@ -72,7 +76,7 @@ export function ProvisioningActions({ request }: { request: ProvisioningDetailDT
         open={open === "approve"}
         onOpenChange={close}
         title={t("actions.approveTitle", { name })}
-        description={t("actions.approveDescription", { role: request.role.label, department: request.department.name, company: request.company.name })}
+        description={t("actions.approveDescription", { role: adminRoleName(tr, request.role.label), department: request.department.name, company: request.company.name })}
         confirmLabel={t("actions.approve")}
         destructive={false}
         pending={pending === "approve"}
@@ -163,7 +167,7 @@ export function ProvisioningActions({ request }: { request: ProvisioningDetailDT
                   <CopyButton value={created.temporaryPassword} label={t("actions.copyPassword")} />
                 </dd>
               </div>
-              {created.expiresAt ? <p className="text-meta text-fg-muted">{t("actions.expires", { date: formatDateTime(created.expiresAt) })}</p> : null}
+              {created.expiresAt ? <p className="text-meta text-fg-muted">{t("actions.expires", { date: formatDateTime(created.expiresAt, locale) })}</p> : null}
             </dl>
           ) : null}
           <DialogFooter>

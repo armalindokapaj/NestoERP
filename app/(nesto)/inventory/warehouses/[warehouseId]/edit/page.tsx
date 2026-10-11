@@ -60,6 +60,7 @@ export default async function EditWarehousePage({ params }: Params) {
         versionUpdatedAt={warehouse.updatedAt}
         cancelHref={`/inventory/warehouses/${warehouse.id}`}
         submitLabel={t("form.saveChanges")}
+        saveKind="save"
         pendingLabel={t("form.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,

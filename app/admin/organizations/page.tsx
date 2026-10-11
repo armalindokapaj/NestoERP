@@ -9,8 +9,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LinkRow } from "@/components/platform/link-row";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
+import { dateText } from "@/lib/i18n/format";
 import { COMPANY_STATUSES, GROUP_STATUSES, listOrganizations, organizationGroupOptions, type OrganizationQuery } from "@/lib/modules/platform/platform-organizations.query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 import { statusLabel } from "./_detail/labels";
 
@@ -44,6 +45,7 @@ function href(query: OrganizationQuery, changes: Partial<OrganizationQuery>): st
  * all held in the address.
  */
 export default async function OrganizationsPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const raw = Object.fromEntries(Object.entries(await searchParams).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
   const t = await getTranslations("adminOrgs");
   const context = await requirePlatformContext();
@@ -122,7 +124,7 @@ export default async function OrganizationsPage({ searchParams }: Props) {
                     <TableCell className="tabular-nums max-lg:hidden">{row.users}</TableCell>
                     <TableCell className="tabular-nums max-lg:hidden">{row.modules ?? "—"}</TableCell>
                     <TableCell><AdminStatusBadge status={row.status} /></TableCell>
-                    <TableCell className="max-xl:hidden">{new Date(row.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</TableCell>
+                    <TableCell className="max-xl:hidden">{dateText(new Date(row.createdAt), { day: "2-digit", month: "short", year: "numeric" }, locale)}</TableCell>
                   </LinkRow>
                 ))}
               </TableBody>

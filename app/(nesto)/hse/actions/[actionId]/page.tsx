@@ -13,11 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import * as actionService from "@/lib/modules/hse/actions/action.service";
 import { actionTypeLabels, priorityLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ actionId: string }> };
 
@@ -34,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One HSE action (PRD #22 §114, §122, §128, §319). */
 export default async function HseActionPage({ params }: Params) {
+  const locale = await getLocale();
   const { actionId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -89,7 +90,7 @@ export default async function HseActionPage({ params }: Params) {
               "—"
             ),
           },
-          { label: t("record.due"), value: action.dueDate ? formatDate(action.dueDate) : t("record.noDate") },
+          { label: t("record.due"), value: action.dueDate ? formatDate(action.dueDate, locale) : t("record.noDate") },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -151,7 +152,7 @@ export default async function HseActionPage({ params }: Params) {
                 ) : (
                   t("action.detail.somebody")
                 )}
-                {action.completedAt ? t("action.detail.onDate", { date: formatDate(action.completedAt) }) : ""}.
+                {action.completedAt ? t("action.detail.onDate", { date: formatDate(action.completedAt, locale) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -173,7 +174,7 @@ export default async function HseActionPage({ params }: Params) {
                 ) : (
                   t("action.detail.somebody")
                 )}
-                {action.verifiedAt ? t("action.detail.onDate", { date: formatDate(action.verifiedAt) }) : ""}.
+                {action.verifiedAt ? t("action.detail.onDate", { date: formatDate(action.verifiedAt, locale) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -226,9 +227,9 @@ export default async function HseActionPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("incident.detail.raised")} value={formatDateTime(action.createdAt)} />
+              <Meta label={t("incident.detail.raised")} value={formatDateTime(action.createdAt, locale)} />
               {action.cancelledAt ? (
-                <Meta label={t("record.cancelled")} value={formatDateTime(action.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(action.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

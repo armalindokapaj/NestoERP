@@ -55,6 +55,7 @@ export default async function EditObservationPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/environment/${observationId}`}
         submitLabel={t("page.saveObservation")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={observation.updatedAt}
         projects={options.projects.map((project) => ({

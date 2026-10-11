@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { pricing } from "@/config/marketing";
+import { numberText } from "@/lib/i18n/format";
 import { getLocale, getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
@@ -18,11 +19,7 @@ import { cn } from "@/lib/utils/cn";
  */
 export async function PricingPlans() {
   const [locale, copy] = await Promise.all([getLocale(), getSiteCopy()]);
-  const money = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: pricing.currency,
-    maximumFractionDigits: 0,
-  });
+  const money = (value: number) => numberText(value, { style: "currency", currency: pricing.currency, maximumFractionDigits: 0 }, locale, "en");
 
   return (
     <div className="grid gap-5 lg:grid-cols-3">
@@ -50,7 +47,7 @@ export async function PricingPlans() {
 
             <div className="mt-6 flex items-baseline gap-2">
               <span className="font-serif text-display leading-none text-fg">
-                {plan.monthly === null ? copy.pricing.bespoke : money.format(plan.monthly)}
+                {plan.monthly === null ? copy.pricing.bespoke : money(plan.monthly)}
               </span>
             </div>
             <p className="mt-2 text-meta text-fg-subtle">{words.period}</p>

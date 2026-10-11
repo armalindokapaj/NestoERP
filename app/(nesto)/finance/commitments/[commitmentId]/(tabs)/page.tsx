@@ -5,8 +5,9 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { ApprovalHistory } from "@/components/finance/approval-history";
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 import { commitmentLabel, loadCommitment } from "../commitment-context";
 
 type Params = { params: Promise<{ commitmentId: string }> };
@@ -29,6 +30,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * (PRD #15 §119, §134).
  */
 export default async function CommitmentDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { commitmentId } = await params;
   const { context, commitment } = await loadCommitment(commitmentId);
 
@@ -70,7 +72,7 @@ export default async function CommitmentDetailPage({ params }: Params) {
               { label: t("form.currency"), value: commitment.currency },
               {
                 label: t("columns.expected"),
-                value: commitment.expectedDate ? formatDate(commitment.expectedDate) : "—",
+                value: commitment.expectedDate ? formatDate(commitment.expectedDate, locale) : "—",
               },
               { label: t("invoices.raisedBy"), value: commitment.createdBy ? <PersonLink memberId={commitment.createdBy.memberId} name={commitment.createdBy.fullName} /> : "—" },
             ]}

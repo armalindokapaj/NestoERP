@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { albanianNumber, dateText, dayText, formatAmount, formatCurrency, formatDate, formatDateTime, formatNumber, monthName, numberText, relativeTimeText, weekdayName } from "@/lib/i18n/format";
+import { periodLabel, weekdayNames } from "@/components/calendar/calendar-model";
+import { formatQuantity, formatSigned } from "@/components/inventory/inventory-format";
+import { relativeTime } from "@/lib/activity/client";
+import { albanianNumber, dateText, dayText, decimalText, formatAmount, formatCurrency, formatDate, formatDateTime, formatNumber, formatRelativeTime, monthName, numberText, relativeTimeText, weekdayName } from "@/lib/i18n/format";
+import { dateLabel as dailyLogDate, longDateLabel, shortDayLabel } from "@/lib/modules/daily-logs/daily-log.time";
+import { formatAmount as financeAmount } from "@/lib/modules/finance/finance.currency";
+import { dateLabel as planningDate, shortDateLabel } from "@/lib/modules/project-planning/planning.dates";
+import { dayLabel, weekLabel } from "@/lib/modules/timesheets/timesheet.time";
 
 /**
  * Dates and numbers in the reader's language (lib/i18n/format.ts).
@@ -109,5 +116,44 @@ describe("relative time", () => {
     expect(relativeTimeText(days(1), "sq", now)).toBe("nesër");
     expect(relativeTimeText(days(-7), "sq", now)).toBe("javën e kaluar");
     expect(relativeTimeText(now, "sq", now)).toBe("tani");
+  });
+});
+
+describe("the helpers every page calls", () => {
+  it("keeps the spelled-out English labels and writes Albanian ones", () => {
+    expect(planningDate("2026-10-30", "en")).toBe("30 Oct 2026");
+    expect(planningDate("2026-10-30", "sq")).toBe("30 tet 2026");
+    expect(shortDateLabel("2026-10-30", "sq")).toBe("30 tet");
+    expect(dailyLogDate("2026-09-14", "sq")).toBe("14 sht 2026");
+    expect(longDateLabel("2026-09-14", "en")).toBe("Monday 14 Sep 2026");
+    expect(longDateLabel("2026-09-14", "sq")).toBe("e hënë 14 sht 2026");
+    expect(shortDayLabel("2026-09-14", "sq")).toBe("hën 14 sht");
+    expect(weekLabel("2026-09-07", "en")).toBe("7–13 Sep 2026");
+    expect(weekLabel("2026-09-07", "sq")).toBe("7–13 sht 2026");
+    expect(weekLabel("2026-09-28", "sq")).toBe("28 sht – 4 tet 2026");
+    expect(dayLabel("2026-09-07", "sq")).toEqual({ weekday: "hën", day: "7 sht" });
+  });
+
+  it("writes money and relative time for the reader", () => {
+    expect(formatRelativeTime(new Date(Date.now() - 3 * 86_400_000), "sq")).toBe("3 ditë më parë");
+    expect(financeAmount("1234.5", "EUR", "en")).toBe("€1,234.50");
+    expect(financeAmount("1234.5", "EUR", "sq")).toBe(`1234,50${NBSP}€`);
+  });
+
+  it("writes decimal strings without rounding them", () => {
+    expect(decimalText("1234567.25", "en")).toBe("1,234,567.25");
+    expect(decimalText("-1234567.25", "sq")).toBe(`-1${NBSP}234${NBSP}567,25`);
+    expect(decimalText("12.0001", "sq")).toBe("12,0001");
+    expect(formatQuantity("1234567.2500", "en")).toBe("1,234,567.25");
+    expect(formatQuantity("1234567.2500", "sq")).toBe(`1${NBSP}234${NBSP}567,25`);
+    expect(formatSigned("-118.0000", "m3", "sq")).toBe("−118 m3");
+  });
+
+  it("writes the calendar's names and headings in Albanian from the tables", () => {
+    expect(weekdayNames("en", "short")).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(weekdayNames("sq", "short")).toEqual(["hën", "mar", "mër", "enj", "pre", "sht", "die"]);
+    expect(periodLabel("month", "2026-09-14", "Europe/Tirane", "sq")).toBe("shtator 2026");
+    expect(periodLabel("month", "2026-09-14", "Europe/Tirane", "en")).toBe("September 2026");
+    expect(relativeTime("2026-09-07T09:00:00Z", "sq", Date.parse("2026-09-07T09:05:00Z"))).toBe("5 minuta më parë");
   });
 });

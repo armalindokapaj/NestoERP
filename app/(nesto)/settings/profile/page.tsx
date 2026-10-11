@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireSettingsSection } from "../settings-access";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import * as account from "@/lib/modules/account/account.service";
-import { formatDateTime, fullName } from "@/lib/utils/format";
+import { fullName } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -24,6 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * about them — position, department, role — is shown but not editable here.
  */
 export default async function ProfileSettingsPage() {
+  const locale = await getLocale();
   const user = await requireSettingsSection("profile");
   const [t, tRoles] = await Promise.all([getTranslations("settings"), getTranslations("roles")]);
 
@@ -101,9 +103,9 @@ export default async function ProfileSettingsPage() {
               device: session.device,
               companyName: session.companyName,
               client: session.client,
-              lastActiveLabel: formatDateTime(session.lastActiveAt),
-              startedLabel: formatDateTime(session.createdAt),
-              expiresLabel: formatDateTime(session.expiresAt),
+              lastActiveLabel: formatDateTime(session.lastActiveAt, locale),
+              startedLabel: formatDateTime(session.createdAt, locale),
+              expiresLabel: formatDateTime(session.expiresAt, locale),
             }))}
           />
         </div>

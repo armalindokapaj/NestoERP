@@ -1,10 +1,10 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { OrderSummaryDTO } from "@/lib/modules/procurement/procurement.types";
-import { formatDate } from "@/lib/utils/format";
 import { companyColumn, isGroupRows, RecordLink } from "./company-cells";
 import { dueLabel, formatAmount, receivedLabel } from "./procurement-format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * The purchase order list (PRD #19 §254, §279).
@@ -27,6 +27,7 @@ export async function OrderTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const locale = await getLocale();
   const grouped = isGroupRows(orders);
   const t = await getTranslations("procurement");
 
@@ -83,7 +84,7 @@ export async function OrderTable({
       label: t("orders.value"),
       align: "right",
       render: (row) => (
-        <span className="tabular-nums">{formatAmount(row.totalAmount, row.currency)}</span>
+        <span className="tabular-nums">{formatAmount(row.totalAmount, row.currency, locale)}</span>
       ),
     },
     {
@@ -116,7 +117,7 @@ export async function OrderTable({
       render: (row) =>
         row.requiredDate ? (
           <span className={row.attention.overdue ? "text-warning-strong" : undefined}>
-            {formatDate(row.requiredDate)}
+            {formatDate(row.requiredDate, locale)}
             {row.attention.overdue ? ` · ${dueLabel(t, row.attention.daysToRequired)}` : ""}
           </span>
         ) : (

@@ -11,11 +11,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/i18n/format";
 import { getPlatformUser, userActivity, userGrants, userSessions } from "@/lib/modules/platform/platform-users.query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import { cn } from "@/lib/utils/cn";
-import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminAccess");
@@ -32,6 +32,7 @@ const TABS = ["overview", "access", "sessions", "security", "activity"] as const
  * history. Never a password, hash or token; never HR or salary data.
  */
 export default async function PlatformUserPage({ params, searchParams }: Props) {
+  const locale = await getLocale();
   const [{ userId }, { tab: rawTab, from }] = await Promise.all([params, searchParams]);
   const tr = await getTranslations("roles");
   const t = await getTranslations("adminAccess");
@@ -77,8 +78,8 @@ export default async function PlatformUserPage({ params, searchParams }: Props) 
               [t("users.detail.overview.companies"), user.memberships.filter((row) => row.status === "ACTIVE").map((row) => `${row.company.name} (${adminRoleName(tr, row.role)})`).join(", ") || "—"],
               [t("users.detail.overview.projects"), String(user.memberships.reduce((sum, row) => sum + row.projects.length, 0))],
               [t("users.detail.overview.employeeRecord"), user.employee ? t("users.detail.overview.linked") : t("users.detail.overview.accountOnly")],
-              [t("users.detail.overview.created"), formatDate(user.createdAt)],
-              [t("users.detail.overview.lastSignIn"), user.lastLoginAt ? formatDateTime(user.lastLoginAt) : t("common.never")],
+              [t("users.detail.overview.created"), formatDate(user.createdAt, locale)],
+              [t("users.detail.overview.lastSignIn"), user.lastLoginAt ? formatDateTime(user.lastLoginAt, locale) : t("common.never")],
             ] as const).map(([label, value], index) => <div key={index}><dt className="text-meta text-fg-subtle">{label}</dt><dd className="text-body text-fg">{value}</dd></div>)}
           </dl>
         </section>
@@ -110,7 +111,7 @@ async function AccessTab({ context, user }: { context: Context; user: Awaited<Re
                   <span><Link href={`/admin/organizations/${row.company.id}`} className="font-medium text-fg hover:underline">{row.company.name}</Link>{row.group ? <span className="text-fg-muted"> · {row.group.name}</span> : null}</span>
                   <span className="flex items-center gap-2 text-table text-fg-muted">{adminRoleName(tr, row.role)}{row.department ? ` · ${row.department}` : ""}<AdminStatusBadge status={row.status} /></span>
                 </div>
-                {row.projects.length ? <p className="mt-1 text-meta text-fg-subtle">{t("users.detail.access.projectsLine", { projects: row.projects.map((project) => `${project.name}${project.role ? ` (${project.role})` : ""}`).join(", ") })}</p> : null}
+                {row.projects.length ? <p className="mt-1 text-meta text-fg-subtle">{t("users.detail.access.projectsLine", { projects: row.projects.map((project) => `${project.name}${project.role ? ` (${adminRoleName(tr, project.role)})` : ""}`).join(", ") })}</p> : null}
               </li>
             ))}
           </ul>
@@ -127,6 +128,7 @@ async function AccessTab({ context, user }: { context: Context; user: Awaited<Re
 }
 
 async function SessionsTab({ context, userId, name }: { context: Context; userId: string; name: string }) {
+  const locale = await getLocale();
   const t = await getTranslations("adminAccess");
   const rows = await userSessions(context, userId);
   const live = rows.filter((row) => row.active);
@@ -147,9 +149,9 @@ async function SessionsTab({ context, userId, name }: { context: Context; userId
                   <TableCell className="max-w-64 truncate" title={row.device ?? undefined}>{row.device ?? t("common.unknown")}</TableCell>
                   <TableCell className="font-mono text-meta max-md:hidden">{row.ipAddress ?? "—"}</TableCell>
                   <TableCell className="max-lg:hidden">{row.workspace}</TableCell>
-                  <TableCell className="max-sm:hidden">{formatDateTime(row.startedAt)}</TableCell>
-                  <TableCell>{formatRelativeTime(row.lastActive)}</TableCell>
-                  <TableCell className="max-sm:hidden">{formatDateTime(row.expiresAt)}</TableCell>
+                  <TableCell className="max-sm:hidden">{formatDateTime(row.startedAt, locale)}</TableCell>
+                  <TableCell>{formatRelativeTime(row.lastActive, locale)}</TableCell>
+                  <TableCell className="max-sm:hidden">{formatDateTime(row.expiresAt, locale)}</TableCell>
                   <TableCell><AdminStatusBadge status={row.active ? "ACTIVE" : "Expired"} /></TableCell>
                   <TableCell>{row.current ? <span className="text-meta text-fg-subtle">{t("users.detail.sessions.thisSession")}</span> : row.active && canRevoke ? <PlatformCommandButton label={t("common.revoke")} title={t("users.detail.sessions.revokeTitle")} action="session.revoke" fixed={{ sessionId: row.id }} reasonOnly destructive variant="danger" success={t("users.detail.sessions.revoked")} /> : null}</TableCell>
                 </TableRow>
@@ -163,6 +165,7 @@ async function SessionsTab({ context, userId, name }: { context: Context; userId
 }
 
 async function SecurityTab({ context, user }: { context: Context; user: Awaited<ReturnType<typeof getPlatformUser>> }) {
+  const locale = await getLocale();
   const t = await getTranslations("adminAccess");
   const canManage = canPlatform(context, "platform.user.manage");
   const self = user.id === context.userId;
@@ -170,7 +173,7 @@ async function SecurityTab({ context, user }: { context: Context; user: Awaited<
     <section className="nesto-card space-y-4 p-5" aria-label={t("users.detail.security.label")}>
       <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         <div><dt className="text-meta text-fg-subtle">{t("users.detail.security.authentication")}</dt><dd className="text-body text-fg">{t("users.detail.security.usernamePassword")}</dd></div>
-        <div><dt className="text-meta text-fg-subtle">{t("users.detail.security.passwordChanged")}</dt><dd className="text-body text-fg">{formatDate(user.passwordChangedAt)}{user.mustChangePassword ? ` · ${t("users.detail.security.temporary")}` : ""}</dd></div>
+        <div><dt className="text-meta text-fg-subtle">{t("users.detail.security.passwordChanged")}</dt><dd className="text-body text-fg">{formatDate(user.passwordChangedAt, locale)}{user.mustChangePassword ? ` · ${t("users.detail.security.temporary")}` : ""}</dd></div>
         <div><dt className="text-meta text-fg-subtle">{t("users.detail.security.recoveryEmail")}</dt><dd className="text-body text-fg">{user.recoveryEmail ?? t("users.detail.security.notVerified")}</dd></div>
         <div><dt className="text-meta text-fg-subtle">{t("users.detail.security.account")}</dt><dd><AdminStatusBadge status={user.status} /></dd></div>
       </dl>
@@ -190,13 +193,14 @@ async function SecurityTab({ context, user }: { context: Context; user: Awaited<
 }
 
 async function ActivityTab({ context, userId }: { context: Context; userId: string }) {
+  const locale = await getLocale();
   const t = await getTranslations("adminAccess");
   const rows = await userActivity(context, userId);
   return (
     <section className="nesto-card overflow-hidden" aria-label={t("users.detail.activity.label")}>
       {rows.length === 0 ? <p className="p-5 text-table text-fg-muted">{t("users.detail.activity.empty")}</p> : (
         <ul className="divide-y divide-line">
-          {rows.map((row) => <li key={`${row.kind}:${row.id}`} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-2.5 text-table"><span className="text-fg">{row.label}{row.by ? <span className="text-fg-muted"> · {t("users.detail.activity.by", { name: row.by })}</span> : null}{row.detail ? <span className="text-fg-subtle"> · {row.detail}</span> : null}</span><time dateTime={row.at} title={formatDateTime(row.at)} className="text-meta text-fg-subtle">{formatRelativeTime(row.at)}</time></li>)}
+          {rows.map((row) => <li key={`${row.kind}:${row.id}`} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-2.5 text-table"><span className="text-fg">{row.label}{row.by ? <span className="text-fg-muted"> · {t("users.detail.activity.by", { name: row.by })}</span> : null}{row.detail ? <span className="text-fg-subtle"> · {row.detail}</span> : null}</span><time dateTime={row.at} title={formatDateTime(row.at, locale)} className="text-meta text-fg-subtle">{formatRelativeTime(row.at, locale)}</time></li>)}
         </ul>
       )}
     </section>

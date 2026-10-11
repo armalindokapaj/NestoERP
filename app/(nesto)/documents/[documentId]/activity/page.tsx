@@ -6,11 +6,12 @@ import { Pagination } from "@/components/data/pagination";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatDateTime } from "@/lib/i18n/format";
 import * as documents from "@/lib/modules/documents/document.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { documentBreadcrumbs, loadDocument } from "../document-context";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 
 type Params = {
   params: Promise<{ documentId: string }>;
@@ -31,6 +32,7 @@ export default async function DocumentActivityPage({ params, searchParams }: Par
 
   const query = await searchParams;
   const t = await getTranslations("documents");
+  const locale = await getLocale();
   const pageValue = Number.parseInt(typeof query.page === "string" ? query.page : "1", 10);
   const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
 
@@ -60,10 +62,10 @@ export default async function DocumentActivityPage({ params, searchParams }: Par
               <li key={entry.id} className="px-5 py-4">
                 <p className="text-table text-fg">
                   {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("detail.someone")}</span>}{" "}
-                  {entry.message ?? entry.action}
+                  {localizeActivity(locale, entry) ?? entry.action}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {formatDateTime(entry.createdAt)}
+                  {formatDateTime(entry.createdAt, locale)}
                 </p>
               </li>
             ))}

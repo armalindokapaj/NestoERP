@@ -8,6 +8,8 @@ import {
   type FormActionResult,
   type SelectOption,
 } from "@/components/forms/record-form";
+import { useTranslations } from "@/components/i18n/i18n-provider";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { useTeamTranslations } from "@/components/team/team-text";
 import { Input } from "@/components/ui/input";
 import { FormSelect } from "@/components/ui/form-select";
@@ -42,6 +44,7 @@ export function MemberForm({
   canAssignDepartment: boolean;
 }) {
   const t = useTeamTranslations();
+  const tr = useTranslations("roles");
   return (
     <RecordForm
       action={action}
@@ -83,7 +86,7 @@ export function MemberForm({
           >
             {roles.map((role) => (
               <option key={role.value} value={role.value}>
-                {role.label}
+                {adminRoleName(tr, role.label)}
               </option>
             ))}
           </FormSelect>

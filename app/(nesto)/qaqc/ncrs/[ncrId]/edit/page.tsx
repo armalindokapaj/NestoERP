@@ -60,6 +60,7 @@ export default async function EditNcrPage({ params }: Params) {
         versionUpdatedAt={ncr.updatedAt}
         cancelHref={`/qaqc/ncrs/${ncr.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,

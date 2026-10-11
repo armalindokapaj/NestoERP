@@ -279,6 +279,7 @@ export const engineeringSq: typeof engineeringEn = {
     noRfis: "Ende nuk ka RFI.",
     noSubmittals: "Ende nuk ka dorëzime.",
     noDocuments: "Ende nuk ka dokumente inxhinierike.",
+    noContractor: "Pa kontraktor",
     noCompliance: "Nuk ka elemente përputhshmërie të regjistruara.",
     noContractors: "Ende nuk ka kontraktorë të caktuar.",
     contractors_one: "{count} kontraktor",

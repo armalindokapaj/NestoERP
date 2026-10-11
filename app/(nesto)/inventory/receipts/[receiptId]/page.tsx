@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -13,7 +14,6 @@ import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as receipts from "@/lib/modules/inventory/documents/receipt.service";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ receiptId: string }> };
 
@@ -31,6 +31,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One receipt (PRD #20 §85, §309, §311). */
 export default async function ReceiptPage({ params }: Params) {
+  const locale = await getLocale();
   const { receiptId } = await params;
   const context = await requireModule("inventory");
   const t = await getTranslations("inventory");
@@ -55,7 +56,7 @@ export default async function ReceiptPage({ params }: Params) {
         subtitle={receipt.warehouse.name}
         status={receipt.status}
         meta={[
-          { label: t("detail.received"), value: formatDate(receipt.receiptDate) },
+          { label: t("detail.received"), value: formatDate(receipt.receiptDate, locale) },
           { label: t("columns.lines"), value: String(receipt.lineCount) },
           {
             label: t("columns.source"),
@@ -120,14 +121,14 @@ export default async function ReceiptPage({ params }: Params) {
               items={[
                 { label: t("fields.warehouse"), value: receipt.warehouse.name },
                 { label: t("detail.draftedBy"), value: receipt.createdBy ? <PersonLink memberId={receipt.createdBy.memberId} name={receipt.createdBy.fullName} /> : "—" },
-                { label: t("detail.drafted"), value: formatDateTime(receipt.createdAt) },
+                { label: t("detail.drafted"), value: formatDateTime(receipt.createdAt, locale) },
                 { label: t("columns.postedBy"), value: receipt.postedBy ? <PersonLink memberId={receipt.postedBy.memberId} name={receipt.postedBy.fullName} /> : "—" },
                 {
                   label: t("detail.posted"),
-                  value: receipt.postedAt ? formatDateTime(receipt.postedAt) : "—",
+                  value: receipt.postedAt ? formatDateTime(receipt.postedAt, locale) : "—",
                 },
                 ...(receipt.reversedAt
-                  ? [{ label: t("labels.transactionStatus.REVERSED"), value: formatDateTime(receipt.reversedAt) }]
+                  ? [{ label: t("labels.transactionStatus.REVERSED"), value: formatDateTime(receipt.reversedAt, locale) }]
                   : []),
               ]}
             />

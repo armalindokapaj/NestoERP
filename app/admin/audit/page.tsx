@@ -7,10 +7,10 @@ import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { requirePlatformContext } from "@/lib/context/platform-context";
+import { formatDateTime } from "@/lib/i18n/format";
 import { auditFilterOptions, listAuditLog } from "@/lib/modules/platform/platform-audit.query";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
-import { formatDateTime } from "@/lib/utils/format";
 import { FormSelect } from "@/components/ui/form-select";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,6 +27,7 @@ const FILTER_KEYS = ["q", "actor", "action", "entity", "org", "category", "sever
  * Read-only — nothing here edits or deletes an event.
  */
 export default async function AuditLogPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const raw = Object.fromEntries(Object.entries(await searchParams).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
   const tr = await getTranslations("roles");
   const t = await getTranslations("adminAccess");
@@ -65,7 +66,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
               <TableBody>
                 {rows.map((row) => (
                   <TableRow key={row.id} data-testid="audit-row">
-                    <TableCell className="whitespace-nowrap"><Link href={`/admin/audit/${row.id}`} className="text-accent-strong hover:underline">{formatDateTime(row.occurredAt)}</Link></TableCell>
+                    <TableCell className="whitespace-nowrap"><Link href={`/admin/audit/${row.id}`} className="text-accent-strong hover:underline">{formatDateTime(row.occurredAt, locale)}</Link></TableCell>
                     <TableCell>{row.actor}{row.actorRole ? <p className="text-micro text-fg-subtle">{adminRoleName(tr, row.actorRole)}</p> : null}</TableCell>
                     <TableCell>{enumLabel(ta, "actions", row.actionKey.replace(/^PLATFORM_/, ""), row.action)}</TableCell>
                     <TableCell className="max-md:hidden">{row.entity}{row.entityType ? <p className="text-micro text-fg-subtle">{row.entityType}</p> : null}</TableCell>

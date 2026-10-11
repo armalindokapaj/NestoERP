@@ -68,6 +68,7 @@ export default async function EditTemplatePage({ params }: Params) {
         versionUpdatedAt={template.updatedAt}
         cancelHref={`/qaqc/templates/${template.id}`}
         submitLabel={template.usageCount > 0 ? t("templatePage.saveAsVersion") : t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         usageCount={template.usageCount}
         currentVersion={template.version}

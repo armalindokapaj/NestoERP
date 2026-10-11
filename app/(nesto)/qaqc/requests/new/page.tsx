@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { RequestForm } from "@/components/qaqc/qaqc-forms";
@@ -8,7 +9,6 @@ import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { createRequestAction } from "@/lib/actions/qaqc";
 import * as requests from "@/lib/modules/qaqc/requests/request.service";
-import { formatDate } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("qaqc");
@@ -17,6 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Ask for an inspection (PRD #21 §43). */
 export default async function NewRequestPage() {
+  const locale = await getLocale();
   const context = await requireModule("qaqc");
   const t = await getTranslations("qaqc");
   if (!can(context, "qaqc.request.create")) notFound();
@@ -44,6 +45,7 @@ export default async function NewRequestPage() {
         action={createRequestAction}
         cancelHref="/qaqc/requests"
         submitLabel={t("requestPage.raise")}
+        saveKind="create"
         pendingLabel={t("common.raising")}
         canAssign={can(context, "qaqc.request.assign")}
         projects={options.projects.map((project) => ({
@@ -56,7 +58,7 @@ export default async function NewRequestPage() {
         }))}
         receipts={options.receipts.map((receipt) => ({
           value: receipt.id,
-          label: `${receipt.receiptNumber} — ${receipt.supplier.name} · ${formatDate(receipt.receiptDate.toISOString())}`,
+          label: `${receipt.receiptNumber} — ${receipt.supplier.name} · ${formatDate(receipt.receiptDate.toISOString(), locale)}`,
         }))}
       />
     </div>

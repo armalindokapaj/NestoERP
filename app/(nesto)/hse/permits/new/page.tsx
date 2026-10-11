@@ -43,6 +43,7 @@ export default async function NewPermitPage() {
         action={createPermitAction}
         cancelHref="/hse/permits"
         submitLabel={t("page.raisePermit")}
+        saveKind="create"
         pendingLabel={t("page.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,

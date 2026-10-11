@@ -82,6 +82,7 @@ export default async function EditInvoicePage({ params }: Params) {
         versionUpdatedAt={invoice.updatedAt}
         cancelHref={`/finance/invoices/${invoice.id}`}
         submitLabel={t("edit.save")}
+        saveKind="save"
         pendingLabel={t("settings.saving")}
       />
     </div>

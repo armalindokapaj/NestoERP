@@ -6,6 +6,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { loadRecord, moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
 import type { RecordSummary } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { readableComplianceWhere } from "@/lib/modules/contractors/contractor.permissions";
 import { classifyDocumentParent } from "@/lib/modules/documents/document.parent-access";
 import { createTaskSchema } from "@/lib/modules/tasks/task.schema";
@@ -182,6 +183,7 @@ type Candidate = { id: string; label: string };
 
 /** Up to a hundred candidates of one type on a project, before the reader's own door filters them. */
 async function candidates(context: UserContext, type: LinkableType, projectId: string): Promise<Candidate[]> {
+  const locale = await getRequestLocale();
   const companyId = context.companyId;
   const take = 100;
   switch (type) {
@@ -192,9 +194,9 @@ async function candidates(context: UserContext, type: LinkableType, projectId: s
     case "task":
       return (await prisma.task.findMany({ where: { companyId, projectId, archivedAt: null }, orderBy: { updatedAt: "desc" }, take, select: { id: true, title: true } })).map((row) => ({ id: row.id, label: row.title }));
     case "meeting":
-      return (await prisma.meeting.findMany({ where: { companyId, projectId, archivedAt: null }, orderBy: { startsAt: "desc" }, take, select: { id: true, title: true, startsAt: true } })).map((row) => ({ id: row.id, label: `${row.title} · ${dateLabel(dateOf(row.startsAt))}` }));
+      return (await prisma.meeting.findMany({ where: { companyId, projectId, archivedAt: null }, orderBy: { startsAt: "desc" }, take, select: { id: true, title: true, startsAt: true } })).map((row) => ({ id: row.id, label: `${row.title} · ${dateLabel(dateOf(row.startsAt), locale)}` }));
     case "daily_log":
-      return (await prisma.dailyLog.findMany({ where: { companyId, projectId, status: { not: "VOID" } }, orderBy: { workDate: "desc" }, take, select: { id: true, workDate: true } })).map((row) => ({ id: row.id, label: `Daily log · ${dateLabel(dateOf(row.workDate))}` }));
+      return (await prisma.dailyLog.findMany({ where: { companyId, projectId, status: { not: "VOID" } }, orderBy: { workDate: "desc" }, take, select: { id: true, workDate: true } })).map((row) => ({ id: row.id, label: `Daily log · ${dateLabel(dateOf(row.workDate), locale)}` }));
     case "quality_inspection":
       return (await prisma.qualityInspection.findMany({ where: { companyId, projectId }, orderBy: { createdAt: "desc" }, take, select: { id: true, inspectionNumber: true } })).map((row) => ({ id: row.id, label: `Inspection ${row.inspectionNumber}` }));
     case "quality_defect":

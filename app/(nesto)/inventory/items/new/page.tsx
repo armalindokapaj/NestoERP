@@ -46,6 +46,7 @@ export default async function NewItemPage() {
         action={createItemAction}
         cancelHref="/inventory/items"
         submitLabel={t("form.addItem")}
+        saveKind="create"
         pendingLabel={t("form.adding")}
         warehouses={warehouseOptions}
         locations={locationOptions}

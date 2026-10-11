@@ -5,16 +5,16 @@ import Link from "@/components/navigation/nav-link";
 import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { areaText, numberText } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { formatDate } from "@/lib/i18n/format";
 import { ORIENTATION_LABELS, POSITION_LABELS, UNIT_ORIENTATIONS, UNIT_POSITIONS, type UnitOrientation } from "@/lib/modules/project-structure/structure.types";
 import type { InventorySort } from "@/lib/modules/sales/units/unit-sales.schema";
 import { UNIT_COMMERCIAL_STATUS_LABELS, type InventoryDTO, type InventoryRowDTO, type UnitCommercialStatus } from "@/lib/modules/sales/units/unit-sales.types";
-import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
@@ -93,6 +93,7 @@ export function SalesInventory({
   unitTypes: Array<{ id: string; name: string }>;
   actions: { canReserve: boolean; canRelease: boolean };
 }) {
+  const locale = useLocale();
   const t = useSalesTranslations();
   const tUi = useTranslations("ui");
   const [filters, setFilters] = React.useState(initialFilters);
@@ -214,8 +215,8 @@ export function SalesInventory({
           <FilterSelect label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
           <FilterSelect label={t("inventory.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />
           <FilterSelect label={t("inventory.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={[0, 1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} />
-          <FilterSelect label={t("inventory.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: ORIENTATION_LABELS[value] }))} />
-          <FilterSelect label={t("inventory.position")} value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: POSITION_LABELS[value] }))} />
+          <FilterSelect label={t("inventory.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: salesLabel(t, "orientation", value, ORIENTATION_LABELS[value]) }))} />
+          <FilterSelect label={t("inventory.position")} value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: salesLabel(t, "position", value, POSITION_LABELS[value]) }))} />
           <RangeFilter label={t("inventory.saleableArea")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
           <RangeFilter label={t("inventory.askingPrice")} min={filters.priceMin} max={filters.priceMax} onChange={(priceMin, priceMax) => setFilter({ priceMin, priceMax })} />
           <RangeFilter label={t("inventory.pricePerSqm")} min={filters.pricePerSqmMin} max={filters.pricePerSqmMax} onChange={(pricePerSqmMin, pricePerSqmMax) => setFilter({ pricePerSqmMin, pricePerSqmMax })} />
@@ -266,17 +267,17 @@ export function SalesInventory({
                       {row.building}
                       <span className="block text-meta text-fg-subtle">{row.floor}</span>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(row.saleableArea)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(row.saleableArea, locale)}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.bedrooms ?? "—"}</TableCell>
-                    <TableCell className="hidden text-fg-muted 2xl:table-cell">{row.orientation ? ORIENTATION_LABELS[row.orientation as UnitOrientation] : "—"}</TableCell>
+                    <TableCell className="hidden text-fg-muted 2xl:table-cell">{row.orientation ? salesLabel(t, "orientation", row.orientation, ORIENTATION_LABELS[row.orientation as UnitOrientation]) : "—"}</TableCell>
                     <TableCell>
                       <CommercialStatusBadge status={row.status} />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{moneyLabel(row.askingPrice, row.currency)}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums text-fg-muted">{perSqmLabel(row.pricePerSqm, row.currency)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">{moneyLabel(row.askingPrice, row.currency, locale)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums text-fg-muted">{perSqmLabel(row.pricePerSqm, row.currency, locale)}</TableCell>
                     {list.canSeeClients ? <TableCell className="max-w-[10rem] truncate">{row.client ? <Link href={`/clients/${row.client.id}`} className="hover:underline">{row.client.name}</Link> : "—"}</TableCell> : null}
                     {list.canSeeDeals ? <TableCell className="max-w-[10rem] truncate">{row.deal ? <Link href={`/sales/opportunities/${row.deal.id}`} className="hover:underline">{row.deal.name}</Link> : "—"}</TableCell> : null}
-                    <TableCell className="whitespace-nowrap text-fg-muted">{row.reservationExpiresAt ? formatDate(row.reservationExpiresAt) : "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-fg-muted">{row.reservationExpiresAt ? formatDate(row.reservationExpiresAt, locale) : "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -290,17 +291,17 @@ export function SalesInventory({
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-body font-semibold text-fg">{row.unitCode}</span>
                     <CommercialStatusBadge status={row.status} />
-                    <span className="ml-auto text-body font-medium tabular-nums text-fg">{moneyLabel(row.askingPrice, row.currency)}</span>
+                    <span className="ml-auto text-body font-medium tabular-nums text-fg">{moneyLabel(row.askingPrice, row.currency, locale)}</span>
                   </span>
                   <span className="mt-0.5 block text-meta text-fg-subtle">
-                    {row.building} · {row.floor} · {areaText(row.saleableArea)}
-                    {row.pricePerSqm !== null ? ` · ${perSqmLabel(row.pricePerSqm, row.currency)}` : null}
+                    {row.building} · {row.floor} · {areaText(row.saleableArea, locale)}
+                    {row.pricePerSqm !== null ? ` · ${perSqmLabel(row.pricePerSqm, row.currency, locale)}` : null}
                   </span>
                   {row.client || row.reservationExpiresAt ? (
                     <span className="mt-1 block text-meta text-fg-muted">
                       {row.client ? row.client.name : null}
                       {row.client && row.reservationExpiresAt ? " · " : null}
-                      {row.reservationExpiresAt ? t("inventory.expiresOn", { date: formatDate(row.reservationExpiresAt) }) : null}
+                      {row.reservationExpiresAt ? t("inventory.expiresOn", { date: formatDate(row.reservationExpiresAt, locale) }) : null}
                     </span>
                   ) : null}
                 </Link>

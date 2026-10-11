@@ -1,17 +1,18 @@
 import Link from "@/components/navigation/nav-link";
+import { adminActionLabel } from "@/components/platform/admin-actions";
 import { LogoUpload } from "@/components/platform/logo-upload";
 import { CheckCircle2, Circle } from "lucide-react";
 
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { CompanyLeadershipCard } from "@/components/platform/company-leadership";
+import { formatDate } from "@/lib/i18n/format";
 import { getCompanyLeadership } from "@/lib/modules/platform/company-leadership.service";
 import { platformActor } from "@/lib/modules/platform/group-actor";
 import { PlatformCommandButton, PlatformCommandMenu } from "@/components/platform/platform-command";
 import { RECOVERY_RETENTION_DAYS } from "@/lib/modules/platform/recovery-constants";
 import { deleteItem, purgeItem, restoreItem } from "./recovery-actions";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import type { Translate } from "@/lib/i18n/translator";
-import { formatDate } from "@/lib/utils/format";
 import type { getPlatformCompanyOverview } from "@/lib/modules/platform/platform-company.service";
 
 type Overview = Awaited<ReturnType<typeof getPlatformCompanyOverview>>;
@@ -129,7 +130,8 @@ export async function CompanyLeadershipSection({ companyId }: { companyId: strin
 }
 
 export async function CompanyOverview({ overview }: Props) {
-  const t = await getTranslations("adminOrgs");
+  const locale = await getLocale();
+  const [t, ta] = await Promise.all([getTranslations("adminOrgs"), getTranslations("admin")]);
   const { company, counts, setup } = overview;
   const open = setup.filter((item) => !item.done).length;
   const setupLabel = (item: { key: string; label: string }) => (SETUP[item.key as keyof typeof SETUP] ? t(SETUP[item.key as keyof typeof SETUP]) : item.label);
@@ -147,7 +149,7 @@ export async function CompanyOverview({ overview }: Props) {
             </div>
           ))}
         </dl>
-        <p className="mt-3 text-meta text-fg-subtle">{overview.createdBy ? t("company.overview.createdBy", { date: formatDate(company.createdAt), name: overview.createdBy }) : t("company.overview.created", { date: formatDate(company.createdAt) })}</p>
+        <p className="mt-3 text-meta text-fg-subtle">{overview.createdBy ? t("company.overview.createdBy", { date: formatDate(company.createdAt, locale), name: overview.createdBy }) : t("company.overview.created", { date: formatDate(company.createdAt, locale) })}</p>
       </section>
 
       <section className="nesto-card p-5" aria-labelledby="company-setup">
@@ -179,8 +181,8 @@ export async function CompanyOverview({ overview }: Props) {
           <ul className="mt-3 divide-y divide-line">
             {overview.history.slice(0, 5).map((event) => (
               <li key={event.id} className="flex flex-wrap justify-between gap-2 py-2 text-table">
-                <span className="text-fg">{event.actionKey.replace(/^PLATFORM_/, "").toLowerCase().replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase())}</span>
-                <span className="text-fg-muted">{event.actor ?? t("common.system")} · {formatDate(event.occurredAt)}</span>
+                <span className="text-fg">{adminActionLabel(ta, event.actionKey, event.actionKey.replace(/^PLATFORM_/, "").toLowerCase().replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase()))}</span>
+                <span className="text-fg-muted">{event.actor ?? t("common.system")} · {formatDate(event.occurredAt, locale)}</span>
               </li>
             ))}
           </ul>

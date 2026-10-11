@@ -13,6 +13,7 @@ import {
   permitTypeLabels,
   priorityLabels,
 } from "@/lib/modules/hse/hse.status";
+import { formatDate } from "@/lib/i18n/format";
 import { riskLevelLabels } from "@/lib/modules/hse/hse.risk";
 import type {
   ActionSummaryDTO,
@@ -27,8 +28,7 @@ import type {
   TemplateSummaryDTO,
   ToolboxSummaryDTO,
 } from "@/lib/modules/hse/hse.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
 import { PermitClock, PermitStatusBadge, RiskBadge, SeverityBadge } from "./hse-format";
 
@@ -170,6 +170,7 @@ export async function InspectionTable({
   inspections: InspectionSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<InspectionSummaryDTO>[] = [
     {
@@ -207,7 +208,7 @@ export async function InspectionTable({
       label: t("table.col.scheduled"),
       hideBelow: "lg",
       render: (row) =>
-        row.scheduledDate ? formatDate(row.scheduledDate) : <span className="text-fg-subtle">—</span>,
+        row.scheduledDate ? formatDate(row.scheduledDate, locale) : <span className="text-fg-subtle">—</span>,
     },
     // Two columns, deliberately: status is where it is, result is what was
     // found (PRD #22 §37, §38).
@@ -313,6 +314,7 @@ export async function HazardTable({
   hazards: HazardSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<HazardSummaryDTO>[] = [
     {
@@ -370,7 +372,7 @@ export async function HazardTable({
       render: (row) =>
         row.dueDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
-            {formatDate(row.dueDate)}
+            {formatDate(row.dueDate, locale)}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -405,6 +407,7 @@ export async function IncidentTable({
   incidents: IncidentSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<IncidentSummaryDTO>[] = [
     {
@@ -435,7 +438,7 @@ export async function IncidentTable({
       key: "occurredAt",
       label: t("table.col.occurred"),
       hideBelow: "lg",
-      render: (row) => formatDate(row.occurredAt),
+      render: (row) => formatDate(row.occurredAt, locale),
     },
     {
       key: "injury",
@@ -491,6 +494,7 @@ export async function RiskAssessmentTable({
   assessments: RiskAssessmentSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<RiskAssessmentSummaryDTO>[] = [
     {
@@ -541,7 +545,7 @@ export async function RiskAssessmentTable({
         row.reviewDate ? (
           // Flagged, never invalidated: a person decides (PRD #22 §359).
           <span className={row.reviewDue ? "text-warning-strong" : undefined}>
-            {formatDate(row.reviewDate)}
+            {formatDate(row.reviewDate, locale)}
             {row.reviewDue ? t("table.reviewDue") : ""}
           </span>
         ) : (
@@ -577,6 +581,7 @@ export async function ActionTable({
   actions: ActionSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<ActionSummaryDTO>[] = [
     {
@@ -653,7 +658,7 @@ export async function ActionTable({
       render: (row) =>
         row.dueDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
-            {formatDate(row.dueDate)}
+            {formatDate(row.dueDate, locale)}
             {row.daysOverdue > 0 ? ` · ${row.daysOverdue}d` : ""}
           </span>
         ) : (
@@ -689,6 +694,7 @@ export async function ToolboxTable({
   talks: ToolboxSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<ToolboxSummaryDTO>[] = [
     {
@@ -714,7 +720,7 @@ export async function ToolboxTable({
       key: "talkDate",
       label: t("table.col.date"),
       hideBelow: "lg",
-      render: (row) => formatDate(row.talkDate),
+      render: (row) => formatDate(row.talkDate, locale),
     },
     {
       key: "conductedBy",
@@ -761,6 +767,7 @@ export async function PermitTable({
   permits: PermitSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<PermitSummaryDTO>[] = [
     {
@@ -793,7 +800,7 @@ export async function PermitTable({
       hideBelow: "lg",
       render: (row) => (
         <span className="flex flex-col">
-          <span>{formatDate(row.validUntil)}</span>
+          <span>{formatDate(row.validUntil, locale)}</span>
           <span className="text-meta">
             <PermitClock hoursRemaining={row.hoursRemaining} />
           </span>
@@ -835,6 +842,7 @@ export async function PpeTable({
   checks: PpeCheckDTO[];
   canEdit?: boolean;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<PpeCheckDTO>[] = [
     {
@@ -874,7 +882,7 @@ export async function PpeTable({
       key: "checkDate",
       label: t("table.col.date"),
       hideBelow: "lg",
-      render: (row) => formatDate(row.checkDate),
+      render: (row) => formatDate(row.checkDate, locale),
     },
     {
       key: "checkedBy",
@@ -926,6 +934,7 @@ export async function ObservationTable({
   observations: ObservationSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<ObservationSummaryDTO>[] = [
     {
@@ -970,7 +979,7 @@ export async function ObservationTable({
       render: (row) =>
         row.dueDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
-            {formatDate(row.dueDate)}
+            {formatDate(row.dueDate, locale)}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -1005,6 +1014,7 @@ export async function StopWorkTable({
   records: StopWorkSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hse");
   const columns: TableColumn<StopWorkSummaryDTO>[] = [
     {
@@ -1023,7 +1033,7 @@ export async function StopWorkTable({
       key: "issuedAt",
       label: t("table.col.issued"),
       hideBelow: "lg",
-      render: (row) => formatDate(row.issuedAt),
+      render: (row) => formatDate(row.issuedAt, locale),
     },
     {
       key: "issuedBy",
@@ -1041,7 +1051,7 @@ export async function StopWorkTable({
       label: t("table.col.released"),
       hideBelow: "lg",
       render: (row) =>
-        row.releasedAt ? formatDate(row.releasedAt) : <span className="text-fg-subtle">—</span>,
+        row.releasedAt ? formatDate(row.releasedAt, locale) : <span className="text-fg-subtle">—</span>,
     },
     {
       key: "status",

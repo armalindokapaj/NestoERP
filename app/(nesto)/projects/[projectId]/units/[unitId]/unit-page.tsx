@@ -1,5 +1,6 @@
 import { cache } from "react";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatRelativeTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import Link from "@/components/navigation/nav-link";
 import { ContextTabsFrame, contextTabClass } from "@/components/navigation/context-tabs-frame";
@@ -15,7 +16,6 @@ import { can, canAccessModule } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { getProjectStructure, getUnitDetail, lastUnitChange } from "@/lib/modules/project-structure/structure.service";
 import { PersonLink } from "@/components/people/person-link";
-import { formatRelativeTime } from "@/lib/utils/format";
 import { getUnitPublishing } from "@/lib/modules/project-structure/unit-publishing.service";
 import * as projects from "@/lib/modules/projects/project.service";
 import { legalCapabilities } from "@/lib/modules/contracts/units/sale-contract";
@@ -67,6 +67,7 @@ const SECTIONS: Array<{ key: UnitSection; suffix: string }> = [
 ];
 
 export async function UnitShell({ page, active, children }: { page: Page; active: UnitSection; children: React.ReactNode }) {
+  const locale = await getLocale();
   const { project, actions, unit, publishing } = page;
   const t = await getTranslations("projects");
   const writes = unit.capabilities.canUpdateUnit || unit.capabilities.canMoveUnit;
@@ -113,7 +114,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           { label: t("unitPage.location"), value: <span data-testid="unit-location">{`${unit.building.name} · ${unit.floor.name}`}</span> },
           ...(unit.name ? [{ label: t("unitPage.name"), value: unit.name }] : []),
           ...(lastChange
-            ? [{ label: t("unitPage.lastEditedBy"), value: <span data-testid="unit-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatRelativeTime(lastChange.at)}</span> }]
+            ? [{ label: t("unitPage.lastEditedBy"), value: <span data-testid="unit-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatRelativeTime(lastChange.at, locale)}</span> }]
             : []),
         ]}
         actions={

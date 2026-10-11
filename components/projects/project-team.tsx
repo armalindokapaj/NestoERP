@@ -5,6 +5,7 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { MoreHorizontal, UserPlus } from "lucide-react";
 
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { PersonLink } from "@/components/people/person-link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +78,7 @@ export function ProjectTeam({
   const router = useRouter();
   const toast = useToast();
   const t = useTranslations("projects");
+  const tr = useTranslations("roles");
   const [pending, startTransition] = React.useTransition();
 
   const [addOpen, setAddOpen] = React.useState(false);
@@ -137,7 +139,7 @@ export function ProjectTeam({
                   {!member.membershipActive ? <Badge tone="warning">{t("team.inactive")}</Badge> : null}
                 </p>
                 <p className="truncate text-meta text-fg-subtle">
-                  {[member.projectRole ?? member.jobTitle, member.roleLabel, member.department]
+                  {[member.projectRole ?? member.jobTitle, adminRoleName(tr, member.roleLabel), member.department]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>

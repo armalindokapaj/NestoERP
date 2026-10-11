@@ -69,6 +69,7 @@ export default async function EditPpeCheckPage({ params }: Params) {
         action={action}
         cancelHref="/hse/ppe"
         submitLabel={t("page.saveCheck")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         values={{
           projectId: check.project?.id ?? "",

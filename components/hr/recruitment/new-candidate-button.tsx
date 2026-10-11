@@ -29,6 +29,7 @@ export function NewCandidateButton({ choices, defaultCompanyId }: { choices: Rec
         initial={{ targetCompanyId: defaultCompanyId }}
         onValuesChange={(values) => setCompanyId(String(values.targetCompanyId ?? ""))}
         submitLabel={t("candidate.add")}
+        saveKind="create"
         module="hr"
         wide
         testId="candidate-dialog"

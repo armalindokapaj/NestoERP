@@ -6,7 +6,7 @@ import type {
   DocumentLineDTO,
   TransferLineDTO,
 } from "@/lib/modules/inventory/inventory.types";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { formatQuantity, formatSigned } from "./inventory-format";
 
 /**
@@ -22,6 +22,7 @@ export async function DocumentLinesTable({
   lines: DocumentLineDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<DocumentLineDTO>[] = [
     {
@@ -53,7 +54,7 @@ export async function DocumentLinesTable({
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
-          {formatQuantity(row.quantity)} {row.unit}
+          {formatQuantity(row.quantity, locale)} {row.unit}
         </span>
       ),
     },
@@ -77,6 +78,7 @@ export async function TransferLinesTable({
   lines: TransferLineDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<TransferLineDTO>[] = [
     {
@@ -112,7 +114,7 @@ export async function TransferLinesTable({
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
-          {formatQuantity(row.quantity)} {row.unit}
+          {formatQuantity(row.quantity, locale)} {row.unit}
         </span>
       ),
     },
@@ -136,6 +138,7 @@ export async function AdjustmentLinesTable({
   lines: AdjustmentLineDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<AdjustmentLineDTO>[] = [
     {
@@ -172,7 +175,7 @@ export async function AdjustmentLinesTable({
               : "tabular-nums text-success-strong"
           }
         >
-          {formatSigned(row.quantityDelta, row.unit)}
+          {formatSigned(row.quantityDelta, row.unit, locale)}
         </span>
       ),
     },

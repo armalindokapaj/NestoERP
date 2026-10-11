@@ -8,6 +8,9 @@ import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } fr
 import type { UserContext } from "@/lib/context/types";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCurrency, formatDate, numberText } from "@/lib/i18n/format";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { contractorDirectoryWhere } from "@/lib/modules/contractors/contractor.permissions";
 import { buildBudgetScopeWhere, buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
 import { buildEmployeeScopeWhere, hasCompanyHrScope } from "@/lib/modules/hr/hr.scope";
@@ -17,7 +20,6 @@ import { upcomingMilestones } from "@/lib/modules/project-planning/planning.repo
 import { keyPortfolioProjects, portfolioBreakdown } from "@/lib/modules/projects/project.portfolio";
 import { currencyTotals } from "@/lib/modules/sales/opportunities/opportunity.forecast";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { loadRecentActivityRows } from "./dashboard.activity";
 import type { WidgetActivityItem, WidgetAlert, WidgetBreakdownItem, WidgetListItem, WidgetProjectCard } from "./dashboard.types";
 
@@ -117,6 +119,7 @@ export async function groupFinance(context: UserContext): Promise<WidgetListItem
 
 /** §111: the open pipeline, per company the reader has Sales in; currencies never summed (PRD #17 §31). */
 export async function groupPipeline(context: UserContext): Promise<WidgetListItem[]> {
+  const locale = await getRequestLocale();
   const rows = (await companyContexts(context)).filter(({ context: company }) => company.enabledModules.includes("sales") && can(company, "sales.opportunity.view"));
   return Promise.all(
     rows.map(async ({ name, context: company }) => {
@@ -129,7 +132,7 @@ export async function groupPipeline(context: UserContext): Promise<WidgetListIte
         id: company.companyId,
         title: name,
         subtitle: plural(deals.length, "open deal"),
-        meta: totals.map((total) => formatCurrency(Number.parseFloat(total.value), total.currency)).join(" · ") || undefined,
+        meta: totals.map((total) => formatCurrency(Number.parseFloat(total.value), total.currency, locale)).join(" · ") || undefined,
         companyId: company.companyId,
         href: "/sales/opportunities",
       };
@@ -387,6 +390,7 @@ export async function groupExternalCompanies(context: UserContext): Promise<Grou
  * across currencies. A demonstration tenant says the figure is synthetic.
  */
 export async function groupPortfolioValue(context: UserContext): Promise<GroupFigure | null> {
+  const locale = await getRequestLocale();
   if (!seesGroup(context)) return null;
   const rows = (await companyContexts(context)).filter(({ context: company }) => isModuleEnabled(company, "finance") && can(company, "finance.budget.view"));
   if (rows.length === 0) return null;
@@ -401,14 +405,14 @@ export async function groupPortfolioValue(context: UserContext): Promise<GroupFi
     for (const budget of budgets) totals.set(budget.currency, (totals.get(budget.currency) ?? 0) + Number(budget.totalAmount));
   }
   if (totals.size === 0) return { value: "—", hint: "No approved project budgets yet" };
-  const value = [...totals].map(([currency, amount]) => compactCurrency(amount, currency)).join(" · ");
+  const value = [...totals].map(([currency, amount]) => compactCurrency(amount, currency, locale)).join(" · ");
   const basis = `Approved budgets of ${plural(projects, "project")}`;
   return { value, hint: context.parentGroup.isDemo ? `${basis} · synthetic demo figure` : basis };
 }
 
 /** "€124.5M": a portfolio is read in millions. */
-function compactCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat("en", { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(amount);
+function compactCurrency(amount: number, currency: string, locale: Locale): string {
+  return numberText(amount, { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }, locale, "en");
 }
 
 const STATUS_ORDER = ["ACTIVE", "PENDING", "FINISHED"];
@@ -490,6 +494,7 @@ export async function groupDepartments(context: UserContext): Promise<WidgetBrea
 
 /** D-01 §36: the next milestones across the group's projects, each company's plans read as that company reads them. */
 export async function groupMilestones(context: UserContext, limit = 6): Promise<WidgetListItem[]> {
+  const locale = await getRequestLocale();
   if (!seesGroup(context)) return [];
   const rows = (await Promise.all((await companyContexts(context)).map(async ({ name, context: company }) => (await upcomingMilestones(company, limit)).map((row) => ({ ...row, company: name }))))).flat();
   return rows
@@ -499,7 +504,7 @@ export async function groupMilestones(context: UserContext, limit = 6): Promise<
       id: row.id,
       title: row.name,
       subtitle: [row.projectName, row.phaseName, row.company].filter(Boolean).join(" · "),
-      meta: row.displayDate ? formatDate(new Date(`${row.displayDate}T12:00:00Z`)) : undefined,
+      meta: row.displayDate ? formatDate(new Date(`${row.displayDate}T12:00:00Z`), locale) : undefined,
       status: row.delayed ? "DELAYED" : row.status,
       href: row.href,
     }));

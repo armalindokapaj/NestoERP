@@ -2,9 +2,9 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { ReservationDTO } from "@/lib/modules/inventory/inventory.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { formatQuantity } from "./inventory-format";
 
 /**
@@ -26,6 +26,7 @@ export async function ReservationTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<ReservationDTO>[] = [
     {
@@ -70,11 +71,11 @@ export async function ReservationTable({
       render: (row) => (
         <span className="flex flex-col items-end">
           <span className="tabular-nums">
-            {formatQuantity(row.remainingQuantity)} {row.item.baseUnit}
+            {formatQuantity(row.remainingQuantity, locale)} {row.item.baseUnit}
           </span>
           {row.fulfilledQuantity !== "0" && row.fulfilledQuantity !== "0.0000" ? (
             <span className="text-meta text-fg-subtle tabular-nums">
-              {t("columns.taken", { quantity: formatQuantity(row.fulfilledQuantity) })}
+              {t("columns.taken", { quantity: formatQuantity(row.fulfilledQuantity, locale) })}
             </span>
           ) : null}
         </span>
@@ -87,7 +88,7 @@ export async function ReservationTable({
       label: t("columns.required"),
       hideBelow: "xl",
       render: (row) =>
-        row.requiredDate ? formatDate(row.requiredDate) : <span className="text-fg-subtle">—</span>,
+        row.requiredDate ? formatDate(row.requiredDate, locale) : <span className="text-fg-subtle">—</span>,
     },
     {
       key: "status",

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Plus, Trash2 } from "lucide-react";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +73,7 @@ export function PricedLineItems({
   defaultLines?: PricedLineValue[];
   defaultTaxRate?: string | null;
 }) {
+  const locale = useLocale();
   const instance = React.useId();
   const t = useFinanceTranslations();
   const positiveQuantity = React.useCallback((value: string) => (isPositiveDecimal(value) ? null : t("lines.quantityPositive")), [t]);
@@ -126,7 +128,7 @@ export function PricedLineItems({
           const rowErrors = errors.forRow(row.rowId);
           const base = `${instance}-${row.rowId}`;
           const preview = previews[index];
-          const lineTotal = preview ? formatAmount(preview.totalAmount, currency) : "—";
+          const lineTotal = preview ? formatAmount(preview.totalAmount, currency, locale) : "—";
           const removeButton = () => (
             <Button
               type="button"
@@ -222,9 +224,9 @@ export function PricedLineItems({
       </ul>
 
       <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label={t("lines.totalsPreview")}>
-        <Row label={t("lines.subtotal")} value={totals ? formatAmount(totals.subtotal, currency) : "—"} />
-        <Row label={t("lines.tax")} value={totals ? formatAmount(totals.tax, currency) : "—"} />
-        <Row label={t("lines.totalPreview")} value={totals ? formatAmount(totals.total, currency) : "—"} emphasis />
+        <Row label={t("lines.subtotal")} value={totals ? formatAmount(totals.subtotal, currency, locale) : "—"} />
+        <Row label={t("lines.tax")} value={totals ? formatAmount(totals.tax, currency, locale) : "—"} />
+        <Row label={t("lines.totalPreview")} value={totals ? formatAmount(totals.total, currency, locale) : "—"} emphasis />
       </dl>
     </section>
   );
@@ -254,6 +256,7 @@ export function BudgetLineItems({
   currency: string;
   defaultLines?: BudgetLineValue[];
 }) {
+  const locale = useLocale();
   const instance = React.useId();
   const t = useFinanceTranslations();
   const empty = React.useCallback(
@@ -373,7 +376,7 @@ export function BudgetLineItems({
       </ul>
 
       <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table" aria-label={t("lines.totalPreviewLabel")}>
-        <Row label={t("lines.budgetTotalPreview")} value={total ? formatAmount(total, currency) : "—"} emphasis />
+        <Row label={t("lines.budgetTotalPreview")} value={total ? formatAmount(total, currency, locale) : "—"} emphasis />
       </dl>
     </section>
   );

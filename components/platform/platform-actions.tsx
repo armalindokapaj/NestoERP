@@ -9,6 +9,7 @@ import Link from "@/components/navigation/nav-link";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { MEMBERSHIP_ROLE_KEYS, roleLabel } from "@/config/roles";
 import type { GroupImplementationDTO, InitialUserResultDTO } from "@/lib/modules/platform/platform-implementation.service";
 
@@ -22,6 +23,7 @@ type Open = "identity" | "company" | "person" | "project" | null;
 
 export function GroupImplementationActions({ implementation }: { implementation: GroupImplementationDTO }) {
   const t = useTranslations("adminAccess");
+  const tr = useTranslations("roles");
   const { run } = useCommand();
   const identityFields: FormField[] = [
     { name: "name", label: t("implementation.fields.name"), type: "text", required: true },
@@ -56,6 +58,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
         fields={identityFields.filter((field) => field.name !== "slug")}
         initial={implementation.group}
         submitLabel={t("implementation.save")}
+        saveKind="save"
         onSubmit={async (payload) => {
           await engineeringApi(base, { method: "PATCH", body: payload });
           await run("identity", async () => null, t("implementation.groupDetailsSaved"));
@@ -83,6 +86,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
         ]}
         initial={Object.fromEntries(implementation.departmentOptions.map((department) => [`department:${department.id}`, true]))}
         submitLabel={t("implementation.createCompany")}
+        saveKind="create"
         wide
         testId="create-company-dialog"
         onSubmit={async (payload) => {
@@ -102,7 +106,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
           { name: "lastName", label: t("implementation.fields.lastName"), type: "text", required: true },
           { name: "workEmail", label: t("implementation.fields.workEmail"), type: "email" },
           { name: "username", label: t("implementation.fields.username"), type: "text", hint: t("implementation.fields.usernameHint") },
-          { name: "roleKey", label: t("implementation.fields.role"), type: "select", required: true, hint: t("implementation.fields.roleHint"), options: MEMBERSHIP_ROLE_KEYS.map((value) => ({ value, label: roleLabel(value) })) },
+          { name: "roleKey", label: t("implementation.fields.role"), type: "select", required: true, hint: t("implementation.fields.roleHint"), options: MEMBERSHIP_ROLE_KEYS.map((value) => ({ value, label: adminRoleName(tr, roleLabel(value)) })) },
           { name: "companyId", label: t("implementation.fields.company"), type: "select", options: companies, emptyLabel: t("implementation.fields.everyCompany") },
           { name: "position", label: t("implementation.fields.position"), type: "select", required: true, options: [{ value: "MEMBER", label: t("implementation.positions.MEMBER") }, { value: "COMPANY_MANAGER", label: t("implementation.positions.COMPANY_MANAGER") }, { value: "GROUP_HEAD", label: t("implementation.positions.GROUP_HEAD") }] },
           { name: "jobTitle", label: t("implementation.fields.jobTitle"), type: "text" },
@@ -132,6 +136,7 @@ export function GroupImplementationActions({ implementation }: { implementation:
         ]}
         initial={{ userId: people[0]?.value, projectId: projects[0]?.value }}
         submitLabel={t("implementation.assign")}
+        saveKind="none"
         onSubmit={async (payload) => {
           await engineeringApi(`${base}/initial-project-members`, { body: payload });
           await run("project", async () => null, t("implementation.assigned"));

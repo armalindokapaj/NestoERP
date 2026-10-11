@@ -75,14 +75,14 @@ function revalidateHse(recordPath?: string) {
 }
 
 /** One reading of a failure for both transports (AUD-09 §3, §6). */
-function toResult(error: unknown): HseActionResult {
-  const failure = actionFailure(error, "hse");
+async function toResult(error: unknown): Promise<HseActionResult> {
+  const failure = await actionFailure(error, "hse");
   const gaps = error instanceof AccessError ? (error.details as { gaps?: unknown } | undefined)?.gaps : undefined;
   return gaps === undefined ? failure : { ...failure, gaps };
 }
 
 /** Every issue under its full path (AUD-09 §3, FV-04). */
-function invalid(error: ZodError): HseActionResult {
+async function invalid(error: ZodError): Promise<HseActionResult> {
   return validationFailure(error);
 }
 

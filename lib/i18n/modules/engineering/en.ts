@@ -283,6 +283,7 @@ export const engineeringEn = {
     noSubmittals: "No submittals yet.",
     noDocuments: "No engineering documents yet.",
     noCompliance: "No compliance items recorded.",
+    noContractor: "No contractor",
     noContractors: "No contractors assigned yet.",
     contractors_one: "{count} contractor",
     contractors_other: "{count} contractors",

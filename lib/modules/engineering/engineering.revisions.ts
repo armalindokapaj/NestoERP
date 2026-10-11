@@ -1,3 +1,4 @@
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { setSharingClassification as setDocumentSharingClassification } from "@/lib/modules/documents/document.service";
 import type { EngineeringDocumentStatus, Prisma, TechnicalSubmittalStatus } from "@prisma/client";
 
@@ -352,7 +353,7 @@ async function submitInTransaction(tx: Tx, context: UserContext, parent: Revisio
     projectId: parent.projectId,
     actorMemberId: context.membershipId,
     memberIds: [parent.reviewerMemberId ?? parent.project.projectManagerMemberId, ...parent.watchers],
-    payload: { number: parent.number, title: parent.title, revisionCode: revision.revisionCode, dueDate: due, dateLabel: dateLabel(due) },
+    payload: { number: parent.number, title: parent.title, revisionCode: revision.revisionCode, dueDate: due, dateLabel: dateLabel(due, SOURCE_LOCALE) },
   });
   if (parent.kind === "submittal") incrementCounter(Metric.SUBMITTAL_SUBMITTED);
 }

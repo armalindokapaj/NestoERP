@@ -5,13 +5,15 @@ import { CollaborationPanel } from "@/components/collaboration/collaboration-pan
 import { RequestAccountButton } from "@/components/hr/request-account";
 import { DetailGrid } from "@/components/modules/record-header";
 import { membershipHref, personHref } from "@/components/people/person-link";
+import { formatDate } from "@/lib/i18n/format";
 import { employmentChangeOptions } from "@/lib/modules/hr/employment/employment.options";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { adminRoleName } from "@/components/platform/admin-roles";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { RECRUITABLE_ROLE_KEYS } from "@/lib/modules/hr/recruitment/candidate.schema";
 import { roles } from "@/config/roles";
 import type { RoleKey } from "@/config/roles";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { loadEmployee } from "../employee-context";
 
 type Params = { params: Promise<{ employeeId: string }> };
@@ -35,11 +37,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * service and its own permission (PRD #16 §48, §58).
  */
 export default async function EmployeeDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { employeeId } = await params;
   const { context, employee } = await loadEmployee(employeeId);
   const caps = employee.employment;
   const changes = Object.values(caps).some(Boolean) || employee.capabilities.canEditEmployment;
-  const t = await getTranslations("hr");
+  const [t, tr] = await Promise.all([getTranslations("hr"), getTranslations("roles")]);
   const options = changes ? await employmentChangeOptions(context, employeeId) : { departments: [], managers: [], documents: [], companies: [] };
 
   return (
@@ -55,7 +58,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
            * silently revoke access — so it is surfaced instead.
            */
           <p className="rounded-md border border-warning/30 bg-warning-soft px-4 py-3 text-table text-warning-strong">
-            {employee.endDate ? t("employee.endedOn", { date: formatDate(employee.endDate) }) : t("employee.ended")}{t("employee.stillAccess")}{" "}
+            {employee.endDate ? t("employee.endedOn", { date: formatDate(employee.endDate, locale) }) : t("employee.ended")}{t("employee.stillAccess")}{" "}
             <Link
               href={membershipHref(employee.memberId)}
               className="font-medium underline underline-offset-2"
@@ -66,7 +69,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
           </p>
         ) : (
           <p className="rounded-md border border-line bg-surface-2 px-4 py-3 text-table text-fg-muted">
-            {employee.endDate ? t("employee.endedOn", { date: formatDate(employee.endDate) }) : t("employee.ended")}{t("employee.accessSeparate")}{" "}
+            {employee.endDate ? t("employee.endedOn", { date: formatDate(employee.endDate, locale) }) : t("employee.ended")}{t("employee.accessSeparate")}{" "}
             <Link href={membershipHref(employee.memberId)} className="text-accent-strong hover:underline">
               {t("employee.team")}
             </Link>
@@ -90,15 +93,15 @@ export default async function EmployeeDetailPage({ params }: Params) {
               { label: t("fields.jobTitle"), value: orDash(employee.jobTitle) },
               {
                 label: t("fields.startDate"),
-                value: employee.startDate ? formatDate(employee.startDate) : "—",
+                value: employee.startDate ? formatDate(employee.startDate, locale) : "—",
               },
               {
                 label: t("fields.probationEnds"),
-                value: employee.probationEndDate ? formatDate(employee.probationEndDate) : "—",
+                value: employee.probationEndDate ? formatDate(employee.probationEndDate, locale) : "—",
               },
               {
                 label: t("fields.endDate"),
-                value: employee.endDate ? formatDate(employee.endDate) : "—",
+                value: employee.endDate ? formatDate(employee.endDate, locale) : "—",
               },
               {
                 label: t("fields.workLocation"),
@@ -145,7 +148,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
               className="mt-4"
               items={[
                 { label: t("employee.account"), value: hrLabel(t, "accountStatus", employee.accountStatus) },
-                ...(employee.role ? [{ label: t("employee.role"), value: employee.role.name }] : []),
+                ...(employee.role ? [{ label: t("employee.role"), value: adminRoleName(tr, employee.role.name) }] : []),
               ]}
             />
             <p className="mt-4 border-t border-line pt-3 text-meta text-fg-subtle">

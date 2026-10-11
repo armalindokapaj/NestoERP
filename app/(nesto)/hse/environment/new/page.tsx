@@ -43,6 +43,7 @@ export default async function NewObservationPage() {
         action={createObservationAction}
         cancelHref="/hse/environment"
         submitLabel={t("page.reportObservation")}
+        saveKind="create"
         pendingLabel={t("page.reporting")}
         projects={options.projects.map((project) => ({
           value: project.id,

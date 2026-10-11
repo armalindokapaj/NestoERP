@@ -11,8 +11,8 @@ import { ScrollRegion } from "@/components/ui/scroll-region";
 import { EmptyState } from "@/components/ui/empty-state";
 import { auditQuerySchema, listAuditEvents } from "@/lib/core/audit/audit-query.service";
 import { can } from "@/lib/access/can";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDateTime } from "@/lib/utils/format";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { requireSettingsSection } from "../settings-access";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 
@@ -46,6 +46,7 @@ type Params = { searchParams: Promise<Record<string, string | string[] | undefin
  * favours precision over decoration (PRD #28 §227).
  */
 export default async function AuditSettingsPage({ searchParams }: Params) {
+  const locale = await getLocale();
   const context = await requireSettingsSection("audit");
   const params = await searchParams;
 
@@ -99,7 +100,7 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
                 {data.map((event) => (
                   <tr key={event.id}>
                     <td className="whitespace-nowrap px-5 py-3 text-meta text-fg-muted">
-                      {formatDateTime(event.occurredAt)}
+                      {formatDateTime(event.occurredAt, locale)}
                     </td>
                     <td className="px-5 py-3 text-table text-fg">
                       {event.actor.memberId ? (

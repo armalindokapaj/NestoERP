@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
 import { localDate } from "./calendar.time";
 
 /**
@@ -5,8 +7,8 @@ import { localDate } from "./calendar.time";
  * Isomorphic — the server writes notification text with it, the browser renders with it.
  */
 
-export function formatDay(instant: Date, zone: string, options: Intl.DateTimeFormatOptions = {}, locale = "en-GB"): string {
-  return new Intl.DateTimeFormat(locale, { timeZone: zone, weekday: "short", day: "numeric", month: "short", ...options }).format(instant);
+export function formatDay(instant: Date, zone: string, options: Intl.DateTimeFormatOptions = {}, locale: Locale): string {
+  return dateText(instant, { timeZone: zone, weekday: "short", day: "numeric", month: "short", ...options }, locale);
 }
 
 export function formatClock(instant: Date, zone: string): string {
@@ -23,7 +25,7 @@ export function describeWhen(
   endsAt: Date | null,
   allDay: boolean,
   zone: string,
-  words: { locale: string; allDay: string } = { locale: "en-GB", allDay: "all day" },
+  words: { locale: Locale; allDay: string } = { locale: DEFAULT_LOCALE, allDay: "all day" },
 ): string {
   const day = (instant: Date) => formatDay(instant, zone, {}, words.locale);
   if (allDay) {

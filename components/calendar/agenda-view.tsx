@@ -5,6 +5,7 @@ import { CalendarPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { dateText } from "@/lib/i18n/format";
 import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import { localDate } from "@/lib/modules/calendar/calendar.time";
 import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
@@ -100,7 +101,7 @@ export function AgendaView({
                       >
                         <span className="pt-0.5 text-meta leading-5 text-fg-muted tabular-nums">
                           {event.allDay && eventDays(event, zone).length > 1
-                            ? t("agenda.until", { date: new Intl.DateTimeFormat(words.locale, { timeZone: zone, day: "numeric", month: "short" }).format(new Date(new Date(event.endsAt ?? event.startsAt).getTime() - 1)) })
+                            ? t("agenda.until", { date: dateText(new Date(new Date(event.endsAt ?? event.startsAt).getTime() - 1), { timeZone: zone, day: "numeric", month: "short" }, words.locale) })
                             : event.allDay || continues
                               ? t("allDay")
                               : formatClock(start, zone)}

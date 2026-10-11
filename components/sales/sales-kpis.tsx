@@ -2,7 +2,7 @@ import Link from "@/components/navigation/nav-link";
 
 import { isGroupRoute } from "@/config/workspace";
 import type { CurrencyTotal, SalesOverviewDTO } from "@/lib/modules/sales/sales.types";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { totalsLabel, weightedTotalsLabel } from "./sales-format";
 
 /**
@@ -17,14 +17,15 @@ import { totalsLabel, weightedTotalsLabel } from "./sales-format";
  * (Workspace Context §25, §29).
  */
 export async function SalesKpiGrid({ overview, grouped = false }: { overview: SalesOverviewDTO; grouped?: boolean }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const cards: { label: string; value: string; hint?: string; href?: string }[] = [];
 
   if (overview.visible.opportunities) {
     cards.push({
       label: t("kpis.openPipeline"),
-      value: totalsLabel(overview.openPipeline),
-      hint: t("kpis.weighted", { amount: weightedTotalsLabel(overview.openPipeline) }),
+      value: totalsLabel(overview.openPipeline, locale),
+      hint: t("kpis.weighted", { amount: weightedTotalsLabel(overview.openPipeline, locale) }),
       href: "/sales/pipeline",
     });
     cards.push({
@@ -34,12 +35,12 @@ export async function SalesKpiGrid({ overview, grouped = false }: { overview: Sa
     });
     cards.push({
       label: t("kpis.expectedCloseThisMonth"),
-      value: totalsLabel(overview.expectedCloseThisMonth),
+      value: totalsLabel(overview.expectedCloseThisMonth, locale),
       href: "/sales/reports?report=expected-close",
     });
     cards.push({
       label: t("kpis.wonThisMonth"),
-      value: totalsLabel(overview.wonThisMonth),
+      value: totalsLabel(overview.wonThisMonth, locale),
       hint: overview.winRate === null ? t("kpis.noDealsClosed") : t("kpis.winRate", { rate: overview.winRate }),
       href: "/sales/opportunities?outcome=WON",
     });

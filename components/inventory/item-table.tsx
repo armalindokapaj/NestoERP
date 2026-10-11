@@ -2,7 +2,7 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import type { ItemSummaryDTO } from "@/lib/modules/inventory/inventory.types";
 import { itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "./inventory-labels";
 import { formatQuantity } from "./inventory-format";
 import { StockLevelBadge } from "./stock-level-badge";
@@ -25,6 +25,7 @@ export async function ItemTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<ItemSummaryDTO>[] = [
     {
@@ -65,7 +66,7 @@ export async function ItemTable({
         label: t("columns.onHand"),
         align: "right",
         render: (row) => (
-          <span className="tabular-nums">{formatQuantity(row.stock?.onHand)}</span>
+          <span className="tabular-nums">{formatQuantity(row.stock?.onHand, locale)}</span>
         ),
       },
       {
@@ -77,7 +78,7 @@ export async function ItemTable({
         hideBelow: "lg",
         render: (row) => (
           <span className="tabular-nums text-fg-muted">
-            {formatQuantity(row.stock?.reserved)}
+            {formatQuantity(row.stock?.reserved, locale)}
           </span>
         ),
       },
@@ -89,7 +90,7 @@ export async function ItemTable({
         align: "right",
         hideBelow: "md",
         render: (row) => (
-          <span className="tabular-nums">{formatQuantity(row.stock?.available)}</span>
+          <span className="tabular-nums">{formatQuantity(row.stock?.available, locale)}</span>
         ),
       },
       {

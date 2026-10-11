@@ -2,9 +2,10 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ProgressActions } from "@/components/hr/progress-actions";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDate } from "@/lib/i18n/format";
 import type { ProgressKind, ProgressRow } from "@/lib/modules/hr/employees/progress.service";
-import { formatDate, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /** The onboarding and offboarding lists (PRD #16 §120, §125). */
 export async function ProgressTable({
@@ -21,6 +22,7 @@ export async function ProgressTable({
   /** Every open record, when the worklist shows only the first of them (AUD-08 §4). */
   total?: number;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("hr");
   const kindLabel = kind === "onboarding" ? t("meta.onboarding") : t("meta.offboarding");
   const columns: TableColumn<ProgressRow>[] = [
@@ -52,7 +54,7 @@ export async function ProgressTable({
       valueType: "date",
       label: dateLabel,
       render: (row) => (
-        <span className="text-fg-muted">{row.date ? formatDate(row.date) : "—"}</span>
+        <span className="text-fg-muted">{row.date ? formatDate(row.date, locale) : "—"}</span>
       ),
     },
     {

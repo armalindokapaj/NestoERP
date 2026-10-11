@@ -10,6 +10,7 @@ import type { Project3DConfig, Section } from "@/lib/3d/runtime/types";
 import { parseSectionFloorNumber } from "@/lib/3d/viewer/floorSections";
 import { cn } from "@/lib/utils/cn";
 import { ColorRow, GroupCard, SectionHeading, SliderRow, ToggleRow } from "./rozaris-fields";
+import { useEditorNodeWord, useEditorWord } from "./editor-text";
 
 /*
  * The Sections tool, ported as it is in the Rozaris Web3D Experience Editor
@@ -28,6 +29,8 @@ type Props = {
 };
 
 export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
+  const editorServerText = useEditorWord();
+  const editorNodesServerText = useEditorNodeWord();
   const [mode, setMode] = React.useState<"floor" | "manual">("manual");
   const [activeSectionId, setActiveSectionId] = React.useState<string | null>(null);
   const sections = draft.sections;
@@ -84,13 +87,13 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
 
   return (
     <div className="space-y-3">
-      <SectionHeading>Sections</SectionHeading>
+      <SectionHeading>{editorServerText("Sections")}</SectionHeading>
       <div className="flex gap-1 rounded-md bg-surface p-0.5">
         <button type="button" onClick={() => setMode("floor")} className={cn("flex-1 rounded px-2 py-1 text-[11px] font-semibold", mode === "floor" ? "bg-line-strong text-fg" : "text-fg-muted")}>
-          Floor Sections
+          {editorServerText("Floor Sections")}
         </button>
         <button type="button" onClick={() => setMode("manual")} className={cn("flex-1 rounded px-2 py-1 text-[11px] font-semibold", mode === "manual" ? "bg-line-strong text-fg" : "text-fg-muted")}>
-          Manual Clipping
+          {editorServerText("Manual Clipping")}
         </button>
       </div>
       <button
@@ -99,20 +102,19 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
         disabled={!canEdit}
         className="flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Plus className="h-3.5 w-3.5" /> New {mode === "floor" ? "Floor Section" : "Section"}
+        <Plus className="h-3.5 w-3.5" /> {mode === "floor" ? editorServerText("New Floor Section") : editorServerText("New Section")}
       </button>
 
       {mode === "floor" && (
         <p className="rounded-md border border-line bg-surface/60 p-2 text-[10px] leading-relaxed text-fg-muted">
-          Name a section after its floor — <span className="text-fg">Floor 7</span> or <span className="text-fg">Kati 7</span> — and every unit on floor 7 gets a
-          &ldquo;View in Floor&rdquo; button in the public viewer that activates it. The default &ldquo;Floor Section 1&rdquo; name does <span className="text-fg">not</span> link (its number is a counter, not a storey).
+          {editorNodesServerText("Name a section after its floor — {0} or {1} — and every unit on floor 7 gets a “View in Floor” button in the public viewer that activates it. The default “Floor Section 1” name does {2} link (its number is a counter, not a storey).", <span className="text-fg">Floor 7</span>, <span className="text-fg">Kati 7</span>, <span className="text-fg">{editorServerText("not")}</span>)}
         </p>
       )}
 
       <p className="rounded-md border border-line bg-surface/60 p-2 text-[10px] leading-relaxed text-fg-muted">{SECTION_SITE_EXEMPT_HINT}</p>
 
-      <SectionHeading>Presets</SectionHeading>
-      {sections.length === 0 && <p className="p-2 text-center text-xs text-fg-subtle">No sections saved yet.</p>}
+      <SectionHeading>{editorServerText("Presets")}</SectionHeading>
+      {sections.length === 0 && <p className="p-2 text-center text-xs text-fg-subtle">{editorServerText("No sections saved yet.")}</p>}
       <div className="space-y-1">
         {sections.map((s) => {
           const floor = parseSectionFloorNumber(s.name);
@@ -124,12 +126,12 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
                   <span className="truncate">{s.name}</span>
                   {s.heightOnly && <span className="shrink-0 rounded bg-surface-muted px-1 text-[9px] text-fg-muted">FLOOR</span>}
                 </span>
-                {floor !== null && <span className="pl-[18px] text-[10px] font-medium text-accent-strong">Linked to units on floor {floor}</span>}
+                {floor !== null && <span className="pl-[18px] text-[10px] font-medium text-accent-strong">{editorServerText("Linked to units on floor {0}", floor)}</span>}
               </button>
-              <button type="button" onClick={() => duplicate(s.id)} disabled={!canEdit} title="Duplicate" className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-40">
+              <button type="button" onClick={() => duplicate(s.id)} disabled={!canEdit} title={editorServerText("Duplicate")} className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface-muted hover:text-fg disabled:opacity-40">
                 <Copy className="h-3 w-3" />
               </button>
-              <button type="button" onClick={() => remove(s.id)} disabled={!canEdit} title="Delete" className="shrink-0 rounded p-1 text-danger-strong hover:bg-danger-soft disabled:opacity-40">
+              <button type="button" onClick={() => remove(s.id)} disabled={!canEdit} title={editorServerText("Delete")} className="shrink-0 rounded p-1 text-danger-strong hover:bg-danger-soft disabled:opacity-40">
                 <Trash2 className="h-3 w-3" />
               </button>
             </div>
@@ -143,32 +145,32 @@ export function SectionsPanel({ draft, change, viewerRef, canEdit }: Props) {
           <input
             value={active.name}
             disabled={!canEdit}
-            aria-label="Section name"
+            aria-label={editorServerText("Section name")}
             onChange={(e) => set({ name: e.target.value })}
             className="w-full rounded border border-line-strong bg-surface px-2 py-1 text-xs text-fg"
           />
           <GroupCard>
-            <ToggleRow label="Height Only" checked={!!active.heightOnly} disabled={!canEdit} onChange={(v) => set({ heightOnly: v })} />
-            <ToggleRow label="Bottom Plane" checked={active.bottomEnabled} disabled={!canEdit} onChange={(v) => set({ bottomEnabled: v })} />
+            <ToggleRow label={editorServerText("Height Only")} checked={!!active.heightOnly} disabled={!canEdit} onChange={(v) => set({ heightOnly: v })} />
+            <ToggleRow label={editorServerText("Bottom Plane")} checked={active.bottomEnabled} disabled={!canEdit} onChange={(v) => set({ bottomEnabled: v })} />
           </GroupCard>
 
-          <SliderRow label="Height (Slab)" value={active.heightM} stops={SECTION_HEIGHT_STOPS_M} step={0.1} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ heightM: v })} />
+          <SliderRow label={editorServerText("Height (Slab)")} value={active.heightM} stops={SECTION_HEIGHT_STOPS_M} step={0.1} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ heightM: v })} />
 
           {!active.heightOnly && (
             <>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">Footprint</p>
-              <SliderRow label="Center X" value={active.centerX} min={-SECTION_MAX_DIMENSION_M / 2} max={SECTION_MAX_DIMENSION_M / 2} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ centerX: v })} />
-              <SliderRow label="Center Z" value={active.centerZ} min={-SECTION_MAX_DIMENSION_M / 2} max={SECTION_MAX_DIMENSION_M / 2} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ centerZ: v })} />
-              <SliderRow label="Width" value={active.widthM} min={0} max={SECTION_FOOTPRINT_MAX_M} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ widthM: v })} />
-              <SliderRow label="Depth" value={active.depthM} min={0} max={SECTION_FOOTPRINT_MAX_M} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ depthM: v })} />
-              <SliderRow label="Rotation" value={active.rotationDeg} min={-180} max={180} step={1} suffix="°" editable disabled={!canEdit} onChange={(v) => set({ rotationDeg: v })} />
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">{editorServerText("Footprint")}</p>
+              <SliderRow label={editorServerText("Center X")} value={active.centerX} min={-SECTION_MAX_DIMENSION_M / 2} max={SECTION_MAX_DIMENSION_M / 2} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ centerX: v })} />
+              <SliderRow label={editorServerText("Center Z")} value={active.centerZ} min={-SECTION_MAX_DIMENSION_M / 2} max={SECTION_MAX_DIMENSION_M / 2} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ centerZ: v })} />
+              <SliderRow label={editorServerText("Width")} value={active.widthM} min={0} max={SECTION_FOOTPRINT_MAX_M} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ widthM: v })} />
+              <SliderRow label={editorServerText("Depth")} value={active.depthM} min={0} max={SECTION_FOOTPRINT_MAX_M} step={0.5} suffix="m" editable disabled={!canEdit} onChange={(v) => set({ depthM: v })} />
+              <SliderRow label={editorServerText("Rotation")} value={active.rotationDeg} min={-180} max={180} step={1} suffix="°" editable disabled={!canEdit} onChange={(v) => set({ rotationDeg: v })} />
             </>
           )}
 
-          <SectionHeading>Cap</SectionHeading>
+          <SectionHeading>{editorServerText("Cap")}</SectionHeading>
           <GroupCard>
-            <ToggleRow label="Fill Gaps" checked={active.fillGapsEnabled} disabled={!canEdit} onChange={(v) => set({ fillGapsEnabled: v })} />
-            <ColorRow label="Fill Color" value={active.fillColor} disabled={!canEdit || !active.fillGapsEnabled} onChange={(v) => set({ fillColor: v })} />
+            <ToggleRow label={editorServerText("Fill Gaps")} checked={active.fillGapsEnabled} disabled={!canEdit} onChange={(v) => set({ fillGapsEnabled: v })} />
+            <ColorRow label={editorServerText("Fill Color")} value={active.fillColor} disabled={!canEdit || !active.fillGapsEnabled} onChange={(v) => set({ fillColor: v })} />
           </GroupCard>
         </div>
       )}

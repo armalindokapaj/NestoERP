@@ -3,9 +3,9 @@ import { Money } from "@/components/finance/money";
 import { InvoiceActions } from "@/components/finance/invoice-actions";
 import { RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
-import { formatDate } from "@/lib/utils/format";
 import { invoiceBreadcrumbs, loadInvoice } from "../invoice-context";
 import { FinanceRecordTabs } from "../record-tabs";
 
@@ -27,6 +27,7 @@ type Props = { children: React.ReactNode; params: Promise<{ invoiceId: string }>
 
 /** The record's frame: header and tabs stay mounted while Overview, Documents and Activity swap beneath them. */
 export default async function InvoiceTabsLayout({ children, params }: Props) {
+  const locale = await getLocale();
   const { invoiceId } = await params;
   const { context, invoice } = await loadInvoice(invoiceId);
 
@@ -58,7 +59,7 @@ export default async function InvoiceTabsLayout({ children, params }: Props) {
               <Money amount={invoice.outstandingAmount} currency={invoice.currency} />
             ),
           },
-          { label: t("columns.due"), value: formatDate(invoice.dueDate) },
+          { label: t("columns.due"), value: formatDate(invoice.dueDate, locale) },
         ]}
         actions={
           <>

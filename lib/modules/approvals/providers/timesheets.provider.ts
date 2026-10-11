@@ -1,5 +1,7 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import type { Locale } from "@/lib/i18n/config";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { readableTimesheetWhere, seesEntryDetail } from "@/lib/modules/timesheets/timesheet.permissions";
 import { getTimesheet } from "@/lib/modules/timesheets/timesheet.service";
 import { resolveTimesheetSettings } from "@/lib/modules/timesheets/timesheet.settings";
@@ -21,14 +23,14 @@ import { excludesAmountFilter, MATCH_LIMIT, term } from "./shared";
 
 const DETAIL_ENTRY_LIMIT = 80;
 
-function weekFacts(week: TimesheetWeekDTO, showDescriptions: boolean): RecordFacts {
-  const label = weekLabel(week.periodStart);
+function weekFacts(week: TimesheetWeekDTO, showDescriptions: boolean, locale: Locale): RecordFacts {
+  const label = weekLabel(week.periodStart, locale);
   const lines = week.logs
     .slice()
     .sort((a, b) => a.workDate.localeCompare(b.workDate) || (a.project?.name ?? "").localeCompare(b.project?.name ?? ""))
     .slice(0, DETAIL_ENTRY_LIMIT)
     .map((log) => {
-      const day = dayLabel(log.workDate);
+      const day = dayLabel(log.workDate, locale);
       const what = [log.project?.name ?? WORK_LOG_TYPE_LABELS[log.workType], log.task?.title].filter(Boolean).join(" / ");
       const flags = [log.billable ? "billable" : null, log.overtimeFlag ? "overtime" : null].filter(Boolean).join(", ");
       const text = showDescriptions && log.description ? ` — ${log.description.replace(/\s+/g, " ").slice(0, 160)}` : "";
@@ -57,7 +59,7 @@ function weekFacts(week: TimesheetWeekDTO, showDescriptions: boolean): RecordFac
         label: "Daily totals",
         value: week.days
           .filter((day) => day.totalMinutes > 0 || day.leave)
-          .map((day) => `${dayLabel(day.date).weekday} ${formatMinutes(day.totalMinutes)}${day.leave ? " (leave)" : ""}`)
+          .map((day) => `${dayLabel(day.date, locale).weekday} ${formatMinutes(day.totalMinutes)}${day.leave ? " (leave)" : ""}`)
           .join(" · ") || "Nothing logged",
       },
     ],
@@ -106,12 +108,13 @@ export const timesheetApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         if (ids.length === 0) return new Map();
         // One week, opened in the drawer: everything the week screen knows (§79).
         if (ids.length === 1) {
           try {
             const week = await getTimesheet(context, ids[0]);
-            return new Map([[ids[0], weekFacts(week, seesEntryDetail(context) || week.approver?.memberId === context.membershipId || week.capabilities.approvalHref !== null || week.capabilities.isOwn)]]);
+            return new Map([[ids[0], weekFacts(week, seesEntryDetail(context) || week.approver?.memberId === context.membershipId || week.capabilities.approvalHref !== null || week.capabilities.isOwn, locale)]]);
           } catch {
             return new Map();
           }
@@ -136,7 +139,7 @@ export const timesheetApprovalProvider = createCycleProvider({
         }
         return new Map(
           rows.map((row): [string, RecordFacts] => {
-            const label = weekLabel(dateOf(row.periodStart));
+            const label = weekLabel(dateOf(row.periodStart), locale);
             const name = `${row.member.user.firstName} ${row.member.user.lastName}`;
             const sum = totals.get(row.id) ?? { total: 0, billable: 0 };
             const overtime = Math.max(0, sum.total - settings.standardWeeklyMinutes);

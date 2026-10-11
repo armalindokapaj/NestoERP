@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "@/components/inventory/inventory-labels";
 
 import { DetailGrid } from "@/components/modules/record-header";
@@ -8,7 +9,7 @@ import { LocationList } from "@/components/inventory/location-list";
 import { requireModule } from "@/lib/context/current-user";
 import * as warehouseService from "@/lib/modules/inventory/warehouses/warehouse.service";
 import { warehouseTypeLabels } from "@/lib/modules/inventory/inventory.status";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { loadWarehousePage } from "../warehouse-shell";
 
 type Params = { params: Promise<{ warehouseId: string }> };
@@ -27,6 +28,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** Warehouse overview (PRD #20 §308). */
 export default async function WarehousePage({ params }: Params) {
+  const locale = await getLocale();
   const { warehouseId } = await params;
   const { warehouse } = await loadWarehousePage(warehouseId, "overview");
   const t = await getTranslations("inventory");
@@ -84,10 +86,10 @@ export default async function WarehousePage({ params }: Params) {
             <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.addedBy")} value={warehouse.createdBy ? <PersonLink memberId={warehouse.createdBy.memberId} name={warehouse.createdBy.fullName} /> : "—"} />
-              <Meta label={t("detail.added")} value={formatDateTime(warehouse.createdAt)} />
-              <Meta label={t("detail.updated")} value={formatDateTime(warehouse.updatedAt)} />
+              <Meta label={t("detail.added")} value={formatDateTime(warehouse.createdAt, locale)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(warehouse.updatedAt, locale)} />
               {warehouse.archivedAt ? (
-                <Meta label={t("labels.warehouseStatus.ARCHIVED")} value={formatDateTime(warehouse.archivedAt)} />
+                <Meta label={t("labels.warehouseStatus.ARCHIVED")} value={formatDateTime(warehouse.archivedAt, locale)} />
               ) : null}
             </dl>
           </section>

@@ -57,6 +57,7 @@ export default async function EditEmploymentPage({ params }: Params) {
         versionUpdatedAt={employee.updatedAt}
         cancelHref={`/hr/employees/${employeeId}/employment`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
       />
     </div>

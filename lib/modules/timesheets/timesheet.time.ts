@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/config";
+import { monthName, weekdayName } from "@/lib/i18n/format";
 import { addLocalDays, daysBetween, isLocalDate } from "@/lib/modules/calendar/calendar.time";
 
 /**
@@ -94,26 +96,24 @@ export function formatHoursCompact(minutes: number): string {
   return `${Number.isInteger(hours) ? hours : Number(hours.toFixed(2))}h`;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 // Spelled out here rather than through Intl, so the server and every browser
-// render the same label (ICU data differs: "Sep" or "Sept").
-function parts(date: string) {
+// render the same label (ICU data differs: "Sep" or "Sept"); the names come
+// from lib/i18n/format.ts.
+function parts(date: string, locale: Locale) {
   const [year, month, day] = date.split("-").map(Number);
-  return { year, month: MONTHS[month - 1], day };
+  return { year, month: monthName(month, "short", locale), day };
 }
 
 /** "7–13 Sep 2026", or across months "28 Sep – 4 Oct 2026". */
-export function weekLabel(start: string): string {
-  const a = parts(start);
-  const b = parts(weekEndOf(start));
+export function weekLabel(start: string, locale: Locale): string {
+  const a = parts(start, locale);
+  const b = parts(weekEndOf(start), locale);
   if (a.year === b.year && a.month === b.month) return `${a.day}–${b.day} ${b.month} ${b.year}`;
   if (a.year === b.year) return `${a.day} ${a.month} – ${b.day} ${b.month} ${b.year}`;
   return `${a.day} ${a.month} ${a.year} – ${b.day} ${b.month} ${b.year}`;
 }
 
-export function dayLabel(date: string): { weekday: string; day: string } {
-  const { month, day } = parts(date);
-  return { weekday: WEEKDAYS[isoWeekday(date) - 1], day: `${day} ${month}` };
+export function dayLabel(date: string, locale: Locale): { weekday: string; day: string } {
+  const { month, day } = parts(date, locale);
+  return { weekday: weekdayName(isoWeekday(date), "short", locale), day: `${day} ${month}` };
 }

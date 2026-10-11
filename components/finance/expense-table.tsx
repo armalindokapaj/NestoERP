@@ -4,9 +4,10 @@ import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows"
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { ExpenseSummaryDTO } from "@/lib/modules/finance/finance.types";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 
 /** The expense list (PRD #15 §167). */
 const SETTLEMENT_TONES = {
@@ -22,6 +23,7 @@ export async function ExpenseTable({ expenses, listId = "finance.expenses", sort
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("finance");
   // Rows read in the Group workspace name their company and open through it.
   const grouped = expenses.some((expense) => expense.company);
@@ -79,7 +81,7 @@ export async function ExpenseTable({ expenses, listId = "finance.expenses", sort
       label: t("columns.date"),
       hideBelow: "lg",
       render: (expense) => (
-        <span className="text-fg-muted">{formatDate(expense.expenseDate)}</span>
+        <span className="text-fg-muted">{formatDate(expense.expenseDate, locale)}</span>
       ),
     },
     {

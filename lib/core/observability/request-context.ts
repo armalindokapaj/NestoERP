@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import type { Locale } from "@/lib/i18n/config";
+
 /**
  * Request and correlation identity (PRD #32 §25-§34).
  *
@@ -20,6 +22,8 @@ export type RequestContext = {
   /** Set when the work is a background job's, not a request's (PRD #51 §12-§14, §121). */
   jobKey?: string;
   workerId?: string;
+  /** The reader's language, read once when a request starts; refusals are worded in it as they leave (lib/i18n/errors). Absent for background work. */
+  locale?: Locale;
 };
 
 const storage = new AsyncLocalStorage<RequestContext>();

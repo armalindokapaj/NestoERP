@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -26,10 +26,11 @@ async function load(projectId: string, dailyLogId: string) {
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const locale = await getLocale();
   const { projectId, dailyLogId } = await params;
   try {
     const { log } = await load(projectId, dailyLogId);
-    return { title: (await getTranslations("projects"))("dailyLogs.logMeta", { project: log.project.name, date: dateLabel(log.workDate) }) };
+    return { title: (await getTranslations("projects"))("dailyLogs.logMeta", { project: log.project.name, date: dateLabel(log.workDate, locale) }) };
   } catch {
     return { title: (await getTranslations("projects"))("dailyLogs.log") };
   }

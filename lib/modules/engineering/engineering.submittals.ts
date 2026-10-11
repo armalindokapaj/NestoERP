@@ -11,6 +11,7 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { transitionFor } from "@/lib/core/state/machine";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
 import { loadEngineeringProject, projectEngineeringOptions, type ProjectEngineeringOptions } from "./engineering.documents";
@@ -350,7 +351,7 @@ export async function updateSubmittal(context: UserContext, id: string, sent: Up
       { tx },
     );
     if (reassigned) {
-      await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.SUBMITTAL_REVIEW_ASSIGNED, entityType: SUBMITTAL_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [input.assignedReviewerMemberId], payload: { number: row.submittalNumber, title: input.title, dueDate: input.dueAt, dateLabel: dateLabel(input.dueAt), assignment: `${input.assignedReviewerMemberId}:${input.expectedVersion + 1}` } });
+      await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.SUBMITTAL_REVIEW_ASSIGNED, entityType: SUBMITTAL_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [input.assignedReviewerMemberId], payload: { number: row.submittalNumber, title: input.title, dueDate: input.dueAt, dateLabel: dateLabel(input.dueAt, SOURCE_LOCALE), assignment: `${input.assignedReviewerMemberId}:${input.expectedVersion + 1}` } });
     }
   });
   if (reassigned || input.dueAt !== dateOf(row.dueAt)) await resolveAttentionForRecord(prisma, context.companyId, SUBMITTAL_RECORD, row.id, ["SUBMITTAL_REVIEW_OVERDUE"]);

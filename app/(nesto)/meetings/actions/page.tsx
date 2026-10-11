@@ -16,8 +16,9 @@ import { CompanyTag } from "@/components/workspace/company-tag";
 import { inGroupWorkspace } from "@/config/workspace";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { dateText } from "@/lib/i18n/format";
 import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { actionListQuerySchema } from "@/lib/modules/meetings/meeting.schema";
 import { listActionItemsForWorkspace, meetingCompanyOptions, meetingExperience } from "@/lib/modules/meetings/meeting.workspace";
 import { ACTION_STATUS_LABELS } from "@/lib/modules/meetings/meeting.types";
@@ -41,6 +42,7 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
  * §34, §45).
  */
 export default async function MeetingActionsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const locale = await getLocale();
   const context = await requireModule("meetings");
   const experience = meetingExperience(context);
   const params = await searchParams;
@@ -164,7 +166,7 @@ export default async function MeetingActionsPage({ searchParams }: { searchParam
                   {action.dueDate ? (
                     <span className={cn("text-meta tabular-nums", action.overdue ? "font-medium text-danger-strong" : "text-fg-muted")}>
                       {action.overdue ? t("actionsPage.overdue") : t("actionsPage.due")}
-                      {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${action.dueDate}T12:00:00Z`))}
+                      {dateText(new Date(`${action.dueDate}T12:00:00Z`), { day: "numeric", month: "short", timeZone: "UTC" }, locale)}
                     </span>
                   ) : null}
                   {action.status === "IN_PROGRESS" ? <Badge tone="info">{meetingsLabel(t, "actionStatus", "IN_PROGRESS", ACTION_STATUS_LABELS.IN_PROGRESS)}</Badge> : null}

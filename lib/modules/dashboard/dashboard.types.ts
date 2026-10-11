@@ -44,6 +44,8 @@ export type WidgetAlert = {
   /** On the group's attention list: the company it is about, which `href` enters (Workspace Context §71). */
   company?: string;
   companyId?: string;
+  /** For an alert that is one of the reader's attention items: its condition, by which the widget says it in their language (lib/i18n/system). */
+  conditionKey?: string;
 };
 
 export type WidgetApproval = {
@@ -53,12 +55,24 @@ export type WidgetApproval = {
   href: string;
 };
 
+/**
+ * Where an activity row keeps its stored action code, by which the widget finds
+ * the phrase in the reader's language (lib/i18n/system).
+ *
+ * A symbol rather than a name, because these same objects are what
+ * GET /api/dashboard/group answers with: a property under a symbol goes with
+ * the row wherever it is copied, and is left out of JSON — so that answer is
+ * exactly what it was.
+ */
+export const ACTIVITY_ACTION = Symbol("activity action");
+
 export type WidgetActivityItem = {
   id: string;
   actor: string;
   /** Null when NESTO itself did it. */
   actorMemberId: string | null;
   message: string;
+  [ACTIVITY_ACTION]?: string;
   createdAt: string;
   /** The company it happened in, on a view across the group's companies. */
   context?: string;

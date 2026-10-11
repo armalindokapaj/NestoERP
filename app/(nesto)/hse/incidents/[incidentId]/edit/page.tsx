@@ -57,6 +57,7 @@ export default async function EditIncidentPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/incidents/${incidentId}`}
         submitLabel={t("page.saveIncident")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={incident.updatedAt}
         projects={options.projects.map((project) => ({

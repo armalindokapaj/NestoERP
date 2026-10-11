@@ -68,6 +68,7 @@ export default async function EditOrderPage({ params }: Params) {
         versionUpdatedAt={order.updatedAt}
         cancelHref={`/procurement/orders/${order.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         suppliers={options.suppliers.map((supplier) => ({
           value: supplier.id,

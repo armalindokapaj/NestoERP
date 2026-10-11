@@ -52,6 +52,7 @@ export default async function NewRequestPage({
         action={createRequestAction}
         cancelHref="/procurement/requests"
         submitLabel={t("requests.create")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
         projects={options.projects.map((project) => ({
           value: project.id,

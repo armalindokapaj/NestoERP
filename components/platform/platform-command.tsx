@@ -22,6 +22,8 @@ type Props = {
   fields?: FormField[];
   initial?: Record<string, unknown>;
   submitLabel?: string;
+  /** Whether submitting is an ordinary save or a create; a command that is neither leaves it out. */
+  saveKind?: "save" | "create";
   variant?: ButtonProps["variant"];
   size?: ButtonProps["size"];
   success?: string;
@@ -61,7 +63,7 @@ function clean(payload: Record<string, unknown>) {
 
 type DialogProps = Omit<Props, "label" | "variant" | "size" | "openOnCreate">;
 
-function CommandDialog({ open, setOpen, title, description, action, fixed = {}, fields = [], initial, submitLabel, success, reasonOnly = false, destructive = false, redirectTo }: DialogProps & { open: boolean; setOpen: (open: boolean) => void; submitLabel: string }) {
+function CommandDialog({ open, setOpen, title, description, action, fixed = {}, fields = [], initial, submitLabel, saveKind, success, reasonOnly = false, destructive = false, redirectTo }: DialogProps & { open: boolean; setOpen: (open: boolean) => void; submitLabel: string }) {
   const router = useRouter();
   const toast = useToast();
   const t = useTranslations("admin");
@@ -80,7 +82,7 @@ function CommandDialog({ open, setOpen, title, description, action, fixed = {}, 
   return reasonOnly ? (
     <ReasonDialog open={open} onOpenChange={setOpen} title={title} description={description} confirmLabel={submitLabel} destructive={destructive} onConfirm={submit} />
   ) : (
-    <FormDialog open={open} onOpenChange={setOpen} title={title} description={description} fields={fields} initial={initial} submitLabel={submitLabel} onSubmit={submit} wide={fields.length > 5} />
+    <FormDialog open={open} onOpenChange={setOpen} title={title} description={description} fields={fields} initial={initial} submitLabel={submitLabel} saveKind={saveKind ?? "none"} onSubmit={submit} wide={fields.length > 5} />
   );
 }
 

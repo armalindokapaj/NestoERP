@@ -9,6 +9,7 @@ import { PermitActions } from "@/components/hse/record-actions";
 import { HseActivityFeed } from "@/components/hse/record-activity";
 import { HseRecordDocuments } from "@/components/hse/record-documents";
 import { PermitWorkers } from "@/components/hse/workforce-panels";
+import { formatDateTime } from "@/lib/i18n/format";
 import { hseEmploymentOptions, listPermitWorkers } from "@/lib/modules/hse/hse.workforce";
 import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
@@ -18,8 +19,7 @@ import { pendingCycle } from "@/lib/modules/hse/approvals/approval.service";
 import * as permits from "@/lib/modules/hse/permits/permit.service";
 import { permitTypeLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDateTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { HseText } from "@/components/hse/hse-text";
 
 type Params = { params: Promise<{ permitId: string }> };
@@ -37,6 +37,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One work permit (PRD #22 §140, §151, §321, §322). */
 export default async function PermitPage({ params }: Params) {
+  const locale = await getLocale();
   const { permitId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -121,8 +122,8 @@ export default async function PermitPage({ params }: Params) {
                   ),
                 },
                 { label: t("record.location"), value: permit.locationText },
-                { label: t("permit.detail.validFrom"), value: formatDateTime(permit.validFrom) },
-                { label: t("permit.detail.validUntil"), value: formatDateTime(permit.validUntil) },
+                { label: t("permit.detail.validFrom"), value: formatDateTime(permit.validFrom, locale) },
+                { label: t("permit.detail.validUntil"), value: formatDateTime(permit.validUntil, locale) },
                 {
                   label: t("permit.detail.requestedBy"),
                   value: permit.requestedBy ? (
@@ -196,16 +197,16 @@ export default async function PermitPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">{t("permit.detail.history")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label={t("incident.detail.raised")} value={formatDateTime(permit.createdAt)} />
+              <Meta label={t("incident.detail.raised")} value={formatDateTime(permit.createdAt, locale)} />
               {permit.submittedAt ? (
-                <Meta label={t("inspection.detail.submitted")} value={formatDateTime(permit.submittedAt)} />
+                <Meta label={t("inspection.detail.submitted")} value={formatDateTime(permit.submittedAt, locale)} />
               ) : null}
               {permit.approvedAt ? (
                 <Meta
                   label={t("inspection.detail.approved")}
                   value={
                     <>
-                      {formatDateTime(permit.approvedAt)}
+                      {formatDateTime(permit.approvedAt, locale)}
                       {permit.approvedBy ? (
                         <>
                           {" "}
@@ -217,16 +218,16 @@ export default async function PermitPage({ params }: Params) {
                 />
               ) : null}
               {permit.activatedAt ? (
-                <Meta label={t("permit.detail.activated")} value={formatDateTime(permit.activatedAt)} />
+                <Meta label={t("permit.detail.activated")} value={formatDateTime(permit.activatedAt, locale)} />
               ) : null}
               {permit.suspendedAt ? (
-                <Meta label={t("permit.detail.suspended")} value={formatDateTime(permit.suspendedAt)} />
+                <Meta label={t("permit.detail.suspended")} value={formatDateTime(permit.suspendedAt, locale)} />
               ) : null}
               {permit.closedAt ? (
-                <Meta label={t("record.closed")} value={formatDateTime(permit.closedAt)} />
+                <Meta label={t("record.closed")} value={formatDateTime(permit.closedAt, locale)} />
               ) : null}
               {permit.cancelledAt ? (
-                <Meta label={t("record.cancelled")} value={formatDateTime(permit.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(permit.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

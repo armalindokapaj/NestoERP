@@ -12,11 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import * as environment from "@/lib/modules/hse/environment/environment.service";
 import { environmentalCategoryLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ observationId: string }> };
 
@@ -33,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One environmental observation (PRD #22 §163, §324). */
 export default async function ObservationPage({ params }: Params) {
+  const locale = await getLocale();
   const { observationId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -66,7 +68,7 @@ export default async function ObservationPage({ params }: Params) {
         }
         meta={[
           { label: t("record.project"), value: observation.project?.code ?? t("record.companyWide") },
-          { label: t("record.observed"), value: formatDate(observation.observedAt) },
+          { label: t("record.observed"), value: formatDate(observation.observedAt, locale) },
           {
             label: t("record.assignedTo"),
             value: observation.assignedTo ? (
@@ -107,7 +109,7 @@ export default async function ObservationPage({ params }: Params) {
                 { label: t("incident.detail.immediateAction"), value: orDash(observation.immediateAction) },
                 {
                   label: t("record.due"),
-                  value: observation.dueDate ? formatDate(observation.dueDate) : t("record.noDate"),
+                  value: observation.dueDate ? formatDate(observation.dueDate, locale) : t("record.noDate"),
                 },
               ]}
             />
@@ -150,13 +152,13 @@ export default async function ObservationPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("record.reported")} value={formatDateTime(observation.createdAt)} />
+              <Meta label={t("record.reported")} value={formatDateTime(observation.createdAt, locale)} />
               {observation.closedAt ? (
                 <Meta
                   label={t("record.closed")}
                   value={
                     <>
-                      {formatDateTime(observation.closedAt)}
+                      {formatDateTime(observation.closedAt, locale)}
                       {observation.closedBy ? (
                         <>
                           {" "}

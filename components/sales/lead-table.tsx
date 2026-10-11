@@ -3,10 +3,10 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
+import { formatDate } from "@/lib/i18n/format";
 import { leadSourceLabels } from "@/lib/modules/sales/leads/lead.status";
 import type { LeadSummaryDTO } from "@/lib/modules/sales/sales.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { SalesLabel } from "@/components/sales/sales-text";
 import { formatAmount } from "./sales-format";
 
@@ -32,6 +32,7 @@ export async function LeadTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const columns: TableColumn<LeadSummaryDTO>[] = [
     {
@@ -101,7 +102,7 @@ export async function LeadTable({
       align: "right",
       render: (lead) =>
         lead.estimatedValue && lead.currency ? (
-          <span className="tabular-nums">{formatAmount(lead.estimatedValue, lead.currency)}</span>
+          <span className="tabular-nums">{formatAmount(lead.estimatedValue, lead.currency, locale)}</span>
         ) : (
           <span className="text-fg-subtle">—</span>
         ),
@@ -114,7 +115,7 @@ export async function LeadTable({
       label: t("tables.updated"),
       hideBelow: "xl",
       render: (lead) => (
-        <span className="text-meta text-fg-subtle">{formatDate(lead.updatedAt)}</span>
+        <span className="text-meta text-fg-subtle">{formatDate(lead.updatedAt, locale)}</span>
       ),
     },
   ];

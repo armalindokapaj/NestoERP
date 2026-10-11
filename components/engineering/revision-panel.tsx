@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { FileText, History, Upload } from "lucide-react";
@@ -73,6 +74,7 @@ export function RevisionPanel({
   canUploadFiles: boolean;
   zone: string;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useEngineeringTranslations();
@@ -145,7 +147,7 @@ export function RevisionPanel({
                       <dd className="text-fg">
                         {revision.submittedAt ? (
                           <>
-                            {formatDateTime(revision.submittedAt, zone)}
+                            {formatDateTime(revision.submittedAt, zone, locale)}
                             {revision.submittedBy ? (
                               <>
                                 {" · "}
@@ -162,7 +164,7 @@ export function RevisionPanel({
                       <div className="flex gap-1.5">
                         <dt className="text-fg-subtle">{t("revisions.reviewed")}</dt>
                         <dd className="text-fg">
-                          {formatDateTime(revision.reviewedAt, zone)}
+                          {formatDateTime(revision.reviewedAt, zone, locale)}
                           {revision.reviewedBy ? (
                             <>
                               {" · "}
@@ -174,7 +176,7 @@ export function RevisionPanel({
                     ) : revision.reviewStartedAt ? (
                       <div className="flex gap-1.5">
                         <dt className="text-fg-subtle">{t("revisions.reviewStarted")}</dt>
-                        <dd className="text-fg">{formatDateTime(revision.reviewStartedAt, zone)}</dd>
+                        <dd className="text-fg">{formatDateTime(revision.reviewStartedAt, zone, locale)}</dd>
                       </div>
                     ) : null}
                   </dl>

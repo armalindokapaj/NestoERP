@@ -55,6 +55,7 @@ export default async function NewHazardPage({
         action={createHazardAction}
         cancelHref="/hse/hazards"
         submitLabel={t("page.reportHazard")}
+        saveKind="create"
         pendingLabel={t("page.reporting")}
         projects={options.projects.map((project) => ({
           value: project.id,

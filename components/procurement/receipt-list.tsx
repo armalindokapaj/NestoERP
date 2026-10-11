@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
@@ -16,8 +17,8 @@ import type {
   LocationOption,
   Option,
 } from "@/lib/modules/inventory/inventory.options";
+import { formatDate } from "@/lib/i18n/format";
 import type { ReceiptDTO } from "@/lib/modules/procurement/procurement.types";
-import { formatDate } from "@/lib/utils/format";
 import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
 /**
@@ -58,6 +59,7 @@ export function ReceiptList({
    */
   qualityGate?: Record<string, React.ReactNode>;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useProcurementTranslations();
@@ -76,7 +78,7 @@ export function ReceiptList({
                   {receipt.deliveryReference ? ` · ${receipt.deliveryReference}` : ""}
                 </p>
                 <p className="text-meta text-fg-subtle">
-                  {formatDate(receipt.receiptDate)}
+                  {formatDate(receipt.receiptDate, locale)}
                   {receipt.receivedBy ? (
                     <>
                       {t("receipts.receivedBy")}

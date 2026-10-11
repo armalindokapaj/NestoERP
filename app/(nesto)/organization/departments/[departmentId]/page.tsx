@@ -30,6 +30,8 @@ import { modulesOfFunction } from "@/config/group-departments";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { moduleName, organizationLabel } from "@/lib/i18n/modules/organization/labels";
 import type { UserContext } from "@/lib/context/types";
@@ -51,9 +53,7 @@ const TABS = ["overview", "companies", "team", "access", "activity"] as const;
 type Tab = (typeof TABS)[number];
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
-/** English keeps its British dates; another language writes them its own way. */
-const intl = async () => ((await getLocale()) === "en" ? "en-GB" : await getLocale());
-const dateOf = (iso: string | null, locale: string) => (iso ? new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" }) : null);
+const dateOf = (iso: string | null, locale: Locale) => (iso ? dateText(new Date(iso), { day: "numeric", month: "short", year: "numeric" }, locale) : null);
 
 async function options(context: UserContext, departmentId: string, position: PositionDTO, company?: string): Promise<CandidateOption[]> {
   const candidates = await listDepartmentCandidates(memberActor(context), departmentId, { position, company, search: undefined });
@@ -129,7 +129,7 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 
 async function Overview({ context, department }: { context: UserContext; department: DepartmentDetailDTO }) {
   const t = await getTranslations("organization");
-  const locale = await intl();
+  const locale = await getLocale();
   const head = department.groupHead;
   const headCandidates = department.capabilities.canAssignHead ? await options(context, department.id, "GROUP_HEAD") : [];
   const activatable = department.capabilities.canConfigure && department.status === "ACTIVE"
@@ -367,7 +367,7 @@ async function Team({ context, department, query }: { context: UserContext; depa
 async function Access({ context, department }: { context: UserContext; department: DepartmentDetailDTO }) {
   const t = await getTranslations("organization");
   const moduleNames = await getTranslations("modules");
-  const locale = await intl();
+  const locale = await getLocale();
   const modules = modulesOfFunction(department.key) as readonly string[];
   const grants = modules.length > 0 ? (await listAccessGrants(context, { status: "live" })).filter((grant) => modules.includes(grant.module.key)) : [];
   return (
@@ -418,7 +418,7 @@ async function Access({ context, department }: { context: UserContext; departmen
 async function Activity({ context, department }: { context: UserContext; department: DepartmentDetailDTO }) {
   const events = await getDepartmentActivity(memberActor(context), department.id);
   const t = await getTranslations("organization");
-  const locale = await intl();
+  const locale = await getLocale();
   return events.length === 0 ? (
     <EmptyState title={t("department.nothingYet")} description={t("department.changesShowHere")} />
   ) : (
@@ -428,7 +428,7 @@ async function Activity({ context, department }: { context: UserContext; departm
           <span className="text-table text-fg">{event.text}</span>
           <span className="text-meta text-fg-subtle">
             {event.actor ? <><PersonLink userId={event.actorUserId} name={event.actor} /> · </> : null}
-            <time dateTime={event.at}>{new Date(event.at).toLocaleString(locale, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</time>
+            <time dateTime={event.at}>{dateText(new Date(event.at), { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }, locale)}</time>
           </span>
         </li>
       ))}

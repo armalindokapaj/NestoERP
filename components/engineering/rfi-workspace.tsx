@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ListPlus, MessageCircleQuestionMark, Paperclip, X } from "lucide-react";
@@ -35,6 +36,7 @@ import { FormSelect } from "@/components/ui/form-select";
 const REFERENCE_CHOICES = RFI_REFERENCE_TYPES.filter((type) => type !== "OTHER");
 
 export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone: string; assignees: Option[] }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useEngineeringTranslations();
@@ -99,7 +101,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
           <p className="mt-2 whitespace-pre-wrap text-body leading-relaxed text-fg" data-testid="rfi-question">
             {rfi.question}
           </p>
-          <p className="mt-2 text-meta text-fg-subtle">{rfi.openedAt ? t("rfi.opened", { at: formatDateTime(rfi.openedAt, zone) }) : t("rfi.draftNotOpened")}</p>
+          <p className="mt-2 text-meta text-fg-subtle">{rfi.openedAt ? t("rfi.opened", { at: formatDateTime(rfi.openedAt, zone, locale) }) : t("rfi.draftNotOpened")}</p>
         </article>
 
         {rfi.responses.length ? (
@@ -108,7 +110,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
               <li key={response.id} className={cn("rounded-lg border px-4 py-3", response.clarificationRequest ? "border-warning/40 bg-warning-soft/40" : "border-line bg-surface-muted/60")} data-testid={response.clarificationRequest ? "rfi-clarification" : "rfi-response"}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-table font-medium text-fg">{response.by ? <PersonLink memberId={response.by.id} name={response.by.name} /> : t("rfi.formerMember")}</span>
-                  <span className="text-meta text-fg-subtle">{formatDateTime(response.at, zone)}</span>
+                  <span className="text-meta text-fg-subtle">{formatDateTime(response.at, zone, locale)}</span>
                   {response.clarificationRequest ? <Badge tone="warning">{t("rfi.clarificationRequested")}</Badge> : response.final ? <Badge tone="success">{t("rfi.finalResponse")}</Badge> : <Badge tone="default">{t("rfi.response")}</Badge>}
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-body text-fg">{response.text}</p>
@@ -119,7 +121,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
 
         {rfi.status === "CLOSED" ? (
           <p className="mt-6 rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted" data-testid="rfi-closed-note">
-            {t("rfi.closedAt", { at: formatDateTime(rfi.closedAt, zone) })}
+            {t("rfi.closedAt", { at: formatDateTime(rfi.closedAt, zone, locale) })}
             {rfi.closureNote ? ` — ${rfi.closureNote}` : ""}
           </p>
         ) : null}

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import type { UserContext } from "@/lib/context/types";
+import { dateText } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils/cn";
 import { focusText, greetingText } from "./config-text";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
@@ -40,12 +41,7 @@ export async function WelcomeHeader({
   const t = await getTranslations("dashboard");
   const roles = await getTranslations("roles");
   const locale = await getLocale();
-  const today = new Intl.DateTimeFormat(locale === "sq" ? "sq-AL" : "en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date());
+  const today = dateText(new Date(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }, locale);
   const isGroup = context.workspace.scopeType === "GROUP";
   const heading = isGroup ? "heading.group" : "heading.company";
   // The role's name in the reader's language; `context.roleLabel` is the configuration's English.

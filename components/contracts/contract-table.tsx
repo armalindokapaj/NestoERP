@@ -1,11 +1,11 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDate } from "@/lib/i18n/format";
 import type { ContractSummaryDTO } from "@/lib/modules/contracts/contract.types";
 import { contractTypeLabels } from "@/lib/modules/contracts/contracts/contract.schema";
 import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { commercialLabel, expiryLabel } from "./contract-format";
 
 /**
@@ -32,6 +32,7 @@ export async function ContractTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("contracts");
   const showValue = contracts.some((row) => row.commercial !== null);
 
@@ -116,7 +117,7 @@ export async function ContractTable({
                 : undefined
             }
           >
-            {formatDate(row.expiryDate)}
+            {formatDate(row.expiryDate, locale)}
             {row.attention.expiringSoon ? ` · ${expiryLabel(row.attention.daysToExpiry, t)}` : ""}
           </span>
         ) : (
@@ -133,7 +134,7 @@ export async function ContractTable({
       label: t("table.value"),
       align: "right",
       render: (row) => (
-        <span className="tabular-nums">{commercialLabel(row.commercial, t) ?? "—"}</span>
+        <span className="tabular-nums">{commercialLabel(row.commercial, t, locale) ?? "—"}</span>
       ),
     });
   }

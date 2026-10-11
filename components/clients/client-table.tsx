@@ -1,10 +1,10 @@
 import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { ClientSummaryDTO } from "@/lib/modules/clients/client.types";
 import { clientTypeLabels } from "@/lib/modules/clients/client.status";
-import { formatDate } from "@/lib/utils/format";
 import { clientsLabel } from "@/lib/i18n/modules/clients/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Clients list (PRD #12 §28, §29).
@@ -19,6 +19,7 @@ import { getTranslations } from "@/lib/i18n/server";
  * linked project, not the scoped active count the column shows.
  */
 export async function ClientTable({ clients, listId = "clients.list", sort }: { clients: ClientSummaryDTO[]; listId?: string; sort?: TableSortConfig }) {
+  const locale = await getLocale();
   const t = await getTranslations("clients");
   const sortable = Boolean(sort);
   const columns: TableColumn<ClientSummaryDTO>[] = [
@@ -94,7 +95,7 @@ export async function ClientTable({ clients, listId = "clients.list", sort }: { 
       valueType: "date",
       label: t("table.updated"),
       hideBelow: "xl",
-      render: (client) => <span className="text-fg-muted">{formatDate(client.updatedAt)}</span>,
+      render: (client) => <span className="text-fg-muted">{formatDate(client.updatedAt, locale)}</span>,
     },
   ];
 

@@ -4,15 +4,17 @@ import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { MailCheck, MailWarning, RotateCw, X } from "lucide-react";
 
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { PersonLink } from "@/components/people/person-link";
 import { useTeamServerText, useTeamTranslations } from "@/components/team/team-text";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cancelInvitationAction, resendInvitationAction } from "@/lib/actions/team";
+import { formatDate } from "@/lib/i18n/format";
 import type { InvitationDTO } from "@/lib/modules/team/team.types";
-import { formatDate } from "@/lib/utils/format";
 
 /**
  * Whether the latest email for an open invitation arrived at the provider.
@@ -20,6 +22,7 @@ import { formatDate } from "@/lib/utils/format";
  * it (PRD #38 §21).
  */
 function DeliveryNote({ delivery }: { delivery: InvitationDTO["delivery"] }) {
+  const locale = useLocale();
   const t = useTeamTranslations();
   if (!delivery) return null;
   if (delivery.status === "FAILED") {
@@ -38,7 +41,7 @@ function DeliveryNote({ delivery }: { delivery: InvitationDTO["delivery"] }) {
     );
   }
   if (delivery.status === "SENT") {
-    return <p className="mt-0.5 text-meta text-fg-subtle">{t("invitations.emailSent", { date: formatDate(delivery.at) })}</p>;
+    return <p className="mt-0.5 text-meta text-fg-subtle">{t("invitations.emailSent", { date: formatDate(delivery.at, locale) })}</p>;
   }
   return null;
 }
@@ -59,8 +62,10 @@ export function InvitationList({
   canResend: boolean;
   canCancel: boolean;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const t = useTeamTranslations();
+  const tr = useTranslations("roles");
   const serverText = useTeamServerText();
   const toast = useToast();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
@@ -122,13 +127,13 @@ export function InvitationList({
                   <StatusBadge status={invite.status} />
                 </div>
                 <p className="mt-1 text-meta text-fg-subtle">
-                  {invite.role.name}
+                  {adminRoleName(tr, invite.role.name)}
                   {invite.department ? ` · ${invite.department.name}` : ""}
                   {invite.jobTitle ? ` · ${invite.jobTitle}` : ""}
                 </p>
                 <p className="mt-0.5 text-meta text-fg-subtle">
-                  {t("invitations.invited", { date: formatDate(invite.invitedAt) })} {invite.invitedBy ? <PersonLink memberId={invite.invitedByMemberId} name={invite.invitedBy} /> : "—"} ·{" "}
-                  {expired ? t("invitations.expired") : t("invitations.expires")} {formatDate(invite.expiresAt)}
+                  {t("invitations.invited", { date: formatDate(invite.invitedAt, locale) })} {invite.invitedBy ? <PersonLink memberId={invite.invitedByMemberId} name={invite.invitedBy} /> : "—"} ·{" "}
+                  {expired ? t("invitations.expired") : t("invitations.expires")} {formatDate(invite.expiresAt, locale)}
                 </p>
                 {open || expired ? <DeliveryNote delivery={invite.delivery} /> : null}
               </div>

@@ -1,5 +1,6 @@
 import { apiOk, withContext, withMeta } from "@/lib/api/respond";
 import { timeActivityRead } from "@/lib/core/observability/navigation-telemetry";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { activityFilters, activityQuerySchema } from "@/lib/modules/activity/activity-center.schema";
 import { listActivity } from "@/lib/modules/activity/activity-center.service";
 
@@ -16,7 +17,9 @@ export async function GET(request: Request) {
   return withContext(
     async (context) => {
       const input = activityQuerySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-      return apiOk(await withMeta(context, timeActivityRead("list", () => listActivity(context, activityFilters(input)))));
+      // The bell asks from the browser; its titles are said in the language that browser reads.
+      const locale = await getRequestLocale();
+      return apiOk(await withMeta(context, timeActivityRead("list", () => listActivity(context, activityFilters(input), locale))));
     },
     { group: "read" },
   );

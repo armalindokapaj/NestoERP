@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { ReadableAttentionDTO } from "@/lib/core/notifications/attention.service";
+import { dateText } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -42,8 +43,6 @@ export function AttentionList({ initial, compact = false }: { initial: ReadableA
     return <p className={cn("text-table text-fg-muted", compact ? "py-2" : "py-8 text-center text-body")}>{t("attentionEmpty")}</p>;
   }
 
-  const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
-
   return (
     <ul className="divide-y divide-line" data-testid="attention-list">
       {items.map((item) => (
@@ -70,7 +69,7 @@ export function AttentionList({ initial, compact = false }: { initial: ReadableA
               {item.company ? <CompanyTag name={item.company.name} className="mr-2 align-middle" /> : null}
               {item.priority === "CRITICAL" ? <span className="mr-2 font-semibold text-danger-strong">{t("critical")}</span> : null}
               {item.priority === "HIGH" ? <span className="mr-2 font-medium text-warning-strong">{t("high")}</span> : null}
-              {t("since", { date: date.format(new Date(item.firstDetectedAt)) })}
+              {t("since", { date: dateText(new Date(item.firstDetectedAt), { day: "numeric", month: "short", year: "numeric" }, locale, "en") })}
             </p>
           </div>
           {item.dismissible ? (

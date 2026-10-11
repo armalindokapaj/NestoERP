@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { DocumentActions } from "@/components/inventory/document-actions";
@@ -10,7 +11,6 @@ import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as transfers from "@/lib/modules/inventory/documents/transfer.service";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ transferId: string }> };
 
@@ -28,6 +28,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One transfer (PRD #20 §130, §315, §316). */
 export default async function TransferPage({ params }: Params) {
+  const locale = await getLocale();
   const { transferId } = await params;
   const context = await requireModule("inventory");
   const t = await getTranslations("inventory");
@@ -52,7 +53,7 @@ export default async function TransferPage({ params }: Params) {
         subtitle={`${transfer.fromWarehouse.name} → ${transfer.toWarehouse.name}`}
         status={transfer.status}
         meta={[
-          { label: t("detail.transferred"), value: formatDate(transfer.transferDate) },
+          { label: t("detail.transferred"), value: formatDate(transfer.transferDate, locale) },
           { label: t("columns.lines"), value: String(transfer.lineCount) },
         ]}
         actions={
@@ -104,7 +105,7 @@ export default async function TransferPage({ params }: Params) {
                 { label: t("detail.from"), value: transfer.fromWarehouse.name },
                 { label: t("detail.to"), value: transfer.toWarehouse.name },
                 { label: t("detail.draftedBy"), value: transfer.createdBy ? <PersonLink memberId={transfer.createdBy.memberId} name={transfer.createdBy.fullName} /> : "—" },
-                { label: t("detail.drafted"), value: formatDateTime(transfer.createdAt) },
+                { label: t("detail.drafted"), value: formatDateTime(transfer.createdAt, locale) },
                 { label: t("columns.postedBy"), value: transfer.postedBy ? <PersonLink memberId={transfer.postedBy.memberId} name={transfer.postedBy.fullName} /> : "—" },
               ]}
             />

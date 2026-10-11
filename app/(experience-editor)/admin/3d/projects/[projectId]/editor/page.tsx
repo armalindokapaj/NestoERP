@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cache } from "react";
 
 import { ExperienceEditor, type Project3DEditorWorkspace } from "@/components/3d/platform/ExperienceEditor";
+import { getEditorTranslations } from "@/lib/3d/platform/editor-text-server";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { openProject3DEditor } from "@/lib/modules/project-3d/project-3d.editor";
 
@@ -13,7 +14,8 @@ const loadEditor = cache(async (projectId: string) => openProject3DEditor(await 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { projectId } = await params;
   const workspace = await loadEditor(projectId).catch(() => null);
-  return { title: workspace ? `${workspace.config.experienceName} — 3D Experience Editor` : "3D Experience Editor" };
+  const editorServerText = await getEditorTranslations();
+  return { title: workspace ? editorServerText("{0} — 3D Experience Editor", workspace.config.experienceName) : editorServerText("3D Experience Editor") };
 }
 
 export default async function ExperienceEditorPage({ params }: Params) {

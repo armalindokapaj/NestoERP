@@ -43,6 +43,7 @@ export default async function NewIncidentPage() {
         action={createIncidentAction}
         cancelHref="/hse/incidents"
         submitLabel={t("page.reportIncident")}
+        saveKind="create"
         pendingLabel={t("page.reporting")}
         withEvidence={can(context, "hse.document.create")}
         projects={options.projects.map((project) => ({

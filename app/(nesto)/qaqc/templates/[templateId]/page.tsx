@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { TemplateActions } from "@/components/qaqc/template-actions";
@@ -10,7 +11,6 @@ import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as templates from "@/lib/modules/qaqc/templates/template.service";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
-import { formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ templateId: string }> };
 
@@ -28,6 +28,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One template (PRD #21 §50, §53, §54). */
 export default async function TemplatePage({ params }: Params) {
+  const locale = await getLocale();
   const { templateId } = await params;
   const context = await requireModule("qaqc");
   const t = await getTranslations("qaqc");
@@ -129,10 +130,10 @@ export default async function TemplatePage({ params }: Params) {
                     "—"
                   ),
                 },
-                { label: t("detail.created"), value: formatDateTime(template.createdAt) },
-                { label: t("detail.updated"), value: formatDateTime(template.updatedAt) },
+                { label: t("detail.created"), value: formatDateTime(template.createdAt, locale) },
+                { label: t("detail.updated"), value: formatDateTime(template.updatedAt, locale) },
                 ...(template.archivedAt
-                  ? [{ label: t("detail.archived"), value: formatDateTime(template.archivedAt) }]
+                  ? [{ label: t("detail.archived"), value: formatDateTime(template.archivedAt, locale) }]
                   : []),
               ]}
             />

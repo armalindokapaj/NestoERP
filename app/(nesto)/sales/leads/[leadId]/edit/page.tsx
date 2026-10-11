@@ -62,6 +62,7 @@ export default async function EditLeadPage({ params }: Params) {
         versionUpdatedAt={lead.updatedAt}
         cancelHref={`/sales/leads/${leadId}`}
         submitLabel={t("pages.saveChanges")}
+        saveKind="save"
         pendingLabel={t("pages.saving")}
       />
     </div>

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { OpportunityStage } from "@prisma/client";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 
@@ -16,11 +17,11 @@ import {
   canTransitionOpportunityStage,
   opportunityStageLabels,
 } from "@/lib/modules/sales/opportunities/opportunity.stage";
+import { formatDate } from "@/lib/i18n/format";
 import type { PipelineStageBucket } from "@/lib/modules/sales/sales.types";
 import { cn } from "@/lib/utils/cn";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesServerText, useSalesTranslations } from "@/components/sales/sales-text";
-import { formatDate } from "@/lib/utils/format";
 import { formatAmount, totalsLabel, weightedTotalsLabel } from "./sales-format";
 import { FormSelect } from "@/components/ui/form-select";
 
@@ -129,6 +130,7 @@ export function PipelineBoard({
 }
 
 function StageSummary({ bucket }: { bucket: PipelineStageBucket }) {
+  const locale = useLocale();
   const t = useSalesTranslations();
   return (
     <header className="nesto-card p-4">
@@ -140,9 +142,9 @@ function StageSummary({ bucket }: { bucket: PipelineStageBucket }) {
           {bucket.count} · {bucket.probability}%
         </span>
       </div>
-      <p className="mt-2 text-table tabular-nums text-fg">{totalsLabel(bucket.totals)}</p>
+      <p className="mt-2 text-table tabular-nums text-fg">{totalsLabel(bucket.totals, locale)}</p>
       <p className="text-meta tabular-nums text-fg-subtle">
-        {t("pipeline.weighted", { amount: weightedTotalsLabel(bucket.totals) })}
+        {t("pipeline.weighted", { amount: weightedTotalsLabel(bucket.totals, locale) })}
       </p>
     </header>
   );
@@ -159,6 +161,7 @@ function PipelineCard({
   canChangeStage: boolean;
   grouped: boolean;
 }) {
+  const locale = useLocale();
   const t = useSalesTranslations();
   const serverText = useSalesServerText();
   const router = useRouter();
@@ -217,7 +220,7 @@ function PipelineCard({
           name: opportunity.name,
           stage: salesLabel(t, "stage", opportunity.stage, opportunityStageLabels[opportunity.stage]),
           probability: opportunity.probability,
-          value: formatAmount(opportunity.estimatedValue, opportunity.currency),
+          value: formatAmount(opportunity.estimatedValue, opportunity.currency, locale),
         })}
       </span>
 
@@ -226,7 +229,7 @@ function PipelineCard({
       </p>
 
       <p className="mt-2 text-table tabular-nums text-fg">
-        {formatAmount(opportunity.estimatedValue, opportunity.currency)}
+        {formatAmount(opportunity.estimatedValue, opportunity.currency, locale)}
         <span className="ml-2 text-meta text-fg-subtle">{opportunity.probability}%</span>
       </p>
 
@@ -240,7 +243,7 @@ function PipelineCard({
         <div className="flex justify-between gap-2">
           <dt>{t("pipeline.expected")}</dt>
           <dd className={opportunity.expectedCloseOverdue ? "text-warning-strong" : undefined}>
-            {opportunity.expectedCloseDate ? formatDate(opportunity.expectedCloseDate) : "—"}
+            {opportunity.expectedCloseDate ? formatDate(opportunity.expectedCloseDate, locale) : "—"}
           </dd>
         </div>
       </dl>

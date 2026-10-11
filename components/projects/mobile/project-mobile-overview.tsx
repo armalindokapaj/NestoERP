@@ -1,7 +1,8 @@
 import Link from "@/components/navigation/nav-link";
 import { AlertCircle, Box, CalendarPlus, CheckSquare, ClipboardList, FilePlus2, type LucideIcon } from "lucide-react";
 
-import { getTranslations } from "@/lib/i18n/server";
+import { numberText } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import type { ProjectMobileSummary, ProjectWorkItem } from "@/lib/modules/projects/project-workspace.service";
 
 export type ProjectQuickAction = { key: "task" | "document" | "siteDiary" | "meeting"; href: string };
@@ -35,6 +36,7 @@ export async function ProjectMobileOverview({
   quickActions: ProjectQuickAction[];
   threeDUrl: string | null;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("projects");
   const approvals = myWork.find((item) => item.key === "approvals");
 
@@ -46,8 +48,8 @@ export async function ProjectMobileOverview({
 
   const metrics: Array<{ key: string; label: string; value: string; href?: string }> = [];
   if (progress !== null) metrics.push({ key: "progress", label: t("mobile.progress"), value: `${progress}%`, href: `/projects/${projectId}/planning` });
-  if (summary.units !== null) metrics.push({ key: "units", label: t("mobile.units"), value: summary.units.toLocaleString("en-US"), href: `/projects/${projectId}/units` });
-  if (summary.openTasks !== null) metrics.push({ key: "openTasks", label: t("mobile.openTasks"), value: summary.openTasks.toLocaleString("en-US"), href: `/projects/${projectId}/tasks` });
+  if (summary.units !== null) metrics.push({ key: "units", label: t("mobile.units"), value: numberText(summary.units, undefined, locale, "en-US"), href: `/projects/${projectId}/units` });
+  if (summary.openTasks !== null) metrics.push({ key: "openTasks", label: t("mobile.openTasks"), value: numberText(summary.openTasks, undefined, locale, "en-US"), href: `/projects/${projectId}/tasks` });
 
   return (
     <div className="space-y-6 sm:hidden" data-testid="project-mobile-overview">

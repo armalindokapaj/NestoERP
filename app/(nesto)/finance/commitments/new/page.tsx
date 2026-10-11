@@ -76,6 +76,7 @@ export default async function NewCommitmentPage({
         }
         cancelHref="/finance/commitments"
         submitLabel={t("commitments.create")}
+        saveKind="create"
         pendingLabel={t("revise.creating")}
       />
     </div>

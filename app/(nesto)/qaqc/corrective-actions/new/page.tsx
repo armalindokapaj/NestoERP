@@ -65,6 +65,7 @@ export default async function NewCorrectiveActionPage({
         action={createActionAction}
         cancelHref={ncrId ? `/qaqc/ncrs/${ncrId}` : "/qaqc/corrective-actions"}
         submitLabel={t("actionPage.raise")}
+        saveKind="create"
         pendingLabel={t("common.raising")}
         parentLabel={parentLabel}
         projects={options.projects.map((project) => ({

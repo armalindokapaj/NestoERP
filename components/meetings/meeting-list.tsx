@@ -4,7 +4,7 @@ import { Presentation, Repeat, Video } from "lucide-react";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { MEETING_TYPE_LABELS, type MeetingListItemDTO } from "@/lib/modules/meetings/meeting.types";
 import { cn } from "@/lib/utils/cn";
 import { AvatarStack, meetingClock, meetingDate, meetingDay, meetingZoneLabel, MeetingStatusBadge, ResponseBadge } from "./meeting-ui";
@@ -20,6 +20,7 @@ import { AvatarStack, meetingClock, meetingDate, meetingDay, meetingZoneLabel, M
  * silently.
  */
 export async function MeetingList({ meetings, zone, today, showProject = true }: { meetings: MeetingListItemDTO[]; zone: string; today: string; showProject?: boolean }) {
+  const locale = await getLocale();
   const t = await getTranslations("meetings");
   const groups = new Map<string, MeetingListItemDTO[]>();
   for (const meeting of meetings) {
@@ -30,10 +31,10 @@ export async function MeetingList({ meetings, zone, today, showProject = true }:
   return (
     <div className="space-y-6" data-testid="meeting-list">
       {[...groups.entries()].map(([day, rows]) => (
-        <section key={day} aria-label={meetingDay(rows[0].startsAt, rows[0].timezone || zone)}>
+        <section key={day} aria-label={meetingDay(rows[0].startsAt, rows[0].timezone || zone, undefined, locale)}>
           <h2 className={cn("mb-2 px-1 text-meta font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
             {day === today ? t("list.today") : ""}
-            {meetingDay(rows[0].startsAt, rows[0].timezone || zone)}
+            {meetingDay(rows[0].startsAt, rows[0].timezone || zone, undefined, locale)}
           </h2>
           <ul className="nesto-card divide-y divide-line overflow-hidden">
             {rows.map((meeting) => {

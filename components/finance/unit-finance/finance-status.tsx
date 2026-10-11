@@ -1,6 +1,8 @@
-import { FinanceText } from "@/components/finance/finance-text";
+import { FinanceText, UnitContractStatusText } from "@/components/finance/finance-text";
 import { Badge } from "@/components/ui/badge";
-import { UNIT_CONTRACT_STATUS_LABELS, type ContractStatusKey } from "@/lib/modules/contracts/units/unit-contract.types";
+import type { Locale } from "@/lib/i18n/config";
+import { numberText } from "@/lib/i18n/format";
+import { type ContractStatusKey } from "@/lib/modules/contracts/units/unit-contract.types";
 import {
   type InstallmentStatus,
   type PaymentScheduleStatus,
@@ -65,18 +67,18 @@ export function UnitContractStatusBadge({ status }: { status: string }) {
   const key = status as ContractStatusKey;
   return (
     <Badge tone={CONTRACT_TONES[key] ?? "default"} data-testid="contract-status" data-status={status}>
-      {UNIT_CONTRACT_STATUS_LABELS[key] ?? status}
+      <UnitContractStatusText status={status} />
     </Badge>
   );
 }
 
 /** An amount with its currency, always to the cent: collection is exact (§73). */
-export function amountLabel(amount: string | null | undefined, currency: string | null | undefined): string {
+export function amountLabel(amount: string | null | undefined, currency: string | null | undefined, locale: Locale): string {
   if (amount === null || amount === undefined) return "—";
   const value = Number(amount);
-  if (!currency) return value.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!currency) return numberText(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 }, locale);
   try {
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    return numberText(value, { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }, locale);
   } catch {
     return `${currency} ${value.toFixed(2)}`;
   }

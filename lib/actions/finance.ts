@@ -7,6 +7,7 @@ import type { ZodError } from "zod";
 
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
 import { committed } from "@/lib/forms/committed";
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { actionFailure } from "@/lib/actions/result";
 import {
   invalidInput,
@@ -67,7 +68,7 @@ function revalidateFinance(path?: string) {
  * `fieldErrors`, a uniqueness race as a business sentence, anything unexpected
  * as `INTERNAL_ERROR` — a confirmed failure, never mistaken for a field error.
  */
-function toResult(error: unknown): FinanceActionResult {
+async function toResult(error: unknown): Promise<FinanceActionResult> {
   return actionFailure(error, "finance");
 }
 
@@ -75,8 +76,8 @@ function toResult(error: unknown): FinanceActionResult {
  * Invalid input, every issue under its canonical path (`lineItems.2.quantity`),
  * each row's index being the one it was submitted as (AUD-09 §3, §7, FV-16).
  */
-function invalid(error: ZodError, rows: SubmittedLines | null = null): FinanceActionResult {
-  return invalidInput(error, rows ? { lineItems: rows.submitted } : {});
+async function invalid(error: ZodError, rows: SubmittedLines | null = null): Promise<FinanceActionResult> {
+  return localizeActionFailure(invalidInput(error, rows ? { lineItems: rows.submitted } : {}));
 }
 
 /** Repeated line fields, by their submitted index (see `readSubmittedLines`). */

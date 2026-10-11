@@ -2,6 +2,7 @@
 
 import { RelationSelector } from "@/components/forms/relation-selector";
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { percentOfDecimal, previewDecimal } from "@/lib/modules/finance/finance.decimal";
 
 import {
@@ -57,6 +58,7 @@ export function OpportunityForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
 }: {
   action: (formData: FormData) => Promise<FormActionResult>;
@@ -66,8 +68,10 @@ export function OpportunityForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
 }) {
+  const locale = useLocale();
   const t = useSalesTranslations();
   const [stage, setStage] = React.useState(values?.stage ?? "PROSPECTING");
   const [value, setValue] = React.useState(values?.estimatedValue ?? "");
@@ -93,6 +97,7 @@ export function OpportunityForm({
       module="sales"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -224,7 +229,7 @@ export function OpportunityForm({
             ) : (
               <>
                 <span className="font-semibold tabular-nums text-fg">
-                  {formatAmount(weighted, currency)}
+                  {formatAmount(weighted, currency, locale)}
                 </span>{" "}
                 {t("forms.weightedAt", { percent: probability ?? "" })}
               </>

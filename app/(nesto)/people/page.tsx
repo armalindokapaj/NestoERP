@@ -4,6 +4,7 @@ import Link from "@/components/navigation/nav-link";
 
 import { selectClass } from "@/components/forms/record-form";
 import { ModulePage } from "@/components/modules/module-page";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { WORK_STATUS } from "@/components/people/work-status";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +53,7 @@ export default async function PeoplePage({ searchParams }: Props) {
     status: one(params.status),
     page: one(params.page),
   });
-  const [directory, options, t] = await Promise.all([listPeople(context, query), directoryFilterOptions(context), getTranslations("people")]);
+  const [directory, options, t, tr] = await Promise.all([listPeople(context, query), directoryFilterOptions(context), getTranslations("people"), getTranslations("roles")]);
   const directoryHref = (overrides: { page?: number; company?: string } = {}) => {
     const next = new URLSearchParams();
     for (const [key, value] of Object.entries({ q: query.q, company: overrides.company ?? query.company, department: query.department, title: query.title, location: query.location, project: query.project, manager: query.manager, role: query.role, view: query.view, status: query.status === "all" ? "all" : undefined })) {
@@ -167,7 +168,7 @@ export default async function PeoplePage({ searchParams }: Props) {
               <option value="">{t("directory.anyRole")}</option>
               {options.roles.map((role) => (
                 <option key={role.key} value={role.key}>
-                  {role.label}
+                  {adminRoleName(tr, role.label)}
                 </option>
               ))}
             </FormSelect>

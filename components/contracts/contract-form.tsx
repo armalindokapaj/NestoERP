@@ -72,6 +72,7 @@ export function ContractForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   canEditCommercial,
   canEditConfidential,
@@ -86,6 +87,7 @@ export function ContractForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   canEditCommercial: boolean;
   canEditConfidential: boolean;
@@ -104,6 +106,7 @@ export function ContractForm({
       module="contracts"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -453,6 +456,7 @@ export function ContractMetadataForm({
       module="contracts"
       cancelHref={cancelHref}
       submitLabel={t("common.saveChanges")}
+      saveKind="save"
       pendingLabel={t("common.saving")}
       versionUpdatedAt={versionUpdatedAt}
     >

@@ -8,10 +8,11 @@ import { can, canAccessModule } from "@/lib/access/can";
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
 import { loadRecord, recordDefinition } from "@/lib/core/records/record.registry";
+import { formatDate } from "@/lib/i18n/format";
 import { taskListQuerySchema } from "@/lib/modules/tasks/task.schema";
 import * as tasks from "@/lib/modules/tasks/task.service";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate } from "@/lib/utils/format";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /** The module grant a record's page needs to offer "Create task" (mirrors the task service). */
 const TASK_GRANT: Partial<Record<string, Permission>> = {
@@ -42,6 +43,7 @@ export async function RecordTasks({
   parentId: string;
   title?: string;
 }) {
+  const locale = await getLocale();
   const definition = recordDefinition(parentType);
   if (!definition || !canAccessModule(context, "tasks") || !can(context, "task.view")) return null;
 
@@ -54,6 +56,7 @@ export async function RecordTasks({
   ]);
   if (!record) return null;
   const t = await getTranslations("tasks");
+  const tCommon = await getTranslations("common");
 
   const grant = TASK_GRANT[definition.moduleKey];
   const mayCreate = !record.archived && can(context, "task.create") && (!grant || can(context, grant));
@@ -75,7 +78,7 @@ export async function RecordTasks({
         <EmptyState
           icon={<ListTodo />}
           title={t("record.emptyTitle")}
-          description={t("record.emptyDescription", { noun: definition.noun.toLowerCase() })}
+          description={t("record.emptyDescription", { noun: recordTypeName(tCommon, definition.type, definition.noun).toLowerCase() })}
           action={mayCreate ? { label: t("common.createTask"), href: createHref } : undefined}
         />
       ) : (
@@ -86,7 +89,7 @@ export async function RecordTasks({
                 {task.title}
               </Link>
               <span className="shrink-0 text-meta text-fg-subtle">
-                {t(`status.${task.status}`)} · {task.dueDate ? formatDate(task.dueDate) : t("common.noDueDate")}
+                {t(`status.${task.status}`)} · {task.dueDate ? formatDate(task.dueDate, locale) : t("common.noDueDate")}
                 {task.assignee ? (
                   <>
                     {" · "}

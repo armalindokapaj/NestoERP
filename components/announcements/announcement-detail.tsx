@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ArrowLeft, CalendarDays, CheckCircle2, Copy, FileText, Pencil, Pin, PinOff, Send, Upload } from "lucide-react";
@@ -31,6 +32,7 @@ import { AnnouncementStatusBadge, formatDay, formatDayTime, PinnedMark, Priority
  */
 
 export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDetailDTO; zone: string }) {
+  const locale = useLocale();
   const t = useAnnouncementsTranslations();
   const router = useRouter();
   const toast = useToast();
@@ -129,9 +131,9 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
         </h1>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-muted">
           {item.author ? <PersonLink memberId={item.author.memberId} name={item.author.name} /> : null}
-          <span>{item.publishedAt ? formatDay(item.publishedAt, zone) : item.status === "SCHEDULED" ? t("detail.publishes", { date: formatDayTime(item.publishAt, zone) }) : t("detail.notPublished")}</span>
+          <span>{item.publishedAt ? formatDay(item.publishedAt, zone, locale) : item.status === "SCHEDULED" ? t("detail.publishes", { date: formatDayTime(item.publishAt, zone, locale) }) : t("detail.notPublished")}</span>
           {item.edited ? <span title={t("detail.correctedAfter")}>{t("detail.updated")}</span> : null}
-          {item.expiresAt ? <span>{item.status === "EXPIRED" ? t("detail.expired") : t("detail.until")} {formatDay(item.expiresAt, zone)}</span> : null}
+          {item.expiresAt ? <span>{item.status === "EXPIRED" ? t("detail.expired") : t("detail.until")} {formatDay(item.expiresAt, zone, locale)}</span> : null}
         </p>
 
         {item.eventStartsAt ? (
@@ -140,8 +142,8 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
             <div>
               <p className="text-meta text-fg-subtle">{t("detail.event")}</p>
               <p className="text-table font-medium text-fg">
-                {formatDayTime(item.eventStartsAt, zone)}
-                {item.eventEndsAt ? ` – ${formatDayTime(item.eventEndsAt, zone)}` : ""}
+                {formatDayTime(item.eventStartsAt, zone, locale)}
+                {item.eventEndsAt ? ` – ${formatDayTime(item.eventEndsAt, zone, locale)}` : ""}
               </p>
             </div>
           </div>
@@ -186,7 +188,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
             {item.acknowledgedAt ? (
               <p className="flex items-center gap-2 text-table font-medium text-success-strong">
                 <CheckCircle2 aria-hidden="true" className="size-4" />
-                {t("detail.acknowledgedAt", { date: formatDayTime(item.acknowledgedAt, zone) })}
+                {t("detail.acknowledgedAt", { date: formatDayTime(item.acknowledgedAt, zone, locale) })}
               </p>
             ) : caps.canAcknowledge ? (
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -259,7 +261,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
             ) : null}
             {caps.canUnschedule ? (
               <div className="flex items-center justify-between gap-2 border-t border-line pt-3 text-table text-fg-muted">
-                <span>{t("detail.publishes", { date: formatDayTime(item.publishAt, zone) })}</span>
+                <span>{t("detail.publishes", { date: formatDayTime(item.publishAt, zone, locale) })}</span>
                 <Button type="button" size="sm" variant="ghost" disabled={Boolean(pending)} onClick={() => void act("unschedule", () => announcementApi(`${base}/unschedule`, { body: { expectedVersion: item.version } }), t("detail.backToDraft"))}>
                   {t("detail.cancelSchedule")}
                 </Button>
@@ -306,7 +308,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
                     {people.filter((row) => Boolean(row.acknowledgedAt) !== showPending).map((row) => (
                       <li key={row.memberId} className="flex items-center justify-between gap-2 py-1.5 text-table">
                         <PersonLink memberId={row.memberId} name={row.name} className="truncate" />
-                        <span className="shrink-0 text-meta text-fg-muted">{row.acknowledgedAt ? formatDay(row.acknowledgedAt, zone) : row.readAt ? t("detail.read") : t("detail.notRead")}</span>
+                        <span className="shrink-0 text-meta text-fg-muted">{row.acknowledgedAt ? formatDay(row.acknowledgedAt, zone, locale) : row.readAt ? t("detail.read") : t("detail.notRead")}</span>
                       </li>
                     ))}
                   </ul>

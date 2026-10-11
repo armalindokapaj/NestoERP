@@ -65,6 +65,7 @@ export function ToolboxForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -75,6 +76,7 @@ export function ToolboxForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -100,6 +102,7 @@ export function ToolboxForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

@@ -12,14 +12,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDate } from "@/lib/i18n/format";
 import { recruitmentFormOptions } from "@/lib/modules/hr/recruitment/candidate.options";
 import { CANDIDATE_STATUSES, candidateListQuerySchema } from "@/lib/modules/hr/recruitment/candidate.schema";
 import { listCandidates } from "@/lib/modules/hr/recruitment/candidate.service";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
 import { StatusText } from "@/components/i18n/common-text";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("hr");
@@ -36,6 +36,7 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
  * HR in one company sees that company's.
  */
 export default async function RecruitmentPage({ searchParams }: Props) {
+  const locale = await getLocale();
   const context = await requireModule("hr");
   if (!can(context, "candidate.view")) redirect("/access-denied");
 
@@ -121,7 +122,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                     <TableCell>
                       <StatusBadge status={candidate.status} />
                     </TableCell>
-                    <TableCell>{formatDate(candidate.updatedAt)}</TableCell>
+                    <TableCell>{formatDate(candidate.updatedAt, locale)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

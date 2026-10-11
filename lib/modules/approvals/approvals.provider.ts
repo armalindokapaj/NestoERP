@@ -3,6 +3,9 @@ import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
+import { dateText } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
+import { numberText } from "@/lib/i18n/format";
 import type {
   ApprovalDecision,
   ApprovalDecisionOutcome,
@@ -260,15 +263,15 @@ export function personOrUnknown(names: Map<string, ApprovalPerson>, id: string |
 }
 
 /** A business date (midday UTC) or a timestamp, formatted the way the Center prints dates (§211). */
-export function formatDay(value: Date | null | undefined, timeZone = "UTC"): string {
+export function formatDay(value: Date | null | undefined, timeZone = "UTC", locale: Locale): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone }).format(value);
+  return dateText(value, { day: "numeric", month: "short", year: "numeric", timeZone }, locale);
 }
 
-export function formatMoney(value: string | number | { toString(): string }, currency: string): string {
+export function formatMoney(value: string | number | { toString(): string }, currency: string, locale: Locale): string {
   const amount = Number(value.toString());
   try {
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+    return numberText(amount, { style: "currency", currency, maximumFractionDigits: 2 }, locale);
   } catch {
     return `${currency} ${amount.toFixed(2)}`;
   }

@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/i18n/config";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 import type { CurrencyTotal } from "@/lib/modules/sales/sales.types";
 
@@ -9,8 +10,8 @@ import type { CurrencyTotal } from "@/lib/modules/sales/sales.types";
  */
 
 /** `€100,000 · 60% · €60,000 weighted` (PRD #17 §277). */
-export function weightedLabel(value: string, weighted: string, currency: string): string {
-  return `${formatAmount(value, currency)} · ${formatAmount(weighted, currency)} weighted`;
+export function weightedLabel(value: string, weighted: string, currency: string, locale: Locale): string {
+  return `${formatAmount(value, currency, locale)} · ${formatAmount(weighted, currency, locale)} weighted`;
 }
 
 /**
@@ -19,14 +20,14 @@ export function weightedLabel(value: string, weighted: string, currency: string)
  * Several currencies are listed, never summed: V0.1 has no FX engine, so the
  * only honest presentation is side by side (PRD #17 §31, §172).
  */
-export function totalsLabel(totals: CurrencyTotal[]): string {
+export function totalsLabel(totals: CurrencyTotal[], locale: Locale): string {
   if (totals.length === 0) return "—";
-  return totals.map((total) => formatAmount(total.value, total.currency)).join(" · ");
+  return totals.map((total) => formatAmount(total.value, total.currency, locale)).join(" · ");
 }
 
-export function weightedTotalsLabel(totals: CurrencyTotal[]): string {
+export function weightedTotalsLabel(totals: CurrencyTotal[], locale: Locale): string {
   if (totals.length === 0) return "—";
-  return totals.map((total) => formatAmount(total.weightedValue, total.currency)).join(" · ");
+  return totals.map((total) => formatAmount(total.weightedValue, total.currency, locale)).join(" · ");
 }
 
 /**
@@ -41,8 +42,8 @@ export function cardDescription(input: {
   probability: string;
   value: string;
   currency: string;
-}): string {
-  return `${input.name}. Stage: ${input.stage}. Probability: ${input.probability} percent. Value: ${formatAmount(input.value, input.currency)}.`;
+}, locale: Locale): string {
+  return `${input.name}. Stage: ${input.stage}. Probability: ${input.probability} percent. Value: ${formatAmount(input.value, input.currency, locale)}.`;
 }
 
 export { formatAmount };

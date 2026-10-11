@@ -1,4 +1,5 @@
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import Link from "@/components/navigation/nav-link";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
@@ -9,11 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } fro
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { listDeletedTenants } from "@/lib/modules/platform/platform-recovery.service";
 import { RECOVERY_RETENTION_DAYS } from "@/lib/modules/platform/recovery-constants";
-import { formatDate } from "@/lib/utils/format";
 import { purgeItem, restoreItem } from "@/app/admin/organizations/_detail/recovery-actions";
 
 /** Deleted companies and groups: restore them as they were, or remove them for good. */
 export async function RecoveryTenants() {
+  const locale = await getLocale();
   const to = await getTranslations("adminOrgs");
   const t = await getTranslations("adminPlatform");
   const context = await requirePlatformContext();
@@ -49,9 +50,9 @@ export async function RecoveryTenants() {
                       <p className="text-meta text-fg-subtle">{row.detail}</p>
                     </TableCell>
                     <TableCell>{enumLabel(t, "system.recovery.tenants.kinds", row.kind)} <AdminStatusBadge status="DELETED" /></TableCell>
-                    <TableCell>{formatDate(row.deletedAt)}{row.deletedBy ? <p className="text-meta text-fg-subtle">{t("common.by", { name: row.deletedBy })}</p> : null}</TableCell>
+                    <TableCell>{formatDate(row.deletedAt, locale)}{row.deletedBy ? <p className="text-meta text-fg-subtle">{t("common.by", { name: row.deletedBy })}</p> : null}</TableCell>
                     <TableCell className="max-w-xs truncate">{row.reason ?? "—"}</TableCell>
-                    <TableCell>{row.purgeAfter ? formatDate(row.purgeAfter) : "—"}</TableCell>
+                    <TableCell>{row.purgeAfter ? formatDate(row.purgeAfter, locale) : "—"}</TableCell>
                     <TableCell className="text-right">{row.viaGroup ? <span className="text-meta text-fg-subtle">{t("system.recovery.tenants.comesBack")}</span> : <PlatformCommandMenu items={items} label={t("system.recovery.tenants.actions", { name: row.name })} />}</TableCell>
                   </TableRow>
                 );

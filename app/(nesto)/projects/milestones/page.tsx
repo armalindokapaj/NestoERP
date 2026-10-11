@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 
@@ -49,6 +49,7 @@ async function ListScope({ shown, total, order }: { shown: number; total: number
 }
 
 async function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRow[]; caption: string; empty: string; testId: string }) {
+  const locale = await getLocale();
   if (!rows.length) return <p className="px-5 py-4 text-table text-fg-muted">{empty}</p>;
   const t = await getTranslations("projects");
   return (
@@ -70,11 +71,11 @@ async function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRo
             </p>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-meta">
               <dt className="text-fg-muted">{t("report.baseline")}</dt>
-              <dd className="tabular-nums text-fg-muted">{dateLabel(row.baselineDate)}</dd>
+              <dd className="tabular-nums text-fg-muted">{dateLabel(row.baselineDate, locale)}</dd>
               <dt className="text-fg-muted">{t("report.forecast")}</dt>
-              <dd className="tabular-nums">{dateLabel(row.forecastDate)}</dd>
+              <dd className="tabular-nums">{dateLabel(row.forecastDate, locale)}</dd>
               <dt className="text-fg-muted">{t("report.actual")}</dt>
-              <dd className="tabular-nums">{dateLabel(row.actualDate)}</dd>
+              <dd className="tabular-nums">{dateLabel(row.actualDate, locale)}</dd>
               <dt className="text-fg-muted">{t("report.variance")}</dt>
               <dd>
                 <Variance days={row.varianceDays} />
@@ -114,9 +115,9 @@ async function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRo
               <td className="px-3 py-2">
                 <MilestoneStatusBadge status={row.status} delayed={row.delayed} />
               </td>
-              <td className="px-3 py-2 tabular-nums text-fg-muted">{dateLabel(row.baselineDate)}</td>
-              <td className="px-3 py-2 tabular-nums">{dateLabel(row.forecastDate)}</td>
-              <td className="px-3 py-2 tabular-nums">{dateLabel(row.actualDate)}</td>
+              <td className="px-3 py-2 tabular-nums text-fg-muted">{dateLabel(row.baselineDate, locale)}</td>
+              <td className="px-3 py-2 tabular-nums">{dateLabel(row.forecastDate, locale)}</td>
+              <td className="px-3 py-2 tabular-nums">{dateLabel(row.actualDate, locale)}</td>
               <td className="px-5 py-2">
                 <Variance days={row.varianceDays} />
               </td>
@@ -136,6 +137,7 @@ async function MilestoneTable({ rows, caption, empty, testId }: { rows: ReportRo
  * The company's planning rules sit beneath, for the planning authority.
  */
 export default async function MilestonesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const locale = await getLocale();
   const context = await requireModule("projects");
   const t = await getTranslations("projects");
   if (!planningOpen(context)) redirect("/access-denied");
@@ -288,14 +290,14 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                     <td className="px-3 py-2">
                       {row.next ? (
                         <Link href={row.next.href} className="text-fg hover:text-accent-strong">
-                          {row.next.name} <span className="text-fg-muted">· {dateLabel(row.next.displayDate)}</span>
+                          {row.next.name} <span className="text-fg-muted">· {dateLabel(row.next.displayDate, locale)}</span>
                         </Link>
                       ) : (
                         <span className="text-fg-muted">—</span>
                       )}
                     </td>
                     <td className={cn("px-3 py-2 text-right tabular-nums", row.criticalDelays ? "font-medium text-danger-strong" : "text-fg-muted")}>{row.criticalDelays}</td>
-                    <td className="px-5 py-2 tabular-nums text-fg-muted">{dateLabel(row.forecastEnd)}</td>
+                    <td className="px-5 py-2 tabular-nums text-fg-muted">{dateLabel(row.forecastEnd, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -377,7 +379,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                   <tbody className="divide-y divide-line">
                     {report.byPhase.map((row) => (
                       <tr key={row.name}>
-                        <th scope="row" className="px-5 py-2 text-left font-normal text-fg">{row.name}</th>
+                        <th scope="row" className="px-5 py-2 text-left font-normal text-fg">{row.name === "No phase" ? t("report.noPhase") : row.name}</th>
                         <td className="px-3 py-2 text-right tabular-nums">{row.total}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{row.completed}</td>
                         <td className={cn("px-5 py-2 text-right tabular-nums", row.delayed ? "text-danger-strong" : "text-fg-muted")}>{row.delayed}</td>

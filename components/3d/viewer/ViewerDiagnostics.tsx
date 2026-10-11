@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import type { RendererFacts } from "@/lib/3d/runtime/render-engine/RenderEngine";
 import { BISECTABLE_EFFECTS, formatEffectOverrides, parseEffectOverrides, type EffectName } from "@/lib/3d/viewer/viewerEffectOverrides";
+import { numberText } from "@/lib/i18n/format";
 
 export function ViewerDiagnostics({
   facts,
@@ -21,6 +23,7 @@ export function ViewerDiagnostics({
     outlineClip: string;
   } | null;
 }) {
+  const locale = useLocale();
   // Rozaris compares this page's build with the server's here; NESTO exposes no
   // build identifier, so the build rows are left out.
   const [resetting, setResetting] = useState(false);
@@ -92,7 +95,7 @@ export function ViewerDiagnostics({
       />
       <Row label="context lost" value={facts ? String(facts.contextLostCount) : "—"} bad={!!facts && facts.contextLostCount > 0} />
       <Row label="fps" value={stats ? `${stats.fps} (${stats.frameTimeMs}ms)` : "—"} bad={!!stats && stats.fps > 0 && stats.fps < 20} />
-      <Row label="draws / tris" value={stats ? `${stats.drawCalls} / ${stats.triangles.toLocaleString()}` : "—"} />
+      <Row label="draws / tris" value={stats ? `${stats.drawCalls} / ${numberText(stats.triangles, undefined, locale)}` : "—"} />
       <Row label="textures" value={stats ? String(stats.textures) : "—"} />
       <Row label="site terrain" value={site} bad={site.startsWith("failed")} />
       <Row label="outline clip" value={stats?.outlineClip ?? "—"} bad={(stats?.outlineClip ?? "").includes("outside")} />

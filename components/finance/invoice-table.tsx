@@ -4,9 +4,10 @@ import { companyColumn, GroupRecordLink } from "@/components/finance/group-rows"
 import { Money } from "@/components/finance/money";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { InvoiceSummaryDTO } from "@/lib/modules/finance/finance.types";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 
 /**
  * The invoice list (PRD #15 §160, §161).
@@ -30,6 +31,7 @@ export async function InvoiceTable({ invoices, listId = "finance.invoices", sort
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("finance");
   // Rows read in the Group workspace name their company and open through it.
   const grouped = invoices.some((invoice) => invoice.company);
@@ -77,7 +79,7 @@ export async function InvoiceTable({ invoices, listId = "finance.invoices", sort
       sortKey: sort ? "issue" : undefined,
       label: t("columns.issued"),
       hideBelow: "xl",
-      render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.issueDate)}</span>,
+      render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.issueDate, locale)}</span>,
     },
     {
       key: "due",
@@ -86,7 +88,7 @@ export async function InvoiceTable({ invoices, listId = "finance.invoices", sort
       sortKey: sort ? "due" : undefined,
       label: t("columns.due"),
       hideBelow: "lg",
-      render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.dueDate)}</span>,
+      render: (invoice) => <span className="text-fg-muted">{formatDate(invoice.dueDate, locale)}</span>,
     },
     {
       key: "total",
@@ -153,7 +155,7 @@ export async function InvoiceTable({ invoices, listId = "finance.invoices", sort
         value: (invoice) => <Money amount={invoice.totalAmount} currency={invoice.currency} emphasis />,
         facts: ["due", "outstanding", "settlement"],
         omit: ["total", "status"],
-        label: (invoice) => `${invoice.invoiceNumber}, ${invoice.client.name}, ${invoice.totalAmount} ${invoice.currency}, ${formatDate(invoice.dueDate)}`,
+        label: (invoice) => `${invoice.invoiceNumber}, ${invoice.client.name}, ${invoice.totalAmount} ${invoice.currency}, ${formatDate(invoice.dueDate, locale)}`,
       }}
     />
   );

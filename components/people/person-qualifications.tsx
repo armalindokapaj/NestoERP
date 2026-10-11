@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { Award, MoreHorizontal, Plus } from "lucide-react";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, ReasonDialog, useCommand, type FormField, type FormValues } from "@/components/engineering/form-kit";
 import { VerificationBadge } from "@/components/hr/employee-documents";
-import { uploadToEmployment } from "@/components/hr/employee-file-upload";
+import { uploadToEmployment, useFileWords } from "@/components/hr/employee-file-upload";
 import { usePeopleTranslations } from "@/components/people/people-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,8 +25,8 @@ import {
   type QualificationSummaryDTO,
   type QualificationType,
 } from "@/lib/modules/hr/qualifications/qualification.types";
+import { formatDate } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
 import { peopleLabel } from "@/lib/i18n/modules/people/labels";
 
 /**
@@ -41,12 +42,13 @@ import { peopleLabel } from "@/lib/i18n/modules/people/labels";
 type Section = (typeof QUALIFICATION_SECTIONS)[number]["key"];
 
 function Expiry({ row }: { row: Pick<QualificationDTO, "expiryDate" | "expiry" | "daysToExpiry" | "isCurrent"> }) {
+  const locale = useLocale();
   const t = usePeopleTranslations();
   if (!row.expiryDate) return null;
   const tone = !row.isCurrent ? "text-fg-muted" : row.expiry === "EXPIRED" ? "text-danger-strong" : row.expiry === "EXPIRING" ? "text-warning-strong" : "text-fg-muted";
   return (
     <span className={cn("text-meta", tone)}>
-      {row.expiry === "EXPIRED" ? t("qualifications.expired") : t("qualifications.expires")} {formatDate(row.expiryDate)}
+      {row.expiry === "EXPIRED" ? t("qualifications.expired") : t("qualifications.expires")} {formatDate(row.expiryDate, locale)}
       {row.isCurrent && row.expiry === "EXPIRING" ? t("qualifications.inDays", { count: row.daysToExpiry ?? 0 }) : ""}
     </span>
   );
@@ -120,6 +122,7 @@ export function PersonQualifications({ data, name }: { data: PersonQualification
 }
 
 function Summaries({ rows, shared }: { rows: QualificationSummaryDTO[]; shared: boolean }) {
+  const locale = useLocale();
   const t = usePeopleTranslations();
   const bySection = (key: Section) => rows.filter((row) => row.section === key);
   return (
@@ -139,7 +142,7 @@ function Summaries({ rows, shared }: { rows: QualificationSummaryDTO[]; shared: 
                       {row.issuer ? ` · ${row.issuer}` : ""}
                       {row.proficiency ? ` · ${peopleLabel(t, "proficiency", row.proficiency, PROFICIENCY_LABELS[row.proficiency])}` : ""}
                     </span>
-                    {row.expiryDate ? <span className="block text-meta text-fg-subtle">{t("qualifications.expires")} {formatDate(row.expiryDate)}</span> : null}
+                    {row.expiryDate ? <span className="block text-meta text-fg-subtle">{t("qualifications.expires")} {formatDate(row.expiryDate, locale)}</span> : null}
                   </span>
                   <VerificationBadge status="VERIFIED" />
                 </li>
@@ -153,6 +156,7 @@ function Summaries({ rows, shared }: { rows: QualificationSummaryDTO[]; shared: 
 }
 
 function QualificationCard({ row, data, onRenew }: { row: QualificationDTO; data: PersonQualificationsDTO; onRenew: () => void }) {
+  const locale = useLocale();
   const { run } = useCommand();
   const t = usePeopleTranslations();
   const [dialog, setDialog] = React.useState<"verify" | "reject" | "archive" | "edit" | "resubmit" | null>(null);
@@ -196,7 +200,7 @@ function QualificationCard({ row, data, onRenew }: { row: QualificationDTO; data
         <Badge tone="default">{peopleLabel(t, "visibility", row.visibility, QUALIFICATION_VISIBILITY_LABELS[row.visibility])}</Badge>
       </div>
       <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-meta text-fg-muted">
-        {row.issueDate ? <span>{t("qualifications.issued", { date: formatDate(row.issueDate) })}</span> : null}
+        {row.issueDate ? <span>{t("qualifications.issued", { date: formatDate(row.issueDate, locale) })}</span> : null}
         <Expiry row={row} />
         {row.documentNumber ? <span>{t("qualifications.number", { number: row.documentNumber })}</span> : null}
       </p>
@@ -204,7 +208,7 @@ function QualificationCard({ row, data, onRenew }: { row: QualificationDTO; data
       {row.verifiedBy && row.verificationStatus !== "REJECTED" ? (
         <p className="text-meta text-fg-subtle">
           {t("qualifications.verifiedBy", { name: row.verifiedBy })}
-          {row.verifiedAt ? `, ${formatDate(row.verifiedAt)}` : ""}
+          {row.verifiedAt ? `, ${formatDate(row.verifiedAt, locale)}` : ""}
           {row.newFileSinceVerification ? <span className="text-warning-strong">{t("qualifications.newFile")}</span> : null}
         </p>
       ) : null}
@@ -281,6 +285,7 @@ function FileInput({ onChange }: { onChange: (file: File | null) => void }) {
 function ResubmitDialog({ open, onOpenChange, row, employmentId }: { open: boolean; onOpenChange: (open: boolean) => void; row: QualificationDTO; employmentId: string | null }) {
   const { run } = useCommand();
   const t = usePeopleTranslations();
+  const words = useFileWords();
   const [file, setFile] = React.useState<File | null>(null);
   // A discarded dialog takes its chosen file with it: the input starts empty next time.
   React.useEffect(() => {
@@ -297,7 +302,7 @@ function ResubmitDialog({ open, onOpenChange, row, employmentId }: { open: boole
       saveKind="none"
       module="people"
       onSubmit={async (payload) => {
-        const documentId = file && employmentId ? await uploadToEmployment(employmentId, file, `${row.title} — ${file.name}`) : undefined;
+        const documentId = file && employmentId ? await uploadToEmployment(employmentId, file, `${row.title} — ${file.name}`, words) : undefined;
         await engineeringApi(`/api/people/${row.personId}/qualifications/${row.id}/resubmit`, { body: { ...payload, documentId, expectedVersion: row.version } });
         await run("resubmit", async () => null, t("qualifications.resubmitted"));
       }}
@@ -310,6 +315,7 @@ function ResubmitDialog({ open, onOpenChange, row, employmentId }: { open: boole
 function QualificationDialog({ request, onClose, data }: { request: { renews?: QualificationDTO; edits?: QualificationDTO } | null; onClose: () => void; data: PersonQualificationsDTO }) {
   const { run } = useCommand();
   const t = usePeopleTranslations();
+  const words = useFileWords();
   const [file, setFile] = React.useState<File | null>(null);
   const base = request?.edits ?? request?.renews ?? null;
   const [type, setType] = React.useState<QualificationType | "">(base?.type ?? "");
@@ -354,7 +360,7 @@ function QualificationDialog({ request, onClose, data }: { request: { renews?: Q
         if (typeof values.type === "string") setType(values.type as QualificationType | "");
       }}
       onSubmit={async (payload) => {
-        const documentId = file && data.capabilities.fileEmploymentId ? await uploadToEmployment(data.capabilities.fileEmploymentId, file, `${String(payload.title ?? "Qualification")} — ${file.name}`) : undefined;
+        const documentId = file && data.capabilities.fileEmploymentId ? await uploadToEmployment(data.capabilities.fileEmploymentId, file, `${String(payload.title ?? "Qualification")} — ${file.name}`, words) : undefined;
         const body = { ...payload, ...(renews ? { type: renews.type } : {}), ...(documentId ? { documentId } : {}) };
         if (edits) await engineeringApi(`/api/people/${data.personId}/qualifications/${edits.id}`, { method: "PATCH", body: { ...body, expectedVersion: edits.version } });
         else if (renews) await engineeringApi(`/api/people/${data.personId}/qualifications/${renews.id}/renew`, { body });

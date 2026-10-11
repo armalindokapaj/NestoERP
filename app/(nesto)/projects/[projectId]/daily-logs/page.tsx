@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
@@ -36,6 +37,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
   const search = await searchParams;
   const { context, project } = await loadProject(projectId);
   const t = await getTranslations("projects");
+  const tl = await getTranslations("dailyLogs");
   const actions = projects.projectActions(context);
   if (!actions.canViewDailyLogs) redirect("/access-denied");
 
@@ -73,7 +75,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
           </Link>
           {DAILY_LOG_STATUSES.map((status) => (
             <Link key={status} href={`/projects/${project.id}/daily-logs?status=${status}`} className={chip(query.status === status)} aria-current={query.status === status ? "page" : undefined}>
-              {DAILY_LOG_STATUS_LABELS[status]}
+              {dailyLogsLabel(tl, "status", status, DAILY_LOG_STATUS_LABELS[status])}
             </Link>
           ))}
         </nav>

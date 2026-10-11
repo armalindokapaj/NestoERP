@@ -12,14 +12,15 @@ import { can } from "@/lib/access/can";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import type { UserContext } from "@/lib/context/types";
+import { formatDate } from "@/lib/i18n/format";
 import { employeeDocumentReport, hasCredentialReports, qualificationReport, type DocumentCategoryRow, type QualificationCoverageRow, type QualificationTitleRow } from "@/lib/modules/hr/credentials/credential.reports";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { isDay } from "@/lib/modules/hr/employment/employment.dates";
 import { getOrganizationReport } from "@/lib/modules/hr/employment/employment.report";
 import type { HeadcountRowDTO } from "@/lib/modules/hr/employment/employment.types";
 import * as reports from "@/lib/modules/hr/reports/reports.service";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -202,6 +203,7 @@ async function HeadcountReport({ context }: { context: UserContext }) {
 }
 
 async function LeaveReport({ context }: { context: UserContext }) {
+  const locale = await getLocale();
   const rows = await reports.leaveSummary(context);
   const t = await getTranslations("hr");
 
@@ -222,7 +224,7 @@ async function LeaveReport({ context }: { context: UserContext }) {
       key: "days",
       label: t("attendance.days"),
       align: "right",
-      render: (row) => <span className="tabular-nums">{formatDays(row.days)}</span>,
+      render: (row) => <span className="tabular-nums">{formatDays(row.days, locale)}</span>,
     },
   ];
 
@@ -311,6 +313,7 @@ async function AttendanceReport({ context }: { context: UserContext }) {
 }
 
 async function EndingSoonReport({ context }: { context: UserContext }) {
+  const locale = await getLocale();
   const rows = await reports.upcomingEndDates(context);
   const t = await getTranslations("hr");
 
@@ -338,7 +341,7 @@ async function EndingSoonReport({ context }: { context: UserContext }) {
     {
       key: "endDate",
       label: t("progress.lastDay"),
-      render: (row) => <span>{formatDate(row.endDate)}</span>,
+      render: (row) => <span>{formatDate(row.endDate, locale)}</span>,
     },
   ];
 
@@ -369,7 +372,7 @@ async function QualificationsReport({ context }: { context: UserContext }) {
   const t = await getTranslations("hr");
 
   const coverage: TableColumn<QualificationCoverageRow>[] = [
-    { key: "type", label: t("reports.qualification"), primary: true, render: (row) => <span>{row.label}</span> },
+    { key: "type", label: t("reports.qualification"), primary: true, render: (row) => <span>{hrLabel(t, "qualificationType", row.type, row.label)}</span> },
     { key: "holders", label: t("reports.peopleHolding"), align: "right", render: (row) => count(row.holders) },
     { key: "coverage", label: t("reports.coverage"), align: "right", render: (row) => <span className="tabular-nums text-fg-muted">{Math.round(row.coverage * 100)}%</span> },
     { key: "unverified", label: t("documents.worklist.verify"), align: "right", render: (row) => count(row.unverified, "text-info-strong") },
@@ -378,7 +381,7 @@ async function QualificationsReport({ context }: { context: UserContext }) {
   ];
   const titles: TableColumn<QualificationTitleRow>[] = [
     { key: "title", label: t("reports.qualification"), primary: true, render: (row) => <span>{row.title}</span> },
-    { key: "type", label: t("reports.kind"), render: (row) => <span className="text-fg-muted">{row.typeLabel}</span> },
+    { key: "type", label: t("reports.kind"), render: (row) => <span className="text-fg-muted">{hrLabel(t, "qualificationType", row.type, row.typeLabel)}</span> },
     { key: "holders", label: t("reports.people"), align: "right", render: (row) => count(row.holders) },
   ];
 
@@ -403,8 +406,8 @@ async function EmployeeDocumentsReport({ context }: { context: UserContext }) {
   const rows = await employeeDocumentReport(context);
   const t = await getTranslations("hr");
   const columns: TableColumn<DocumentCategoryRow>[] = [
-    { key: "category", label: t("columns.category"), primary: true, render: (row) => <span>{row.label}</span> },
-    { key: "group", label: t("reports.group"), hideBelow: "md", render: (row) => <span className="text-fg-muted">{row.groupLabel}</span> },
+    { key: "category", label: t("columns.category"), primary: true, render: (row) => <span>{hrLabel(t, "documentCategory", row.category, row.label)}</span> },
+    { key: "group", label: t("reports.group"), hideBelow: "md", render: (row) => <span className="text-fg-muted">{hrLabel(t, "documentGroup", row.group, row.groupLabel)}</span> },
     { key: "current", label: t("reports.onFile"), align: "right", render: (row) => count(row.current) },
     { key: "unverified", label: t("documents.worklist.verify"), align: "right", render: (row) => count(row.unverified, "text-info-strong") },
     { key: "expiring", label: t("documents.worklist.expiring"), align: "right", hideBelow: "md", render: (row) => count(row.expiring, "text-warning-strong") },
@@ -425,6 +428,7 @@ async function EmployeeDocumentsReport({ context }: { context: UserContext }) {
 }
 
 async function CompensationReport({ context }: { context: UserContext }) {
+  const locale = await getLocale();
   const rows = await reports.compensationReport(context);
   const t = await getTranslations("hr");
 
@@ -457,7 +461,7 @@ async function CompensationReport({ context }: { context: UserContext }) {
       key: "effectiveFrom",
       label: t("reports.since"),
       hideBelow: "md",
-      render: (row) => <span className="text-fg-muted">{formatDate(row.effectiveFrom)}</span>,
+      render: (row) => <span className="text-fg-muted">{formatDate(row.effectiveFrom, locale)}</span>,
     },
   ];
 
@@ -487,6 +491,7 @@ async function CompensationReport({ context }: { context: UserContext }) {
  * written.
  */
 async function OrganizationReport({ context, query }: { context: UserContext; query: { asOf?: string; from?: string; to?: string } }) {
+  const locale = await getLocale();
   const valid = (value?: string) => (value && isDay(value) ? value : undefined);
   const report = await getOrganizationReport(context, { asOf: valid(query.asOf), from: valid(query.from), to: valid(query.to) });
   const t = await getTranslations("hr");
@@ -510,7 +515,7 @@ async function OrganizationReport({ context, query }: { context: UserContext; qu
   );
   const moves = report.movements;
   return (
-    <ReportShell title={t("reports.tabs.organization")} description={t("reports.organizationDescription", { asOf: formatDate(report.asOf), from: formatDate(report.period.from), to: formatDate(report.period.to) })}>
+    <ReportShell title={t("reports.tabs.organization")} description={t("reports.organizationDescription", { asOf: formatDate(report.asOf, locale), from: formatDate(report.period.from, locale), to: formatDate(report.period.to, locale) })}>
       {/* 44px controls under touch; the 16px phone font comes from globals.css (AUD-04 §3, D-07-13, MW-09). */}
       <form method="get" className="flex flex-wrap items-end gap-3" aria-label={t("reports.dates")}>
         <input type="hidden" name="report" value="organization" />

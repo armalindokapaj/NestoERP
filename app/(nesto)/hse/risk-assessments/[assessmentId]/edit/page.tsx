@@ -63,6 +63,7 @@ export default async function EditRiskAssessmentPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/risk-assessments/${assessmentId}`}
         submitLabel={may.canEdit ? t("page.saveAssessment") : t("page.createVersion", { version: assessment.version + 1 })}
+        saveKind={may.canEdit ? "save" : "create"}
         pendingLabel={t("page.saving")}
         versionUpdatedAt={assessment.updatedAt}
         willVersion={!may.canEdit}

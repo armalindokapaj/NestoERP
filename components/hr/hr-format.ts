@@ -1,3 +1,6 @@
+import type { Locale } from "@/lib/i18n/config";
+import { decimalText } from "@/lib/i18n/format";
+
 /**
  * Small HR display helpers (PRD #16 §311, §312).
  *
@@ -21,7 +24,6 @@ export function formatTimeOfDay(value: string | null): string {
 }
 
 /** `4.00` → `4`, `0.50` → `0.5`. Days are decimal strings, never floats. */
-export function formatDays(value: string): string {
-  if (!value.includes(".")) return value;
-  return value.replace(/0+$/, "").replace(/\.$/, "");
+export function formatDays(value: string, locale: Locale): string {
+  return decimalText(value.includes(".") ? value.replace(/0+$/, "").replace(/\.$/, "") : value, locale);
 }

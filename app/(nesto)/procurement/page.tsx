@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, ShoppingCart } from "lucide-react";
 
@@ -21,7 +22,6 @@ import {
   resolveProcurementExperience,
 } from "@/lib/modules/procurement/procurement.workspace";
 import type { CompanyRef } from "@/lib/modules/procurement/procurement.types";
-import { formatDate } from "@/lib/utils/format";
 import { formatAmount, receivedLabel } from "@/components/procurement/procurement-format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -42,6 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * Nothing is created from here — that needs a company.
  */
 export default async function ProcurementOverviewPage() {
+  const locale = await getLocale();
   const context = await requireModule("procurement");
   const t = await getTranslations("procurement");
   const group = inGroupWorkspace(context);
@@ -94,7 +95,7 @@ export default async function ProcurementOverviewPage() {
                 href: `/procurement/requests/${row.id}`,
                 title: `${row.requestNumber} — ${row.title}`,
                 meta: row.currency
-                  ? formatAmount(row.estimatedTotal, row.currency)
+                  ? formatAmount(row.estimatedTotal, row.currency, locale)
                   : t("overview.noEstimate"),
               }))}
             />
@@ -109,7 +110,7 @@ export default async function ProcurementOverviewPage() {
                 company: row.company,
                 href: `/procurement/orders/${row.id}`,
                 title: `${row.poNumber} — ${row.supplier.name}`,
-                meta: row.requiredDate ? t("overview.due", { date: formatDate(row.requiredDate) }) : t("common.noDate"),
+                meta: row.requiredDate ? t("overview.due", { date: formatDate(row.requiredDate, locale) }) : t("common.noDate"),
               }))}
             />
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -14,7 +15,6 @@ import { RecordTasks } from "@/components/tasks/record-tasks";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as actions from "@/lib/modules/qaqc/corrective-actions/action.service";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ actionId: string }> };
 
@@ -32,6 +32,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One corrective action (PRD #21 §141, §146, §147). */
 export default async function CorrectiveActionPage({ params }: Params) {
+  const locale = await getLocale();
   const { actionId } = await params;
   const context = await requireModule("qaqc");
   const t = await getTranslations("qaqc");
@@ -73,7 +74,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
               t("common.notAssigned")
             ),
           },
-          { label: t("detail.due"), value: action.dueDate ? formatDate(action.dueDate) : t("common.noDate") },
+          { label: t("detail.due"), value: action.dueDate ? formatDate(action.dueDate, locale) : t("common.noDate") },
           {
             label: t("detail.raisedAgainst"),
             value: action.parent ? action.parent.label : "—",
@@ -137,7 +138,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
                 ) : (
                   t("common.somebody")
                 )}
-                {action.completedAt ? t("detail.onDate", { date: formatDate(action.completedAt) }) : ""}.
+                {action.completedAt ? t("detail.onDate", { date: formatDate(action.completedAt, locale) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -157,7 +158,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
                 ) : (
                   t("common.somebody")
                 )}
-                {action.verifiedAt ? t("detail.onDate", { date: formatDate(action.verifiedAt) }) : ""}.
+                {action.verifiedAt ? t("detail.onDate", { date: formatDate(action.verifiedAt, locale) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -189,9 +190,9 @@ export default async function CorrectiveActionPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("detail.raised")} value={formatDateTime(action.createdAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(action.createdAt, locale)} />
               {action.cancelledAt ? (
-                <Meta label={t("detail.cancelled")} value={formatDateTime(action.cancelledAt)} />
+                <Meta label={t("detail.cancelled")} value={formatDateTime(action.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

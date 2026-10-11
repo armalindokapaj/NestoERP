@@ -14,6 +14,9 @@ import {
   buildProjectScopeWhere,
   buildTaskScopeWhere,
 } from "@/lib/access/scope";
+import { dateText, formatCurrency, formatRelativeTime, relativeTimeText } from "@/lib/i18n/format";
+import { getRequestLocale } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/config";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import * as financeKpis from "@/lib/modules/finance/finance.kpis";
 import { buildBudgetScopeWhere, buildInvoiceScopeWhere } from "@/lib/modules/finance/finance.scope";
@@ -48,7 +51,6 @@ import {
 import type { UserContext } from "@/lib/context/types";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { prisma } from "@/lib/database/prisma";
-import { formatCurrency, formatRelativeTime } from "@/lib/utils/format";
 import { loadRecentActivity } from "./dashboard.activity";
 import {
   countText,
@@ -257,6 +259,7 @@ async function groupFigure(figure: Promise<GroupFigure | null>): Promise<GroupFi
 }
 
 async function loadKpi(context: UserContext, key: string): Promise<string | GroupFigure | typeof NOT_FOR_READER> {
+  const locale = await getRequestLocale();
   switch (key) {
     case "groupCompanyCount":
       return groupFigure(groupCompanyCount(context));
@@ -350,13 +353,13 @@ async function loadKpi(context: UserContext, key: string): Promise<string | Grou
     // dashboard number and the Finance overview can never disagree
     // (PRD #15 §258, §259).
     case "receivables":
-      return formatKpi(await financeKpis.receivablesKpi(context));
+      return formatKpi(await financeKpis.receivablesKpi(context), locale);
 
     case "overdueValue":
-      return formatKpi(await financeKpis.overdueReceivablesKpi(context));
+      return formatKpi(await financeKpis.overdueReceivablesKpi(context), locale);
 
     case "invoicedValue":
-      return formatKpi(await financeKpis.invoicedValueKpi(context));
+      return formatKpi(await financeKpis.invoicedValueKpi(context), locale);
 
     case "projectInvoiced": {
       if (!can(context, "finance.invoice.view")) return "—";
@@ -365,7 +368,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string | Grou
         (sum, row) => sum.plus(row._sum.totalAmount ?? 0),
         new Prisma.Decimal(0),
       );
-      return formatKpi({ amount: total, currency });
+      return formatKpi({ amount: total, currency }, locale);
     }
 
     // The people whose employment records the reader may see, counted through
@@ -401,10 +404,10 @@ async function loadKpi(context: UserContext, key: string): Promise<string | Grou
       });
 
       const totals = currencyTotals(rows);
-      if (totals.length === 0) return formatCurrency(0);
+      if (totals.length === 0) return formatCurrency(0, undefined, locale);
 
       const [largest, ...rest] = totals;
-      const headline = formatCurrency(Number.parseFloat(largest.value), largest.currency);
+      const headline = formatCurrency(Number.parseFloat(largest.value), largest.currency, locale);
       return rest.length === 0 ? headline : `${headline} +${rest.length}`;
     }
 
@@ -571,6 +574,7 @@ async function loadKpi(context: UserContext, key: string): Promise<string | Grou
 /* -------------------------------------------------------------------------- */
 
 async function loadWidget(context: UserContext, key: string): Promise<WidgetPayload> {
+  const locale = await getRequestLocale();
   switch (key) {
     // The group, one company at a time (E-06 §108-§111).
     case "groupCompanies":
@@ -701,7 +705,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.title,
           subtitle: [
-            new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: row.timezone }).format(new Date(row.startsAt)),
+            dateText(new Date(row.startsAt), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: row.timezone }, locale),
             row.project?.name,
           ]
             .filter(Boolean)
@@ -756,7 +760,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         items: items.map((item) => ({
           id: item.projectId,
           title: item.projectName,
-          subtitle: item.logId ? `${dateLabel(item.date)} · ${item.workforce} on site · ${item.activities} activities${item.delays ? ` · ${item.delays} ${item.delays === 1 ? "delay" : "delays"}` : ""}` : "No log yet",
+          subtitle: item.logId ? `${dateLabel(item.date, locale)} · ${item.workforce} on site · ${item.activities} activities${item.delays ? ` · ${item.delays} ${item.delays === 1 ? "delay" : "delays"}` : ""}` : "No log yet",
           meta: item.photos ? `${item.photos} photos` : undefined,
           status: item.status ?? undefined,
           href: item.href,
@@ -792,7 +796,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
     case "recentWork": {
       const { listRecentWork } = await import("@/lib/modules/productivity/recent-work.service");
       const items = await listRecentWork(context, { limit: 8 });
-      return { kind: "list", items: items.map((item) => ({ id: `${item.entityType}:${item.entityId}`, title: item.title, subtitle: item.subtitle, meta: relativeTime(item.lastAccessedAt), href: item.href })) };
+      return { kind: "list", items: items.map((item) => ({ id: `${item.entityType}:${item.entityId}`, title: item.title, subtitle: item.subtitle, meta: relativeTime(item.lastAccessedAt, undefined, locale), href: item.href })) };
     }
 
     case "rfisAssignedToMe": {
@@ -827,7 +831,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         items: rows.map((row) => ({
           id: row.id,
           title: row.name,
-          subtitle: `${row.projectName} · ${row.delayed ? `${row.overdueDays} ${row.overdueDays === 1 ? "day" : "days"} late` : dateLabel(row.displayDate)}`,
+          subtitle: `${row.projectName} · ${row.delayed ? `${row.overdueDays} ${row.overdueDays === 1 ? "day" : "days"} late` : dateLabel(row.displayDate, locale)}`,
           meta: row.varianceDays ? varianceLabel(row.varianceDays) : undefined,
           status: row.delayed ? "DELAYED" : row.status,
           href: row.href,
@@ -845,7 +849,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         items: rows.map((row) => ({
           id: row.id,
           title: row.name,
-          subtitle: [row.projectName, row.delayed ? `${row.overdueDays} ${row.overdueDays === 1 ? "day" : "days"} late` : `Forecast ${dateLabel(row.displayDate)}`, row.blocked ? "Critical blocker" : null].filter(Boolean).join(" · "),
+          subtitle: [row.projectName, row.delayed ? `${row.overdueDays} ${row.overdueDays === 1 ? "day" : "days"} late` : `Forecast ${dateLabel(row.displayDate, locale)}`, row.blocked ? "Critical blocker" : null].filter(Boolean).join(" · "),
           meta: row.varianceDays ? varianceLabel(row.varianceDays) : undefined,
           status: row.delayed ? "DELAYED" : row.status,
           href: row.href,
@@ -876,7 +880,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.name,
           subtitle: row.code,
-          meta: row.endDate ? formatRelativeTime(row.endDate) : undefined,
+          meta: row.endDate ? formatRelativeTime(row.endDate, locale) : undefined,
           status: row.status,
           href: `/projects/${row.id}`,
         })),
@@ -908,7 +912,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.title,
           subtitle: row.project?.name ?? "Personal task",
-          meta: row.dueDate ? formatRelativeTime(row.dueDate) : undefined,
+          meta: row.dueDate ? formatRelativeTime(row.dueDate, locale) : undefined,
           status: row.status,
           href: `/tasks/${row.id}`,
         })),
@@ -983,8 +987,8 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
         items: rows.map((row) => ({
           id: row.id,
           title: `${row.invoiceNumber} · ${row.client.name}`,
-          subtitle: formatKpi({ amount: row.totalAmount, currency: row.currency }),
-          meta: row.dueDate ? formatRelativeTime(row.dueDate) : undefined,
+          subtitle: formatKpi({ amount: row.totalAmount, currency: row.currency }, locale),
+          meta: row.dueDate ? formatRelativeTime(row.dueDate, locale) : undefined,
           status: "OVERDUE",
           href: `/finance/invoices/${row.id}`,
         })),
@@ -1030,7 +1034,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
               meta: formatKpi({
                 amount: row._sum.totalAmount ?? new Prisma.Decimal(0),
                 currency: projectCurrency,
-              }),
+              }, locale),
               status: project.status,
               href: `/projects/${project.id}`,
             };
@@ -1062,7 +1066,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             id: row.id,
             title: personName(row.employeeProfile.personProfile),
             subtitle: `${leaveTypeLabels[row.leaveType]} · ${row.days.toFixed(2)} days`,
-            meta: formatRelativeTime(row.startDate),
+            meta: formatRelativeTime(row.startDate, locale),
             status: row.status,
             href: `/hr/leave/${row.id}`,
           };
@@ -1114,7 +1118,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             status: stage,
             value: stageRows.length,
             display: largest
-              ? formatCurrency(Number.parseFloat(largest.value), largest.currency)
+              ? formatCurrency(Number.parseFloat(largest.value), largest.currency, locale)
               : undefined,
             href: `/sales/opportunities?stage=${stage}`,
           };
@@ -1145,7 +1149,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.name,
           subtitle: row.client?.name ?? undefined,
-          meta: formatCurrency(decimalToNumber(row.estimatedValue), row.currency),
+          meta: formatCurrency(decimalToNumber(row.estimatedValue), row.currency, locale),
           status: row.stage,
           href: `/sales/opportunities/${row.id}`,
         })),
@@ -1200,7 +1204,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.title,
           subtitle: `${row.contractNumber} · ${row.client?.name ?? "No client"}`,
-          meta: row.expiryDate ? formatRelativeTime(row.expiryDate) : undefined,
+          meta: row.expiryDate ? formatRelativeTime(row.expiryDate, locale) : undefined,
           status: row.status,
           href: `/contracts/${row.id}`,
         })),
@@ -1246,7 +1250,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: `${row.poNumber} · ${row.supplier.name}`,
           subtitle: row.project?.name ?? "No project",
-          meta: formatCurrency(decimalToNumber(row.totalAmount)),
+          meta: formatCurrency(decimalToNumber(row.totalAmount), undefined, locale),
           status: row.status,
           href: `/procurement/orders/${row.id}`,
         })),
@@ -1298,7 +1302,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
             // The sign is the whole point of a ledger row: "+40" and "−40" are
             // different events (PRD #20 §71).
             subtitle: `${signed > 0 ? "+" : ""}${signed} ${row.unit} · ${row.warehouse.name}`,
-            meta: formatRelativeTime(row.occurredAt),
+            meta: formatRelativeTime(row.occurredAt, locale),
             href: "/inventory/movements",
           };
         }),
@@ -1525,7 +1529,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.name,
           subtitle: row.project?.name ?? row.client?.name ?? "Company document",
-          meta: formatRelativeTime(row.createdAt),
+          meta: formatRelativeTime(row.createdAt, locale),
           href: `/documents/${row.id}`,
         })),
       };
@@ -1552,7 +1556,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
           id: row.id,
           title: row.subject,
           subtitle: row.reference,
-          meta: formatRelativeTime(row.createdAt),
+          meta: formatRelativeTime(row.createdAt, locale),
           status: row.status,
           href: `/support/requests/${row.id}`,
         })),
@@ -1575,6 +1579,7 @@ async function loadWidget(context: UserContext, key: string): Promise<WidgetPayl
  * Low-value noise is deliberately excluded.
  */
 async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
+  const locale = await getRequestLocale();
   /*
    * This person's own attention items first (PRD #38 §86): specific records
    * waiting on them, each link resolved against their access now. The counts
@@ -1586,6 +1591,7 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
     title: item.title,
     detail: item.body ?? "Waiting on you.",
     href: item.href,
+    conditionKey: item.conditionKey,
   }));
 
   if (can(context, "task.view")) {
@@ -1646,7 +1652,7 @@ async function loadAlerts(context: UserContext): Promise<WidgetAlert[]> {
       alerts.push({
         id: "invoices-overdue",
         priority: "CRITICAL",
-        title: `${formatKpi(overdue)} overdue`,
+        title: `${formatKpi(overdue, locale)} overdue`,
         detail: "Invoices past their due date with money still outstanding.",
         href: "/finance/invoices?settlement=OVERDUE",
       });
@@ -1803,6 +1809,7 @@ async function approvalCountFigure(context: UserContext): Promise<GroupFigure> {
  * holds the approve permission (PRD #4 §64).
  */
 async function loadApprovals(context: UserContext): Promise<{ items: WidgetApproval[]; incomplete?: string }> {
+  const locale = await getRequestLocale();
   // The Approvals Center's own queue, so the widget never offers a decision
   // the Center would withhold (PRD #41 §97).
   const { listApprovals } = await import("@/lib/modules/approvals/approvals.service");
@@ -1814,7 +1821,7 @@ async function loadApprovals(context: UserContext): Promise<{ items: WidgetAppro
     title: item.title,
     subtitle: [
       item.sourceLabel,
-      item.amount ? formatKpi({ amount: new Prisma.Decimal(item.amount.value), currency: item.amount.currency }) : null,
+      item.amount ? formatKpi({ amount: new Prisma.Decimal(item.amount.value), currency: item.amount.currency }, locale) : null,
       item.dueState === "overdue" || item.dueState === "due_today" ? DUE_STATE_LABELS[item.dueState] : null,
       item.totalSteps ? `Step ${item.currentStep} of ${item.totalSteps}` : null,
     ]
@@ -1869,8 +1876,8 @@ function countExpiringContracts(context: UserContext, days = EXPIRING_SOON_DAYS)
   });
 }
 
-function formatKpi(kpi: { amount: Prisma.Decimal; currency: string }): string {
-  return formatCurrency(kpi.amount.toNumber(), kpi.currency);
+function formatKpi(kpi: { amount: Prisma.Decimal; currency: string }, locale: Locale): string {
+  return formatCurrency(kpi.amount.toNumber(), kpi.currency, locale);
 }
 
 /** The Support module's own door: support requests have no scope narrower than the company. */
@@ -1884,6 +1891,7 @@ function supportOpen(context: UserContext): boolean {
  * apply, as they do on the project's Finance tab (PRD #15 §210).
  */
 async function projectBudgetItems(context: UserContext, take: number) {
+  const locale = await getRequestLocale();
   const rows = await prisma.projectBudget.findMany({
     where: {
       AND: [
@@ -1904,7 +1912,7 @@ async function projectBudgetItems(context: UserContext, take: number) {
     id: row.project.id,
     title: row.project.name,
     subtitle: row.project.code,
-    meta: `Budget ${formatKpi({ amount: row.totalAmount, currency: row.currency })}`,
+    meta: `Budget ${formatKpi({ amount: row.totalAmount, currency: row.currency }, locale)}`,
     status: row.project.status,
     href: `/projects/${row.project.id}`,
   }));
@@ -2025,7 +2033,8 @@ function decimalToNumber(value: Prisma.Decimal | null | undefined): number {
 }
 
 /** "3 min ago", "Yesterday" — spelled out on the server, so every browser agrees (PRD #45 §210). */
-function relativeTime(iso: string, now = new Date()): string {
+function relativeTime(iso: string, now = new Date(), locale: Locale): string {
+  if (locale === "sq") return relativeTimeText(iso, locale, now);
   const minutes = Math.round((now.getTime() - new Date(iso).getTime()) / 60_000);
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes} min ago`;

@@ -6,6 +6,7 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { WhatIsThis } from "@/components/help/what-is-this";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
 import { getTranslations } from "@/lib/i18n/server";
 import { createTaskAction } from "@/lib/actions/tasks";
 import { taskFormOptions } from "@/lib/modules/tasks/task.options";
@@ -36,6 +37,7 @@ export default async function NewTaskPage({
 
   const params = await searchParams;
   const t = await getTranslations("tasks");
+  const tCommon = await getTranslations("common");
   const requestedProjectId = typeof params.projectId === "string" ? params.projectId : "";
   const parentType = typeof params.parentType === "string" ? params.parentType : "";
   const parentId = typeof params.parentId === "string" ? params.parentId : "";
@@ -52,7 +54,7 @@ export default async function NewTaskPage({
     const definition = recordDefinition(parentType);
     const record = definition ? await loadRecord(context, parentType, parentId) : null;
     if (!definition || !record || record.archived) notFound();
-    parent = { locked: { value: `${definition.type}:${record.id}`, label: `${definition.noun} · ${record.label}` } };
+    parent = { locked: { value: `${definition.type}:${record.id}`, label: `${recordTypeName(tCommon, definition.type, definition.noun)} · ${record.label}` } };
     cancelHref = record.href;
   } else if (params.module === "sales") {
     // Sales tasks always belong to a lead or an opportunity, so the form asks

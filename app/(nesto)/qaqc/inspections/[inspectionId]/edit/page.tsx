@@ -60,6 +60,7 @@ export default async function EditInspectionPage({ params }: Params) {
         versionUpdatedAt={inspection.updatedAt}
         cancelHref={`/qaqc/inspections/${inspection.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,

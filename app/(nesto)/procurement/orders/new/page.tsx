@@ -55,6 +55,7 @@ export default async function NewOrderPage({
         action={createOrderAction}
         cancelHref="/procurement/orders"
         submitLabel={t("orders.create")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
         suppliers={options.suppliers.map((supplier) => ({
           value: supplier.id,

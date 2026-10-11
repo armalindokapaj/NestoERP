@@ -1,8 +1,8 @@
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDateTime } from "@/lib/i18n/format";
 import type { SalesApprovalDTO } from "@/lib/modules/sales/sales.types";
-import { formatDateTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * A proposal's approval history (PRD #17 §119, §132).
@@ -12,6 +12,7 @@ import { getTranslations } from "@/lib/i18n/server";
  * as the sequence of decisions it actually was (PRD #17 §119).
  */
 export async function ApprovalHistory({ approvals }: { approvals: SalesApprovalDTO[] }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   if (approvals.length === 0) {
     return (
@@ -28,7 +29,7 @@ export async function ApprovalHistory({ approvals }: { approvals: SalesApprovalD
           <div className="flex flex-wrap items-center justify-between gap-2">
             <StatusBadge status={approval.status} />
             <time className="text-meta text-fg-subtle" dateTime={approval.submittedAt}>
-              {t("approvals.submitted", { date: formatDateTime(approval.submittedAt) })}
+              {t("approvals.submitted", { date: formatDateTime(approval.submittedAt, locale) })}
             </time>
           </div>
 
@@ -48,7 +49,7 @@ export async function ApprovalHistory({ approvals }: { approvals: SalesApprovalD
             {approval.decidedAt ? (
               <div className="flex gap-2">
                 <dt className="text-fg-subtle">{t("approvals.decided")}</dt>
-                <dd className="text-fg">{formatDateTime(approval.decidedAt)}</dd>
+                <dd className="text-fg">{formatDateTime(approval.decidedAt, locale)}</dd>
               </div>
             ) : null}
           </dl>

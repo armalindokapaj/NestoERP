@@ -3,9 +3,9 @@ import Link from "@/components/navigation/nav-link";
 import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDate } from "@/lib/i18n/format";
 import type { ProjectSummaryDTO } from "@/lib/modules/projects/project.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Projects list (PRD #10 §17, §144).
@@ -29,6 +29,7 @@ export async function ProjectTable({
   /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("projects");
   const sortable = Boolean(sort);
   const columns: TableColumn<ProjectSummaryDTO>[] = [
@@ -97,7 +98,7 @@ export async function ProjectTable({
       hideBelow: "xl",
       render: (project) => (
         <span className="text-fg-muted">
-          {project.endDate ? formatDate(project.endDate) : "—"}
+          {project.endDate ? formatDate(project.endDate, locale) : "—"}
         </span>
       ),
     },

@@ -8,10 +8,11 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { statusText } from "@/lib/i18n/modules/common/labels";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { getProvisioningRequest } from "@/lib/modules/organization/provisioning/provisioning.service";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
-import { statusLabel } from "@/lib/utils/status";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("organization"))("provisioning.requestMetaTitle") };
@@ -33,6 +34,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
  * choices that are Group IT's, and who asked, approved and created it (§115).
  */
 export default async function ProvisioningRequestPage({ params }: Props) {
+  const locale = await getLocale();
   const { requestId } = await params;
   const context = await requireModule("organization");
   if (!can(context, "organization.provisioning_request.view")) redirect("/access-denied");
@@ -41,8 +43,8 @@ export default async function ProvisioningRequestPage({ params }: Props) {
     if (error instanceof AccessError && error.code === "NOT_FOUND") notFound();
     throw error;
   });
-  const t = await getTranslations("organization");
-  const when = (value: string | null) => (value ? formatDateTime(value) : null);
+  const [t, tc, tr] = await Promise.all([getTranslations("organization"), getTranslations("common"), getTranslations("roles")]);
+  const when = (value: string | null) => (value ? formatDateTime(value, locale) : null);
 
   return (
     <div className="space-y-5">
@@ -53,7 +55,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <StatusBadge status={request.status} />
             <span className="text-body text-fg-muted">
-              {request.role.label} · {request.company.name}
+              {adminRoleName(tr, request.role.label)} · {request.company.name}
             </span>
           </div>
         </div>
@@ -84,11 +86,11 @@ export default async function ProvisioningRequestPage({ params }: Props) {
             <Row label={t("provisioning.workPhone")} value={request.hrTruth.workPhone} />
             <Row label={t("common.company")} value={request.company.name} />
             <Row label={t("common.department")} value={request.department.name} />
-            <Row label={t("common.role")} value={request.role.label} />
+            <Row label={t("common.role")} value={adminRoleName(tr, request.role.label)} />
             <Row label={t("provisioning.jobTitle")} value={request.jobTitle} />
             <Row label={t("common.manager")} value={request.hrTruth.manager ? <PersonLink userId={request.hrTruth.manager.userId} name={request.hrTruth.manager.name} /> : null} />
             <Row label={t("provisioning.employeeNumber")} value={request.hrTruth.employeeNumber} />
-            <Row label={t("provisioning.employment")} value={request.hrTruth.employmentStatus ? statusLabel(request.hrTruth.employmentStatus) : null} />
+            <Row label={t("provisioning.employment")} value={request.hrTruth.employmentStatus ? statusText(tc, request.hrTruth.employmentStatus) : null} />
           </dl>
         </section>
 
@@ -104,7 +106,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
             ) : (
               <Row label={t("provisioning.username")} value={<span className="font-mono">{request.requestedUsername ?? request.suggestedUsername}</span>} />
             )}
-            <Row label={t("provisioning.neededFrom")} value={request.requestedActivationDate ? formatDate(request.requestedActivationDate) : null} />
+            <Row label={t("provisioning.neededFrom")} value={request.requestedActivationDate ? formatDate(request.requestedActivationDate, locale) : null} />
             <Row label={t("provisioning.notes")} value={request.notes} />
           </dl>
         </section>

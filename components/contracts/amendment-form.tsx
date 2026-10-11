@@ -8,6 +8,7 @@ import {
   RecordForm,
   type FormActionResult,
 } from "@/components/forms/record-form";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
@@ -39,6 +40,7 @@ export function AmendmentForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   contract,
   canEditCommercial,
@@ -49,6 +51,7 @@ export function AmendmentForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   contract: {
     contractNumber: string;
@@ -60,6 +63,7 @@ export function AmendmentForm({
   /** Set after the server refused an unacknowledged reduction (PRD #18 §168). */
   requireReductionAcknowledgement: boolean;
 }) {
+  const locale = useLocale();
   const t = useContractsTranslations();
   const [newValue, setNewValue] = React.useState(values?.newContractValue ?? "");
   const [newExpiry, setNewExpiry] = React.useState(values?.newExpiryDate ?? "");
@@ -83,6 +87,7 @@ export function AmendmentForm({
       module="contracts"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >
@@ -142,7 +147,7 @@ export function AmendmentForm({
             name="newContractValue"
             hint={
               contract.contractValue && contract.currency
-                ? t("amendmentForm.currently", { value: formatAmount(contract.contractValue, contract.currency) })
+                ? t("amendmentForm.currently", { value: formatAmount(contract.contractValue, contract.currency, locale) })
                 : t("amendmentForm.noValue")
             }
           >
@@ -174,7 +179,7 @@ export function AmendmentForm({
         {delta !== null && contract.currency ? (
           <p className="text-meta text-fg-subtle sm:col-span-2">
             {t("amendmentForm.preview", {
-              amount: `${reduces ? "−" : "+"}${formatAmount(delta.replace(/^-/, ""), contract.currency)}`,
+              amount: `${reduces ? "−" : "+"}${formatAmount(delta.replace(/^-/, ""), contract.currency, locale)}`,
             })}
           </p>
         ) : null}

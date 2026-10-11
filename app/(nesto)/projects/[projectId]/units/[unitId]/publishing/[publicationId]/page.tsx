@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -8,8 +9,6 @@ import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { AREA_FIELDS, UNIT_ATTRIBUTES, type UnitAttributeKey } from "@/lib/modules/project-structure/structure.types";
 import { getUnitPublication } from "@/lib/modules/project-structure/unit-publishing.service";
-import { UNIT_MEDIA_CATEGORY_LABELS } from "@/lib/modules/project-structure/unit-publishing.types";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadUnitPage, UnitShell } from "../../unit-page";
 
 type Params = { params: Promise<{ projectId: string; unitId: string; publicationId: string }> };
@@ -26,6 +25,7 @@ const dash = (value: string | number | null | undefined) => (value === null || v
  * never changes when the unit does — that is what it is for.
  */
 export default async function PublicationDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId, unitId, publicationId } = await params;
   const page = await loadUnitPage(projectId, unitId);
   const t = await getTranslations("projects");
@@ -50,7 +50,7 @@ export default async function PublicationDetailPage({ params }: Params) {
           </Link>
         </div>
         <p className="mt-1 text-table text-fg-muted">
-          {t("unitPage.published", { date: formatDateTime(publication.publishedAt) })}
+          {t("unitPage.published", { date: formatDateTime(publication.publishedAt, locale) })}
           {publication.publishedBy ? <> {t("unitPage.by")} <PersonLink memberId={publication.publishedByMemberId} name={publication.publishedBy} /></> : null}
         </p>
         <DetailGrid
@@ -87,7 +87,7 @@ export default async function PublicationDetailPage({ params }: Params) {
               label: t("unitPage.primaryImage"),
               value: snapshot.primaryImage ? (
                 <Link href={`/documents/${snapshot.primaryImage.documentId}`} className="text-accent-strong hover:underline">
-                  {snapshot.primaryImage.caption ?? UNIT_MEDIA_CATEGORY_LABELS[snapshot.primaryImage.category]}
+                  {snapshot.primaryImage.caption ?? t(`mediaCategory.${snapshot.primaryImage.category}`)}
                 </Link>
               ) : (
                 "—"

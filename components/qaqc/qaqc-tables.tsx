@@ -4,7 +4,8 @@ import { DataTable, type TableColumn, type TableSortConfig } from "@/components/
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { qaqcLabel } from "./qaqc-labels";
 import type {
   CorrectiveActionSummaryDTO,
@@ -14,7 +15,6 @@ import type {
   RequestSummaryDTO,
   TemplateSummaryDTO,
 } from "@/lib/modules/qaqc/qaqc.types";
-import { formatDate } from "@/lib/utils/format";
 import { ResultBadge, SeverityBadge } from "./qaqc-format";
 
 /**
@@ -108,6 +108,7 @@ export async function RequestTable({
   requests: RequestSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("qaqc");
   const columns: TableColumn<RequestSummaryDTO>[] = [
     {
@@ -152,7 +153,7 @@ export async function RequestTable({
       render: (row) =>
         row.requiredByDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
-            {formatDate(row.requiredByDate)}
+            {formatDate(row.requiredByDate, locale)}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -193,6 +194,7 @@ export async function InspectionTable({
   inspections: InspectionSummaryDTO[];
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("qaqc");
   const columns: TableColumn<InspectionSummaryDTO>[] = [
     {
@@ -236,7 +238,7 @@ export async function InspectionTable({
       label: t("table.date"),
       hideBelow: "lg",
       render: (row) =>
-        row.inspectionDate ? formatDate(row.inspectionDate) : <span className="text-fg-subtle">—</span>,
+        row.inspectionDate ? formatDate(row.inspectionDate, locale) : <span className="text-fg-subtle">—</span>,
     },
     {
       // Two columns on purpose: where it is, and what was found (§65).
@@ -338,6 +340,7 @@ export async function DefectTable({
   showProject?: boolean;
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("qaqc");
   const columns: TableColumn<DefectSummaryDTO>[] = [
     {
@@ -381,7 +384,7 @@ export async function DefectTable({
       render: (row) =>
         row.dueDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
-            {formatDate(row.dueDate)}
+            {formatDate(row.dueDate, locale)}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -423,6 +426,7 @@ export async function NcrTable({
   showProject?: boolean;
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("qaqc");
   const columns: TableColumn<NcrSummaryDTO>[] = [
     {
@@ -469,7 +473,7 @@ export async function NcrTable({
       render: (row) =>
         row.dueDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
-            {formatDate(row.dueDate)}
+            {formatDate(row.dueDate, locale)}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>
@@ -511,6 +515,7 @@ export async function CorrectiveActionTable({
   showParent?: boolean;
   caption?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("qaqc");
   const columns: TableColumn<CorrectiveActionSummaryDTO>[] = [
     {
@@ -568,7 +573,7 @@ export async function CorrectiveActionTable({
       render: (row) =>
         row.dueDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
-            {formatDate(row.dueDate)}
+            {formatDate(row.dueDate, locale)}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>

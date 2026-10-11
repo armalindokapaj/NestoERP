@@ -1,6 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 import { AlertOctagon, AlertTriangle, ArrowRight, Building2, ChevronRight, FolderKanban, Info, Plus, ShieldCheck, Users } from "lucide-react";
 
+import { dateText, formatDateTime, formatRelativeTime } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { greetingText } from "@/components/dashboard/config-text";
 import { adminText } from "@/components/platform/admin-i18n";
@@ -16,7 +17,6 @@ import {
   STORAGE_CRITICAL, STORAGE_WARNING, type Severity,
 } from "@/lib/modules/platform/platform-dashboard.query";
 import { cn } from "@/lib/utils/cn";
-import { formatDateTime, formatRelativeTime } from "@/lib/utils/format";
 import { assignedCompany } from "@/lib/access/project-ownership";
 
 /*
@@ -38,7 +38,7 @@ export async function DashboardHeader({ context, actions }: { context: PlatformC
   const t = await getTranslations("dashboard");
   const ta = await getTranslations("admin");
   const locale = await getLocale();
-  const today = new Intl.DateTimeFormat(locale === "sq" ? "sq-AL" : "en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+  const today = dateText(new Date(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }, locale);
   const quick = QUICK_CREATE.filter((item) => context.permissions.includes(item.permission));
   return (
     <>
@@ -77,8 +77,9 @@ export async function DashboardHeader({ context, actions }: { context: PlatformC
   );
 }
 
-function Time({ at }: { at: string }) {
-  return <time dateTime={at} title={formatDateTime(at)}>{formatRelativeTime(at)}</time>;
+async function Time({ at }: { at: string }) {
+  const locale = await getLocale();
+  return <time dateTime={at} title={formatDateTime(at, locale)}>{formatRelativeTime(at, locale)}</time>;
 }
 
 const bytes = (value: number) => value < 1024 ** 2 ? `${Math.round(value / 1024)} KB` : value < 1024 ** 3 ? `${(value / 1024 ** 2).toFixed(1)} MB` : value < 1024 ** 4 ? `${(value / 1024 ** 3).toFixed(1)} GB` : `${(value / 1024 ** 4).toFixed(2)} TB`;

@@ -1,4 +1,5 @@
 import { Prisma, type PaymentScheduleStatus } from "@prisma/client";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { actorOf, memberNames } from "@/lib/modules/shared/member-names";
 
 import { AccessError, assertPermission } from "@/lib/access/guards";
@@ -375,7 +376,7 @@ export async function activatePaymentSchedule(context: UserContext, scheduleId: 
     let exceptionReason: string | null = null;
     if (!total.equals(target)) {
       if (!input.exceptionReason) {
-        throw fail("SCHEDULE_TOTAL_MISMATCH", `Payment schedule total does not match the Contract value. The installments add up to ${money(total, schedule.currency)} and the contract still needs ${money(target, schedule.currency)}.`, "VALIDATION_ERROR", { total: toAmountString(total), target: toAmountString(target) });
+        throw fail("SCHEDULE_TOTAL_MISMATCH", `Payment schedule total does not match the Contract value. The installments add up to ${money(total, schedule.currency, SOURCE_LOCALE)} and the contract still needs ${money(target, schedule.currency, SOURCE_LOCALE)}.`, "VALIDATION_ERROR", { total: toAmountString(total), target: toAmountString(target) });
       }
       assertPermission(context, "project.unit.finance.correct");
       exceptionReason = input.exceptionReason;
@@ -569,7 +570,7 @@ export async function recordContractPayment(context: UserContext, contractId: st
       for (const row of input.allocations) await allocate(tx, context, held, { installmentId: row.installmentId }, row.amount);
       const unallocated = outstanding(amount, sumAmounts(input.allocations.map((row) => row.amount)));
 
-      await unitActivity(tx, context, contract, "PAYMENT_RECORDED", `recorded a payment of ${money(amount, held.currency)} against contract ${contract.contractNumber}`);
+      await unitActivity(tx, context, contract, "PAYMENT_RECORDED", `recorded a payment of ${money(amount, held.currency, SOURCE_LOCALE)} against contract ${contract.contractNumber}`);
       await recordUserAction(
         context,
         {
@@ -580,7 +581,7 @@ export async function recordContractPayment(context: UserContext, contractId: st
         },
         { tx },
       );
-      await notifyFinance(tx, context, { eventType: NotificationEvent.UNIT_PAYMENT_RECEIVED, companyId: context.companyId, contract, memberIds: await saleAudience(tx, context.companyId, contract.units.map((row) => row.unitId)), amountLabel: money(amount, held.currency), paymentId: payment.id });
+      await notifyFinance(tx, context, { eventType: NotificationEvent.UNIT_PAYMENT_RECEIVED, companyId: context.companyId, contract, memberIds: await saleAudience(tx, context.companyId, contract.units.map((row) => row.unitId)), amountLabel: money(amount, held.currency, SOURCE_LOCALE), paymentId: payment.id });
       return { paymentId: payment.id, unallocated: toAmountString(unallocated) };
     });
   });
@@ -609,7 +610,7 @@ export async function allocateContractPayment(context: UserContext, paymentId: s
     return trackingStatus(tx, context, contract, async () => {
       for (const row of input.allocations) await allocate(tx, context, held, { installmentId: row.installmentId }, row.amount);
       const allocated = (await allocatedByPayment([held.id], tx)).get(held.id) ?? ZERO;
-      await unitActivity(tx, context, contract, "PAYMENT_ALLOCATED", `allocated ${money(sumAmounts(input.allocations.map((row) => row.amount)), held.currency)} of a payment on contract ${contract.contractNumber}`);
+      await unitActivity(tx, context, contract, "PAYMENT_ALLOCATED", `allocated ${money(sumAmounts(input.allocations.map((row) => row.amount)), held.currency, SOURCE_LOCALE)} of a payment on contract ${contract.contractNumber}`);
       return { unallocated: toAmountString(outstanding(held.amount, allocated)) };
     });
   });

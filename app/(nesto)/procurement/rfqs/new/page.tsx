@@ -52,6 +52,7 @@ export default async function NewRfqPage({
         action={createRfqAction}
         cancelHref="/procurement/rfqs"
         submitLabel={t("rfqs.create")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
         suppliers={options.suppliers.map((supplier) => ({
           value: supplier.id,

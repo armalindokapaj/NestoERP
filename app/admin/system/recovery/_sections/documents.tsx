@@ -1,4 +1,5 @@
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -6,7 +7,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { listArchivedDocuments } from "@/lib/modules/platform/platform-recovery.service";
-import { formatDate } from "@/lib/utils/format";
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -15,6 +15,7 @@ const size = (bytes: number | null) => (bytes === null ? "—" : bytes < 1024 ? 
 
 /** Archived documents across companies. Archiving never removes the file, so a restore returns it as it was. */
 export async function RecoveryDocuments({ searchParams }: Props) {
+  const locale = await getLocale();
   const t = await getTranslations("adminPlatform");
   const raw = await searchParams;
   const q = first(raw.q)?.trim() ?? "";
@@ -51,7 +52,7 @@ export async function RecoveryDocuments({ searchParams }: Props) {
                   <TableCell className="font-medium text-fg">{row.name}</TableCell>
                   <TableCell><Link href={`/admin/organizations/${row.company.id}`} className="hover:underline">{row.company.name}</Link></TableCell>
                   <TableCell>{size(row.sizeBytes)}</TableCell>
-                  <TableCell>{row.archivedAt ? formatDate(row.archivedAt) : "—"}{row.archivedBy ? <p className="text-meta text-fg-subtle">{t("common.by", { name: row.archivedBy })}</p> : null}</TableCell>
+                  <TableCell>{row.archivedAt ? formatDate(row.archivedAt, locale) : "—"}{row.archivedBy ? <p className="text-meta text-fg-subtle">{t("common.by", { name: row.archivedBy })}</p> : null}</TableCell>
                   <TableCell className="text-right">
                     {canRestore ? <PlatformCommandButton label={t("common.restore")} title={t("system.recovery.documents.restoreTitle", { name: row.name })} description={t("system.recovery.documents.restoreDescription", { company: row.company.name })} action="document.restore" fixed={{ documentId: row.id }} reasonOnly submitLabel={t("common.restore")} success={t("system.recovery.documents.restored")} /> : null}
                   </TableCell>

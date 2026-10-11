@@ -62,6 +62,7 @@ export default async function EditAmendmentPage({ params }: Params) {
         action={action}
         cancelHref={`/contracts/${contract.id}/amendments/${amendment.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         versionUpdatedAt={amendment.updatedAt}
         canEditCommercial={canSeeCommercial(context)}

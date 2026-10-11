@@ -24,6 +24,8 @@ import {
 import { verifiedRequestMethod } from "@/lib/core/security/request-method";
 import { describeFailure } from "@/lib/api/failure";
 import { detailsFieldErrors, errorCategory, type FieldErrors } from "@/lib/forms/errors";
+import { DEFAULT_LOCALE } from "@/lib/i18n/config";
+import { requestLocale, shownDetails, shownFieldErrors, shownMessage } from "@/lib/i18n/errors/server";
 
 /**
  * API response helpers (PRD #7 §150, §152).
@@ -33,7 +35,8 @@ import { detailsFieldErrors, errorCategory, type FieldErrors } from "@/lib/forms
  * traces, no permission implementation details (PRD #7 §149).
  */
 export function apiError(code: ApiErrorCode, message?: string, details?: unknown, fieldErrors?: FieldErrors) {
-  const requestId = currentRequestContext()?.requestId;
+  const context = currentRequestContext();
+  const requestId = context?.requestId;
   const text = message ?? new AccessError(code).message;
   const status = errorStatus(code);
   // AUD-09 §3: a refusal a form acts on also says which kind it is and which
@@ -44,18 +47,22 @@ export function apiError(code: ApiErrorCode, message?: string, details?: unknown
   const accessRefusal = status === 401 || status === 403 || status === 404;
   const businessCode = (details as { code?: unknown } | undefined)?.code;
   const fields = accessRefusal ? undefined : (fieldErrors ?? detailsFieldErrors(details, text));
+  // Worded for the reader only now: the field errors above were read from the English (a list counts as
+  // messages only when every item has a space in it), and the machine codes are left as they are.
+  const locale = context?.locale ?? DEFAULT_LOCALE;
+  const shownFields = shownFieldErrors(fields, locale);
   return withRequestHeaders(
     NextResponse.json(
       {
         error: {
           code,
-          message: text,
+          message: shownMessage(text, locale),
           // A user reporting a problem can quote this, and it leads straight to
           // the logs (PRD #32 §29, §207).
           ...(requestId ? { requestId } : {}),
-          ...(details === undefined ? {} : { details }),
+          ...(details === undefined ? {} : { details: shownDetails(details, locale) }),
           ...(accessRefusal ? {} : { category: errorCategory(code, typeof businessCode === "string" ? businessCode : undefined) }),
-          ...(fields && Object.keys(fields).length ? { fieldErrors: fields } : {}),
+          ...(shownFields && Object.keys(shownFields).length ? { fieldErrors: shownFields } : {}),
         },
       },
       { status },
@@ -93,8 +100,9 @@ export async function withContext(
   handler: (context: UserContext) => Promise<Response>,
   options: WithContextOptions = {},
 ): Promise<Response> {
+  const locale = await requestLocale();
   return runWithRequestContext(
-    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
+    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now(), locale },
     () => runWithRequestScope(() => handleRequest(handler, options)),
   );
 }
@@ -258,8 +266,9 @@ function translateError(error: unknown): Response {
 export async function withPlatformContext(
   handler: (context: PlatformContext) => Promise<Response>,
 ): Promise<Response> {
+  const locale = await requestLocale();
   return runWithRequestContext(
-    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
+    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now(), locale },
     () => runWithRequestScope(async () => {
       // A valid tenant context can be rejected before resolving the separate
       // Platform Admin session. This also keeps direct route security sweeps
@@ -296,8 +305,9 @@ export async function withPlatformContext(
 export async function withGroupContext(
   handler: (context: GroupContext) => Promise<Response>,
 ): Promise<Response> {
+  const locale = await requestLocale();
   return runWithRequestContext(
-    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now() },
+    { requestId: newRequestId(), correlationId: newCorrelationId(), startedAt: Date.now(), locale },
     () => runWithRequestScope(async () => {
       const result = await resolveGroupContext();
       if (!result.ok) {

@@ -6,6 +6,7 @@ import { Pagination } from "@/components/data/pagination";
 import { TeamTable } from "@/components/team/team-table";
 import { EmptyState, hasActiveFilters } from "@/components/ui/empty-state";
 import { can } from "@/lib/access/can";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
 import { parseTeamListQuery, type TeamQueryDefaults } from "@/lib/modules/team/team.query";
@@ -45,7 +46,7 @@ export async function TeamList({
   variant: TeamListVariant;
   basePath: string;
 }) {
-  const t = await getTranslations("team");
+  const [t, tr] = await Promise.all([getTranslations("team"), getTranslations("roles")]);
   const query = parseTeamListQuery(searchParams, VARIANT_DEFAULTS[variant]);
 
   const [result, options] = await Promise.all([
@@ -63,7 +64,7 @@ export async function TeamList({
     {
       param: "roleId",
       label: t("list.role"),
-      options: options.roles.map((role) => ({ value: role.id, label: role.name })),
+      options: options.roles.map((role) => ({ value: role.id, label: adminRoleName(tr, role.name) })),
     },
     {
       param: "departmentId",

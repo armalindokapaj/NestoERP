@@ -14,6 +14,7 @@ import {
   type DocumentParentRef,
 } from "@/lib/modules/documents/document.parent-access";
 import { recordDefinition } from "@/lib/core/records/record.registry";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
 import { getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -134,7 +135,7 @@ async function resolveRecordContext(
   return {
     kind: "record" as const,
     id: entityId,
-    label: `${definition.noun} · ${summary.label}`,
+    label: `${recordTypeName(await getTranslations("common"), definition.type, definition.noun)} · ${summary.label}`,
     entityType: definition.type,
     returnHref,
   };

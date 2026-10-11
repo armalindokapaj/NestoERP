@@ -1,6 +1,7 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -20,7 +21,7 @@ import {
   categoryLabels,
   priorityLabels,
 } from "@/lib/modules/procurement/procurement.status";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { dueLabel, formatAmount } from "@/components/procurement/procurement-format";
 import { RecordTasks } from "@/components/tasks/record-tasks";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
@@ -46,6 +47,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * commitment — nothing is owed until an order is issued (PRD #19 §3, §48).
  */
 export default async function RequestDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { requestId } = await params;
   const context = await requireModule("procurement");
 
@@ -66,7 +68,7 @@ export default async function RequestDetailPage({ params }: Params) {
   const priority = procurementLabel(t, "priority", request.priority, priorityLabels[request.priority]);
   const category = (value: keyof typeof categoryLabels) => procurementLabel(t, "category", value, categoryLabels[value]);
   const currency = request.currency;
-  const money = (value: string) => (currency ? formatAmount(value, currency) : value);
+  const money = (value: string) => (currency ? formatAmount(value, currency, locale) : value);
 
   return (
     <div className="space-y-5">
@@ -96,7 +98,7 @@ export default async function RequestDetailPage({ params }: Params) {
           },
           {
             label: t("requests.needed"),
-            value: request.requiredDate ? formatDate(request.requiredDate) : t("common.noDate"),
+            value: request.requiredDate ? formatDate(request.requiredDate, locale) : t("common.noDate"),
           },
         ]}
         actions={
@@ -257,17 +259,17 @@ export default async function RequestDetailPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label={t("common.created")} value={formatDateTime(request.createdAt)} />
-              <Meta label={t("common.updated")} value={formatDateTime(request.updatedAt)} />
+              <Meta label={t("common.created")} value={formatDateTime(request.createdAt, locale)} />
+              <Meta label={t("common.updated")} value={formatDateTime(request.updatedAt, locale)} />
               {request.dates.submittedAt ? (
-                <Meta label={t("common.submitted")} value={formatDateTime(request.dates.submittedAt)} />
+                <Meta label={t("common.submitted")} value={formatDateTime(request.dates.submittedAt, locale)} />
               ) : null}
               {request.dates.approvedAt ? (
                 <Meta
                   label={t("common.approved")}
                   value={
                     <>
-                      {formatDateTime(request.dates.approvedAt)}
+                      {formatDateTime(request.dates.approvedAt, locale)}
                       {request.approvedBy ? (
                         <>
                           {" · "}

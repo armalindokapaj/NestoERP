@@ -3,8 +3,10 @@ import Link from "@/components/navigation/nav-link";
 
 import { Badge } from "@/components/ui/badge";
 import { StatusText } from "@/components/i18n/common-text";
+import { DayText } from "@/components/i18n/format-text";
 import { PersonLink } from "@/components/people/person-link";
 import { EngineeringLabel, EngineeringText } from "./engineering-text";
+import type { Locale } from "@/lib/i18n/config";
 import { localDate, localTime } from "@/lib/modules/calendar/calendar.time";
 import { dateLabel } from "@/lib/modules/project-planning/planning.dates";
 import { REVIEW_DECISION_LABELS, type PersonRef, type RecordRef, type ReviewDecision } from "@/lib/modules/engineering/engineering.types";
@@ -49,7 +51,7 @@ export function Due({ date, overdue, emptyLabel = "—" }: { date: string | null
   if (!date) return <span className="text-fg-subtle">{emptyLabel}</span>;
   return (
     <span className={cn("whitespace-nowrap tabular-nums", overdue ? "font-medium text-danger-strong" : "text-fg")} data-overdue={overdue ? "true" : undefined}>
-      {dateLabel(date)}
+      <DayText date={date} />
       {overdue ? <span className="sr-only"><EngineeringText k="ui.overdueSr" /></span> : null}
     </span>
   );
@@ -129,14 +131,14 @@ export function Facts({ items, columns = 2 }: { items: Array<{ label: string; va
 }
 
 /** A timestamp in the company's zone, with fixed month names so server and browser agree. */
-export function formatDateTime(value: string | null, zone: string): string {
+export function formatDateTime(value: string | null, zone: string, locale: Locale): string {
   if (!value) return "—";
   const instant = new Date(value);
-  return `${dateLabel(localDate(instant, zone))}, ${localTime(instant, zone)}`;
+  return `${dateLabel(localDate(instant, zone), locale)}, ${localTime(instant, zone)}`;
 }
 
-export function formatDay(value: string | null, zone: string): string {
-  return value ? dateLabel(localDate(new Date(value), zone)) : "—";
+export function formatDay(value: string | null, zone: string, locale: Locale): string {
+  return value ? dateLabel(localDate(new Date(value), zone), locale) : "—";
 }
 
 export { dateLabel };

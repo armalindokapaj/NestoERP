@@ -6,6 +6,8 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
+import type { Locale } from "@/lib/i18n/config";
+import { numberText } from "@/lib/i18n/format";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { toAmountString } from "../finance.money";
 import { companyToday, contractFinanceFacts, findFinanceContract, type ContractFacts, type FinanceContract } from "./unit-finance.core";
@@ -21,8 +23,8 @@ type Tx = Prisma.TransactionClient;
 const MODULE = "finance";
 const UNIT_ENTITY = "ProjectUnit";
 
-export function money(value: Prisma.Decimal.Value, currency: string): string {
-  return `${currency} ${Number(new Prisma.Decimal(value).toFixed(2)).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export function money(value: Prisma.Decimal.Value, currency: string, locale: Locale): string {
+  return `${currency} ${numberText(Number(new Prisma.Decimal(value).toFixed(2)), { minimumFractionDigits: 2, maximumFractionDigits: 2 }, locale, "en")}`;
 }
 
 /** Evidence on every unit the contract sells, so each unit's Activity tells the same story (§98). */

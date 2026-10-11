@@ -12,6 +12,8 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { loadRecord, moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
 import { applyTransition } from "@/lib/core/state/transition";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { addLocalDays } from "@/lib/modules/calendar/calendar.time";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { paginationMeta } from "@/lib/modules/shared/list-query";
@@ -271,7 +273,7 @@ async function openInTransaction(tx: Prisma.TransactionClient, context: UserCont
   await recordUserAction(context, { actionKey: AuditAction.RFI_OPENED, entity: { type: RFI_RECORD, id: row.id, label: row.rfiNumber }, projectId: row.projectId, before: { status: "DRAFT" }, after: { status: "OPEN", assignedToMemberId: row.assignedToMemberId, dueAt: due } }, { tx });
   await recordActivity(tx, context, { module: MODULE, entityType: RFI_ACTIVITY, entityId: row.id, action: "RFI_OPENED", message: `opened ${label(row)}` });
   const common = { companyId: context.companyId, entityType: RFI_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId };
-  const payload = { number: row.rfiNumber, subject: row.subject, projectName: project.name, dueDate: due, dateLabel: dateLabel(due) };
+  const payload = { number: row.rfiNumber, subject: row.subject, projectName: project.name, dueDate: due, dateLabel: dateLabel(due, SOURCE_LOCALE) };
   await notifyEngineering(tx, { ...common, eventType: NotificationEvent.RFI_OPENED, memberIds: [project.projectManagerMemberId], payload });
   await notifyEngineering(tx, { ...common, eventType: NotificationEvent.RFI_ASSIGNED, memberIds: [row.assignedToMemberId], payload: { ...payload, assignment: `${row.assignedToMemberId}:${row.version}` } });
   incrementCounter(Metric.RFI_OPENED);
@@ -361,7 +363,7 @@ export async function updateRfi(context: UserContext, id: string, input: UpdateR
       { tx },
     );
     if (reassigned && row.status !== "DRAFT") {
-      await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.RFI_ASSIGNED, entityType: RFI_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [input.assignedToMemberId], payload: { number: row.rfiNumber, subject: row.subject, dueDate: input.dueAt, dateLabel: dateLabel(input.dueAt), assignment: `${input.assignedToMemberId}:${input.expectedVersion + 1}` } });
+      await notifyEngineering(tx, { companyId: context.companyId, eventType: NotificationEvent.RFI_ASSIGNED, entityType: RFI_RECORD, entityId: row.id, projectId: row.projectId, actorMemberId: context.membershipId, memberIds: [input.assignedToMemberId], payload: { number: row.rfiNumber, subject: row.subject, dueDate: input.dueAt, dateLabel: dateLabel(input.dueAt, SOURCE_LOCALE), assignment: `${input.assignedToMemberId}:${input.expectedVersion + 1}` } });
     }
   });
   if (reassigned || input.dueAt !== dateOf(row.dueAt)) await resolveAttentionForRecord(prisma, context.companyId, RFI_RECORD, row.id, [...RFI_CONDITIONS]);
@@ -491,6 +493,7 @@ export async function removeRfiReference(context: UserContext, id: string, refer
 
 /** Records of one kind on the RFI's project this writer could reference. */
 export async function rfiReferenceOptions(context: UserContext, id: string, type: RfiReferenceType): Promise<Option[]> {
+  const locale = await getRequestLocale();
   const row = await findReadableRfi(context, id);
   if (type === "OTHER") return [];
   const definition = recordDefinition(REGISTRY_TYPE[type]);
@@ -507,10 +510,10 @@ export async function rfiReferenceOptions(context: UserContext, id: string, type
       rows = (await prisma.technicalSubmittal.findMany({ where: { AND: [readableSubmittalWhere(context), { projectId, status: { not: "VOID" } }] }, orderBy: { submittalNumber: "asc" }, take: 300, select: { id: true, submittalNumber: true, title: true } })).map((item) => ({ id: item.id, label: `${item.submittalNumber} · ${item.title}` }));
       break;
     case "MEETING":
-      rows = (await prisma.meeting.findMany({ where: { companyId, projectId, archivedAt: null }, orderBy: { startsAt: "desc" }, take: 100, select: { id: true, title: true, startsAt: true } })).map((item) => ({ id: item.id, label: `${item.title} · ${dateLabel(dateOf(item.startsAt))}` }));
+      rows = (await prisma.meeting.findMany({ where: { companyId, projectId, archivedAt: null }, orderBy: { startsAt: "desc" }, take: 100, select: { id: true, title: true, startsAt: true } })).map((item) => ({ id: item.id, label: `${item.title} · ${dateLabel(dateOf(item.startsAt), locale)}` }));
       break;
     case "DAILY_LOG":
-      rows = (await prisma.dailyLog.findMany({ where: { companyId, projectId, status: { not: "VOID" } }, orderBy: { workDate: "desc" }, take: 100, select: { id: true, workDate: true } })).map((item) => ({ id: item.id, label: `Daily log · ${dateLabel(dateOf(item.workDate))}` }));
+      rows = (await prisma.dailyLog.findMany({ where: { companyId, projectId, status: { not: "VOID" } }, orderBy: { workDate: "desc" }, take: 100, select: { id: true, workDate: true } })).map((item) => ({ id: item.id, label: `Daily log · ${dateLabel(dateOf(item.workDate), locale)}` }));
       break;
     case "TASK":
       rows = (await prisma.task.findMany({ where: { companyId, projectId, archivedAt: null }, orderBy: { updatedAt: "desc" }, take: 100, select: { id: true, title: true } })).map((item) => ({ id: item.id, label: item.title }));

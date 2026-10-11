@@ -60,6 +60,7 @@ export default async function EditCorrectiveActionPage({ params }: Params) {
         versionUpdatedAt={record.updatedAt}
         cancelHref={`/qaqc/corrective-actions/${record.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         parentLabel={record.parent?.label ?? null}
         projects={options.projects.map((project) => ({

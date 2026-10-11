@@ -1,4 +1,5 @@
 [
+  "access ↔ core/observability ↔ core/storage ↔ i18n ↔ navigation ↔ unsaved",
   "calendar ↔ contracts ↔ meetings ↔ tasks",
   "contractors ↔ engineering",
   "contractors ↔ engineering ↔ work-packages",

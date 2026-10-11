@@ -37,6 +37,7 @@ export function CreateCompanyDialog({ open, onOpenChange, groups, group }: { ope
       fields={fields}
       initial={{ groupId: group?.value ?? "" }}
       submitLabel={t("create.company.submit")}
+      saveKind="create"
       testId="new-company-dialog"
       onSubmit={async (payload) => {
         const groupId = group?.value ?? payload.groupId;
@@ -59,6 +60,7 @@ export function CreateGroupDialog({ open, onOpenChange }: { open: boolean; onOpe
       description={t("create.group.dialogDescription")}
       fields={[{ name: "name", label: t("create.group.nameLabel"), type: "text", required: true, maxLength: 120, validate: (value) => (typeof value === "string" && value.trim().length < 2 ? t("create.company.minChars") : null) }]}
       submitLabel={t("create.group.submit")}
+      saveKind="create"
       testId="new-group-dialog"
       onSubmit={async (payload) => {
         const created = await engineeringApi<{ id: string }>("/api/platform/parent-groups", { body: { name: payload.name } });
@@ -122,6 +124,7 @@ export function AddCompanyToGroup({ group, standalone }: { group: Option; standa
           { name: "reason", label: t("common.reason"), type: "textarea", required: true },
         ]}
         submitLabel={t("create.add.submit")}
+        saveKind="create"
         testId="attach-company-dialog"
         onSubmit={async (payload) => {
           await engineeringApi("/api/platform-admin/command", { body: { action: "company.attach", companyId: payload.companyId, groupId: group.value, reason: payload.reason } });

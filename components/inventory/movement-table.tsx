@@ -4,11 +4,11 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/i18n/format";
 import type { MovementDTO } from "@/lib/modules/inventory/inventory.types";
 import { movementTypeLabels } from "@/lib/modules/inventory/inventory.status";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "./inventory-labels";
-import { formatDateTime } from "@/lib/utils/format";
 import { formatSigned } from "./inventory-format";
 
 /**
@@ -36,6 +36,7 @@ export async function MovementTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<MovementDTO>[] = [
     {
@@ -47,7 +48,7 @@ export async function MovementTable({
       label: t("columns.when"),
       primary: !showItem,
       render: (row) => (
-        <span className="whitespace-nowrap text-fg-muted">{formatDateTime(row.occurredAt)}</span>
+        <span className="whitespace-nowrap text-fg-muted">{formatDateTime(row.occurredAt, locale)}</span>
       ),
     },
   ];
@@ -97,7 +98,7 @@ export async function MovementTable({
               : "tabular-nums text-success-strong"
           }
         >
-          {formatSigned(row.signedQuantity, row.unit)}
+          {formatSigned(row.signedQuantity, row.unit, locale)}
         </span>
       ),
     },

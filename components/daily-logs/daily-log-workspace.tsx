@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import {
@@ -63,6 +64,8 @@ import { entriesOf, payloadFromValues, valuesFromEntry } from "./entry-fields";
 import { EvidenceGallery } from "./evidence-gallery";
 import { WorkforceSuggestions } from "./workforce-suggestions";
 import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal";
+import { useCommonTranslations, useStatusText } from "@/components/i18n/common-text";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
 import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
 import { DailyLogsText, useDailyLogsTranslations } from "./daily-logs-text";
 import { FormSelect } from "@/components/ui/form-select";
@@ -129,9 +132,11 @@ const joinedNodes = (...parts: React.ReactNode[]) => {
 };
 
 export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { initial: DailyLogDetailDTO; discussion: React.ReactNode; zone: string; favorite?: React.ReactNode }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useDailyLogsTranslations();
+  const statusText = useStatusText();
   const L = (group: Parameters<typeof dailyLogsLabel>[1], value: string, fallback: string) => dailyLogsLabel(t, group, value, fallback);
   const sectionLabel = (key: SectionKey) => L("section", key, SECTION_LABELS[key]);
   const failed = (error: unknown, label?: string) => failureMessage(error, label ? t("common.failed", { label }) : t("common.somethingWrong"));
@@ -381,7 +386,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             primary={entry.description}
             secondary={
               <>
-                {joined(entry.supplier?.label, entry.deliveredTime && t("workspace.line.arrived", { time: entry.deliveredTime }), entry.outsideWorkDate && entry.deliveredDate ? t("workspace.line.on", { date: dateLabel(entry.deliveredDate) }) : null, entry.conditionNote)}
+                {joined(entry.supplier?.label, entry.deliveredTime && t("workspace.line.arrived", { time: entry.deliveredTime }), entry.outsideWorkDate && entry.deliveredDate ? t("workspace.line.on", { date: dateLabel(entry.deliveredDate, locale) }) : null, entry.conditionNote)}
                 {[entry.purchaseOrder, entry.goodsReceipt, entry.inventoryReceipt].filter(Boolean).map((ref) =>
                   ref!.href ? (
                     <Link key={ref!.id} href={ref!.href} className="ml-2 text-accent-strong hover:underline">
@@ -447,7 +452,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
           </p>
           {log.corrections.map((correction) => (
             <div key={correction.id} className="mt-2 border-t border-success/20 pt-2" data-testid="daily-log-correction">
-              <p className="font-medium">{t("workspace.banner.correctionAdded", { date: dateLabel(correction.createdAt.slice(0, 10)) })}{correction.createdBy ? <> {t("workspace.banner.by")} <PersonLink memberId={correction.createdBy.memberId} name={correction.createdBy.name} /></> : null}</p>
+              <p className="font-medium">{t("workspace.banner.correctionAdded", { date: dateLabel(correction.createdAt.slice(0, 10), locale) })}{correction.createdBy ? <> {t("workspace.banner.by")} <PersonLink memberId={correction.createdBy.memberId} name={correction.createdBy.name} /></> : null}</p>
               <p className="whitespace-pre-line text-fg">{correction.correctionSummary}</p>
               <p className="text-meta text-fg-muted">{t("workspace.banner.reason", { reason: correction.reason })}</p>
             </div>
@@ -548,7 +553,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             · {t("workspace.dailyLog")}
           </p>
           <h1 className="text-page font-semibold text-fg" data-testid="daily-log-date">
-            {longDateLabel(log.workDate)}
+            {longDateLabel(log.workDate, locale)}
           </h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <DailyLogStatusBadge status={log.status} />
@@ -745,7 +750,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                       ) : (
                         <span className="block text-table text-fg-muted">{task.title}</span>
                       )}
-                      <span className="block text-meta text-fg-muted">{joined(L("taskLink", task.linkType, TASK_LINK_TYPE_LABELS[task.linkType]), task.status)}</span>
+                      <span className="block text-meta text-fg-muted">{joined(L("taskLink", task.linkType, TASK_LINK_TYPE_LABELS[task.linkType]), task.status && statusText(task.status))}</span>
                     </span>
                     {caps.sections.tasks ? (
                       <Button type="button" variant="ghost" size="icon-sm" aria-label={t("workspace.unlinkTask", { title: task.title })} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run(t("workspace.actions.unlinking"), () => dailyLogApi(`${base}/tasks/${task.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
@@ -782,7 +787,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                 {log.history.map((entry) => (
                   <li key={entry.id} className="text-table">
                     <span className="font-medium text-fg">{entry.action}</span>
-                    <span className="text-fg-muted"> · {joinedNodes(entry.actorName && <PersonLink memberId={entry.actorMemberId} name={entry.actorName} />, new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone }).format(new Date(entry.occurredAt)), dateLabel(entry.occurredAt.slice(0, 10)))}</span>
+                    <span className="text-fg-muted"> · {joinedNodes(entry.actorName && <PersonLink memberId={entry.actorMemberId} name={entry.actorName} />, new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone }).format(new Date(entry.occurredAt)), dateLabel(entry.occurredAt.slice(0, 10), locale))}</span>
                     {entry.note ? <span className="block text-fg-muted">“{entry.note}”</span> : null}
                   </li>
                 ))}
@@ -1168,6 +1173,7 @@ function LinkTaskForm({ options, pending, onConfirm }: LinkTaskDialogProps) {
 
 function LinkRecordDialog({ open, base, pending, onClose, onConfirm }: { open: boolean; base: string; pending: boolean; onClose: () => void; onConfirm: (recordType: string, recordId: string) => Promise<void> }) {
   const t = useDailyLogsTranslations();
+  const tc = useCommonTranslations();
   const [candidates, setCandidates] = React.useState<Array<{ recordType: string; recordId: string; label: string; noun: string; domain: "qaqc" | "hse"; linked: boolean }> | null>(null);
   React.useEffect(() => {
     if (!open) return;
@@ -1186,7 +1192,7 @@ function LinkRecordDialog({ open, base, pending, onClose, onConfirm }: { open: b
             <li key={`${candidate.recordType}:${candidate.recordId}`} className="flex items-center gap-3 py-2.5">
               <span className="min-w-0 flex-1">
                 <span className="block text-table font-medium text-fg">{candidate.label}</span>
-                <span className="block text-meta text-fg-muted">{candidate.noun}</span>
+                <span className="block text-meta text-fg-muted">{recordTypeName(tc, candidate.recordType, candidate.noun)}</span>
               </span>
               <Button size="sm" variant="secondary" disabled={pending || candidate.linked} onClick={() => void onConfirm(candidate.recordType, candidate.recordId)}>
                 {candidate.linked ? t("common.linked") : t("common.link")}

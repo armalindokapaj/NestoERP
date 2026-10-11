@@ -4,8 +4,9 @@ import * as React from "react";
 import { MoreHorizontal } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-import { useTranslations } from "@/components/i18n/i18n-provider";
-import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { adminRoleName } from "@/components/platform/admin-roles";
+import { engineeringApi, failureMessage, isFailure } from "@/components/engineering/engineering-api";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
@@ -16,6 +17,8 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/compone
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
 import type { GroupRemovalPreview, GroupUserActivityRow, GroupUserCompanyRow, GroupUserDetail } from "@/lib/modules/platform/group-user-detail.service";
 
 type Api = { command: string };
@@ -59,8 +62,8 @@ export function GroupUserOpener({ userId, name, className }: { userId: string; n
 
 type Load = { state: "loading" } | { state: "error"; message: string } | { state: "gone"; message: string } | { state: "ready"; detail: GroupUserDetail };
 
-const dateFormat = (value: string) => new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-const dateTimeFormat = (value: string) => new Date(value).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const dateFormat = (value: string, locale: Locale) => dateText(new Date(value), { day: "numeric", month: "short", year: "numeric" }, locale);
+const dateTimeFormat = (value: string, locale: Locale) => dateText(new Date(value), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, locale);
 
 /**
  * One person's relationship with this group, beside the Users table (PRD #11).
@@ -80,7 +83,9 @@ export function GroupUserDrawer({ groupId, groupName, api, platform = true }: { 
 }
 
 function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open: boolean; userId: string; groupId: string; groupName: string; api: Api; platform: boolean }) {
+  const locale = useLocale();
   const t = useTranslations("adminOrgs");
+  const tr = useTranslations("roles");
   const router = useRouter();
   const toast = useToast();
   const { close: closeGroupUser } = useGroupUserNav();
@@ -103,7 +108,9 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
         if (controller.signal.aborted) return;
         const message = failureMessage(failure, "");
         // A person removed or never in this group reads the same: nothing to show (§97, §119).
-        setLoad(/not found|no longer|not authorized|forbidden/i.test(message) || message === "" ? { state: "gone", message: t("groupUser.gone", { group: groupName }) } : { state: "error", message });
+        // Decided by the status, not the sentence: the sentence is in the reader's language.
+        const gone = isFailure(failure) ? failure.status === 403 || failure.status === 404 : message === "";
+        setLoad(gone || message === "" ? { state: "gone", message: t("groupUser.gone", { group: groupName }) } : { state: "error", message });
       });
     return () => controller.abort();
   }, [api.command, groupId, userId, attempt, groupName, t]);
@@ -172,7 +179,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
           <header className="space-y-1 border-b border-line px-5 py-4">
             <DrawerTitle className="text-card font-semibold text-fg">{detail ? name : load.state === "loading" ? t("groupUser.loading") : t("groupUser.title")}</DrawerTitle>
             <DrawerDescription id="group-user-desc" className="text-table text-fg-muted">
-              {detail ? (detail.roleName ? detail.roleName : t("groupUsers.seatOnly")) : groupName}
+              {detail ? (detail.roleName ? adminRoleName(tr, detail.roleName) : t("groupUsers.seatOnly")) : groupName}
             </DrawerDescription>
             {detail ? (
               <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -199,10 +206,10 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                   <h2 id="gu-overview" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("groupUser.groupAccess")}</h2>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-table">
                     <dt className="text-fg-subtle">{t("groupUser.group")}</dt><dd className="text-fg">{groupName}</dd>
-                    <dt className="text-fg-subtle">{t("groupUser.groupRole")}</dt><dd className="text-fg">{detail.roleName ?? t("groupUsers.seatOnly")}</dd>
+                    <dt className="text-fg-subtle">{t("groupUser.groupRole")}</dt><dd className="text-fg">{detail.roleName ? adminRoleName(tr, detail.roleName) : t("groupUsers.seatOnly")}</dd>
                     <dt className="text-fg-subtle">{t("groupUser.groupAccessStatus")}</dt><dd><AdminStatusBadge status={detail.seatStatus} /></dd>
                     {detail.department ? (<><dt className="text-fg-subtle">{t("groupUser.department")}</dt><dd className="text-fg">{detail.department}</dd></>) : null}
-                    {detail.joinedAt ? (<><dt className="text-fg-subtle">{t("groupUser.joined")}</dt><dd className="text-fg">{dateFormat(detail.joinedAt)}</dd></>) : null}
+                    {detail.joinedAt ? (<><dt className="text-fg-subtle">{t("groupUser.joined")}</dt><dd className="text-fg">{dateFormat(detail.joinedAt, locale)}</dd></>) : null}
                   </dl>
                   {detail.groupWide ? <p className="text-table text-fg-muted">{t("groupUsers.accessGroupWide")}</p> : null}
                 </section>
@@ -243,7 +250,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                       {detail.projects.rows.map((row) => (
                         <li key={`${row.projectId}-${row.companyId}`} className="px-3 py-2">
                           <p className="text-table font-medium text-fg">{row.projectName}</p>
-                          <p className="text-meta text-fg-muted">{row.role} · {row.companyName}</p>
+                          <p className="text-meta text-fg-muted">{adminRoleName(tr, row.role)} · {row.companyName}</p>
                           <p className="text-meta text-fg-subtle">{row.source === "VIA_GROUP" ? t("groupUser.projectViaGroup") : t("groupUser.projectDirect")}</p>
                         </li>
                       ))}
@@ -259,7 +266,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                       {activity.map((row) => (
                         <li key={row.id} className="py-2">
                           <p className="text-table text-fg">{t(`groupUser.act.${row.actionKey as ActionKey}`)}{row.detail ? <span className="text-fg-muted"> · {row.detail}</span> : null}</p>
-                          <p className="text-meta text-fg-subtle">{dateTimeFormat(row.occurredAt)}{row.actorName ? ` · ${row.actorName}` : ""}</p>
+                          <p className="text-meta text-fg-subtle">{dateTimeFormat(row.occurredAt, locale)}{row.actorName ? ` · ${row.actorName}` : ""}</p>
                         </li>
                       ))}
                     </ul>
@@ -314,12 +321,12 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                   {preview ? (
                     <div className="space-y-3 text-table text-fg" data-testid="group-user-remove-preview">
                       <ul className="list-disc space-y-1 pl-5">
-                        {preview.roleName ? <li>{t("groupUser.loseRole", { role: preview.roleName })}</li> : null}
+                        {preview.roleName ? <li>{t("groupUser.loseRole", { role: adminRoleName(tr, preview.roleName) })}</li> : null}
                         <li>{t("groupUser.loseCompanies", { count: preview.lostCompanies.length })}</li>
                         <li>{t("groupUser.loseProjects", { count: preview.projectsLost })}</li>
                       </ul>
                       {preview.directCompanies.length > 0 ? (
-                        <div><p className="font-medium">{t("groupUser.directRemain")}</p><ul className="list-disc pl-5">{preview.directCompanies.map((row) => <li key={row.name}>{row.name} — {row.role}</li>)}</ul><p className="text-meta text-fg-muted">{t("groupUser.directRemainNote")}</p></div>
+                        <div><p className="font-medium">{t("groupUser.directRemain")}</p><ul className="list-disc pl-5">{preview.directCompanies.map((row) => <li key={row.name}>{row.name} — {adminRoleName(tr, row.role)}</li>)}</ul><p className="text-meta text-fg-muted">{t("groupUser.directRemainNote")}</p></div>
                       ) : null}
                       {preview.blocked ? <p role="alert" className="text-danger">{preview.blocked === "SELF" ? t("groupUser.blockedSelf") : t("groupUser.blockedLastAdmin", { name, group: groupName })}</p> : null}
                       {preview.directCompanies.length > 0 && !preview.blocked ? <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={alsoDirect} onChange={(event) => setAlsoDirect(event.target.checked)} />{t("groupUsers.alsoCompanies")}</label> : null}

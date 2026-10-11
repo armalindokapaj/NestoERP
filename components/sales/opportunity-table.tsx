@@ -3,9 +3,9 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
+import { formatDate } from "@/lib/i18n/format";
 import type { OpportunitySummaryDTO } from "@/lib/modules/sales/sales.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { formatAmount } from "./sales-format";
 
 /**
@@ -32,6 +32,7 @@ export async function OpportunityTable({
   /** The table's own list id: a nested use names its own, so its column choice is its own (AUD-08 §5). */
   listId?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const columns: TableColumn<OpportunitySummaryDTO>[] = [
     {
@@ -96,7 +97,7 @@ export async function OpportunityTable({
       label: t("tables.value"),
       align: "right",
       render: (row) => (
-        <span className="tabular-nums">{formatAmount(row.estimatedValue, row.currency)}</span>
+        <span className="tabular-nums">{formatAmount(row.estimatedValue, row.currency, locale)}</span>
       ),
     },
     {
@@ -121,7 +122,7 @@ export async function OpportunityTable({
       hideBelow: "lg",
       render: (row) => (
         <span className="tabular-nums text-fg-muted">
-          {formatAmount(row.weightedValue, row.currency)}
+          {formatAmount(row.weightedValue, row.currency, locale)}
         </span>
       ),
     },
@@ -134,7 +135,7 @@ export async function OpportunityTable({
       render: (row) =>
         row.expectedCloseDate ? (
           <span className={row.expectedCloseOverdue ? "text-warning-strong" : undefined}>
-            {formatDate(row.expectedCloseDate)}
+            {formatDate(row.expectedCloseDate, locale)}
             {row.expectedCloseOverdue ? t("tables.overdue") : ""}
           </span>
         ) : (

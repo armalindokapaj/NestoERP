@@ -43,6 +43,7 @@ export default async function NewRiskAssessmentPage() {
         action={createRiskAssessmentAction}
         cancelHref="/hse/risk-assessments"
         submitLabel={t("page.createAssessment")}
+        saveKind="create"
         pendingLabel={t("page.creating")}
         projects={options.projects.map((project) => ({
           value: project.id,

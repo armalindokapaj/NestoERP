@@ -48,7 +48,7 @@ export default async function PlansPage() {
   const canManage = canPlatform(context, "platform.module.manage");
   return (
     <div className="space-y-5">
-      <PageHeader title={t("plans.title")} description={t("plans.description")} actions={canManage ? <PlatformCommandButton label={t("plans.newPlan")} title={t("plans.newPlan")} action="plan.save" variant="primary" fields={fields} initial={initial()} submitLabel={t("plans.createSubmit")} success={t("plans.created")} /> : undefined} />
+      <PageHeader title={t("plans.title")} description={t("plans.description")} actions={canManage ? <PlatformCommandButton label={t("plans.newPlan")} title={t("plans.newPlan")} action="plan.save" variant="primary" fields={fields} initial={initial()} submitLabel={t("plans.createSubmit")} saveKind="create" success={t("plans.created")} /> : undefined} />
       <section className="nesto-card overflow-x-auto">
         <Table stack aria-label={t("plans.tableLabel")}>
           <TableHead><TableRow><TableHeaderCell>{t("plans.headers.plan")}</TableHeaderCell><TableHeaderCell>{t("plans.headers.modules")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("plans.headers.limits")}</TableHeaderCell><TableHeaderCell>{t("plans.headers.companies")}</TableHeaderCell><TableHeaderCell>{t("plans.headers.status")}</TableHeaderCell><TableHeaderCell /></TableRow></TableHead>
@@ -60,7 +60,7 @@ export default async function PlansPage() {
                 <TableCell className="text-meta text-fg-muted max-md:hidden">{t("plans.limits", { users: plan.maxActiveUsers ?? "∞", projects: plan.maxProjects ?? "∞", storage: plan.maxStorageBytes ? t("plans.storageGb", { count: Math.round(plan.maxStorageBytes / 1024 ** 3) }) : t("plans.unlimitedStorage") })}</TableCell>
                 <TableCell className="tabular-nums">{plan.companies}</TableCell>
                 <TableCell><AdminStatusBadge status={plan.status} /></TableCell>
-                <TableCell>{canManage ? <PlatformCommandButton label={t("common.edit")} title={t("plans.editTitle", { name: plan.name })} description={plan.companies ? t("plans.editDescription", { count: plan.companies }) : undefined} action="plan.save" fixed={{ planId: plan.id }} fields={fields} initial={initial(plan)} submitLabel={t("plans.saveSubmit")} success={t("plans.saved")} /> : null}</TableCell>
+                <TableCell>{canManage ? <PlatformCommandButton label={t("common.edit")} title={t("plans.editTitle", { name: plan.name })} description={plan.companies ? t("plans.editDescription", { count: plan.companies }) : undefined} action="plan.save" fixed={{ planId: plan.id }} fields={fields} initial={initial(plan)} submitLabel={t("plans.saveSubmit")} saveKind="save" success={t("plans.saved")} /> : null}</TableCell>
               </TableRow>
             ))}
           </TableBody>

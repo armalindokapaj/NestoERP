@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/config";
+import { dayText } from "@/lib/i18n/format";
 import { addLocalDays, daysBetween, instantFromLocal, isLocalDate, localDate, localTime } from "@/lib/modules/calendar/calendar.time";
 
 /**
@@ -23,24 +25,18 @@ export function isoWeekday(date: string): number {
   return day === 0 ? 7 : day;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const WEEKDAYS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
 /** "14 Sep 2026" — spelled out, so server and browser agree. */
-export function dateLabel(date: string): string {
-  const [year, month, day] = date.split("-").map(Number);
-  return `${day} ${MONTHS[month - 1]} ${year}`;
+export function dateLabel(date: string, locale: Locale): string {
+  return dayText(date, "d MMM yyyy", locale);
 }
 
 /** "Monday 14 Sep 2026". */
-export function longDateLabel(date: string): string {
-  return `${WEEKDAYS_LONG[isoWeekday(date) - 1]} ${dateLabel(date)}`;
+export function longDateLabel(date: string, locale: Locale): string {
+  return dayText(date, "EEEE d MMM yyyy", locale);
 }
 
-export function shortDayLabel(date: string): string {
-  const [, month, day] = date.split("-").map(Number);
-  return `${WEEKDAYS[isoWeekday(date) - 1]} ${day} ${MONTHS[month - 1]}`;
+export function shortDayLabel(date: string, locale: Locale): string {
+  return dayText(date, "EEE d MMM", locale);
 }
 
 /** A wall-clock time on a work date, as an instant. */

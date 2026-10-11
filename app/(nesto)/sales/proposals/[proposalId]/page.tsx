@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -22,7 +23,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatAmount } from "@/components/sales/sales-format";
-import { formatDate } from "@/lib/utils/format";
 import { pendingCycle } from "@/lib/modules/sales/approvals/approval.service";
 import { proposalContext } from "./proposal-context";
 
@@ -35,6 +35,7 @@ type Params = { params: Promise<{ proposalId: string }> };
 
 /** Proposal detail (PRD #17 §287). */
 export default async function ProposalPage({ params }: Params) {
+  const locale = await getLocale();
   const { proposalId } = await params;
   const { context, proposal } = await proposalContext(proposalId);
   const t = await getTranslations("sales");
@@ -83,11 +84,11 @@ export default async function ProposalPage({ params }: Params) {
           },
           {
             label: t("detail.total"),
-            value: formatAmount(proposal.totalAmount, proposal.currency),
+            value: formatAmount(proposal.totalAmount, proposal.currency, locale),
           },
           {
             label: t("detail.validUntil"),
-            value: proposal.validUntil ? formatDate(proposal.validUntil) : "—",
+            value: proposal.validUntil ? formatDate(proposal.validUntil, locale) : "—",
           },
         ]}
         actions={<ProposalActions proposal={proposal} cycle={cycle} />}
@@ -119,11 +120,11 @@ export default async function ProposalPage({ params }: Params) {
                   <TableCell>{line.description}</TableCell>
                   <TableCell className="text-right tabular-nums">{line.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(line.unitPrice, proposal.currency)}
+                    {formatAmount(line.unitPrice, proposal.currency, locale)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{line.taxRate}%</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatAmount(line.totalAmount, proposal.currency)}
+                    {formatAmount(line.totalAmount, proposal.currency, locale)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -132,11 +133,11 @@ export default async function ProposalPage({ params }: Params) {
         </div>
 
         <dl className="space-y-1.5 border-t border-line p-5 text-table">
-          <Row label={t("detail.subtotal")} value={formatAmount(proposal.subtotal, proposal.currency)} />
-          <Row label={t("detail.tax")} value={formatAmount(proposal.taxAmount, proposal.currency)} />
+          <Row label={t("detail.subtotal")} value={formatAmount(proposal.subtotal, proposal.currency, locale)} />
+          <Row label={t("detail.tax")} value={formatAmount(proposal.taxAmount, proposal.currency, locale)} />
           <Row
             label={t("detail.total")}
-            value={formatAmount(proposal.totalAmount, proposal.currency)}
+            value={formatAmount(proposal.totalAmount, proposal.currency, locale)}
             emphasis
           />
         </dl>

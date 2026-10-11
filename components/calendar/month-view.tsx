@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { dateText } from "@/lib/i18n/format";
 import { instantFromLocal } from "@/lib/modules/calendar/calendar.time";
 import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";
 import { cn } from "@/lib/utils/cn";
@@ -169,7 +170,7 @@ export function MonthView({
           <DialogTitle>{overflowDay ? dayHeading(overflowDay, zone, today, words) : ""}</DialogTitle>
           <DialogDescription>
             {overflowDay
-              ? new Intl.DateTimeFormat(words.locale, { timeZone: zone, dateStyle: "full" }).format(instantFromLocal(overflowDay, "12:00", zone))
+              ? dateText(instantFromLocal(overflowDay, "12:00", zone), { timeZone: zone, dateStyle: "full" }, words.locale)
               : ""}
           </DialogDescription>
           <div className="mt-4 flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto">

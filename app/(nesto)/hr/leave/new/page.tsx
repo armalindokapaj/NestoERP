@@ -78,6 +78,7 @@ export default async function NewLeavePage() {
         }
         cancelHref="/hr/leave"
         submitLabel={t("leave.createRequest")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
       />
     </div>

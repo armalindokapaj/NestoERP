@@ -2,6 +2,8 @@ import * as React from "react";
 import { Pin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import type { Locale } from "@/lib/i18n/config";
+import { calendarParts, monthName } from "@/lib/i18n/format";
 import { PRIORITY_LABELS, type AnnouncementPriority, type AnnouncementStatus, STATUS_LABELS } from "@/lib/modules/announcements/announcement.types";
 import { cn } from "@/lib/utils/cn";
 import { AnnouncementsLabel, AnnouncementsText } from "./announcements-text";
@@ -11,20 +13,18 @@ import { AnnouncementsLabel, AnnouncementsText } from "./announcements-text";
  * Priority is a word as well as a mark; ordinary announcements carry none.
  */
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 /** "14 Sep 2026" in the reader's zone, with fixed month names so server and browser agree. */
-export function formatDay(iso: string | null, zone: string): string {
+export function formatDay(iso: string | null, zone: string, locale: Locale): string {
   if (!iso) return "—";
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: zone, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(new Date(iso));
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  return `${get("day")} ${MONTHS[get("month") - 1]} ${get("year")}`;
+  const at = calendarParts(new Date(iso), zone);
+  return `${at.day} ${monthName(at.month, "short", locale)} ${at.year}`;
 }
 
-export function formatDayTime(iso: string | null, zone: string): string {
+export function formatDayTime(iso: string | null, zone: string, locale: Locale): string {
   if (!iso) return "—";
-  const time = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
-  return `${formatDay(iso, zone)}, ${time}`;
+  const at = calendarParts(new Date(iso), zone);
+  const time = `${String(at.hour).padStart(2, "0")}:${String(at.minute).padStart(2, "0")}`;
+  return `${formatDay(iso, zone, locale)}, ${time}`;
 }
 
 export function PriorityMark({ priority, className }: { priority: AnnouncementPriority; className?: string }) {

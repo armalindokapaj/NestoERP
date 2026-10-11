@@ -1,6 +1,7 @@
 "use client";
 
 import { EditorStateScreen } from "@/components/3d/platform/editor/EditorStateScreen";
+import { useEditorWord } from "@/components/3d/platform/editor/editor-text";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -9,14 +10,15 @@ import { Button } from "@/components/ui/button";
  * The reference ties the failure to the server log without echoing it.
  */
 export default function ExperienceEditorError({ error }: { error: Error & { digest?: string }; reset: () => void }) {
+  const editorServerText = useEditorWord();
   return (
     <EditorStateScreen
-      code="Editor error"
-      title="The 3D editor encountered an error."
-      actions={<Button onClick={() => window.location.reload()}>Reload editor</Button>}
+      code={editorServerText("Editor error")}
+      title={editorServerText("The 3D editor encountered an error.")}
+      actions={<Button onClick={() => window.location.reload()}>{editorServerText("Reload editor")}</Button>}
     >
-      Changes saved before the error are kept. Reload to continue from the last saved draft.
-      {error.digest ? <span className="mt-3 block font-mono text-[11px] text-fg-subtle">Reference {error.digest}</span> : null}
+      {editorServerText("Changes saved before the error are kept. Reload to continue from the last saved draft.")}
+      {error.digest ? <span className="mt-3 block font-mono text-[11px] text-fg-subtle">{editorServerText("Reference {0}", error.digest)}</span> : null}
     </EditorStateScreen>
   );
 }

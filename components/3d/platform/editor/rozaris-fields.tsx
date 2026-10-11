@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils/cn";
+import { useEditorWord } from "./editor-text";
 
 /*
  * The Rozaris Web3D editor fields (experience-editor/fields.tsx), kept identical
@@ -119,6 +120,7 @@ export function SliderRow(props: SliderRowProps) {
 }
 
 function NumberReadout({ value, formatted, min, max, suffix, disabled, onChange, label }: { value: number; formatted: string; min: number; max: number; suffix: string; disabled?: boolean; onChange: (v: number) => void; label: string }) {
+  const editorServerText = useEditorWord();
   const [draft, setDraft] = React.useState<string | null>(null);
 
   function commit(raw: string) {
@@ -134,7 +136,7 @@ function NumberReadout({ value, formatted, min, max, suffix, disabled, onChange,
       <input
         type="text"
         inputMode="decimal"
-        aria-label={`${label} value`}
+        aria-label={editorServerText("{0} value", label)}
         value={draft ?? formatted}
         disabled={disabled}
         onClick={(e) => e.stopPropagation()}

@@ -1,11 +1,12 @@
 import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
-import { PriorityBadge, StatusBadge, statusLabel } from "@/components/modules/status-badge";
+import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
+import { formatDate } from "@/lib/i18n/format";
 import type { TaskSummaryDTO } from "@/lib/modules/tasks/task.types";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate } from "@/lib/utils/format";
+import { statusText } from "@/lib/i18n/modules/common/labels";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * The Tasks list (PRD #11 §31, §146, §147).
@@ -35,7 +36,9 @@ export async function TaskTable({
   /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("tasks");
+  const tCommon = await getTranslations("common");
   const grouped = tasks.some((task) => task.company);
   const sortable = Boolean(sort);
 
@@ -139,7 +142,7 @@ export async function TaskTable({
         task.dueDate ? (
           // Overdue is stated in words as well as colour (PRD #11 §200).
           <span className={task.isOverdue ? "font-medium text-danger-strong" : "text-fg-muted"}>
-            {formatDate(task.dueDate)}
+            {formatDate(task.dueDate, locale)}
             {task.isOverdue ? <span className="ml-1 text-meta">{t("common.overdue")}</span> : null}
           </span>
         ) : (
@@ -164,7 +167,7 @@ export async function TaskTable({
         facts: ["priority", "dueDate", "project"],
         omit: ["status"],
         label: (task) =>
-          [task.title, statusLabel(task.status), task.priority ? statusLabel(task.priority) : null, task.dueDate ? formatDate(task.dueDate) : null, task.project?.name]
+          [task.title, statusText(tCommon, task.status), task.priority ? statusText(tCommon, task.priority) : null, task.dueDate ? formatDate(task.dueDate, locale) : null, task.project?.name]
             .filter(Boolean)
             .join(", "),
       }}

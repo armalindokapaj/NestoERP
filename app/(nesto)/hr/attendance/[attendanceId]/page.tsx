@@ -12,10 +12,11 @@ import { can } from "@/lib/access/can";
 import { updateAttendanceAction } from "@/lib/actions/hr";
 import { requireModule } from "@/lib/context/current-user";
 import { committed } from "@/lib/forms/committed";
+import { formatDate } from "@/lib/i18n/format";
 import * as attendance from "@/lib/modules/hr/attendance/attendance.service";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ attendanceId: string }> };
 
@@ -32,6 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * own approved leave into a working day (PRD #16 §110).
  */
 export default async function AttendanceDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { attendanceId } = await params;
   const context = await requireModule("hr");
 
@@ -58,9 +60,9 @@ export default async function AttendanceDetailPage({ params }: Params) {
         breadcrumbs={[
           { label: t("meta.hr"), href: "/hr" },
           { label: t("meta.attendance"), href: "/hr/attendance" },
-          { label: `${record.employee.fullName} — ${formatDate(record.date)}` },
+          { label: `${record.employee.fullName} — ${formatDate(record.date, locale)}` },
         ]}
-        title={formatDate(record.date)}
+        title={formatDate(record.date, locale)}
         subtitle={record.employee.fullName}
         status={record.status}
         badges={record.isException ? <Badge tone="warning">{t("attendance.needsLook")}</Badge> : null}
@@ -107,7 +109,7 @@ export default async function AttendanceDetailPage({ params }: Params) {
             <AttendanceForm
               action={action}
               lockedDate={{
-                date: formatDate(record.date),
+                date: formatDate(record.date, locale),
                 employee: record.employee.fullName,
               }}
               values={{
@@ -121,6 +123,7 @@ export default async function AttendanceDetailPage({ params }: Params) {
               versionUpdatedAt={record.updatedAt}
               cancelHref="/hr/attendance"
               submitLabel={t("attendance.saveDay")}
+              saveKind="save"
               pendingLabel={t("common.saving")}
             />
           </div>

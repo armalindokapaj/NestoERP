@@ -44,6 +44,7 @@ export default async function NewToolboxTalkPage() {
         action={createToolboxTalkAction}
         cancelHref="/hse/toolbox-talks"
         submitLabel={t("page.recordTalk")}
+        saveKind="create"
         pendingLabel={t("page.recording")}
         projects={options.projects.map((project) => ({
           value: project.id,

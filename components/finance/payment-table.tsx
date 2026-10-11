@@ -5,9 +5,10 @@ import type { TableSortConfig } from "@/components/data/sort-header";
 import { Money } from "@/components/finance/money";
 import { VoidPaymentButton } from "@/components/finance/void-payment-button";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { PaymentSummaryDTO } from "@/lib/modules/finance/finance.types";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
 
 /** The payment list (PRD #15 §165). */
 const METHODS = new Set(["BANK_TRANSFER", "CARD", "CASH", "CHECK", "OTHER"]);
@@ -19,6 +20,7 @@ export async function PaymentTable({ payments, listId = "finance.payments", sort
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("finance");
   const columns: TableColumn<PaymentSummaryDTO>[] = [
     {
@@ -62,7 +64,7 @@ export async function PaymentTable({ payments, listId = "finance.payments", sort
       valueType: "date",
       sortKey: sort ? "date" : undefined,
       render: (payment) => (
-        <span className="text-fg-muted">{formatDate(payment.paymentDate)}</span>
+        <span className="text-fg-muted">{formatDate(payment.paymentDate, locale)}</span>
       ),
     },
     {

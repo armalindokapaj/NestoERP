@@ -80,6 +80,7 @@ export default async function NewInvoicePage({
         today={today}
         cancelHref="/finance/invoices"
         submitLabel={t("invoices.create")}
+        saveKind="create"
         pendingLabel={t("revise.creating")}
       />
     </div>

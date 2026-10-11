@@ -21,6 +21,14 @@ export type Locale = (typeof LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "en";
 
+/**
+ * The language text is written in when it is written to be kept: a notification's
+ * title, an activity line, anything stored and read later by people of either
+ * language. It is put into each reader's own language when it is read
+ * (lib/i18n/system), never when it is written.
+ */
+export const SOURCE_LOCALE: Locale = "en";
+
 /** Each language named in itself, so a reader finds theirs whatever is showing. */
 export const LOCALE_NAMES: Record<Locale, string> = {
   en: "English",

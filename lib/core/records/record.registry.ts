@@ -7,6 +7,7 @@ import { can } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import {
   buildAmendmentScopeWhere,
   buildContractScopeWhere,
@@ -1426,6 +1427,7 @@ const DEFINITIONS: RecordDefinition[] = [
     route: "/timesheets",
     viewPermissions: ["timesheet.view_own"],
     async find(context, id) {
+      const locale = await getRequestLocale();
       const { readableTimesheetWhere } = await import("@/lib/modules/timesheets/timesheet.permissions");
       const { dateOf, weekLabel } = await import("@/lib/modules/timesheets/timesheet.time");
       const row = await prisma.timesheet.findFirst({
@@ -1434,7 +1436,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return row && {
         type: "timesheet", id: row.id, companyId: row.companyId,
-        label: `Timesheet · ${row.member.user.firstName} ${row.member.user.lastName} · ${weekLabel(dateOf(row.periodStart))}`,
+        label: `Timesheet · ${row.member.user.firstName} ${row.member.user.lastName} · ${weekLabel(dateOf(row.periodStart), locale)}`,
         href: `/timesheets/${row.id}`, projectId: null, archived: false,
         stakeholderMemberIds: unique(row.memberId, row.approverMemberId),
       };
@@ -1459,6 +1461,7 @@ const DEFINITIONS: RecordDefinition[] = [
     activityEntityType: "DailyLog",
     viewPermissions: ["daily_log.view"],
     async find(context, id) {
+      const locale = await getRequestLocale();
       const { readableDailyLogWhere } = await import("@/lib/modules/daily-logs/daily-log.permissions");
       const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
       const row = await prisma.dailyLog.findFirst({
@@ -1467,7 +1470,7 @@ const DEFINITIONS: RecordDefinition[] = [
       });
       return row && {
         type: "daily_log", id: row.id, companyId: row.companyId,
-        label: `Daily log · ${row.project.name} · ${dateLabel(row.workDate.toISOString().slice(0, 10))}`,
+        label: `Daily log · ${row.project.name} · ${dateLabel(row.workDate.toISOString().slice(0, 10), locale)}`,
         href: `/projects/${row.projectId}/daily-logs/${row.id}`,
         projectId: row.projectId,
         archived: row.status === "VOID",

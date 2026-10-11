@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { usePathname, useRouter as useNextRouter, useSearchParams } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -37,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { UnsavedScope, useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { dateText } from "@/lib/i18n/format";
 import { unsaved, type SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import {
@@ -112,6 +114,7 @@ export function MeetingWorkspace({
   /** The star, rendered by the page (PRD #45 §75). */
   favorite?: React.ReactNode;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const nextRouter = useNextRouter();
   const pathname = usePathname();
@@ -194,7 +197,7 @@ export function MeetingWorkspace({
     { label: meeting.title },
   ];
 
-  const whenLine = `${meetingDay(meeting.startsAt, zone)} · ${meetingClock(meeting.startsAt, zone)}–${meetingClock(meeting.endsAt, zone)}`;
+  const whenLine = `${meetingDay(meeting.startsAt, zone, undefined, locale)} · ${meetingClock(meeting.startsAt, zone)}–${meetingClock(meeting.endsAt, zone)}`;
 
   const respond = caps.canRespond ? (
     <div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-0.5" role="group" aria-label={t("workspace.yourReply")}>
@@ -476,7 +479,7 @@ export function MeetingWorkspace({
                           <p className="text-fg">
                             {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("workspace.someone")}</span>} {entry.message ?? entry.action}
                           </p>
-                          <p className="text-meta text-fg-subtle">{new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(new Date(entry.createdAt))}</p>
+                          <p className="text-meta text-fg-subtle">{dateText(new Date(entry.createdAt), { dateStyle: "medium", timeStyle: "short", timeZone: zone }, locale)}</p>
                         </li>
                       ))}
                     </ol>
@@ -514,7 +517,7 @@ export function MeetingWorkspace({
                   label={t("workspace.calendar")}
                   value={
                     <Link href={`/calendar?view=day&date=${meetingDate(meeting.startsAt, zone)}`} className="inline-flex items-center gap-1 text-accent-strong hover:underline">
-                      {t("workspace.openDay", { day: meetingDay(meeting.startsAt, zone, { day: "numeric", month: "short" }) })}
+                      {t("workspace.openDay", { day: meetingDay(meeting.startsAt, zone, { day: "numeric", month: "short" }, locale) })}
                     </Link>
                   }
                 />

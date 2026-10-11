@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { formatDate } from "@/lib/i18n/format";
 import type { CredentialWorkItemDTO, CredentialWorklistDTO } from "@/lib/modules/hr/credentials/credential.types";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import type { Translate } from "@/lib/i18n/translator";
+import { CATEGORY_RULES } from "@/lib/modules/hr/documents/employee-document.types";
+import { QUALIFICATION_TYPE_RULES } from "@/lib/modules/hr/qualifications/qualification.types";
 import { hrLabel } from "./hr-labels";
-import { formatDate } from "@/lib/utils/format";
 
 /**
  * HR's credential worklists (E-02 §153, §154): a list of what to open, each
@@ -18,13 +20,27 @@ import { formatDate } from "@/lib/utils/format";
  * ones the server found this reader may act on.
  */
 
-function When({ item, view, t }: { item: CredentialWorkItemDTO; view: CredentialWorklistDTO["view"]; t: Translate<"hr"> }) {
-  if (view === "verify") return <span className="whitespace-nowrap text-fg-muted">{t("worklist.added", { date: formatDate(item.createdAt) })}</span>;
+/**
+ * "Document · Working contract" in the reader's language. The DTO carries the
+ * English line, so the kind's name is found by its English label.
+ */
+function kindText(t: Translate<"hr">, item: CredentialWorkItemDTO): string {
+  const document = item.kind === "employee_document";
+  const rules: Record<string, { label: string }> = document ? CATEGORY_RULES : QUALIFICATION_TYPE_RULES;
+  const english = item.kindLabel.slice(item.kindLabel.indexOf(" · ") + 3);
+  const key = Object.keys(rules).find((candidate) => rules[candidate].label === english);
+  if (!key) return item.kindLabel;
+  return t(document ? "worklist.kindDocument" : "worklist.kindQualification", { kind: hrLabel(t, document ? "documentCategory" : "qualificationType", key, english) });
+}
+
+async function When({ item, view, t }: { item: CredentialWorkItemDTO; view: CredentialWorklistDTO["view"]; t: Translate<"hr"> }) {
+  const locale = await getLocale();
+  if (view === "verify") return <span className="whitespace-nowrap text-fg-muted">{t("worklist.added", { date: formatDate(item.createdAt, locale) })}</span>;
   if (!item.expiryDate || item.daysToExpiry === null) return <span className="text-fg-subtle">—</span>;
   const overdue = item.daysToExpiry < 0;
   return (
     <span className={overdue ? "whitespace-nowrap text-danger-strong" : "whitespace-nowrap text-warning-strong"}>
-      {formatDate(item.expiryDate)}
+      {formatDate(item.expiryDate, locale)}
       <span className="block text-meta">{overdue ? t("worklist.daysAgo", { count: -item.daysToExpiry }) : item.daysToExpiry === 0 ? t("worklist.today") : t("worklist.inDays", { count: item.daysToExpiry })}</span>
     </span>
   );
@@ -58,7 +74,7 @@ export async function CredentialWorklist({ data }: { data: CredentialWorklistDTO
                   <Link href={item.href} className="font-medium text-fg hover:text-accent-strong hover:underline">
                     {item.title}
                   </Link>
-                  <span className="block text-meta text-fg-muted">{item.kindLabel}</span>
+                  <span className="block text-meta text-fg-muted">{kindText(t, item)}</span>
                 </TableCell>
                 <TableCell>{item.issuer ?? "—"}</TableCell>
                 <TableCell>
@@ -79,7 +95,7 @@ export async function CredentialWorklist({ data }: { data: CredentialWorklistDTO
             <Link href={item.href} className="nesto-card block space-y-1 p-3 hover:border-line-strong">
               <span className="block font-medium text-fg">{item.title}</span>
               <span className="block text-meta text-fg-muted">
-                {item.personName} · {item.kindLabel}
+                {item.personName} · {kindText(t, item)}
               </span>
               <span className="flex flex-wrap items-center gap-2 text-meta">
                 <When item={item} view={data.view} t={t} />

@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 import type { Locale } from "@/lib/3d/viewer/types";
+import { numberText } from "@/lib/i18n/format";
 
 /*
  * The Rozaris formatting helpers the Project viewer uses. `cn` keeps Rozaris'
@@ -13,8 +14,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const PRICE_INTL_LOCALE: Record<Locale, string> = { en: "en-US", sq: "sq-AL" };
-
 const CURRENCY_PREFIX: Record<string, string> = { EUR: "€", ALL: "L" };
 
 /**
@@ -22,12 +21,9 @@ const CURRENCY_PREFIX: Record<string, string> = { EUR: "€", ALL: "L" };
  * in any ISO currency; one Rozaris has no symbol for keeps its code instead.
  */
 export function formatPrice(amount: number, currency: string = "EUR", opts: { compact?: boolean; locale?: Locale } = {}) {
-  const intlLocale = PRICE_INTL_LOCALE[opts.locale ?? "sq"];
-  const formatter = opts.compact
-    ? new Intl.NumberFormat(intlLocale, { notation: "compact", maximumFractionDigits: 1 })
-    : new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 0 });
+  const text = numberText(amount, opts.compact ? { notation: "compact", maximumFractionDigits: 1 } : { maximumFractionDigits: 0 }, opts.locale ?? "sq", "en-US");
   const prefix = CURRENCY_PREFIX[currency];
-  return prefix ? `${prefix}${formatter.format(amount)}` : `${formatter.format(amount)} ${currency}`;
+  return prefix ? `${prefix}${text}` : `${text} ${currency}`;
 }
 
 export function formatArea(area: number) {

@@ -10,7 +10,7 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
 import { dailyLogReport } from "@/lib/modules/daily-logs/daily-log.reports";
 import { reportQuerySchema } from "@/lib/modules/daily-logs/daily-log.schema";
@@ -41,6 +41,7 @@ function Figure({ label, value, tone }: { label: string; value: string | number;
  * deliveries are not stock.
  */
 export default async function DailyLogReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const locale = await getLocale();
   const context = await requireModule("dailyLogs");
   if (!can(context, "daily_log.review")) redirect("/access-denied");
   const experience = resolveModuleExperience(context, "dailyLogs");
@@ -86,7 +87,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
 
         <section className="nesto-card px-5 py-4" aria-label={t("reports.totals")}>
           <p className="text-table text-fg-muted">
-            {dateLabel(report.from)} – {dateLabel(report.to)}
+            {dateLabel(report.from, locale)} – {dateLabel(report.to, locale)}
           </p>
           <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8" data-testid="daily-log-report-totals">
             <Figure label={t("reports.logs")} value={totals.logs} />
@@ -146,7 +147,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
                   <Link href={`/projects/${row.projectId}/daily-logs`} className="text-fg hover:text-accent-strong">
                     {row.name}
                   </Link>
-                  <span className="tabular-nums text-fg-muted">{shortDayLabel(row.date)}</span>
+                  <span className="tabular-nums text-fg-muted">{shortDayLabel(row.date, locale)}</span>
                 </li>
               ))}
             </ul>

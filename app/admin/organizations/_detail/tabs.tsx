@@ -10,6 +10,7 @@ import { AddGroupUser, GroupPersonActions } from "@/components/platform/group-us
 import { CompanyLeadershipSection } from "./company-detail";
 import { CompanyUsersPanel } from "@/components/platform/company-users-panel";
 import { PLATFORM_COMPANY_API } from "@/components/platform/company-users";
+import { formatDate, formatRelativeTime } from "@/lib/i18n/format";
 import { platformActor } from "@/lib/modules/platform/group-actor";
 import { AddOrganizationUser, OrganizationMemberActions } from "@/components/platform/organization-users";
 import { LinkRow } from "@/components/platform/link-row";
@@ -23,8 +24,7 @@ import {
 } from "@/lib/modules/platform/platform-organization-detail.query";
 import { attachableCompanies } from "@/lib/modules/platform/platform-organizations.query";
 import { cn } from "@/lib/utils/cn";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, formatRelativeTime } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { statusLabel, statusWord } from "./labels";
 import { FormSelect } from "@/components/ui/form-select";
 
@@ -117,6 +117,7 @@ export async function ProjectsTab({ context, scope, org }: { context: PlatformCo
       ]}
       variant="primary"
       submitLabel={t("tabs.projects.submit")}
+      saveKind="create"
       success={t("common.projectCreated")}
     />
   ) : null;
@@ -236,7 +237,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
                     {row.membershipId ? <Link href={tabHref(org, "users", { member: row.membershipId })} className="font-medium text-fg hover:underline">{row.name}</Link> : <span className="font-medium text-fg">{row.name}</span>}
                     <p className="font-mono text-micro text-fg-subtle">{row.email ?? row.username}</p>
                   </TableCell>
-                  <TableCell>{row.role}{row.roleKey === "CEO" ? <span className="ml-2 rounded border border-line px-1.5 py-0.5 text-micro font-medium text-fg-muted" data-testid="ceo-badge">{t("leadership.badge")}</span> : null}</TableCell>
+                  <TableCell>{adminRoleName(tr, row.role)}{row.roleKey === "CEO" ? <span className="ml-2 rounded border border-line px-1.5 py-0.5 text-micro font-medium text-fg-muted" data-testid="ceo-badge">{t("leadership.badge")}</span> : null}</TableCell>
                   {scope.kind === "group" ? <TableCell className="max-md:hidden">{row.company ? <Link href={`/admin/organizations/${row.company.id}?tab=users`} className="hover:underline">{row.company.name}</Link> : t("tabs.users.allCompanies")}</TableCell> : null}
                   <TableCell className="tabular-nums max-md:hidden">{row.membershipId ? row.projects.length : "—"}</TableCell>
                   <TableCell><AdminStatusBadge status={row.account !== "ACTIVE" ? row.account : row.membership} /></TableCell>
@@ -258,6 +259,7 @@ export async function UsersTab({ context, scope, org, params }: { context: Platf
 
 /** One user as this organization sees them (§23, §24); the platform account is one explicit link away. */
 async function MemberPanel({ context, scope, org, membershipId }: { context: PlatformContext; scope: OrganizationScope; org: Org; membershipId: string }) {
+  const locale = await getLocale();
   const tr = await getTranslations("roles");
   const t = await getTranslations("adminOrgs");
   const [member, { roles }, projects] = await Promise.all([organizationMember(context, scope, membershipId), organizationRoles(context, scope), organizationProjectOptions(context, scope)]);
@@ -283,13 +285,13 @@ async function MemberPanel({ context, scope, org, membershipId }: { context: Pla
           [t("tabs.member.department"), member.department ?? "—"],
           [t("tabs.member.statusHere"), member.status === "INACTIVE" ? t("statusLabel.REMOVED") : statusLabel(t, member.status)],
           [t("tabs.member.account"), statusLabel(t, member.user.status)],
-          [t("tabs.member.joined"), member.joinedAt ? formatDate(member.joinedAt) : "—"],
-          [t("tabs.member.lastSignIn"), member.user.lastLoginAt ? formatRelativeTime(member.user.lastLoginAt) : t("tabs.member.never")],
+          [t("tabs.member.joined"), member.joinedAt ? formatDate(member.joinedAt, locale) : "—"],
+          [t("tabs.member.lastSignIn"), member.user.lastLoginAt ? formatRelativeTime(member.user.lastLoginAt, locale) : t("tabs.member.never")],
         ] as const).map(([label, value]) => <div key={label}><dt className="text-meta text-fg-subtle">{label}</dt><dd className="text-body text-fg">{value}</dd></div>)}
       </dl>
       <h3 className="mt-5 text-table font-semibold text-fg">{t("common.projects")}</h3>
       {member.projects.length === 0 ? <p className="mt-1 text-table text-fg-muted">{t("tabs.member.noProjects", { company: member.company.name })}</p> : (
-        <ul className="mt-1 divide-y divide-line text-table">{member.projects.map((project) => <li key={project.id} className="flex justify-between gap-2 py-1.5"><Link href={`/admin/projects/${project.id}?from=${org.id}`} className="text-fg hover:underline">{project.name}</Link><span className="text-fg-muted">{project.role ?? ""}</span></li>)}</ul>
+        <ul className="mt-1 divide-y divide-line text-table">{member.projects.map((project) => <li key={project.id} className="flex justify-between gap-2 py-1.5"><Link href={`/admin/projects/${project.id}?from=${org.id}`} className="text-fg hover:underline">{project.name}</Link><span className="text-fg-muted">{project.role ? adminRoleName(tr, project.role) : ""}</span></li>)}</ul>
       )}
       <p className="mt-4 text-meta text-fg-subtle">{t("tabs.member.footer")}</p>
     </section>

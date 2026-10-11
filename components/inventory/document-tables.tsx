@@ -10,9 +10,9 @@ import type {
   ReturnSummaryDTO,
   TransferSummaryDTO,
 } from "@/lib/modules/inventory/inventory.types";
+import { formatDate } from "@/lib/i18n/format";
 import { adjustmentReasonLabels } from "@/lib/modules/inventory/inventory.status";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "./inventory-labels";
 
 /**
@@ -36,6 +36,7 @@ export async function ReceiptTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<ReceiptSummaryDTO>[] = [
     {
@@ -68,7 +69,7 @@ export async function ReceiptTable({
       valueType: "date",
       sortKey: sort ? "date" : undefined,
       label: t("columns.date"),
-      render: (row) => formatDate(row.receiptDate),
+      render: (row) => formatDate(row.receiptDate, locale),
     },
     {
       key: "lineCount",
@@ -117,6 +118,7 @@ export async function IssueTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<IssueSummaryDTO>[] = [
     {
@@ -168,7 +170,7 @@ export async function IssueTable({
       valueType: "date",
       sortKey: sort ? "date" : undefined,
       label: t("columns.date"),
-      render: (row) => formatDate(row.issueDate),
+      render: (row) => formatDate(row.issueDate, locale),
     },
     {
       key: "lineCount",
@@ -215,6 +217,7 @@ export async function ReturnTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<ReturnSummaryDTO>[] = [
     {
@@ -255,7 +258,7 @@ export async function ReturnTable({
       valueType: "date",
       sortKey: sort ? "date" : undefined,
       label: t("columns.date"),
-      render: (row) => formatDate(row.returnDate),
+      render: (row) => formatDate(row.returnDate, locale),
     },
     {
       key: "status",
@@ -293,6 +296,7 @@ export async function TransferTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<TransferSummaryDTO>[] = [
     {
@@ -329,7 +333,7 @@ export async function TransferTable({
       valueType: "date",
       sortKey: sort ? "date" : undefined,
       label: t("columns.date"),
-      render: (row) => formatDate(row.transferDate),
+      render: (row) => formatDate(row.transferDate, locale),
     },
     {
       key: "lineCount",
@@ -376,6 +380,7 @@ export async function AdjustmentTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("inventory");
   const columns: TableColumn<AdjustmentSummaryDTO>[] = [
     {
@@ -404,7 +409,7 @@ export async function AdjustmentTable({
       valueType: "date",
       sortKey: sort ? "date" : undefined,
       label: t("columns.date"),
-      render: (row) => formatDate(row.adjustmentDate),
+      render: (row) => formatDate(row.adjustmentDate, locale),
     },
     {
       key: "lineCount",

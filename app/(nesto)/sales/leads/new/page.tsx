@@ -44,6 +44,7 @@ export default async function NewLeadPage() {
         owners={owners}
         cancelHref="/sales/leads"
         submitLabel={t("pages.createLead")}
+        saveKind="create"
         pendingLabel={t("pages.creating")}
       />
     </div>

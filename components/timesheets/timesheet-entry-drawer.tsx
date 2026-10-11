@@ -4,6 +4,7 @@ import * as React from "react";
 import { Trash2 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDialogClose } from "@/components/ui/dialog";
@@ -110,6 +111,7 @@ function EntryForm({
   onDone: () => void;
   onSaved: (message: string) => Promise<void> | void;
 }) {
+  const locale = useLocale();
   const toast = useToast();
   const t = useTimesheetsTranslations();
   const close = useDialogClose();
@@ -265,7 +267,7 @@ function EntryForm({
           </label>
           <FormSelect id="entry-date" className={cn(selectClass, "mt-1.5")} value={workDate} onChange={(change) => setWorkDate(change.target.value)} aria-invalid={Boolean(errors.workDate)}>
             {selectable.map((day) => {
-              const label = dayLabel(day.date);
+              const label = dayLabel(day.date, locale);
               return (
                 <option key={day.date} value={day.date}>
                   {label.weekday} {label.day}

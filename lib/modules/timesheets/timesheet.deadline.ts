@@ -9,6 +9,9 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE, type Locale } from "@/lib/i18n/config";
+import { weekdayName } from "@/lib/i18n/format";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { instantFromLocal, localDate } from "@/lib/modules/calendar/calendar.time";
 import type { CalendarEventDTO, CalendarProvider } from "@/lib/modules/calendar/calendar.types";
 import { onBusinessDate } from "@/lib/modules/calendar/providers/provider.helpers";
@@ -27,7 +30,6 @@ import type { TimesheetSettingsDTO } from "./timesheet.types";
  * about, nothing missing and nothing on the calendar (§257).
  */
 
-const WEEKDAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 /** Reminders start this long before the deadline… */
 const REMIND_BEFORE_MS = 24 * 3_600_000;
 /** …and a week this far past it is left to Attention alone. */
@@ -36,26 +38,26 @@ const MEMBER_BATCH = 200;
 
 export type SubmissionDeadline = { date: string; time: string; instant: Date; label: string };
 
-export function submissionDeadline(periodStart: string, settings: Pick<TimesheetSettingsDTO, "submitDay" | "submitTime" | "timezone">): SubmissionDeadline | null {
+export function submissionDeadline(periodStart: string, settings: Pick<TimesheetSettingsDTO, "submitDay" | "submitTime" | "timezone">, locale: Locale = SOURCE_LOCALE): SubmissionDeadline | null {
   if (!settings.submitDay || !settings.submitTime) return null;
   let date = addLocalDays(periodStart, 4);
   while (isoWeekday(date) !== settings.submitDay) date = addLocalDays(date, 1);
   const instant = instantFromLocal(date, settings.submitTime, settings.timezone);
-  const day = dayLabel(date);
+  const day = dayLabel(date, locale);
   return { date, time: settings.submitTime, instant, label: `${day.weekday} ${day.day}, ${settings.submitTime}` };
 }
 
-export function deadlineDescription(settings: Pick<TimesheetSettingsDTO, "submitDay" | "submitTime">): string | null {
+export function deadlineDescription(settings: Pick<TimesheetSettingsDTO, "submitDay" | "submitTime">, locale: Locale = SOURCE_LOCALE): string | null {
   if (!settings.submitDay || !settings.submitTime) return null;
-  return `${WEEKDAY_NAMES[settings.submitDay]} ${settings.submitTime}`;
+  return `${weekdayName(settings.submitDay, "long", locale)} ${settings.submitTime}`;
 }
 
 /** The latest week whose deadline has passed, or null when the company has none (§213). */
-export function lastDueWeek(now: Date, settings: TimesheetSettingsDTO): string | null {
+export function lastDueWeek(now: Date, settings: TimesheetSettingsDTO, locale: Locale = SOURCE_LOCALE): string | null {
   if (!settings.submitDay || !settings.submitTime) return null;
   let week = weekStartOf(localDate(now, settings.timezone), settings.weekStartsOn);
   for (let guard = 0; guard < 3; guard += 1) {
-    const deadline = submissionDeadline(week, settings);
+    const deadline = submissionDeadline(week, settings, locale);
     if (deadline && deadline.instant.getTime() <= now.getTime()) return week;
     week = addLocalDays(week, -7);
   }
@@ -94,13 +96,13 @@ async function remindCompany(companyId: string, now: Date, totals: ReminderTotal
   const settings = await resolveTimesheetSettings(companyId);
   const current = weekStartOf(localDate(now, settings.timezone), settings.weekStartsOn);
   const due = [addLocalDays(current, -7), current].find((week) => {
-    const deadline = submissionDeadline(week, settings);
+    const deadline = submissionDeadline(week, settings, SOURCE_LOCALE);
     if (!deadline) return false;
     const until = deadline.instant.getTime() - now.getTime();
     return until <= REMIND_BEFORE_MS && -until <= REMIND_AFTER_MS;
   });
   if (!due) return;
-  const reminder = { due, weekLabel: weekLabel(due), deadlineLabel: submissionDeadline(due, settings)!.label };
+  const reminder = { due, weekLabel: weekLabel(due, SOURCE_LOCALE), deadlineLabel: submissionDeadline(due, settings, SOURCE_LOCALE)!.label };
 
   // Every active member, a page at a time by id: a large company is never cut off at a fixed count (PRD #51 §133-§138).
   let failed = 0;
@@ -189,6 +191,7 @@ export const timesheetDeadlineCalendarProvider: CalendarProvider = {
   capabilities: { draggable: false, resizable: false, quickEdit: false },
   enabled: (context) => timesheetsOpen(context) && can(context, "timesheet.submit_own"),
   async getEvents(input) {
+    const locale = await getRequestLocale();
     const { context, range, filters } = input;
     if (filters.categories?.length && !filters.categories.includes("PERSONAL")) return [];
     if (filters.memberIds?.length && !filters.memberIds.includes(context.membershipId)) return [];
@@ -200,7 +203,7 @@ export const timesheetDeadlineCalendarProvider: CalendarProvider = {
     const last = localDate(range.to, settings.timezone);
     const periods: Array<{ week: string; deadline: SubmissionDeadline }> = [];
     for (let week = first; week <= last && periods.length < 20; week = addLocalDays(week, 7)) {
-      const deadline = submissionDeadline(week, settings);
+      const deadline = submissionDeadline(week, settings, locale);
       if (deadline) periods.push({ week, deadline });
     }
     if (periods.length === 0) return [];
@@ -220,7 +223,7 @@ export const timesheetDeadlineCalendarProvider: CalendarProvider = {
         sourceId: row?.id ?? `week:${week}`,
         providerKey: "timesheets",
         title: `Timesheet due ${deadline.time}`,
-        subtitle: weekLabel(week),
+        subtitle: weekLabel(week, locale),
         category: "PERSONAL",
         status: done ? "SUBMITTED" : overdue ? "OVERDUE" : "DUE",
         severity: overdue ? "warning" : undefined,

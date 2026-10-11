@@ -54,6 +54,7 @@ export default async function EditLeavePage({ params }: Params) {
         versionUpdatedAt={request.updatedAt}
         cancelHref={`/hr/leave/${leaveId}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
       />
     </div>

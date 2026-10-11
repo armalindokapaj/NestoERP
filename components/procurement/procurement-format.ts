@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/i18n/config";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 import type { CurrencyTotal, MoneyDTO } from "@/lib/modules/procurement/procurement.types";
 import type { Translate } from "@/lib/i18n/translator";
@@ -8,15 +9,15 @@ import type { Translate } from "@/lib/i18n/translator";
  * Money is formatted from its decimal string and never parsed into a number for
  * arithmetic — the only thing a float touches here is the pixels.
  */
-export function moneyLabel(value: MoneyDTO | null): string | null {
+export function moneyLabel(value: MoneyDTO | null, locale: Locale): string | null {
   if (!value) return null;
-  return formatAmount(value.amount, value.currency);
+  return formatAmount(value.amount, value.currency, locale);
 }
 
 /** Several currencies are listed, never summed (PRD #19 §190). */
-export function totalsLabel(totals: CurrencyTotal[] | null): string {
+export function totalsLabel(totals: CurrencyTotal[] | null, locale: Locale): string {
   if (!totals || totals.length === 0) return "—";
-  return totals.map((total) => formatAmount(total.value, total.currency)).join(" · ");
+  return totals.map((total) => formatAmount(total.value, total.currency, locale)).join(" · ");
 }
 
 /** "3 of 8 received", said in words rather than only as a bar (PRD #19 §289). */

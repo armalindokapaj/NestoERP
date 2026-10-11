@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
@@ -30,6 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * clarify, close — and void for a mistake.
  */
 export default async function RfiPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId, rfiId } = await params;
   const context = await requireModule("engineering");
   const rfi = await orNotFound(getRfi(context, rfiId));
@@ -92,7 +93,7 @@ export default async function RfiPage({ params }: Params) {
                 { label: t("details.contractor"), value: <Ref value={rfi.contractor} /> },
                 { label: t("details.workPackage"), value: <Ref value={rfi.workPackage} /> },
                 { label: t("details.raisedBy"), value: rfi.raisedByText ?? (rfi.raisedBy ? <PersonLink memberId={rfi.raisedBy.id} name={rfi.raisedBy.name} /> : null) },
-                { label: t("details.answered"), value: rfi.answeredAt ? formatDateTime(rfi.answeredAt, settings.timezone) : null },
+                { label: t("details.answered"), value: rfi.answeredAt ? formatDateTime(rfi.answeredAt, settings.timezone, locale) : null },
               ]}
             />
           </Panel>

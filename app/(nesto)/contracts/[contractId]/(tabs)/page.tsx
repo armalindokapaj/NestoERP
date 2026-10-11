@@ -7,11 +7,14 @@ import { commercialLabel } from "@/components/contracts/contract-format";
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { RecordTasks } from "@/components/tasks/record-tasks";
+import type { Locale } from "@/lib/i18n/config";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import { renewalTypeLabels } from "@/lib/modules/contracts/contracts/contract.status";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { contractContext } from "../contract-context";
+import { StatusText } from "@/components/i18n/common-text";
 import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ contractId: string }> };
 
@@ -36,11 +39,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * leak the permission exists to prevent (PRD #18 §255, §495).
  */
 export default async function ContractOverviewPage({ params }: Params) {
+  const locale = await getLocale();
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
   const t = await getTranslations("contracts");
   const may = contract.capabilities;
-  const value = commercialLabel(contract.commercial, t);
+  const value = commercialLabel(contract.commercial, t, locale);
   const readOnly =
     contract.archivedAt !== null ||
     contract.status === "TERMINATED" ||
@@ -98,15 +102,15 @@ export default async function ContractOverviewPage({ params }: Params) {
               className="mt-4"
               columns={3}
               items={[
-                { label: t("detail.effective"), value: dateOrDash(contract.dates.effectiveDate) },
-                { label: t("detail.expiry"), value: dateOrDash(contract.dates.expiryDate) },
-                { label: t("detail.signed"), value: dateOrDash(contract.dates.signedDate) },
-                { label: t("detail.sent"), value: dateOrDash(contract.dates.sentAt) },
+                { label: t("detail.effective"), value: dateOrDash(contract.dates.effectiveDate, locale) },
+                { label: t("detail.expiry"), value: dateOrDash(contract.dates.expiryDate, locale) },
+                { label: t("detail.signed"), value: dateOrDash(contract.dates.signedDate, locale) },
+                { label: t("detail.sent"), value: dateOrDash(contract.dates.sentAt, locale) },
                 ...(contract.dates.terminationDate
                   ? [
                       {
                         label: t("detail.terminated"),
-                        value: formatDate(contract.dates.terminationDate),
+                        value: formatDate(contract.dates.terminationDate, locale),
                       },
                     ]
                   : []),
@@ -137,7 +141,7 @@ export default async function ContractOverviewPage({ params }: Params) {
                 },
                 {
                   label: t("detail.alertDate"),
-                  value: dateOrDash(contract.renewal.alertDate),
+                  value: dateOrDash(contract.renewal.alertDate, locale),
                 },
               ]}
             />
@@ -292,9 +296,9 @@ export default async function ContractOverviewPage({ params }: Params) {
                 {contract.activeAmendment.amendmentNumber} — {contract.activeAmendment.title}
               </p>
               <p className="mt-1 text-meta text-fg-subtle">
-                {contract.activeAmendment.status}
+                <StatusText status={contract.activeAmendment.status} />
                 {contract.activeAmendment.effectiveDate
-                  ? t("detail.effectiveOn", { date: formatDate(contract.activeAmendment.effectiveDate) })
+                  ? t("detail.effectiveOn", { date: formatDate(contract.activeAmendment.effectiveDate, locale) })
                   : ""}
               </p>
             </section>
@@ -303,13 +307,13 @@ export default async function ContractOverviewPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label={t("detail.created")} value={formatDateTime(contract.createdAt)} />
-              <Meta label={t("detail.updated")} value={formatDateTime(contract.updatedAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(contract.createdAt, locale)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(contract.updatedAt, locale)} />
               {contract.createdBy ? (
                 <Meta label={t("detail.draftedBy")} value={<PersonLink memberId={contract.createdBy.memberId} name={contract.createdBy.fullName} />} />
               ) : null}
               {contract.archivedAt ? (
-                <Meta label={t("detail.archived")} value={formatDateTime(contract.archivedAt)} />
+                <Meta label={t("detail.archived")} value={formatDateTime(contract.archivedAt, locale)} />
               ) : null}
             </dl>
           </section>
@@ -324,8 +328,8 @@ export default async function ContractOverviewPage({ params }: Params) {
 }
 
 /** A date, or a dash where there is no date to show. */
-function dateOrDash(value: string | null): string {
-  return value === null ? "—" : formatDate(value);
+function dateOrDash(value: string | null, locale: Locale): string {
+  return value === null ? "—" : formatDate(value, locale);
 }
 
 function Meta({ label, value }: { label: string; value: React.ReactNode }) {

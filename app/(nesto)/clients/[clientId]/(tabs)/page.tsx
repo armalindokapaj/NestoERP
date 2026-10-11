@@ -4,11 +4,13 @@ import Link from "@/components/navigation/nav-link";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDateTime } from "@/lib/i18n/format";
 import { clientTypeLabels } from "@/lib/modules/clients/client.status";
 import * as clients from "@/lib/modules/clients/client.service";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { clientsLabel } from "@/lib/i18n/modules/clients/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 import { loadClient } from "../client-context";
 
 type Params = { params: Promise<{ clientId: string }> };
@@ -36,6 +38,7 @@ export default async function ClientOverviewPage({ params }: Params) {
   const archived = client.archivedAt !== null || client.status === "ARCHIVED";
   const may = client.capabilities;
   const t = await getTranslations("clients");
+  const locale = await getLocale();
   const typeLabel = clientsLabel(t, "clientType", client.type, clientTypeLabels[client.type]);
   const activity = may.canViewActivity
     ? await clients.listActivity(context, clientId, { page: 1, limit: 5 })
@@ -157,10 +160,10 @@ export default async function ClientOverviewPage({ params }: Params) {
           <section className="nesto-card p-5">
             <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
-              <Meta label={t("detail.created")} value={formatDateTime(client.createdAt)} />
-              <Meta label={t("detail.updated")} value={formatDateTime(client.updatedAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(client.createdAt, locale)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(client.updatedAt, locale)} />
               {client.archivedAt ? (
-                <Meta label={t("detail.archived")} value={formatDateTime(client.archivedAt)} />
+                <Meta label={t("detail.archived")} value={formatDateTime(client.archivedAt, locale)} />
               ) : null}
             </dl>
           </section>
@@ -184,9 +187,9 @@ export default async function ClientOverviewPage({ params }: Params) {
                     <li key={entry.id} className="text-table">
                       <p className="text-fg">
                         {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("common.someone")}</span>}{" "}
-                        {entry.message ?? entry.action}
+                        {localizeActivity(locale, entry) ?? entry.action}
                       </p>
-                      <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt)}</p>
+                      <p className="text-meta text-fg-subtle">{formatDateTime(entry.createdAt, locale)}</p>
                     </li>
                   ))}
                 </ul>

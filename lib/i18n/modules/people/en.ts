@@ -17,7 +17,10 @@ export const peopleEn = {
       WORK_PERMIT: "Work permit",
       SAFETY_CERTIFICATE: "Safety certificate",
       TRAINING_CERTIFICATE: "Training certificate",
+      OTHER: "Other qualification",
     },
+    grantScope: { SYSTEM: "System", GROUP: "Group", COMPANY: "Company", DEPARTMENT: "Department", PROJECT: "Project", RECORD: "Record", ASSIGNED: "Assigned", SELF: "Self" },
+    grantLevel: { NONE: "None", VIEW: "View", CONTRIBUTE: "Contribute", APPROVE: "Approve", MANAGE: "Manage" },
     visibility: {
       PRIVATE: "Only me",
       EMPLOYEE_AND_HR: "Me and HR",

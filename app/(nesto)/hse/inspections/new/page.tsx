@@ -45,6 +45,7 @@ export default async function NewInspectionPage() {
         action={createInspectionAction}
         cancelHref="/hse/inspections"
         submitLabel={t("page.raiseInspection")}
+        saveKind="create"
         pendingLabel={t("page.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,

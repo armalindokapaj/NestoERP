@@ -60,6 +60,7 @@ export default async function EditDefectPage({ params }: Params) {
         versionUpdatedAt={defect.updatedAt}
         cancelHref={`/qaqc/defects/${defect.id}`}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         projects={options.projects.map((project) => ({
           value: project.id,

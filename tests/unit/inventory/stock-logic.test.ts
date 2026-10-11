@@ -320,28 +320,28 @@ describe("validation (PRD #20 §273–§279)", () => {
 
 describe("presentation (PRD #20 §328, §329)", () => {
   it("trims trailing zeros without rounding the value", () => {
-    expect(formatQuantity("12.0000")).toBe("12");
-    expect(formatQuantity("12.5000")).toBe("12.5");
-    expect(formatQuantity("0.0001")).toBe("0.0001");
+    expect(formatQuantity("12.0000", "en")).toBe("12");
+    expect(formatQuantity("12.5000", "en")).toBe("12.5");
+    expect(formatQuantity("0.0001", "en")).toBe("0.0001");
   });
 
   it("groups thousands", () => {
-    expect(formatQuantity("1234567.2500")).toBe("1,234,567.25");
+    expect(formatQuantity("1234567.2500", "en")).toBe("1,234,567.25");
   });
 
   it("says nothing rather than zero when there is no figure", () => {
-    expect(formatQuantity(null)).toBe("—");
-    expect(formatQuantity(undefined)).toBe("—");
-    expect(formatQuantity("")).toBe("—");
+    expect(formatQuantity(null, "en")).toBe("—");
+    expect(formatQuantity(undefined, "en")).toBe("—");
+    expect(formatQuantity("", "en")).toBe("—");
   });
 
   it("keeps the unit with the quantity, because a bare number means nothing", () => {
-    expect(withUnit("40.0000", "tonne")).toBe("40 tonne");
-    expect(withUnit(null, "tonne")).toBe("—");
+    expect(withUnit("40.0000", "tonne", "en")).toBe("40 tonne");
+    expect(withUnit(null, "tonne", "en")).toBe("—");
   });
 
   it("shows direction on a signed quantity (§71)", () => {
-    expect(formatSigned("-118.0000", "m3")).toBe("−118 m3");
-    expect(formatSigned("42.0000", "tonne")).toBe("+42 tonne");
+    expect(formatSigned("-118.0000", "m3", "en")).toBe("−118 m3");
+    expect(formatSigned("42.0000", "tonne", "en")).toBe("+42 tonne");
   });
 });

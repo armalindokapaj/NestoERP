@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -17,7 +18,7 @@ import { requireModule } from "@/lib/context/current-user";
 import * as inspectionService from "@/lib/modules/qaqc/inspections/inspection.service";
 import * as materials from "@/lib/modules/qaqc/materials/material.service";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
-import { formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 import { loadInspectionPage } from "../inspection-shell";
 
 type Params = { params: Promise<{ inspectionId: string }> };
@@ -36,6 +37,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One inspection (PRD #21 §60, §63–§65). */
 export default async function InspectionPage({ params }: Params) {
+  const locale = await getLocale();
   const { inspectionId } = await params;
   const { context, inspection } = await loadInspectionPage(inspectionId, "overview");
   const t = await getTranslations("qaqc");
@@ -223,7 +225,7 @@ export default async function InspectionPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("detail.created")} value={formatDateTime(inspection.createdAt)} />
+              <Meta label={t("detail.created")} value={formatDateTime(inspection.createdAt, locale)} />
               <Meta
                 label={t("inspectionPage.carriedOutBy")}
                 value={
@@ -235,14 +237,14 @@ export default async function InspectionPage({ params }: Params) {
                 }
               />
               {inspection.submittedAt ? (
-                <Meta label={t("detail.submitted")} value={formatDateTime(inspection.submittedAt)} />
+                <Meta label={t("detail.submitted")} value={formatDateTime(inspection.submittedAt, locale)} />
               ) : null}
               {inspection.approvedAt ? (
                 <Meta
                   label={t("inspectionPage.approved")}
                   value={
                     <>
-                      {formatDateTime(inspection.approvedAt)}
+                      {formatDateTime(inspection.approvedAt, locale)}
                       {inspection.approvedBy ? (
                         <>
                           {" "}
@@ -258,7 +260,7 @@ export default async function InspectionPage({ params }: Params) {
                   label={t("inspectionPage.rejected")}
                   value={
                     <>
-                      {formatDateTime(inspection.rejectedAt)}
+                      {formatDateTime(inspection.rejectedAt, locale)}
                       {inspection.rejectedBy ? (
                         <>
                           {" "}
@@ -270,7 +272,7 @@ export default async function InspectionPage({ params }: Params) {
                 />
               ) : null}
               {inspection.closedAt ? (
-                <Meta label={t("detail.closed")} value={formatDateTime(inspection.closedAt)} />
+                <Meta label={t("detail.closed")} value={formatDateTime(inspection.closedAt, locale)} />
               ) : null}
             </dl>
           </section>

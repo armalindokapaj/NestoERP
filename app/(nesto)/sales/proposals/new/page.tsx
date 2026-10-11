@@ -65,6 +65,7 @@ export default async function NewProposalPage({
           }
           cancelHref="/sales/proposals"
           submitLabel={t("pages.createProposal")}
+          saveKind="create"
           pendingLabel={t("pages.creating")}
         />
       )}

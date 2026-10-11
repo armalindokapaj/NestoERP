@@ -2,6 +2,7 @@ import Link from "@/components/navigation/nav-link";
 import { Camera, NotebookPen } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { getLocale } from "@/lib/i18n/server";
 import { shortDayLabel } from "@/lib/modules/daily-logs/daily-log.time";
 import type { DailyLogListItemDTO } from "@/lib/modules/daily-logs/daily-log.types";
 import { DailyLogsText } from "./daily-logs-text";
@@ -12,7 +13,8 @@ import { CorrectedBadge, DailyLogStatusBadge, LateEntryBadge } from "./daily-log
  * badges, what it says, and its numbers — a card per log, which reads the same
  * on a phone and a desktop.
  */
-export function DailyLogList({ items, showProject, emptyTitle, emptyDescription, action }: { items: DailyLogListItemDTO[]; showProject: boolean; emptyTitle: string; emptyDescription: string; action?: { label: string; href: string } }) {
+export async function DailyLogList({ items, showProject, emptyTitle, emptyDescription, action }: { items: DailyLogListItemDTO[]; showProject: boolean; emptyTitle: string; emptyDescription: string; action?: { label: string; href: string } }) {
+  const locale = await getLocale();
   if (items.length === 0) return <EmptyState icon={<NotebookPen />} title={emptyTitle} description={emptyDescription} action={action} />;
   return (
     <ul className="nesto-card divide-y divide-line" data-testid="daily-log-list">
@@ -20,7 +22,7 @@ export function DailyLogList({ items, showProject, emptyTitle, emptyDescription,
         <li key={item.id}>
           <Link href={item.href} className="flex flex-col gap-2 px-4 py-3.5 transition-colors hover:bg-row-hover sm:flex-row sm:items-center sm:gap-4 sm:px-5" data-testid="daily-log-row">
             <span className="w-28 shrink-0">
-              <span className="block text-table font-semibold text-fg">{shortDayLabel(item.workDate)}</span>
+              <span className="block text-table font-semibold text-fg">{shortDayLabel(item.workDate, locale)}</span>
               <span className="block text-meta text-fg-subtle">{item.workDate.slice(0, 4)}</span>
             </span>
             <span className="min-w-0 flex-1">

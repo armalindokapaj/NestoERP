@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDateTime } from "@/lib/i18n/format";
 import type { ProcurementApprovalDTO } from "@/lib/modules/procurement/procurement.types";
-import { formatDateTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
 /**
@@ -19,6 +19,7 @@ export async function ProcurementApprovalHistory({
   approvals: ProcurementApprovalDTO[];
   emptyLabel?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("procurement");
   if (approvals.length === 0) {
     return (
@@ -46,8 +47,8 @@ export async function ProcurementApprovalHistory({
               ) : null}
             </p>
             <p className="text-meta text-fg-subtle">
-              {formatDateTime(approval.submittedAt)}
-              {approval.decidedAt ? ` · ${t("history.decidedAt", { date: formatDateTime(approval.decidedAt) })}` : ""}
+              {formatDateTime(approval.submittedAt, locale)}
+              {approval.decidedAt ? ` · ${t("history.decidedAt", { date: formatDateTime(approval.decidedAt, locale) })}` : ""}
             </p>
             {approval.decisionNote ? (
               <p className="mt-1 text-meta text-fg-muted">{approval.decisionNote}</p>

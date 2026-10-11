@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -15,7 +16,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
 import * as defects from "@/lib/modules/qaqc/defects/defect.service";
-import { formatDate, formatDateTime, orDash } from "@/lib/utils/format";
+import { orDash } from "@/lib/utils/format";
 
 type Params = { params: Promise<{ defectId: string }> };
 
@@ -33,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One defect (PRD #21 §112, §118, §119). */
 export default async function DefectPage({ params }: Params) {
+  const locale = await getLocale();
   const { defectId } = await params;
   const context = await requireModule("qaqc");
   const t = await getTranslations("qaqc");
@@ -72,7 +74,7 @@ export default async function DefectPage({ params }: Params) {
               t("common.notAssigned")
             ),
           },
-          { label: t("detail.due"), value: defect.dueDate ? formatDate(defect.dueDate) : t("common.noDate") },
+          { label: t("detail.due"), value: defect.dueDate ? formatDate(defect.dueDate, locale) : t("common.noDate") },
         ]}
         actions={<DefectActions defect={defect} />}
       />
@@ -137,7 +139,7 @@ export default async function DefectPage({ params }: Params) {
                 ) : (
                   t("common.somebody")
                 )}
-                {defect.resolvedAt ? t("detail.onDate", { date: formatDate(defect.resolvedAt) }) : ""}.
+                {defect.resolvedAt ? t("detail.onDate", { date: formatDate(defect.resolvedAt, locale) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -192,13 +194,13 @@ export default async function DefectPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("detail.raised")} value={formatDateTime(defect.createdAt)} />
+              <Meta label={t("detail.raised")} value={formatDateTime(defect.createdAt, locale)} />
               {defect.closedAt ? (
                 <Meta
                   label={t("detail.closed")}
                   value={
                     <>
-                      {formatDateTime(defect.closedAt)}
+                      {formatDateTime(defect.closedAt, locale)}
                       {defect.closedBy ? (
                         <>
                           {" "}
@@ -210,7 +212,7 @@ export default async function DefectPage({ params }: Params) {
                 />
               ) : null}
               {defect.cancelledAt ? (
-                <Meta label={t("detail.cancelled")} value={formatDateTime(defect.cancelledAt)} />
+                <Meta label={t("detail.cancelled")} value={formatDateTime(defect.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

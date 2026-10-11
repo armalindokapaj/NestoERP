@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { orderReadableBy, planOrderChain, resolveApprovalPolicy } from "@/lib/modules/procurement/approvals/approval.policy";
 import * as procurementApprovals from "@/lib/modules/procurement/approvals/approval.service";
 import { approveOrder, rejectOrder, returnOrder } from "@/lib/modules/procurement/orders/order.service";
@@ -61,6 +62,7 @@ export const procurementApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const rows = await prisma.purchaseRequest.findMany({
           where: { AND: [buildRequestScopeWhere(context), { id: { in: ids } }] },
           select: {
@@ -98,14 +100,14 @@ export const procurementApprovalProvider = createCycleProvider({
                   { label: "Project", value: row.project?.name ?? "—" },
                   { label: "Department", value: row.department?.name ?? "—" },
                   { label: "Priority", value: row.priority.charAt(0) + row.priority.slice(1).toLowerCase() },
-                  { label: "Needed by", value: formatDate(row.requiredDate) },
+                  { label: "Needed by", value: formatDate(row.requiredDate, locale) },
                   { label: "Lines", value: String(row._count.items) },
-                  { label: "Estimated total", value: formatAmount(row.estimatedTotal, row.currency), emphasis: "strong" },
+                  { label: "Estimated total", value: formatAmount(row.estimatedTotal, row.currency, locale), emphasis: "strong" },
                 ],
                 description: row.description,
                 warnings:
                   row.requiredDate && row.requiredDate.getTime() - today.getTime() < 7 * DAY
-                    ? [{ code: "NEEDED_SOON", message: `Needed by ${formatDate(row.requiredDate)} — little time is left to source it.`, severity: "WARNING" }]
+                    ? [{ code: "NEEDED_SOON", message: `Needed by ${formatDate(row.requiredDate, locale)} — little time is left to source it.`, severity: "WARNING" }]
                     : [],
               },
             ];
@@ -141,6 +143,7 @@ export const procurementApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const [rows, policy] = await Promise.all([
           prisma.purchaseOrder.findMany({
             where: { AND: [buildOrderScopeWhere(context), { id: { in: ids } }] },
@@ -191,23 +194,23 @@ export const procurementApprovalProvider = createCycleProvider({
               { label: "Supplier", value: row.supplier.name },
               { label: "Project", value: row.project?.name ?? "—" },
               { label: "Purchase request", value: row.purchaseRequest?.requestNumber ?? "—" },
-              { label: "Order date", value: formatDate(row.orderDate) },
-              { label: "Delivery required", value: formatDate(row.requiredDate) },
+              { label: "Order date", value: formatDate(row.orderDate, locale) },
+              { label: "Delivery required", value: formatDate(row.requiredDate, locale) },
               { label: "Lines", value: String(row._count.items) },
-              { label: "Subtotal", value: formatAmount(row.subtotal, row.currency) },
-              { label: "Tax", value: formatAmount(row.taxAmount, row.currency) },
-              { label: "PO total", value: formatAmount(row.totalAmount, row.currency), emphasis: "strong" },
+              { label: "Subtotal", value: formatAmount(row.subtotal, row.currency, locale) },
+              { label: "Tax", value: formatAmount(row.taxAmount, row.currency, locale) },
+              { label: "PO total", value: formatAmount(row.totalAmount, row.currency, locale), emphasis: "strong" },
             ];
             if (seeQuotes && comparable.length > 0) {
               const lowest = comparable.reduce((best, quote) => (quote.totalAmount.lt(best.totalAmount) ? quote : best));
               const isLowest = lowest.id === row.supplierQuoteId;
               summary.push({
                 label: "Quotes",
-                value: `${comparable.length} received${isLowest ? " · this is the lowest" : ` · lowest ${formatAmount(lowest.totalAmount, lowest.currency)}`}`,
+                value: `${comparable.length} received${isLowest ? " · this is the lowest" : ` · lowest ${formatAmount(lowest.totalAmount, lowest.currency, locale)}`}`,
                 emphasis: isLowest ? "normal" : "warning",
               });
               if (!isLowest && row.supplierQuoteId) {
-                warnings.push({ code: "NOT_LOWEST_QUOTE", message: `A lower quote of ${formatAmount(lowest.totalAmount, lowest.currency)} was received.`, severity: "INFO" });
+                warnings.push({ code: "NOT_LOWEST_QUOTE", message: `A lower quote of ${formatAmount(lowest.totalAmount, lowest.currency, locale)} was received.`, severity: "INFO" });
               }
             }
             return [

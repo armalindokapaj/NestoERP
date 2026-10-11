@@ -6,9 +6,10 @@ import { Pagination } from "@/components/data/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
 import type { UserContext } from "@/lib/context/types";
+import { formatRelativeTime } from "@/lib/i18n/format";
 import * as activity from "@/lib/modules/hse/hse.activity";
-import { formatRelativeTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 
 /**
  * One record's history (PRD #22 §196, §197).
@@ -39,6 +40,7 @@ export async function HseActivityFeed({
 }) {
   const result = await activity.listRecordActivity(context, entityType, entityId, { page, limit: 50 });
   const t = await getTranslations("hse");
+  const locale = await getLocale();
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (buildHref && result.pagination.page !== page) redirect(buildHref(result.pagination.page));
 
@@ -60,10 +62,10 @@ export async function HseActivityFeed({
             <span className="font-medium">
               {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : t("activity.somebody")}
             </span>{" "}
-            <span className="text-fg-muted">{entry.message ?? entry.action}</span>
+            <span className="text-fg-muted">{localizeActivity(locale, entry) ?? entry.action}</span>
           </p>
           <time className="shrink-0 text-meta text-fg-subtle" dateTime={entry.createdAt}>
-            {formatRelativeTime(entry.createdAt)}
+            {formatRelativeTime(entry.createdAt, locale)}
           </time>
         </li>
       ))}

@@ -3,11 +3,13 @@
 import * as React from "react";
 import { Check, CornerUpLeft, Loader2, MessageSquarePlus, X } from "lucide-react";
 
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { numberText } from "@/lib/i18n/format";
 import type { ApprovalDecision, UnifiedApprovalItem } from "@/lib/modules/approvals/approvals.types";
 import { cn } from "@/lib/utils/cn";
 import { useApprovalDraft, useForgetApprovalDrafts } from "./approval-drafts";
@@ -247,6 +249,7 @@ function ReasonDialog(props: ReasonDialogProps) {
 }
 
 function ReasonForm({ decision, item, pending, failure, onSubmit }: ReasonDialogProps) {
+  const locale = useLocale();
   const [reason, setReason] = useApprovalDraft(`${item.id}:reason:${decision}`, "");
   const [error, setError] = React.useState<string | null>(null);
   // A refusal belongs here once this dialog has sent something (AUD-10 §4).
@@ -299,7 +302,7 @@ function ReasonForm({ decision, item, pending, failure, onSubmit }: ReasonDialog
           <span />
         )}
         <span id={`${id}-count`} className="shrink-0 text-meta tabular-nums text-fg-subtle">
-          {reason.length.toLocaleString("en-GB")} / 5,000
+          {numberText(reason.length, undefined, locale)} / 5,000
         </span>
       </div>
       {sent && failure && !busy ? <DialogFailure failure={failure} /> : null}
@@ -329,8 +332,9 @@ type StrongApproveProps = {
 };
 
 function StrongApproveDialog(props: StrongApproveProps) {
+  const locale = useLocale();
   const { open, item, pending, onOpenChange } = props;
-  const amount = formatMoney(item.amount);
+  const amount = formatMoney(item.amount, locale);
   const lastStep = !item.totalSteps || item.currentStep === item.totalSteps;
   const t = useApprovalsTranslations();
   const noun = useApprovalsWord()(item.sourceLabel).toLowerCase();
@@ -355,10 +359,11 @@ function StrongApproveDialog(props: StrongApproveProps) {
 }
 
 function StrongApproveForm({ item, pending, failure, initialNote, onConfirm }: StrongApproveProps) {
+  const locale = useLocale();
   const [note, setNote] = useApprovalDraft(`${item.id}:strongNote`, initialNote);
   const [sent, setSent] = React.useState(false);
   const id = React.useId();
-  const amount = formatMoney(item.amount);
+  const amount = formatMoney(item.amount, locale);
   const t = useApprovalsTranslations();
 
   // Approving is a workflow step: the prompt never approves (AUD-03 §3). The

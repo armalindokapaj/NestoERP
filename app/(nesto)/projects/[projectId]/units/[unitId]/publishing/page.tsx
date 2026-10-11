@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { PublicationBadge, ReadinessPanel, UnpublishedChangesBadge } from "@/components/project-structure/unit-page/publication-badge";
 import { listUnitPublications } from "@/lib/modules/project-structure/unit-publishing.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadUnitPage, UnitShell } from "../unit-page";
 
 type Params = { params: Promise<{ projectId: string; unitId: string }> };
@@ -21,6 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * header, the same on every section of the unit.
  */
 export default async function UnitPublishingPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId, unitId } = await params;
   const page = await loadUnitPage(projectId, unitId);
   const { context, unit, publishing } = page;
@@ -48,18 +49,18 @@ export default async function UnitPublishingPage({ params }: Params) {
                   label: t("unitPage.currentVersion"),
                   value: current ? (
                     <>
-                      v{current.versionNumber} · {formatDateTime(current.publishedAt)}
+                      v{current.versionNumber} · {formatDateTime(current.publishedAt, locale)}
                       {current.publishedBy ? <> · <PersonLink memberId={current.publishedByMemberId} name={current.publishedBy} /></> : null}
                     </>
                   ) : (
                     t("unitPage.neverPublished")
                   ),
                 },
-                { label: t("unitPage.statusSince"), value: publishing.statusChangedAt ? formatDateTime(publishing.statusChangedAt) : "—" },
+                { label: t("unitPage.statusSince"), value: publishing.statusChangedAt ? formatDateTime(publishing.statusChangedAt, locale) : "—" },
                 ...(publishing.pendingRequest
                   ? [
                       { label: t("unitPage.submittedBy"), value: publishing.pendingRequest.submittedBy ? <PersonLink memberId={publishing.pendingRequest.submittedByMemberId} name={publishing.pendingRequest.submittedBy} /> : "—" },
-                      { label: t("unitPage.submitted"), value: formatDateTime(publishing.pendingRequest.submittedAt) },
+                      { label: t("unitPage.submitted"), value: formatDateTime(publishing.pendingRequest.submittedAt, locale) },
                     ]
                   : []),
               ]}
@@ -93,7 +94,7 @@ export default async function UnitPublishingPage({ params }: Params) {
                           {t("unitPage.versionPublished", { version: row.versionNumber })}
                         </Link>
                         {row.isCurrent ? <span className="text-meta font-medium text-success-strong">{t("unitPage.current")}</span> : null}
-                        <span className="text-fg-muted">{formatDateTime(row.publishedAt)}</span>
+                        <span className="text-fg-muted">{formatDateTime(row.publishedAt, locale)}</span>
                         {row.publishedBy ? <span className="text-fg-muted">{t("unitPage.by")} <PersonLink memberId={row.publishedByMemberId} name={row.publishedBy} /></span> : null}
                       </span>
                       {row.salesPlanVersionNumber ? <span className="text-meta text-fg-subtle">{t("unitPage.salesPlanVersion", { version: row.salesPlanVersionNumber })}</span> : null}

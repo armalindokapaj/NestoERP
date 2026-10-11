@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 
-import { LOCALE_COOKIE, readLocale, type Locale } from "./config";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, readLocale, type Locale } from "./config";
 import { messages } from "./messages";
 import { moduleMessages, type ModuleMessages, type ModuleNamespace } from "./modules";
 import { siteCopy, type SiteCopy } from "./site";
@@ -12,6 +12,25 @@ export const getLocale = cache(async (): Promise<Locale> => {
   const cookieStore = await cookies();
   return readLocale(cookieStore.get(LOCALE_COOKIE)?.value);
 });
+
+/**
+ * The reader's language for code that may run with no reader at all: a service
+ * called by a job, a script or a test as well as by a page or a route. Inside a
+ * request it is `getLocale`; with no request there is nobody to translate for,
+ * and it answers English.
+ *
+ * Next's own signals — a redirect, a bail-out to dynamic rendering — carry a
+ * `digest` and are passed on untouched: swallowing one would let a page be
+ * rendered once, in English, for everybody.
+ */
+export async function getRequestLocale(): Promise<Locale> {
+  try {
+    return await getLocale();
+  } catch (error) {
+    if (typeof (error as { digest?: unknown } | null)?.digest === "string") throw error;
+    return DEFAULT_LOCALE;
+  }
+}
 
 /** `t` for a Server Component, a route's metadata or a server action. */
 export async function getTranslations<N extends Namespace>(namespace: N): Promise<Translate<N>> {

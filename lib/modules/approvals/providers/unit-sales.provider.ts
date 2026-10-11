@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/can";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import { approveUnitSale, rejectUnitSale } from "@/lib/modules/sales/units/unit-sale-approval.service";
 import { createCycleProvider, type CycleTable, type RecordFacts } from "../approvals.cycle-provider";
@@ -42,6 +43,7 @@ export const unitSalesApprovalProvider = createCycleProvider({
         return rows.map((row) => row.id);
       },
       async hydrate(context, ids) {
+        const locale = await getRequestLocale();
         const seesClients = can(context, "client.view");
         const rows = await prisma.projectUnit.findMany({
           where: { AND: [readableUnitWhere(context), { id: { in: ids } }] },
@@ -72,10 +74,10 @@ export const unitSalesApprovalProvider = createCycleProvider({
                 href: `/projects/${row.projectId}/units/${row.id}/sales`,
                 dueAt: reservation?.expiresAt ?? null,
                 summary: [
-                  { label: "Agreed price", value: reservation ? formatAmount(reservation.agreedPrice, reservation.currency) : "—", emphasis: "strong" as const },
-                  { label: "Asking price", value: formatAmount(row.commercialProfile?.askingPrice, row.commercialProfile?.currency) },
+                  { label: "Agreed price", value: reservation ? formatAmount(reservation.agreedPrice, reservation.currency, locale) : "—", emphasis: "strong" as const },
+                  { label: "Asking price", value: formatAmount(row.commercialProfile?.askingPrice, row.commercialProfile?.currency, locale) },
                   ...(seesClients && reservation ? [{ label: "Client", value: reservation.client.name }] : []),
-                  { label: "Reserved until", value: formatDate(reservation?.expiresAt) },
+                  { label: "Reserved until", value: formatDate(reservation?.expiresAt, locale) },
                 ],
                 description: null,
                 warnings: reservation ? [] : [{ code: "RESERVATION_ENDED", message: "The reservation has ended; this request can no longer be approved.", severity: "WARNING" }],

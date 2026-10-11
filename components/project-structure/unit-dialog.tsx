@@ -105,10 +105,10 @@ function attributesPayload(attributes: UnitAttributes): UnitAttributes {
  * sent (AUD-09 §3, FV-04): `1,234` is refused with both readings offered, the
  * same sentence finance gives.
  */
-export function technicalProblems(values: TechnicalValues): Record<string, string> {
+export function technicalProblems(values: TechnicalValues, areaLabel: (field: (typeof AREA_FIELDS)[number]) => string = (field) => AREA_LABELS[field]): Record<string, string> {
   const found: Record<string, string> = {};
   for (const field of AREA_FIELDS) {
-    const problem = decimalProblem(values.areas[field], areaRule(AREA_LABELS[field]));
+    const problem = decimalProblem(values.areas[field], areaRule(areaLabel(field)));
     if (problem) found[field] = problem;
   }
   return found;
@@ -323,7 +323,7 @@ function UnitForm({
     const local: Record<string, string> = {};
     if (!code.trim()) local.unitCode = t("unitDialog.codeRequired");
     if (!technical.unitTypeId) local.unitTypeId = t("unitDialog.typeRequired");
-    Object.assign(local, technicalProblems(technical));
+    Object.assign(local, technicalProblems(technical, (field) => t(`area.${field}`)));
     if (Object.keys(local).length) {
       setErrors(local);
       return INVALID;

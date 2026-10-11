@@ -11,6 +11,9 @@
  * sessionStorage; entries an older version left there are removed once.
  */
 
+import type { Locale } from "@/lib/i18n/config";
+import { relativeTimeText } from "@/lib/i18n/format";
+
 export const ACTIVITY_CHANNEL = "nesto-activity";
 const LEGACY_CACHE_PREFIX = "nesto-activity:";
 const SEEN_LIMIT = 50;
@@ -85,19 +88,6 @@ export function clearActivityCache(): void {
 }
 
 /** "4 min ago", in the reader's language. */
-export function relativeTime(iso: string, locale: string, now = Date.now()): string {
-  const seconds = Math.round((new Date(iso).getTime() - now) / 1000);
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["year", 31_536_000],
-    ["month", 2_592_000],
-    ["week", 604_800],
-    ["day", 86_400],
-    ["hour", 3_600],
-    ["minute", 60],
-  ];
-  for (const [unit, size] of units) {
-    if (Math.abs(seconds) >= size) return formatter.format(Math.round(seconds / size), unit);
-  }
-  return formatter.format(0, "second");
+export function relativeTime(iso: string, locale: Locale, now = Date.now()): string {
+  return relativeTimeText(iso, locale, now, { tag: "en" });
 }

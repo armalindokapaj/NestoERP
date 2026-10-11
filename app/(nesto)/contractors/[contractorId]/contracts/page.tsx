@@ -1,4 +1,5 @@
-import { getTranslations } from "@/lib/i18n/server";
+import { numberText } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
@@ -13,6 +14,7 @@ import { listContractorCompliance } from "@/lib/modules/contractors/contractor.c
 import { getContractor } from "@/lib/modules/contractors/contractor.service";
 import { companyToday } from "@/lib/modules/engineering/engineering.settings";
 import { LEGAL_COMPLIANCE_TYPES } from "@/lib/modules/contractors/contractor.types";
+import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
 import { statusLabel } from "@/lib/utils/status";
 
 type Params = { params: Promise<{ contractorId: string }> };
@@ -28,12 +30,14 @@ export async function generateMetadata(): Promise<Metadata> {
  * of these records; this page only gathers what the reader may already open.
  */
 export default async function ContractorContractsPage({ params }: Params) {
+  const locale = await getLocale();
   const { contractorId } = await params;
   const context = await requireModule("contractors");
   const contractor = await orNotFound(getContractor(context, contractorId));
   if (!contractor.capabilities.canViewContracts) redirect("/access-denied");
   const [summary, compliance, { today }] = await Promise.all([contractorLegalSummary(context, contractor.id), contractor.capabilities.canViewCompliance ? listContractorCompliance(context, contractor.id) : Promise.resolve([]), companyToday(context.companyId)]);
   const t = await getTranslations("contractors");
+  const tContracts = await getTranslations("contracts");
   const guarantees = compliance.filter((item) => LEGAL_COMPLIANCE_TYPES.includes(item.type));
 
   return (
@@ -65,7 +69,7 @@ export default async function ContractorContractsPage({ params }: Params) {
                     </Link>
                     <p className="text-meta text-fg-muted">{row.via.join(" · ")}</p>
                   </TableCell>
-                  <TableCell className="text-fg-muted">{statusLabel(row.type)}</TableCell>
+                  <TableCell className="text-fg-muted">{contractsLabel(tContracts, "contractType", row.type, statusLabel(row.type))}</TableCell>
                   <TableCell>
                     <ReviewBadge status={row.status} />
                   </TableCell>
@@ -76,7 +80,7 @@ export default async function ContractorContractsPage({ params }: Params) {
                   <TableCell>
                     <Due date={row.expiryDate} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{row.value ? `${Number(row.value).toLocaleString("en-GB", { minimumFractionDigits: 2 })} ${row.currency ?? ""}` : <span className="text-fg-subtle">—</span>}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.value ? `${numberText(Number(row.value), { minimumFractionDigits: 2 }, locale)} ${row.currency ?? ""}` : <span className="text-fg-subtle">—</span>}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

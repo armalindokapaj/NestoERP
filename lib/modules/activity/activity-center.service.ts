@@ -7,6 +7,8 @@ import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { getUnreadCountForWorkspace, markAllReadForWorkspace, markRecordNotificationsRead, readableRows, WITHDRAWN_TITLE, withdrawnNotificationIds } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
 import { addLocalDays, isValidTimeZone, startOfLocalDay } from "@/lib/core/time/zoned-time";
+import { SOURCE_LOCALE, type Locale } from "@/lib/i18n/config";
+import { localizeNotification } from "@/lib/i18n/system";
 import { excerpt } from "@/lib/modules/announcements/announcement.body";
 import { announcementsOpen, reachWhere } from "@/lib/modules/announcements/announcement.permissions";
 import { acknowledgeAnnouncement, live, markRead as markAnnouncementRead, markSeenMany } from "@/lib/modules/announcements/announcement.service";
@@ -222,7 +224,7 @@ async function announcementItems(contexts: UserContext[], filters: ActivityFilte
 /* Notifications                                                               */
 /* -------------------------------------------------------------------------- */
 
-async function notificationItems(contexts: UserContext[], filters: ActivityFilters, before: Date | null, take: number): Promise<ActivityCenterItem[]> {
+async function notificationItems(contexts: UserContext[], filters: ActivityFilters, before: Date | null, take: number, locale: Locale): Promise<ActivityCenterItem[]> {
   const term = filters.q?.trim();
   const fetched = await prisma.notification.findMany({
     where: {
@@ -267,12 +269,14 @@ async function notificationItems(contexts: UserContext[], filters: ActivityFilte
     const context = companies.get(row.companyId)!;
     const actorKey = row.actorMemberId ? `${row.companyId}:${row.actorMemberId}` : null;
     const gone = withdrawn.has(row.id);
+    // Stored in English, said in the reader's language (lib/i18n/system); the search above still runs on what is stored.
+    const text = localizeNotification(locale, { eventType: row.eventType, title: gone ? WITHDRAWN_TITLE : row.title, body: gone ? null : row.body });
     return {
       key: `NOTIFICATION:${row.id}`,
       id: row.id,
       sourceType: "NOTIFICATION",
-      title: gone ? WITHDRAWN_TITLE : row.title,
-      bodyPreview: gone ? null : row.body,
+      title: text.title,
+      bodyPreview: text.body,
       createdAt: row.createdAt.toISOString(),
       readState: row.readState === "UNREAD" ? "UNREAD" : "READ",
       priority: NOTIFICATION_PRIORITY[row.priority] ?? "NORMAL",
@@ -301,6 +305,10 @@ async function notificationItems(contexts: UserContext[], filters: ActivityFilte
  * One page of the merged stream, newest first by cursor (§7, §8, §73-§75).
  * The first page carries the critical announcements still waiting on the
  * person above the chronology; they are not repeated below it.
+ *
+ * `locale` is who is reading: a page or a route passes the reader's, and a
+ * notification's title and body come back in it. Anything else that calls
+ * this — a job, an export, a test — passes none and gets the stored English.
  */
 /** Day filters as instants in the session company's zone; plain instants pass through (AUD-08 §3). */
 async function zonedRange(session: UserContext, filters: ActivityFilters): Promise<ActivityFilters> {
@@ -314,7 +322,7 @@ async function zonedRange(session: UserContext, filters: ActivityFilters): Promi
   };
 }
 
-export async function listActivity(session: UserContext, input: ActivityFilters = {}): Promise<ActivityPage> {
+export async function listActivity(session: UserContext, input: ActivityFilters = {}, locale: Locale = SOURCE_LOCALE): Promise<ActivityPage> {
   const started = performance.now();
   const filters = await zonedRange(session, input);
   const all = await resolvePersonalContexts(session);
@@ -326,7 +334,7 @@ export async function listActivity(session: UserContext, input: ActivityFilters 
   const cursor = filters.cursor && !Number.isNaN(cursorAt?.getTime()) ? filters.cursor : null;
 
   const [notifications, announcements] = await Promise.all([
-    type === "ANNOUNCEMENT" ? Promise.resolve([]) : notificationItems(contexts, filters, cursor ? cursorAt : null, limit + 25),
+    type === "ANNOUNCEMENT" ? Promise.resolve([]) : notificationItems(contexts, filters, cursor ? cursorAt : null, limit + 25, locale),
     type === "NOTIFICATION" ? Promise.resolve([]) : announcementItems(all, { ...filters, companyId: filters.companyId }, now),
   ]);
 

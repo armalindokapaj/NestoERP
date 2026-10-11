@@ -1,4 +1,6 @@
 import { FILE_TYPES } from "@/lib/core/storage/file-type.registry";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
+import { moduleName } from "@/lib/i18n/modules/organization/labels";
 import { createTranslator, type MessageKey, type Translate } from "@/lib/i18n/translator";
 
 import { documentsEn } from "./en";
@@ -32,9 +34,32 @@ export function fileTypeLabel(t: Translate<"documents">, label: string): string 
   return key ? documentsLabel(t, "fileType", key, label) : label;
 }
 
-/** A document context's English label ("Project", "Client", a module) in the reader's language. */
-export function contextLabel(t: Translate<"documents">, label: string): string {
-  return documentsLabel(t, "context", label, label);
+/** What a document's context says about where it sits, and the frame translators that name it. */
+export type ContextSource = {
+  module: string | null;
+  entityType: string | null;
+  common: Translate<"common">;
+  modules: Translate<"modules">;
+};
+
+/**
+ * A document context's English label ("Project", "Client", a record noun or a
+ * module name) in the reader's language. The four fixed labels are this
+ * module's own; a record's noun reads from its type and a module's name from
+ * its key, which the DTO carries beside the label.
+ */
+export function contextLabel(t: Translate<"documents">, label: string, from?: ContextSource): string {
+  const key = `labels.context.${label}` as MessageKey<"documents">;
+  const text = t(key);
+  if (text !== key) return text;
+  if (!from) return label;
+  if (from.entityType) {
+    const noun = recordTypeName(from.common, from.entityType, label);
+    if (noun !== label) return noun;
+  }
+  const squashed = (value: string) => value.toLowerCase().replace(/[^a-z]/g, "");
+  if (from.module && squashed(label) === squashed(from.module)) return moduleName(from.modules, from.module, label);
+  return label;
 }
 
 /** The storage state's message, keyed by status; `message` shows when the dictionary has none. */

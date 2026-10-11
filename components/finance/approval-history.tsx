@@ -1,8 +1,9 @@
 import { FinanceText } from "@/components/finance/finance-text";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale } from "@/lib/i18n/server";
 import type { FinanceApprovalDTO } from "@/lib/modules/finance/finance.types";
-import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * Every approval cycle a record has been through (PRD #15 §145).
@@ -11,7 +12,8 @@ import { formatDateTime } from "@/lib/utils/format";
  * reads as the sequence of decisions it actually was — including the rejections
  * and why (PRD #15 §64).
  */
-export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[] }) {
+export async function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[] }) {
+  const locale = await getLocale();
   if (approvals.length === 0) {
     return (
       <p className="mt-4 text-table text-fg-subtle">
@@ -31,7 +33,7 @@ export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[]
             </span>
           </div>
           <p className="mt-0.5 text-meta text-fg-subtle">
-            {formatDateTime(approval.submittedAt)}
+            {formatDateTime(approval.submittedAt, locale)}
           </p>
 
           {approval.decision ? (
@@ -41,7 +43,7 @@ export function ApprovalHistory({ approvals }: { approvals: FinanceApprovalDTO[]
                 <PersonLink memberId={approval.decision.memberId} name={approval.decision.fullName} />
               </p>
               <p className="mt-0.5 text-meta text-fg-subtle">
-                {formatDateTime(approval.decision.decidedAt)}
+                {formatDateTime(approval.decision.decidedAt, locale)}
               </p>
               {approval.decision.note ? (
                 <p className="mt-1 text-table text-fg-muted">{approval.decision.note}</p>

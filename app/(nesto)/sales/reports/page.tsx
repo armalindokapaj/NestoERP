@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { ChartColumn } from "lucide-react";
@@ -174,11 +174,13 @@ function ReportShell({
   );
 }
 
-function Totals({ totals }: { totals: CurrencyTotal[] }) {
-  return <span className="tabular-nums">{totalsLabel(totals)}</span>;
+async function Totals({ totals }: { totals: CurrencyTotal[] }) {
+  const locale = await getLocale();
+  return <span className="tabular-nums">{totalsLabel(totals, locale)}</span>;
 }
 
 async function PipelineReport({ context, company }: { context: UserContext; company?: string }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const rows = await reports.pipelineByStageForWorkspace(context, company);
 
@@ -215,7 +217,7 @@ async function PipelineReport({ context, company }: { context: UserContext; comp
       label: t("reports.weighted"),
       align: "right",
       render: (row) => (
-        <span className="tabular-nums text-fg-muted">{weightedTotalsLabel(row.totals)}</span>
+        <span className="tabular-nums text-fg-muted">{weightedTotalsLabel(row.totals, locale)}</span>
       ),
     },
   ];
@@ -231,6 +233,7 @@ async function PipelineReport({ context, company }: { context: UserContext; comp
 }
 
 async function ExpectedCloseReport({ context, company }: { context: UserContext; company?: string }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const buckets = await reports.expectedCloseReportForWorkspace(context, company);
 
@@ -245,7 +248,7 @@ async function ExpectedCloseReport({ context, company }: { context: UserContext;
   }
 
   const columns: TableColumn<(typeof buckets)[number]>[] = [
-    { key: "label", label: t("reports.when"), primary: true, render: (row) => row.label },
+    { key: "label", label: t("reports.when"), primary: true, render: (row) => salesLabel(t, "forecastBucket", row.key, row.label) },
     {
       key: "count",
       label: t("reports.deals"),
@@ -262,7 +265,7 @@ async function ExpectedCloseReport({ context, company }: { context: UserContext;
       label: t("reports.weighted"),
       align: "right",
       render: (row) => (
-        <span className="tabular-nums text-fg-muted">{weightedTotalsLabel(row.totals)}</span>
+        <span className="tabular-nums text-fg-muted">{weightedTotalsLabel(row.totals, locale)}</span>
       ),
     },
   ];
@@ -286,6 +289,7 @@ async function WinLossReport({
   period: reports.ReportPeriod;
   company?: string;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const report = await reports.winLossReportForWorkspace(context, period, company);
 
@@ -295,8 +299,8 @@ async function WinLossReport({
       description={t("reports.winLossDescription")}
     >
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card label={t("reports.won")} value={totalsLabel(report.won)} hint={t("reports.dealsCount", { count: report.wonCount })} />
-        <Card label={t("reports.lost")} value={totalsLabel(report.lost)} hint={t("reports.dealsCount", { count: report.lostCount })} />
+        <Card label={t("reports.won")} value={totalsLabel(report.won, locale)} hint={t("reports.dealsCount", { count: report.wonCount })} />
+        <Card label={t("reports.lost")} value={totalsLabel(report.lost, locale)} hint={t("reports.dealsCount", { count: report.lostCount })} />
         <Card
           label={t("reports.winRate")}
           value={report.winRate === null ? "—" : `${report.winRate}%`}

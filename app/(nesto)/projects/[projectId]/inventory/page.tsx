@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Package } from "lucide-react";
@@ -46,6 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * overstate every job that ever returns anything (PRD #20 §185).
  */
 export default async function ProjectInventoryPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
   const t = await getTranslations("projects");
@@ -107,7 +108,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
       key: "issued",
       label: t("inventoryTab.issued"),
       align: "right",
-      render: (row) => <span className="tabular-nums">{formatQuantity(row.issued)}</span>,
+      render: (row) => <span className="tabular-nums">{formatQuantity(row.issued, locale)}</span>,
     },
     {
       key: "returned",
@@ -115,7 +116,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
       align: "right",
       hideBelow: "md",
       render: (row) => (
-        <span className="tabular-nums text-fg-muted">{formatQuantity(row.returned)}</span>
+        <span className="tabular-nums text-fg-muted">{formatQuantity(row.returned, locale)}</span>
       ),
     },
     {
@@ -124,7 +125,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
       align: "right",
       render: (row) => (
         <span className="tabular-nums font-medium">
-          {formatQuantity(row.netIssued)} {row.item.baseUnit}
+          {formatQuantity(row.netIssued, locale)} {row.item.baseUnit}
         </span>
       ),
     },

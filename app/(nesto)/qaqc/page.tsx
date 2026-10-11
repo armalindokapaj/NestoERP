@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 
@@ -13,7 +14,6 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { qaqcAttention, qaqcOverview } from "@/lib/modules/qaqc/overview/overview.service";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
-import { formatDate } from "@/lib/utils/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("qaqc");
@@ -28,6 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * NCRs gets a working page rather than one with holes in it.
  */
 export default async function QaqcOverviewPage() {
+  const locale = await getLocale();
   const context = await requireModule("qaqc");
   const t = await getTranslations("qaqc");
   const experience = resolveModuleExperience(context, "qaqc");
@@ -99,7 +100,7 @@ export default async function QaqcOverviewPage() {
                 id: row.id,
                 href: `/qaqc/defects/${row.id}`,
                 title: `${row.defectNumber} — ${row.title}`,
-                meta: `${qaqcLabel(t, "severity", row.severity)}${row.dueDate ? t("overview.due", { date: formatDate(row.dueDate) }) : ""}`,
+                meta: `${qaqcLabel(t, "severity", row.severity)}${row.dueDate ? t("overview.due", { date: formatDate(row.dueDate, locale) }) : ""}`,
               }))}
             />
           ) : null}
@@ -128,7 +129,7 @@ export default async function QaqcOverviewPage() {
                 href: `/qaqc/requests/${row.id}`,
                 title: `${row.requestNumber} — ${row.title}`,
                 meta: row.requiredByDate
-                  ? t("overview.neededBy", { date: formatDate(row.requiredByDate) })
+                  ? t("overview.neededBy", { date: formatDate(row.requiredByDate, locale) })
                   : t("overview.noDate"),
               }))}
             />

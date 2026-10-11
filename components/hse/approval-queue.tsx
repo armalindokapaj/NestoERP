@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 
@@ -20,11 +21,16 @@ import {
   rejectRiskAssessmentAction,
   type HseActionResult,
 } from "@/lib/actions/hse";
-import { approvalRecordTypeLabels } from "@/lib/modules/hse/hse.status";
+import { formatRelativeTime } from "@/lib/i18n/format";
+import { INSPECTION_TYPES, approvalRecordTypeLabels } from "@/lib/modules/hse/hse.status";
 import type { ApprovalQueueItemDTO } from "@/lib/modules/hse/hse.types";
-import { formatRelativeTime } from "@/lib/utils/format";
 import { useHseServerText, useHseTranslations } from "@/components/hse/hse-text";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
+
+/** An inspection's queue title is its type, spelled out in lower case; the stored value it came from. */
+function inspectionTypeOf(item: ApprovalQueueItemDTO) {
+  return item.recordType === "INSPECTION" ? INSPECTION_TYPES.find((value) => value.replace(/_/g, " ").toLowerCase() === item.title) : undefined;
+}
 
 /**
  * The HSE approval queue (PRD #22 §181, §182).
@@ -37,6 +43,7 @@ import { hseLabel } from "@/lib/i18n/modules/hse/labels";
  * Decided rows stay, so the queue doubles as the record of who signed what.
  */
 export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
+  const locale = useLocale();
   const t = useHseTranslations();
   const router = useRouter();
   const toast = useToast();
@@ -110,10 +117,12 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                   )}
                   <Badge tone="neutral">{hseLabel(t, "approvalRecordType", item.recordType, approvalRecordTypeLabels[item.recordType])}</Badge>
                   <StatusBadge status={item.status} />
-                  {item.riskLabel ? <Badge tone="warning">{item.riskLabel}</Badge> : null}
+                  {item.riskLabel ? <Badge tone="warning">{hseLabel(t, item.recordType === "INSPECTION" ? "inspectionResult" : "riskLevel", item.riskLabel, item.riskLabel)}</Badge> : null}
                 </p>
                 {item.title ? (
-                  <p className="mt-0.5 text-table capitalize text-fg-muted">{item.title}</p>
+                  <p className={inspectionTypeOf(item) ? "mt-0.5 text-table text-fg-muted" : "mt-0.5 text-table capitalize text-fg-muted"}>
+                    {inspectionTypeOf(item) ? hseLabel(t, "inspectionType", inspectionTypeOf(item)!, item.title) : item.title}
+                  </p>
                 ) : null}
                 <p className="mt-1 text-meta text-fg-subtle">
                   {item.project ? `${item.project.code} · ` : ""}
@@ -123,12 +132,12 @@ export function ApprovalQueue({ items }: { items: ApprovalQueueItemDTO[] }) {
                   ) : (
                     t("action.detail.somebody")
                   )}{" "}
-                  {formatRelativeTime(item.submittedAt)}
+                  {formatRelativeTime(item.submittedAt, locale)}
                 </p>
                 {item.decidedBy ? (
                   <p className="mt-1 text-meta text-fg-subtle">
                     {t("approvals.decided")} {t("record.by")} <PersonLink memberId={item.decidedBy.memberId} name={item.decidedBy.fullName} />
-                    {item.decidedAt ? ` ${formatRelativeTime(item.decidedAt)}` : ""}
+                    {item.decidedAt ? ` ${formatRelativeTime(item.decidedAt, locale)}` : ""}
                     {item.decisionNote ? ` — ${item.decisionNote}` : ""}
                   </p>
                 ) : null}

@@ -5,6 +5,7 @@ import { Building2, Loader2 } from "lucide-react";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { useToast } from "@/components/ui/toast";
 import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";
 
@@ -17,6 +18,7 @@ export type ChooseCompanyOption = { id: string; name: string; roleLabel: string 
  */
 export function ChooseCompany({ companies, destination }: { companies: ChooseCompanyOption[]; destination: string }) {
   const t = useTranslations("workspace");
+  const tr = useTranslations("roles");
   const toast = useToast();
   const feedback = useNavigationFeedback();
   const [pending, setPending] = React.useState<string | null>(null);
@@ -56,7 +58,7 @@ export function ChooseCompany({ companies, destination }: { companies: ChooseCom
             )}
             <span className="flex min-w-0 flex-col">
               <span className="truncate text-table font-medium text-fg">{company.name}</span>
-              <span className="truncate text-micro text-fg-muted">{company.roleLabel}</span>
+              <span className="truncate text-micro text-fg-muted">{adminRoleName(tr, company.roleLabel)}</span>
             </span>
           </button>
         </li>

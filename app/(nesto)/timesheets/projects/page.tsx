@@ -13,7 +13,7 @@ import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
 import { projectTimeSummary } from "@/lib/modules/timesheets/timesheet.reports";
 import { parseProjectSummaryQuery } from "@/lib/modules/timesheets/timesheet.schema";
@@ -53,6 +53,7 @@ function Bars({ items, total, testId }: { items: Array<{ key: string; label: Rea
  * wrote shown only to readers who oversee them. No costs, no scores.
  */
 export default async function ProjectTimePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const locale = await getLocale();
   const context = await requireModule("timesheets");
   const experience = resolveModuleExperience(context, "timesheets");
   const params = await searchParams;
@@ -143,7 +144,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
           <div className="flex flex-wrap items-baseline gap-2">
             <h2 className="text-section font-semibold text-fg">{summary.project ? summary.project.name : t("projects.allProjects")}</h2>
             <span className="text-table text-fg-muted">
-              {dayLabel(summary.from).day} – {dayLabel(summary.to).day} {summary.to.slice(0, 4)} · {summary.approvedOnly ? t("projects.approvedWeeks") : t("projects.allLoggedTime")}
+              {dayLabel(summary.from, locale).day} – {dayLabel(summary.to, locale).day} {summary.to.slice(0, 4)} · {summary.approvedOnly ? t("projects.approvedWeeks") : t("projects.allLoggedTime")}
             </span>
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -196,7 +197,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
               <section className={cn("nesto-card px-5 py-4", summary.project && "lg:col-span-1")} aria-labelledby="by-week">
                 <h2 id="by-week" className="text-card font-semibold text-fg">{t("projects.byWeek")}</h2>
                 <div className="mt-3">
-                  <Bars testId="by-week" total={Math.max(...summary.byWeek.map((row) => row.minutes))} items={summary.byWeek.map((row) => ({ key: row.weekStart, label: weekLabel(row.weekStart), minutes: row.minutes }))} />
+                  <Bars testId="by-week" total={Math.max(...summary.byWeek.map((row) => row.minutes))} items={summary.byWeek.map((row) => ({ key: row.weekStart, label: weekLabel(row.weekStart, locale), minutes: row.minutes }))} />
                 </div>
               </section>
             </div>
@@ -223,7 +224,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
                   {summary.entries.map((entry) => (
                     <tr key={entry.id} className="hover:bg-row-hover">
                       <td className="whitespace-nowrap px-5 py-2 tabular-nums text-fg-muted">
-                        {dayLabel(entry.workDate).weekday} {dayLabel(entry.workDate).day}
+                        {dayLabel(entry.workDate, locale).weekday} {dayLabel(entry.workDate, locale).day}
                       </td>
                       <td className="px-3 py-2 text-fg">
                         <PersonLink memberId={entry.member.memberId} name={entry.member.name} />

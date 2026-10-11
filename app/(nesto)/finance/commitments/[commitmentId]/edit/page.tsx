@@ -71,6 +71,7 @@ export default async function EditCommitmentPage({ params }: Params) {
         versionUpdatedAt={commitment.updatedAt}
         cancelHref={`/finance/commitments/${commitment.id}`}
         submitLabel={t("edit.save")}
+        saveKind="save"
         pendingLabel={t("settings.saving")}
       />
     </div>

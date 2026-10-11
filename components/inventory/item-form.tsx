@@ -45,6 +45,7 @@ export function ItemForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   warehouses,
   locations,
@@ -55,6 +56,7 @@ export function ItemForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   warehouses: { value: string; label: string }[];
   locations: { value: string; label: string; warehouseId: string }[];
@@ -93,6 +95,7 @@ export function ItemForm({
       module="inventory"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

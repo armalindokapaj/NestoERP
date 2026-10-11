@@ -56,6 +56,7 @@ export default async function EditToolboxTalkPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/toolbox-talks/${talkId}`}
         submitLabel={t("page.saveTalk")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={talk.updatedAt}
         projects={options.projects.map((project) => ({

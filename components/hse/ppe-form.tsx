@@ -47,6 +47,7 @@ export function PpeForm({
   values,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
   members,
@@ -56,6 +57,7 @@ export function PpeForm({
   values?: PpeFormValues;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: Option[];
   members: Option[];
@@ -74,6 +76,7 @@ export function PpeForm({
       action={action}
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
     >
       <FormSection

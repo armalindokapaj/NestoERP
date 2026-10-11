@@ -101,6 +101,7 @@ export default async function EditContractPage({ params }: Params) {
         action={action}
         cancelHref={cancelHref}
         submitLabel={t("common.saveChanges")}
+        saveKind="save"
         pendingLabel={t("common.saving")}
         versionUpdatedAt={contract.updatedAt}
         canEditCommercial={commercial}

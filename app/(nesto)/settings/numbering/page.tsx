@@ -4,6 +4,7 @@ import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { NumberingSchemeForm } from "@/components/settings/numbering-scheme-form";
 import { isModuleKey } from "@/config/modules";
 import { getTranslations } from "@/lib/i18n/server";
+import type { MessageKey, Translate } from "@/lib/i18n/translator";
 import { listNumberingSchemes } from "@/lib/modules/settings/numbering.service";
 import { requireSettingsSection } from "../settings-access";
 
@@ -17,6 +18,13 @@ function entityLabel(entityType: string): string {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+/** A numbered record type's name in the reader's language; one the dictionary lacks keeps its title-cased type. */
+function entityName(t: Translate<"settings">, entityType: string): string {
+  const key = `numbering.entities.${entityType}` as MessageKey<"settings">;
+  const text = t(key);
+  return text === key ? entityLabel(entityType) : text;
 }
 
 /**
@@ -59,7 +67,7 @@ export default async function NumberingSettingsPage() {
               <NumberingSchemeForm
                 key={`${scheme.moduleKey}:${scheme.entityType}`}
                 scheme={scheme}
-                label={entityLabel(scheme.entityType)}
+                label={entityName(t, scheme.entityType)}
               />
             ))}
           </div>

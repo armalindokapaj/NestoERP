@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { actionFailure, validationFailure, type ActionFailure } from "@/lib/actions/result";
 import { committed } from "@/lib/forms/committed";
 import { requireCompanyContext } from "@/lib/context/current-user";
@@ -46,9 +47,9 @@ export type ClientActionResult =
  * unexpected. The soft duplicate is read first: it is a question for the
  * person ("Create anyway"), not a refusal to explain.
  */
-function toResult(error: unknown): ClientActionResult {
+async function toResult(error: unknown): Promise<ClientActionResult> {
   if (error instanceof clients.DuplicateClientError) {
-    return { ok: false, code: "DUPLICATE_SUSPECTED", category: "conflict", error: error.message, duplicates: error.matches };
+    return localizeActionFailure({ ok: false, code: "DUPLICATE_SUSPECTED", category: "conflict" as const, error: error.message, duplicates: error.matches });
   }
   return actionFailure(error, "clients");
 }

@@ -9,8 +9,8 @@ import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { ScrollRegion } from "@/components/ui/scroll-region";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { budgetLabel, loadBudget } from "../budget-context";
 
 type Params = { params: Promise<{ budgetId: string }> };
@@ -33,6 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * which is the only comparison that means anything (PRD #15 §118).
  */
 export default async function BudgetDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { budgetId } = await params;
   const { context, budget } = await loadBudget(budgetId);
 
@@ -145,7 +146,7 @@ export default async function BudgetDetailPage({ params }: Params) {
                 },
                 {
                   label: t("recordStatus.APPROVED"),
-                  value: budget.approvedAt ? formatDate(budget.approvedAt) : "—",
+                  value: budget.approvedAt ? formatDate(budget.approvedAt, locale) : "—",
                 },
                 { label: t("budgets.draftedBy"), value: budget.createdBy ? <PersonLink memberId={budget.createdBy.memberId} name={budget.createdBy.fullName} /> : "—" },
               ]}

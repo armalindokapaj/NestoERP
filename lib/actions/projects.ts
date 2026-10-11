@@ -39,7 +39,7 @@ export type ActionResult = { ok: true; redirectTo?: string } | ActionFailure;
  * code and the field it is about — a client or manager that is not available,
  * a taken code, an end before the start lands beside its input.
  */
-function toResult(error: unknown): ActionResult {
+async function toResult(error: unknown): Promise<ActionResult> {
   return actionFailure(error, "projects");
 }
 

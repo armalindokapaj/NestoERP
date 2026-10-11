@@ -49,6 +49,7 @@ export default async function NewAmendmentPage({ params }: Params) {
         action={action}
         cancelHref={`/contracts/${contract.id}/amendments`}
         submitLabel={t("amendmentForm.create")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
         canEditCommercial={canSeeCommercial(context)}
         requireReductionAcknowledgement={false}

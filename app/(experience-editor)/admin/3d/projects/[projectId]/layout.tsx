@@ -2,11 +2,13 @@ import { UnsavedHost } from "@/components/unsaved/unsaved-host";
 import { identityKeys } from "@/lib/context/identity-key";
 import type { ReactNode } from "react";
 
+import { EditorTextProvider } from "@/components/3d/platform/editor/editor-text";
 import { ModuleMessages } from "@/components/i18n/module-messages";
 import { ResponseBeats } from "@/components/navigation/reveal-watchdog";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { requirePlatformContext } from "@/lib/context/platform-context";
+import { getEditorTexts } from "@/lib/3d/platform/editor-text-server";
 
 /**
  * The Experience Editor's own layout (3D Editor PRD §8-§15, §180-§185).
@@ -34,10 +36,12 @@ export default async function ExperienceEditorLayout({ children }: { children: R
       <ResponseBeats />
       <UnsavedHost identity={identityKeys(context)} workspace={null} />
       {/* The panels shared with the admin pages (model ingestion, unit bindings, remove dialog) read their words from here. */}
-      <ModuleMessages namespaces={["adminPlatform"]}>
-        <ToastProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-        </ToastProvider>
+      <ModuleMessages namespaces={["adminPlatform", "threeD"]}>
+        <EditorTextProvider texts={await getEditorTexts()}>
+          <ToastProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </ToastProvider>
+        </EditorTextProvider>
       </ModuleMessages>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { PersonLink } from "@/components/people/person-link";
 import { localDate, localTime } from "@/lib/modules/calendar/calendar.time";
 import { dayLabel } from "@/lib/modules/timesheets/timesheet.time";
@@ -22,9 +23,10 @@ const DOT: Record<TimesheetHistoryEntry["tone"], string> = {
 };
 
 export function TimesheetHistory({ history, zone, className }: { history: TimesheetHistoryEntry[]; zone: string; className?: string }) {
+  const locale = useLocale();
   const when = (iso: string) => {
     const instant = new Date(iso);
-    return `${dayLabel(localDate(instant, zone)).day}, ${localTime(instant, zone)}`;
+    return `${dayLabel(localDate(instant, zone), locale).day}, ${localTime(instant, zone)}`;
   };
   return (
     <section aria-labelledby="timesheet-history-title" className={cn("nesto-card px-5 py-4", className)} data-testid="timesheet-history">

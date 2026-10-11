@@ -1,4 +1,4 @@
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { Prisma } from "@prisma/client";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -31,6 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * the company's (PRD #17 §414).
  */
 export default async function ClientSalesPage({ params }: Params) {
+  const locale = await getLocale();
   const { clientId } = await params;
   const { context, client } = await loadClient(clientId);
 
@@ -92,13 +93,13 @@ export default async function ClientSalesPage({ params }: Params) {
             <div className="nesto-card p-4">
               <p className="text-table text-fg-muted">{t("salesPage.openPipeline")}</p>
               <p className="mt-2 text-card font-semibold tabular-nums text-fg">
-                {totalsLabel(openTotals)}
+                {totalsLabel(openTotals, locale)}
               </p>
             </div>
             <div className="nesto-card p-4">
               <p className="text-table text-fg-muted">{t("salesPage.won")}</p>
               <p className="mt-2 text-card font-semibold tabular-nums text-fg">
-                {totalsLabel(wonTotals)}
+                {totalsLabel(wonTotals, locale)}
               </p>
             </div>
           </div>

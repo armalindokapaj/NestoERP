@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { FileCheck2, Loader2, LockOpen, Plus, Printer, Trash2 } from "lucide-react";
 
@@ -14,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
+import { dateText } from "@/lib/i18n/format";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import type { MeetingDetailDTO, MeetingMinutesSectionDTO } from "@/lib/modules/meetings/meeting.types";
 import { meetingsLabel } from "@/lib/i18n/modules/meetings/labels";
@@ -36,6 +38,7 @@ import { useMeetingsTranslations } from "./meetings-text";
 const SUGGESTED = ["Summary", "Discussion", "Key Points", "Risks / Issues", "Follow-Up Notes"];
 
 export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: MeetingDetailDTO; onChange: (detail: MeetingDetailDTO) => void; compact?: boolean }) {
+  const locale = useLocale();
   const toast = useToast();
   const t = useMeetingsTranslations();
   const caps = meeting.capabilities;
@@ -82,7 +85,7 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
           <p className="mt-1 text-meta text-fg-subtle">
             {final && meeting.minutesFinalizedAt ? (
               <>
-                {t("minutes.finalizedAt", { when: new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: meeting.timezone }).format(new Date(meeting.minutesFinalizedAt)) })}
+                {t("minutes.finalizedAt", { when: dateText(new Date(meeting.minutesFinalizedAt), { dateStyle: "medium", timeStyle: "short", timeZone: meeting.timezone }, locale) })}
                 {meeting.minutesFinalizedBy ? <>{t("minutes.by")}<PersonLink memberId={meeting.minutesFinalizedByMemberId} name={meeting.minutesFinalizedBy} /></> : null}
               </>
             ) : caps.canEditMinutes

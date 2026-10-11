@@ -65,6 +65,7 @@ export default async function EditItemPage({ params }: Params) {
         versionUpdatedAt={item.updatedAt}
         cancelHref={`/inventory/items/${item.id}`}
         submitLabel={t("form.saveChanges")}
+        saveKind="save"
         pendingLabel={t("form.saving")}
         warehouses={warehouseOptions}
         locations={locationOptions}

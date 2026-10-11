@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "@/components/inventory/inventory-labels";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -10,7 +11,6 @@ import { formatQuantity } from "@/components/inventory/inventory-format";
 import { requireModule } from "@/lib/context/current-user";
 import * as itemService from "@/lib/modules/inventory/items/item.service";
 import { itemCategoryLabels } from "@/lib/modules/inventory/inventory.status";
-import { formatDateTime } from "@/lib/utils/format";
 import { loadItemPage } from "../item-shell";
 
 type Params = { params: Promise<{ itemId: string }> };
@@ -29,6 +29,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** Item overview (PRD #20 §306). */
 export default async function ItemPage({ params }: Params) {
+  const locale = await getLocale();
   const { itemId } = await params;
   const { item } = await loadItemPage(itemId, "overview");
   const t = await getTranslations("inventory");
@@ -50,14 +51,14 @@ export default async function ItemPage({ params }: Params) {
                   value:
                     item.minimumStock === null
                       ? t("fields.notSet")
-                      : `${formatQuantity(item.minimumStock)} ${item.baseUnit}`,
+                      : `${formatQuantity(item.minimumStock, locale)} ${item.baseUnit}`,
                 },
                 {
                   label: t("fields.reorderPoint"),
                   value:
                     item.reorderPoint === null
                       ? t("fields.notSet")
-                      : `${formatQuantity(item.reorderPoint)} ${item.baseUnit}`,
+                      : `${formatQuantity(item.reorderPoint, locale)} ${item.baseUnit}`,
                 },
                 {
                   label: t("fields.defaultWarehouse"),
@@ -106,10 +107,10 @@ export default async function ItemPage({ params }: Params) {
             <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.addedBy")} value={item.createdBy ? <PersonLink memberId={item.createdBy.memberId} name={item.createdBy.fullName} /> : "—"} />
-              <Meta label={t("detail.added")} value={formatDateTime(item.createdAt)} />
-              <Meta label={t("detail.updated")} value={formatDateTime(item.updatedAt)} />
+              <Meta label={t("detail.added")} value={formatDateTime(item.createdAt, locale)} />
+              <Meta label={t("detail.updated")} value={formatDateTime(item.updatedAt, locale)} />
               {item.archivedAt ? (
-                <Meta label={t("labels.itemStatus.ARCHIVED")} value={formatDateTime(item.archivedAt)} />
+                <Meta label={t("labels.itemStatus.ARCHIVED")} value={formatDateTime(item.archivedAt, locale)} />
               ) : null}
             </dl>
           </section>

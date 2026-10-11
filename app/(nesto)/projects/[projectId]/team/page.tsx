@@ -3,6 +3,7 @@ import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { ProjectTeam } from "@/components/projects/project-team";
 import { can } from "@/lib/access/can";
 import * as projects from "@/lib/modules/projects/project.service";
@@ -23,6 +24,7 @@ export default async function ProjectTeamPage({ params }: Params) {
   if (!actions.canViewMembers) redirect("/access-denied");
 
   const canAdd = can(context, "project.member.add");
+  const tr = await getTranslations("roles");
   const [members, assignable] = await Promise.all([
     projects.listMembers(context, projectId),
     canAdd ? projects.assignableMembers(context, projectId) : Promise.resolve([]),
@@ -60,7 +62,7 @@ export default async function ProjectTeamPage({ params }: Params) {
         assignable={assignable.map((member) => ({
           id: member.id,
           name: `${member.user.firstName} ${member.user.lastName}`,
-          detail: [member.role.name, member.department?.name].filter(Boolean).join(" · "),
+          detail: [adminRoleName(tr, member.role.name), member.department?.name].filter(Boolean).join(" · "),
         }))}
         canAdd={canAdd && project.archivedAt === null}
         canUpdate={can(context, "project.member.update") && project.archivedAt === null}

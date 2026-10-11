@@ -4,9 +4,6 @@ import { Building2, Info } from "lucide-react";
 import type { GroupIdentity } from "@/lib/modules/dashboard/dashboard.group";
 import { getTranslations } from "@/lib/i18n/server";
 
-/** What a demonstration tenant says about its data, wherever it says it (D-01 §69). */
-export { DEMO_DISCLAIMER } from "./demo-disclaimer";
-
 /**
  * The group at the top of its dashboard (D-01 §26): name, legal name,
  * registration number (the NIPT) and city, how many companies are active and

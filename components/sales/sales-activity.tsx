@@ -3,9 +3,10 @@ import { History } from "lucide-react";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { UserContext } from "@/lib/context/types";
+import { formatRelativeTime } from "@/lib/i18n/format";
 import * as activity from "@/lib/modules/sales/sales.activity";
-import { formatRelativeTime } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 
 /**
  * One sales record's history (PRD #17 §147, §148, §410).
@@ -25,6 +26,7 @@ export async function SalesActivityFeed({
   entityId: string;
 }) {
   const t = await getTranslations("sales");
+  const locale = await getLocale();
   const result = await activity.listRecordActivity(context, entityType, entityId, { limit: 50 });
 
   if (result.data.length === 0) {
@@ -43,10 +45,10 @@ export async function SalesActivityFeed({
         <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 p-4">
           <p className="min-w-0 text-table text-fg">
             {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : <span className="font-medium">{t("activity.somebody")}</span>}{" "}
-            <span className="text-fg-muted">{entry.message ?? entry.action}</span>
+            <span className="text-fg-muted">{localizeActivity(locale, entry) ?? entry.action}</span>
           </p>
           <time className="shrink-0 text-meta text-fg-subtle" dateTime={entry.createdAt}>
-            {formatRelativeTime(entry.createdAt)}
+            {formatRelativeTime(entry.createdAt, locale)}
           </time>
         </li>
       ))}

@@ -2,6 +2,7 @@ import { can, canAccessModule } from "@/lib/access/can";
 import { buildClientScopeWhere, buildProjectScopeWhere, buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { buildContractScopeWhere } from "@/lib/modules/contracts/contract.scope";
 import {
@@ -840,6 +841,7 @@ const dailyLogProvider: GlobalSearchProvider = {
   moduleKey: "dailyLogs",
   entityTypes: ["daily_log"],
   async search(context, query) {
+    const locale = await getRequestLocale();
     if (!available(context, "dailyLogs", "daily_log.view")) return [];
     const { readableDailyLogWhere } = await import("@/lib/modules/daily-logs/daily-log.permissions");
     const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
@@ -862,7 +864,7 @@ const dailyLogProvider: GlobalSearchProvider = {
       entityType: "daily_log",
       entityId: row.id,
       title: `Daily log · ${row.project.name}`,
-      subtitle: [dateLabel(row.workDate.toISOString().slice(0, 10)), DAILY_LOG_STATUS_LABELS[row.status]].join(" · "),
+      subtitle: [dateLabel(row.workDate.toISOString().slice(0, 10), locale), DAILY_LOG_STATUS_LABELS[row.status]].join(" · "),
       href: `/projects/${row.projectId}/daily-logs/${row.id}`,
       score: scoreMatch(query.text, `${row.project.name} ${row.summary ?? ""}`),
       status: row.status,
@@ -878,6 +880,7 @@ const milestoneProvider: GlobalSearchProvider = {
   moduleKey: "projects",
   entityTypes: ["project_milestone"],
   async search(context, query) {
+    const locale = await getRequestLocale();
     if (!available(context, "projects", "project_planning.view")) return [];
     const { readableMilestoneWhere } = await import("@/lib/modules/project-planning/planning.permissions");
     const { dateLabel, dateOf, displayDateOf } = await import("@/lib/modules/project-planning/planning.dates");
@@ -903,7 +906,7 @@ const milestoneProvider: GlobalSearchProvider = {
         entityType: "project_milestone",
         entityId: row.id,
         title: row.name,
-        subtitle: [`Milestone · ${row.project.name}`, date ? `${row.status === "COMPLETED" ? "Achieved" : "Forecast"} ${dateLabel(date)}` : null, STATUS_LABELS[row.status]].filter(Boolean).join(" · "),
+        subtitle: [`Milestone · ${row.project.name}`, date ? `${row.status === "COMPLETED" ? "Achieved" : "Forecast"} ${dateLabel(date, locale)}` : null, STATUS_LABELS[row.status]].filter(Boolean).join(" · "),
         href: `/projects/${row.projectId}/planning?milestone=${row.id}`,
         score: scoreMatch(query.text, `${row.name} ${row.project.name}`),
         status: row.status,

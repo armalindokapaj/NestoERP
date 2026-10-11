@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { CalendarDays, CheckCircle2, Megaphone, Paperclip } from "lucide-react";
 
@@ -22,6 +23,7 @@ import { AnnouncementStatusBadge, formatDay, formatDayTime, PinnedMark, Priority
  */
 
 function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string; manage: boolean }) {
+  const locale = useLocale();
   const t = useAnnouncementsTranslations();
   const unread = !manage && item.status === "PUBLISHED" && !item.read;
   const awaiting = !manage && item.requiresAcknowledgment && !item.acknowledgedAt && item.status === "PUBLISHED";
@@ -46,7 +48,7 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
           {manage ? <AnnouncementStatusBadge status={item.status} /> : null}
           <span className="flex-1" />
           <span className="tabular-nums">
-            {manage && item.status === "SCHEDULED" ? t("list.publishes", { date: formatDayTime(item.publishAt, zone) }) : manage && item.status === "DRAFT" ? t("list.edited", { date: formatDay(item.updatedAt, zone) }) : formatDay(item.publishedAt, zone)}
+            {manage && item.status === "SCHEDULED" ? t("list.publishes", { date: formatDayTime(item.publishAt, zone, locale) }) : manage && item.status === "DRAFT" ? t("list.edited", { date: formatDay(item.updatedAt, zone, locale) }) : formatDay(item.publishedAt, zone, locale)}
           </span>
         </div>
         <h2 className={cn("mt-2 text-card tracking-tight text-fg group-hover:text-accent-strong", unread ? "font-semibold" : "font-medium")}>{item.title}</h2>
@@ -56,7 +58,7 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
           {item.eventStartsAt ? (
             <span className="inline-flex items-center gap-1">
               <CalendarDays aria-hidden="true" className="size-3.5" />
-              {formatDayTime(item.eventStartsAt, zone)}
+              {formatDayTime(item.eventStartsAt, zone, locale)}
             </span>
           ) : null}
           {item.attachmentCount ? (

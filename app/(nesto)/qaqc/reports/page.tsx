@@ -105,7 +105,7 @@ export default async function QaqcReportsPage() {
             <dl className="mt-4 space-y-2.5">
               {reports.passRateByProject.map((row) => (
                 <div key={row.label} className="flex items-center justify-between gap-3">
-                  <dt className="min-w-0 text-table text-fg-muted [overflow-wrap:anywhere]">{row.label}</dt>
+                  <dt className="min-w-0 text-table text-fg-muted [overflow-wrap:anywhere]">{row.label === "No project" ? t("reports.noProject") : row.label}</dt>
                   <dd className="shrink-0 text-table tabular-nums text-fg">
                     {row.percent === null ? "—" : `${row.percent}%`}{" "}
                     <span className="text-fg-subtle">({row.total})</span>

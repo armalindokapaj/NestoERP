@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
@@ -17,8 +18,8 @@ import {
   rejectAmendmentAction,
   rejectContractAction,
 } from "@/lib/actions/contracts";
+import { formatDateTime } from "@/lib/i18n/format";
 import type { ContractApprovalDTO } from "@/lib/modules/contracts/contract.types";
-import { formatDateTime } from "@/lib/utils/format";
 import { commercialLabel } from "./contract-format";
 import { useContractsTranslations } from "./contracts-text";
 
@@ -36,6 +37,7 @@ import { useContractsTranslations } from "./contracts-text";
  * CW-05).
  */
 export function ContractApprovalQueue({ approvals }: { approvals: ContractApprovalDTO[] }) {
+  const locale = useLocale();
   const t = useContractsTranslations();
   const router = useRouter();
   const toast = useToast();
@@ -92,14 +94,14 @@ export function ContractApprovalQueue({ approvals }: { approvals: ContractApprov
                 {approval.client?.name ?? t("approvalQueue.noClient")}
                 {approval.project ? ` · ${approval.project.code}` : ""}{t("approvalQueue.submittedBy")}{" "}
                 {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : t("approvalQueue.somebody")}{" "}
-                {formatDateTime(approval.submittedAt)}
+                {formatDateTime(approval.submittedAt, locale)}
               </p>
             </div>
 
             <div className="flex shrink-0 flex-col items-end gap-2">
               {showValue && approval.commercial ? (
                 <span className="text-table tabular-nums text-fg">
-                  {commercialLabel(approval.commercial, t)}
+                  {commercialLabel(approval.commercial, t, locale)}
                 </span>
               ) : null}
 

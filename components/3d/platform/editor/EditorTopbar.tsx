@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SAVE_STATUS_LABEL, type EditorSaveStatus } from "./save-state";
+import { useEditorWord } from "./editor-text";
 
 const STATUS_TONE = { saved: "success", unsaved: "warning", saving: "info", failed: "danger" } as const;
 
@@ -41,6 +42,7 @@ export function EditorTopbar({
   onReset: () => void;
   managementHref: string;
 }) {
+  const editorServerText = useEditorWord();
   const saving = status === "saving";
   const dirty = status === "unsaved" || status === "failed";
   return (
@@ -49,36 +51,36 @@ export function EditorTopbar({
         <h1 className="truncate text-sm font-semibold leading-5 text-fg">{experienceName}</h1>
         <p className="truncate text-[11px] leading-4 text-fg-subtle">{context}</p>
       </div>
-      <Badge tone={activeRelease ? "neutral" : "default"} className="shrink-0" title="What the published viewer shows. Saving never changes it; publish from Releases.">
-        {activeRelease ? `Live: Release ${activeRelease.releaseNumber}` : "Not published"}
+      <Badge tone={activeRelease ? "neutral" : "default"} className="shrink-0" title={editorServerText("What the published viewer shows. Saving never changes it; publish from Releases.")}>
+        {activeRelease ? editorServerText("Live: Release {0}", activeRelease.releaseNumber) : editorServerText("Not published")}
       </Badge>
       <span role="status" aria-live="polite" className="shrink-0">
-        <Badge tone={STATUS_TONE[status]} data-testid="editor-save-status">{SAVE_STATUS_LABEL[status]}</Badge>
+        <Badge tone={STATUS_TONE[status]} data-testid="editor-save-status">{editorServerText(SAVE_STATUS_LABEL[status])}</Badge>
       </span>
       <Button type="button" variant="ghost" size="sm" className="shrink-0 text-fg-muted hover:text-fg" onClick={onReset} disabled={saving || !canEdit}>
-        <RotateCcw aria-hidden="true" /> Reset defaults
+        <RotateCcw aria-hidden="true" /> {editorServerText("Reset defaults")}
       </Button>
       <Button asChild variant="secondary" size="sm" className="shrink-0">
-        <a href={`${managementHref}/viewer`} target={`nesto-company-viewer-${managementHref.split("/").pop()}`} title="Preview what company users see. Save first to include your changes." data-testid="editor-company-viewer">
-          <Eye aria-hidden="true" />Company viewer
+        <a href={`${managementHref}/viewer`} target={`nesto-company-viewer-${managementHref.split("/").pop()}`} title={editorServerText("Preview what company users see. Save first to include your changes.")} data-testid="editor-company-viewer">
+          <Eye aria-hidden="true" />{editorServerText("Company viewer")}
         </a>
       </Button>
       <Button type="button" size="sm" className="shrink-0" onClick={onSave} disabled={saving || !dirty || !canEdit} aria-keyshortcuts="Control+S Meta+S">
-        <Save aria-hidden="true" />{saving ? "Saving…" : "Save"}
+        <Save aria-hidden="true" />{saving ? editorServerText("Saving…") : editorServerText("Save")}
       </Button>
       <SignOutButton className="shrink-0" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 text-fg-muted hover:text-fg" aria-label="More editor actions">
+          <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 text-fg-muted hover:text-fg" aria-label={editorServerText("More editor actions")}>
             <MoreHorizontal aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <a href={managementHref} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" />Open Experience details</a>
+            <a href={managementHref} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" />{editorServerText("Open Experience details")}</a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <a href={`${managementHref}/releases`} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" />Open Releases to publish</a>
+            <a href={`${managementHref}/releases`} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" />{editorServerText("Open Releases to publish")}</a>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

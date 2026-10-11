@@ -6,9 +6,10 @@ import { Pagination } from "@/components/data/pagination";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { UserContext } from "@/lib/context/types";
+import { formatRelativeTime } from "@/lib/i18n/format";
 import * as activity from "@/lib/modules/qaqc/qaqc.activity";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatRelativeTime } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { localizeActivity } from "@/lib/i18n/system";
 
 /**
  * One record's history (PRD #21 §186, §187).
@@ -38,6 +39,7 @@ export async function QaqcActivityFeed({
   moreHref?: string;
 }) {
   const t = await getTranslations("qaqc");
+  const locale = await getLocale();
   const result = await activity.listRecordActivity(context, entityType, entityId, { page, limit: 50 });
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (buildHref && result.pagination.page !== page) redirect(buildHref(result.pagination.page));
@@ -60,10 +62,10 @@ export async function QaqcActivityFeed({
             <span className="font-medium">
               {entry.actor ? <PersonLink memberId={entry.actorMemberId} name={entry.actor} /> : t("common.somebodyCap")}
             </span>{" "}
-            <span className="text-fg-muted">{entry.message ?? entry.action}</span>
+            <span className="text-fg-muted">{localizeActivity(locale, entry) ?? entry.action}</span>
           </p>
           <time className="shrink-0 text-meta text-fg-subtle" dateTime={entry.createdAt}>
-            {formatRelativeTime(entry.createdAt)}
+            {formatRelativeTime(entry.createdAt, locale)}
           </time>
         </li>
       ))}

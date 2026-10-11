@@ -65,6 +65,7 @@ export default async function EditProposalPage({ params }: Params) {
         versionUpdatedAt={proposal.updatedAt}
         cancelHref={`/sales/proposals/${proposalId}`}
         submitLabel={t("pages.saveChanges")}
+        saveKind="save"
         pendingLabel={t("pages.saving")}
       />
     </div>

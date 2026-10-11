@@ -2,7 +2,8 @@ import { RecordFavorite } from "@/components/productivity/record-favorite";
 import { ContextTabs } from "@/components/navigation/context-tabs";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 import { InspectionActions } from "@/components/qaqc/inspection-actions";
 import { ResultBadge } from "@/components/qaqc/qaqc-format";
@@ -16,7 +17,6 @@ import { pendingCycle } from "@/lib/modules/qaqc/approvals/approval.service";
 import * as inspections from "@/lib/modules/qaqc/inspections/inspection.service";
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import type { InspectionDetailDTO } from "@/lib/modules/qaqc/qaqc.types";
-import { formatDate } from "@/lib/utils/format";
 
 /**
  * The furniture every inspection tab shares (PRD #21 §10, §63, §65).
@@ -70,6 +70,7 @@ export async function InspectionPageShell({
   inspection: InspectionDetailDTO;
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("qaqc");
   // The cycle the decision controls act on; they name it back (AUD-10 §4, CW-05).
   const cycle =
@@ -114,7 +115,7 @@ export async function InspectionPageShell({
           },
           {
             label: t("inspectionPage.inspected"),
-            value: inspection.inspectionDate ? formatDate(inspection.inspectionDate) : t("common.notYet"),
+            value: inspection.inspectionDate ? formatDate(inspection.inspectionDate, locale) : t("common.notYet"),
           },
           {
             label: t("detail.project"),

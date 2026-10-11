@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { statusText } from "@/lib/i18n/modules/common/labels";
+import { dailyLogsLabel } from "@/lib/i18n/modules/dailyLogs/labels";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { PrintButton } from "@/components/meetings/print-button";
@@ -38,6 +40,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 
 /** The print-friendly daily log (PRD #43 §211, §212): everything the record holds, on paper. */
 export default async function DailyLogPrintPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId, dailyLogId } = await params;
   const context = await requireModule("dailyLogs");
   let log;
@@ -50,6 +53,8 @@ export default async function DailyLogPrintPage({ params }: Params) {
   if (log.project.id !== projectId) notFound();
   const company = await prisma.company.findUnique({ where: { id: context.companyId }, select: { name: true } });
   const t = await getTranslations("projects");
+  const tl = await getTranslations("dailyLogs");
+  const tc = await getTranslations("common");
   const none = <p className="text-fg-muted">{t("dailyLogs.noneRecorded")}</p>;
 
   return (
@@ -59,9 +64,9 @@ export default async function DailyLogPrintPage({ params }: Params) {
         <div className="min-w-0 break-words">
           <p className="text-meta text-fg-muted">{company?.name}</p>
           <h1 className="text-page font-semibold text-fg">{t("dailyLogs.heading", { project: log.project.name })}</h1>
-          <p className="text-body text-fg">{longDateLabel(log.workDate)}</p>
+          <p className="text-body text-fg">{longDateLabel(log.workDate, locale)}</p>
           <p className="text-meta text-fg-muted">
-            {joined(DAILY_LOG_STATUS_LABELS[log.status], log.lateEntry && t("dailyLogs.lateEntry"), log.corrections.length > 0 && t("dailyLogs.corrected"), log.createdBy && t("dailyLogs.author", { name: log.createdBy.name }), log.reviewedBy && t("dailyLogs.reviewedBy", { name: log.reviewedBy.name }), log.lockedBy && t("dailyLogs.lockedBy", { name: log.lockedBy.name }))}
+            {joined(dailyLogsLabel(tl, "status", log.status, DAILY_LOG_STATUS_LABELS[log.status]), log.lateEntry && t("dailyLogs.lateEntry"), log.corrections.length > 0 && t("dailyLogs.corrected"), log.createdBy && t("dailyLogs.author", { name: log.createdBy.name }), log.reviewedBy && t("dailyLogs.reviewedBy", { name: log.reviewedBy.name }), log.lockedBy && t("dailyLogs.lockedBy", { name: log.lockedBy.name }))}
           </p>
         </div>
         <PrintButton />
@@ -69,22 +74,22 @@ export default async function DailyLogPrintPage({ params }: Params) {
 
       {log.summary ? <Block title={t("dailyLogs.summary")}><p className="whitespace-pre-line">{log.summary}</p></Block> : null}
       <Block title={t("dailyLogs.weather")}>
-        <p>{joined(log.weatherSummary, log.siteCondition && t("dailyLogs.site", { condition: SITE_CONDITION_LABELS[log.siteCondition] }), log.siteConditionNotes)}</p>
-        <ul className="mt-1 list-disc pl-5">{log.weather.map((entry) => <li key={entry.id}>{joined(entry.observedAt, entry.condition && WEATHER_CONDITION_LABELS[entry.condition], entry.temperatureC !== null && `${entry.temperatureC} °C`, entry.precipitationMm !== null && `${entry.precipitationMm} mm`, entry.windKph !== null && `${entry.windKph} km/h`, entry.notes)}</li>)}</ul>
+        <p>{joined(log.weatherSummary, log.siteCondition && t("dailyLogs.site", { condition: dailyLogsLabel(tl, "site", log.siteCondition, SITE_CONDITION_LABELS[log.siteCondition]) }), log.siteConditionNotes)}</p>
+        <ul className="mt-1 list-disc pl-5">{log.weather.map((entry) => <li key={entry.id}>{joined(entry.observedAt, entry.condition && dailyLogsLabel(tl, "weather", entry.condition, WEATHER_CONDITION_LABELS[entry.condition]), entry.temperatureC !== null && `${entry.temperatureC} °C`, entry.precipitationMm !== null && `${entry.precipitationMm} mm`, entry.windKph !== null && `${entry.windKph} km/h`, entry.notes)}</li>)}</ul>
       </Block>
       <Block title={t("dailyLogs.workforce", { count: log.counts.workforce })}>{log.workforce.length ? <ul className="list-disc pl-5">{log.workforce.map((entry) => <li key={entry.id}>{joined(entry.organizationName, entry.trade, entry.crewName, t("dailyLogs.people", { count: entry.headcount }))}</li>)}</ul> : none}</Block>
       <Block title={t("dailyLogs.workCompleted")}>{log.activities.length ? <ul className="list-disc pl-5">{log.activities.map((entry) => <li key={entry.id}>{joined(entry.title, entry.projectArea, entry.floorZone, entry.progressPercent !== null && `${entry.progressPercent}%`, entry.task?.label, entry.description)}</li>)}</ul> : none}</Block>
-      <Block title={t("dailyLogs.equipment")}>{log.equipment.length ? <ul className="list-disc pl-5">{log.equipment.map((entry) => <li key={entry.id}>{joined(entry.equipmentName, `× ${entry.quantity}`, entry.hoursUsed !== null && `${entry.hoursUsed} h`, entry.status && EQUIPMENT_STATUS_LABELS[entry.status])}</li>)}</ul> : none}</Block>
+      <Block title={t("dailyLogs.equipment")}>{log.equipment.length ? <ul className="list-disc pl-5">{log.equipment.map((entry) => <li key={entry.id}>{joined(entry.equipmentName, `× ${entry.quantity}`, entry.hoursUsed !== null && `${entry.hoursUsed} h`, entry.status && dailyLogsLabel(tl, "equipment", entry.status, EQUIPMENT_STATUS_LABELS[entry.status]))}</li>)}</ul> : none}</Block>
       <Block title={t("dailyLogs.deliveries")}>{log.deliveries.length ? <ul className="list-disc pl-5">{log.deliveries.map((entry) => <li key={entry.id}>{joined(entry.description, entry.quantityText, entry.supplier?.label, entry.purchaseOrder?.label, entry.goodsReceipt?.label, entry.deliveredTime, entry.conditionNote)}</li>)}</ul> : none}</Block>
       <Block title={t("dailyLogs.visitors")}>{log.visitors.length ? <ul className="list-disc pl-5">{log.visitors.map((entry) => <li key={entry.id}>{joined(entry.name, entry.organization, entry.purpose, entry.arrivedAt && `${entry.arrivedAt}–${entry.departedAt ?? ""}`)}</li>)}</ul> : none}</Block>
-      <Block title={t("dailyLogs.delays")}>{log.delays.length ? <ul className="list-disc pl-5">{log.delays.map((entry) => <li key={entry.id}>{joined(entry.title, DELAY_CATEGORY_LABELS[entry.category], entry.impact && t("dailyLogs.impact", { impact: DELAY_IMPACT_LABELS[entry.impact] }), entry.durationMinutes && formatDuration(entry.durationMinutes), entry.responsiblePartyText)}</li>)}</ul> : none}</Block>
+      <Block title={t("dailyLogs.delays")}>{log.delays.length ? <ul className="list-disc pl-5">{log.delays.map((entry) => <li key={entry.id}>{joined(entry.title, dailyLogsLabel(tl, "delayCategory", entry.category, DELAY_CATEGORY_LABELS[entry.category]), entry.impact && t("dailyLogs.impact", { impact: dailyLogsLabel(tl, "delayImpact", entry.impact, DELAY_IMPACT_LABELS[entry.impact]) }), entry.durationMinutes && formatDuration(entry.durationMinutes), entry.responsiblePartyText)}</li>)}</ul> : none}</Block>
       <Block title={t("dailyLogs.instructions")}>{log.instructions.length ? <ul className="list-disc pl-5">{log.instructions.map((entry) => <li key={entry.id}>{joined(entry.title, entry.issuedByText ?? entry.issuedBy?.name, entry.issuedAt, entry.description)}</li>)}</ul> : none}</Block>
       <Block title={t("dailyLogs.qaqcHse")}>{log.records.length ? <ul className="list-disc pl-5">{log.records.map((record) => <li key={record.linkId}>{joined(record.domain === "hse" ? "HSE" : "QA/QC", record.label)}</li>)}</ul> : none}</Block>
-      <Block title={t("dailyLogs.photos")}>{log.evidence?.length ? <ul className="list-disc pl-5">{log.evidence.map((item) => <li key={item.documentId}>{joined(DOCUMENT_CATEGORY_LABELS[item.category], item.caption ?? item.name)}</li>)}</ul> : none}</Block>
-      <Block title={t("dailyLogs.tasks")}>{log.tasks.length ? <ul className="list-disc pl-5">{log.tasks.map((task) => <li key={task.linkId}>{joined(task.title, TASK_LINK_TYPE_LABELS[task.linkType], task.status)}</li>)}</ul> : none}</Block>
+      <Block title={t("dailyLogs.photos")}>{log.evidence?.length ? <ul className="list-disc pl-5">{log.evidence.map((item) => <li key={item.documentId}>{joined(dailyLogsLabel(tl, "documentCategory", item.category, DOCUMENT_CATEGORY_LABELS[item.category]), item.caption ?? item.name)}</li>)}</ul> : none}</Block>
+      <Block title={t("dailyLogs.tasks")}>{log.tasks.length ? <ul className="list-disc pl-5">{log.tasks.map((task) => <li key={task.linkId}>{joined(task.title, dailyLogsLabel(tl, "taskLink", task.linkType, TASK_LINK_TYPE_LABELS[task.linkType]), task.status && statusText(tc, task.status))}</li>)}</ul> : none}</Block>
       {log.corrections.length ? (
         <Block title={t("dailyLogs.corrections")}>
-          <ul className="list-disc pl-5">{log.corrections.map((correction) => <li key={correction.id}>{joined(dateLabel(correction.createdAt.slice(0, 10)), correction.createdBy?.name, correction.correctionSummary, t("dailyLogs.reason", { reason: correction.reason }))}</li>)}</ul>
+          <ul className="list-disc pl-5">{log.corrections.map((correction) => <li key={correction.id}>{joined(dateLabel(correction.createdAt.slice(0, 10), locale), correction.createdBy?.name, correction.correctionSummary, t("dailyLogs.reason", { reason: correction.reason }))}</li>)}</ul>
         </Block>
       ) : null}
     </article>

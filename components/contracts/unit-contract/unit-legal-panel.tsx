@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
 import { compareDecimal, previewDecimal, sumDecimal } from "@/lib/modules/finance/finance.decimal";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
@@ -20,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { CONTRACT_REQUEST_STATUS_LABELS, type UnitContractAction, type UnitContractDTO, type UnitLegalDTO } from "@/lib/modules/contracts/units/unit-contract.types";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { contractsLabel, useContractsTranslations, type ContractsKey } from "../contracts-text";
 
 /**
@@ -37,6 +38,7 @@ type Open = UnitContractAction | "request" | "create" | "decline" | "withdraw" |
 const actionKey = (action: UnitContractAction) => `unitLegal.actions.${action}` as ContractsKey;
 
 export function UnitLegalPanel({ legal, documents, initialAction }: { legal: UnitLegalDTO; documents: React.ReactNode; initialAction?: string | null }) {
+  const locale = useLocale();
   const t = useContractsTranslations();
   const router = useRouter();
   const pathname = usePathname();
@@ -85,8 +87,8 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
               <div className="mt-3 space-y-2 text-table" data-testid="contract-request">
                 <p className="text-fg">
                   {request.requestedBy ? <PersonLink memberId={request.requestedByMemberId} name={request.requestedBy} /> : t("unitLegal.sales")}
-                  {t("unitLegal.askedOn", { date: formatDate(request.requestedAt) })}
-                  {request.agreedPrice ? t("unitLegal.atAgreed", { amount: amountLabel(request.agreedPrice, request.currency) }) : ""}.
+                  {t("unitLegal.askedOn", { date: formatDate(request.requestedAt, locale) })}
+                  {request.agreedPrice ? t("unitLegal.atAgreed", { amount: amountLabel(request.agreedPrice, request.currency, locale) }) : ""}.
                 </p>
                 {request.client ? <p className="text-fg-muted">{t("unitLegal.clientLine", { name: request.client.name })}{request.deal ? t("unitLegal.dealLine", { name: request.deal.name }) : ""}</p> : null}
                 {request.notes ? <p className="whitespace-pre-line text-fg-muted">{request.notes}</p> : null}
@@ -141,10 +143,10 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
                       <span className="font-medium text-fg">{row.number}</span>
                     )}
                     <UnitContractStatusBadge status={row.status} />
-                    <span className="ml-auto tabular-nums text-fg-muted">{amountLabel(row.value, row.currency)}</span>
+                    <span className="ml-auto tabular-nums text-fg-muted">{amountLabel(row.value, row.currency, locale)}</span>
                   </div>
                   <p className="mt-0.5 text-meta text-fg-subtle">
-                    {t("unitLegal.drafted", { date: formatDate(row.createdAt) })}
+                    {t("unitLegal.drafted", { date: formatDate(row.createdAt, locale) })}
                     {row.units.find((unit) => unit.unitId === legal.unitId)?.releaseReason ? ` · ${row.units.find((unit) => unit.unitId === legal.unitId)!.releaseReason}` : ""}
                   </p>
                 </li>
@@ -167,7 +169,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
                 <li key={row.id} className="py-2 text-table">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={row.status === "OPEN" ? "warning" : row.status === "FULFILLED" ? "success" : "default"}>{contractsLabel(t, "requestStatus", row.status, CONTRACT_REQUEST_STATUS_LABELS[row.status])}</Badge>
-                    <span className="text-meta text-fg-subtle">{formatDateTime(row.requestedAt)}</span>
+                    <span className="text-meta text-fg-subtle">{formatDateTime(row.requestedAt, locale)}</span>
                   </div>
                   <p className="mt-0.5 text-meta text-fg-muted">
                     {row.requestedBy ? <PersonLink memberId={row.requestedByMemberId} name={row.requestedBy} /> : t("unitLegal.sales")}
@@ -224,6 +226,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
 }
 
 function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitContractDTO; legal: UnitLegalDTO; onAction: (action: UnitContractAction) => void; onValue: (unitId: string) => void }) {
+  const locale = useLocale();
   const t = useContractsTranslations();
   const caps = legal.capabilities;
   const editable = caps.canUpdate && caps.canSeeValue && (contract.status === "DRAFT" || contract.status === "IN_REVIEW");
@@ -256,13 +259,13 @@ function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitCo
           },
           { label: t("unitLegal.client"), value: contract.client ? <Link href={`/clients/${contract.client.id}`} className="hover:underline">{contract.client.name}</Link> : t("unitLegal.hidden") },
           { label: t("unitLegal.deal"), value: contract.deal ? <Link href={`/sales/opportunities/${contract.deal.id}`} className="hover:underline">{contract.deal.name}</Link> : t("unitLegal.hidden") },
-          ...(caps.canSeeValue ? [{ label: t("unitLegal.contractValue"), value: <span className="tabular-nums" data-testid="contract-value">{amountLabel(contract.value, contract.currency)}</span> }] : []),
-          { label: t("unitLegal.signed"), value: contract.signedDate ? formatDate(contract.signedDate) : t("unitLegal.notYet") },
-          { label: t("unitLegal.effective"), value: contract.effectiveDate ? formatDate(contract.effectiveDate) : "—" },
+          ...(caps.canSeeValue ? [{ label: t("unitLegal.contractValue"), value: <span className="tabular-nums" data-testid="contract-value">{amountLabel(contract.value, contract.currency, locale)}</span> }] : []),
+          { label: t("unitLegal.signed"), value: contract.signedDate ? formatDate(contract.signedDate, locale) : t("unitLegal.notYet") },
+          { label: t("unitLegal.effective"), value: contract.effectiveDate ? formatDate(contract.effectiveDate, locale) : "—" },
           { label: t("unitLegal.owner"), value: contract.owner ? <PersonLink memberId={contract.ownerMemberId} name={contract.owner} /> : "—" },
-          ...(contract.createdBy ? [{ label: t("unitLegal.createdBy"), value: <span><PersonLink memberId={contract.createdBy.memberId} name={contract.createdBy.name} /> · {formatDate(contract.createdAt)}</span> }] : []),
-          ...(contract.updatedBy ? [{ label: t("unitLegal.updatedBy"), value: <span><PersonLink memberId={contract.updatedBy.memberId} name={contract.updatedBy.name} /> · {formatDate(contract.updatedAt)}</span> }] : []),
-          ...(contract.completedAt ? [{ label: t("unitLegal.completed"), value: formatDate(contract.completedAt) }] : []),
+          ...(contract.createdBy ? [{ label: t("unitLegal.createdBy"), value: <span><PersonLink memberId={contract.createdBy.memberId} name={contract.createdBy.name} /> · {formatDate(contract.createdAt, locale)}</span> }] : []),
+          ...(contract.updatedBy ? [{ label: t("unitLegal.updatedBy"), value: <span><PersonLink memberId={contract.updatedBy.memberId} name={contract.updatedBy.name} /> · {formatDate(contract.updatedAt, locale)}</span> }] : []),
+          ...(contract.completedAt ? [{ label: t("unitLegal.completed"), value: formatDate(contract.completedAt, locale) }] : []),
         ]}
       />
 
@@ -274,7 +277,7 @@ function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitCo
               <span className="font-medium text-fg">{unit.unitCode}</span>
               {unit.unitId === legal.unitId ? <Badge>{t("unitLegal.thisUnit")}</Badge> : null}
               {unit.released ? <Badge>{t("unitLegal.released")}</Badge> : null}
-              <span className="ml-auto tabular-nums text-fg-muted">{caps.canSeeValue ? amountLabel(unit.value, contract.currency) : ""}</span>
+              <span className="ml-auto tabular-nums text-fg-muted">{caps.canSeeValue ? amountLabel(unit.value, contract.currency, locale) : ""}</span>
               {editable && !unit.released ? (
                 <Button size="sm" variant="ghost" onClick={() => onValue(unit.unitId)}>
                   {t("unitLegal.changeValue")}
@@ -307,6 +310,7 @@ function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitCo
 
 /** Legal drafts the contract from Sales' request, with other units of the same client and deal (§12, §14, §88-§90). */
 function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean; onClose: () => void; legal: UnitLegalDTO; submit: Submit }) {
+  const locale = useLocale();
   const t = useContractsTranslations();
   const request = useDialogRequest((url, body, success) => submit(url, body, success));
   const agreed = legal.defaults.agreedPrice ?? "";
@@ -376,7 +380,7 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
               <Checkbox id={`candidate-${row.unitId}`} checked={Boolean(chosen[row.unitId])} onCheckedChange={(checked) => setChosen((current) => ({ ...current, [row.unitId]: checked === true }))} />
               <span className="font-medium text-fg">{row.unitCode}</span>
               <span className="text-fg-muted">{row.unitType}</span>
-              <span className="ml-auto tabular-nums text-fg-muted">{amountLabel(row.agreedPrice, row.currency)}</span>
+              <span className="ml-auto tabular-nums text-fg-muted">{amountLabel(row.agreedPrice, row.currency, locale)}</span>
             </label>
           ))}
         </fieldset>
@@ -388,7 +392,7 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
           const differs = typed !== null && row.agreedPrice !== null && compareDecimal(typed, row.agreedPrice) !== 0;
           return (
             <div key={row.unitId} className="rounded-md border border-line p-3">
-              <Field label={t("unitLegal.unitValue", { unit: row.unitCode })} htmlFor={`value-${row.unitId}`} hint={t("unitLegal.agreedPrice", { amount: amountLabel(row.agreedPrice, legal.defaults.currency) })} error={request.fields.values}>
+              <Field label={t("unitLegal.unitValue", { unit: row.unitCode })} htmlFor={`value-${row.unitId}`} hint={t("unitLegal.agreedPrice", { amount: amountLabel(row.agreedPrice, legal.defaults.currency, locale) })} error={request.fields.values}>
                 <Input id={`value-${row.unitId}`} inputMode="decimal" value={value.value} onChange={(event) => setValues((current) => ({ ...current, [row.unitId]: { ...value, value: event.target.value } }))} />
               </Field>
               {differs ? (
@@ -400,7 +404,7 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
           );
         })}
         <p className="text-right text-table font-medium text-fg" data-testid="contract-total">
-          {t("unitLegal.totalPreview", { amount: amountLabel(total, legal.defaults.currency) })}
+          {t("unitLegal.totalPreview", { amount: amountLabel(total, legal.defaults.currency, locale) })}
         </p>
       </div>
     </FormDialog>

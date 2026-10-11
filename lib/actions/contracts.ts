@@ -58,7 +58,7 @@ function revalidateContracts(recordPath?: string) {
  * amendment that reduces the terms. The form re-asks with a confirmation
  * instead of simply failing (PRD #18 §119, §168).
  */
-function toResult(error: unknown): ContractActionResult {
+async function toResult(error: unknown): Promise<ContractActionResult> {
   // The business code (`SIGNED_DOCUMENT_MISSING`, `AMENDMENT_REDUCES_TERMS`)
   // travels as `code`; a service's field details become `fieldErrors`, a
   // uniqueness race a sentence naming the field (AUD-09 §3, §6).
@@ -66,7 +66,7 @@ function toResult(error: unknown): ContractActionResult {
 }
 
 /** Invalid input under canonical paths (AUD-09 §3): every issue under its full path. */
-function invalid(error: ZodError): ContractActionResult {
+async function invalid(error: ZodError): Promise<ContractActionResult> {
   return validationFailure(error);
 }
 

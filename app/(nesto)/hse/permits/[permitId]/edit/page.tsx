@@ -58,6 +58,7 @@ export default async function EditPermitPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/permits/${permitId}`}
         submitLabel={t("page.savePermit")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={permit.updatedAt}
         projects={options.projects.map((project) => ({

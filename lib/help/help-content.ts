@@ -20,6 +20,8 @@
  */
 import type { ModuleKey } from "@/config/modules";
 import type { Permission } from "@/config/permissions";
+import type { Locale } from "@/lib/i18n/config";
+import { MODULE_HELP_SQ } from "@/lib/help/help-content.sq";
 
 /** Moves on whenever a module's help is rewritten; dismissed guidance keyed on it comes back once. */
 export const HELP_VERSION = "2026-09-27.1";
@@ -344,3 +346,33 @@ export const MODULE_HELP: Record<ModuleKey, ModuleHelp> = {
     permissions: STANDARD_PERMISSIONS,
   },
 };
+
+/** The words of one module's help, list for list the same shape as its entry in MODULE_HELP. */
+export type ModuleHelpText = {
+  purpose: string;
+  terms: HelpTerm[];
+  actions: Pick<HelpAction, "label" | "description">[];
+  permissions: string;
+};
+
+/**
+ * The help in the reader's language. English is MODULE_HELP itself; Albanian
+ * takes its words from help-content.sq.ts and keeps each action's permission
+ * and page from the English entry, by position.
+ */
+export function helpContent(locale: Locale): Record<ModuleKey, ModuleHelp> {
+  if (locale !== "sq") return MODULE_HELP;
+  const entries = (Object.keys(MODULE_HELP) as ModuleKey[]).map((key) => {
+    const en = MODULE_HELP[key];
+    const sq = MODULE_HELP_SQ[key];
+    const help: ModuleHelp = {
+      ...en,
+      purpose: sq.purpose,
+      terms: sq.terms,
+      actions: en.actions.map((action, index) => ({ ...action, label: sq.actions[index].label, description: sq.actions[index].description })),
+      permissions: sq.permissions,
+    };
+    return [key, help] as const;
+  });
+  return Object.fromEntries(entries) as Record<ModuleKey, ModuleHelp>;
+}

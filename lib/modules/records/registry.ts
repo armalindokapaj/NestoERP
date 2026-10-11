@@ -1,9 +1,11 @@
 import type { Prisma } from "@prisma/client";
 
+import type { Locale } from "@/lib/i18n/config";
+import { formatDate } from "@/lib/i18n/format";
+import { getRequestLocale } from "@/lib/i18n/server";
 import { statusLabel } from "@/lib/utils/status";
 import { prisma } from "@/lib/database/prisma";
 import { searchClause, skipFor } from "@/lib/modules/shared/list-query";
-import { formatDate } from "@/lib/utils/format";
 import { CORE_SECTIONS } from "./core-sections";
 import type { RecordSection } from "./types";
 
@@ -25,10 +27,10 @@ function auditMeta(record: {
   createdAt: Date;
   updatedAt?: Date;
   approvedAt?: Date | null;
-}): { label: string; value: string }[] {
-  const meta = [{ label: "Created", value: formatDate(record.createdAt) }];
-  if (record.updatedAt) meta.push({ label: "Updated", value: formatDate(record.updatedAt) });
-  if (record.approvedAt) meta.push({ label: "Approved", value: formatDate(record.approvedAt) });
+}, locale: Locale): { label: string; value: string }[] {
+  const meta = [{ label: "Created", value: formatDate(record.createdAt, locale) }];
+  if (record.updatedAt) meta.push({ label: "Updated", value: formatDate(record.updatedAt, locale) });
+  if (record.approvedAt) meta.push({ label: "Approved", value: formatDate(record.approvedAt, locale) });
   return meta;
 }
 
@@ -117,6 +119,7 @@ const supportRequests: RecordSection = {
     };
   },
   async get(context, id) {
+    const locale = await getRequestLocale();
     const row = await prisma.supportRequest.findFirst({
       where: { companyId: context.companyId, id },
       select: {
@@ -147,7 +150,7 @@ const supportRequests: RecordSection = {
             : "—",
         },
       ],
-      meta: auditMeta(row),
+      meta: auditMeta(row, locale),
     };
   },
 };

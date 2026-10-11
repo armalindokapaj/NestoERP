@@ -41,6 +41,7 @@ export function CompensationForm({
       action={translatedAction}
       cancelHref={cancelHref}
       submitLabel={t("meta.recordCompensation")}
+      saveKind="create"
       pendingLabel={t("attendance.recording")}
       module="hr"
     >

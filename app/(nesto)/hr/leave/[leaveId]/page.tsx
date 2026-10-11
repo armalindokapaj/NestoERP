@@ -7,8 +7,8 @@ import { DetailGrid, RecordHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { can } from "@/lib/access/can";
 import { hrLabel } from "@/components/hr/hr-labels";
-import { getTranslations } from "@/lib/i18n/server";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { formatDays } from "@/components/hr/hr-format";
 import { leaveBreadcrumbs, leaveLabel, loadLeave } from "./leave-context";
 
@@ -33,6 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * `hr.leave.reason.view`, because a reason may be medical.
  */
 export default async function LeaveDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { leaveId } = await params;
   const { context, request } = await loadLeave(leaveId);
 
@@ -47,11 +48,11 @@ export default async function LeaveDetailPage({ params }: Params) {
         subtitle={request.employee.fullName}
         status={request.status}
         meta={[
-          { label: t("leave.from"), value: formatDate(request.startDate) },
-          { label: t("leave.to"), value: formatDate(request.endDate) },
+          { label: t("leave.from"), value: formatDate(request.startDate, locale) },
+          { label: t("leave.to"), value: formatDate(request.endDate, locale) },
           {
             label: t("leave.workingDays"),
-            value: <span className="tabular-nums">{formatDays(request.days)}</span>,
+            value: <span className="tabular-nums">{formatDays(request.days, locale)}</span>,
           },
         ]}
         actions={<LeaveActions request={request} />}
@@ -98,7 +99,7 @@ export default async function LeaveDetailPage({ params }: Params) {
               { label: t("columns.type"), value: hrLabel(t, "leaveType", request.leaveType) },
               {
                 label: t("leave.submitted"),
-                value: request.submittedAt ? formatDateTime(request.submittedAt) : t("leave.notYet"),
+                value: request.submittedAt ? formatDateTime(request.submittedAt, locale) : t("leave.notYet"),
               },
               {
                 label: t("leave.decidedBy"),
@@ -106,7 +107,7 @@ export default async function LeaveDetailPage({ params }: Params) {
               },
               {
                 label: t("leave.decided"),
-                value: request.decidedAt ? formatDateTime(request.decidedAt) : "—",
+                value: request.decidedAt ? formatDateTime(request.decidedAt, locale) : "—",
               },
             ]}
           />

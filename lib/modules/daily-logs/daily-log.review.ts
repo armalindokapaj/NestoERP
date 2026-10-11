@@ -12,6 +12,8 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
+import type { Locale } from "@/lib/i18n/config";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { dailyLogsOpen, isEditable, MODULE, readableDailyLogWhere, RECORD } from "./daily-log.permissions";
 import type { correctionSchema } from "./daily-log.schema";
@@ -38,8 +40,8 @@ async function contributors(tx: Tx, log: ReadableLog): Promise<string[]> {
   return [...new Set([log.createdByMemberId, log.submittedByMemberId, ...authors.map((row) => row.createdByMemberId)].filter((id): id is string => Boolean(id)))];
 }
 
-function payloadFor(log: ReadableLog, extra: Record<string, unknown> = {}) {
-  return { projectName: log.project.name, dateLabel: dateLabel(dateOf(log.workDate)), workDate: dateOf(log.workDate), ...extra };
+function payloadFor(log: ReadableLog, extra: Record<string, unknown> = {}, locale: Locale) {
+  return { projectName: log.project.name, dateLabel: dateLabel(dateOf(log.workDate), locale), workDate: dateOf(log.workDate), ...extra };
 }
 
 /**
@@ -96,7 +98,7 @@ export async function submitDailyLog(context: UserContext, dailyLogId: string, i
     if (reviewerMemberId) {
       await enqueueNotificationEvent(tx, {
         companyId: context.companyId, eventType: NotificationEvent.DAILY_LOG_SUBMITTED, moduleKey: MODULE, entityType: RECORD, entityId: log.id, actorMemberId: context.membershipId, projectId: log.projectId,
-        payload: payloadFor(log, { reviewerMemberId, actorName: context.fullName, submissionCount: String(log.submissionCount + 1) }),
+        payload: payloadFor(log, { reviewerMemberId, actorName: context.fullName, submissionCount: String(log.submissionCount + 1) }, SOURCE_LOCALE),
       });
     }
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_SUBMITTED", message: "submitted the daily log" });
@@ -122,7 +124,7 @@ export async function reviewDailyLog(context: UserContext, dailyLogId: string, i
     await resolveReviewAttention(tx, context.companyId, log.id);
     await enqueueNotificationEvent(tx, {
       companyId: context.companyId, eventType: NotificationEvent.DAILY_LOG_REVIEWED, moduleKey: MODULE, entityType: RECORD, entityId: log.id, actorMemberId: context.membershipId, projectId: log.projectId,
-      payload: payloadFor(log, { memberIds: await contributors(tx, log), actorName: context.fullName }),
+      payload: payloadFor(log, { memberIds: await contributors(tx, log), actorName: context.fullName }, SOURCE_LOCALE),
     });
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_REVIEWED", message: "reviewed the daily log" });
     await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_REVIEWED, entity: { type: RECORD, id: log.id }, after: { status: "REVIEWED", submissionCount: log.submissionCount } }, { tx });
@@ -145,7 +147,7 @@ export async function returnDailyLog(context: UserContext, dailyLogId: string, i
     await resolveReviewAttention(tx, context.companyId, log.id);
     await enqueueNotificationEvent(tx, {
       companyId: context.companyId, eventType: NotificationEvent.DAILY_LOG_RETURNED, moduleKey: MODULE, entityType: RECORD, entityId: log.id, actorMemberId: context.membershipId, projectId: log.projectId,
-      payload: payloadFor(log, { memberIds: await contributors(tx, log), reason: input.reason }),
+      payload: payloadFor(log, { memberIds: await contributors(tx, log), reason: input.reason }, SOURCE_LOCALE),
     });
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_RETURNED", message: "returned the daily log for correction", metadata: { note: input.reason } as Prisma.InputJsonValue });
     await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_RETURNED, entity: { type: RECORD, id: log.id }, after: { status: "CORRECTION_REQUIRED", submissionCount: log.submissionCount }, reason: input.reason }, { tx });
@@ -160,7 +162,7 @@ export async function lockDailyLog(context: UserContext, dailyLogId: string, inp
     await transition(tx, log, input.expectedVersion, ["REVIEWED"], { status: "LOCKED", lockedAt: new Date(), lockedByMemberId: context.membershipId });
     await enqueueNotificationEvent(tx, {
       companyId: context.companyId, eventType: NotificationEvent.DAILY_LOG_LOCKED, moduleKey: MODULE, entityType: RECORD, entityId: log.id, actorMemberId: context.membershipId, projectId: log.projectId,
-      payload: payloadFor(log, { memberIds: await contributors(tx, log) }),
+      payload: payloadFor(log, { memberIds: await contributors(tx, log) }, SOURCE_LOCALE),
     });
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_LOCKED", message: "locked the daily log as the official record" });
     await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_LOCKED, entity: { type: RECORD, id: log.id }, after: { status: "LOCKED" } }, { tx });
@@ -198,7 +200,7 @@ export async function addCorrection(context: UserContext, dailyLogId: string, in
     });
     await enqueueNotificationEvent(tx, {
       companyId: context.companyId, eventType: NotificationEvent.DAILY_LOG_CORRECTION_ADDED, moduleKey: MODULE, entityType: RECORD, entityId: log.id, actorMemberId: context.membershipId, projectId: log.projectId,
-      payload: payloadFor(log, { memberIds: [...(await contributors(tx, log)), ...(log.reviewerMemberId ? [log.reviewerMemberId] : [])], reason: input.reason }),
+      payload: payloadFor(log, { memberIds: [...(await contributors(tx, log)), ...(log.reviewerMemberId ? [log.reviewerMemberId] : [])], reason: input.reason }, SOURCE_LOCALE),
     });
     await recordActivity(tx, context, { module: MODULE, entityType: ACTIVITY_ENTITY, entityId: log.id, action: "DAILY_LOG_CORRECTION_ADDED", message: "added an official correction", metadata: { note: input.reason } as Prisma.InputJsonValue });
     await recordUserAction(context, { actionKey: AuditAction.DAILY_LOG_CORRECTION_ADDED, entity: { type: RECORD, id: log.id }, after: { correctionId: row.id, status: "LOCKED" }, reason: input.reason }, { tx });

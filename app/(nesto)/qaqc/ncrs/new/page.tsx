@@ -52,6 +52,7 @@ export default async function NewNcrPage({
         action={createNcrAction}
         cancelHref="/qaqc/ncrs"
         submitLabel={t("ncrPage.raise")}
+        saveKind="create"
         pendingLabel={t("common.raising")}
         projects={options.projects.map((project) => ({
           value: project.id,

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
@@ -14,7 +15,6 @@ import { AccessError } from "@/lib/access/guards";
 import { formatAmount } from "@/lib/modules/finance/finance.currency";
 import * as amendments from "@/lib/modules/contracts/amendments/amendment.service";
 import { pendingCycle } from "@/lib/modules/contracts/approvals/approval.service";
-import { formatDate } from "@/lib/utils/format";
 import { contractBreadcrumbs, contractContext } from "../../contract-context";
 
 type Params = { params: Promise<{ contractId: string; amendmentId: string }> };
@@ -33,6 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * `commercial: null` and sees no money at all (PRD #18 §260).
  */
 export default async function AmendmentDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { contractId, amendmentId } = await params;
   const { context, contract } = await contractContext(contractId);
   const t = await getTranslations("contracts");
@@ -58,7 +59,7 @@ export default async function AmendmentDetailPage({ params }: Params) {
       : null;
   const currency = contract.commercial?.currency ?? null;
   const money = (value: string | null) =>
-    value === null || currency === null ? "—" : formatAmount(value, currency);
+    value === null || currency === null ? "—" : formatAmount(value, currency, locale);
 
   return (
     <div className="space-y-5">
@@ -106,12 +107,12 @@ export default async function AmendmentDetailPage({ params }: Params) {
                         {
                           label: t("amendments.expiryBefore"),
                           value: amendment.previousExpiryDate
-                            ? formatDate(amendment.previousExpiryDate)
+                            ? formatDate(amendment.previousExpiryDate, locale)
                             : "—",
                         },
                         {
                           label: t("amendments.expiryAfter"),
-                          value: formatDate(amendment.newExpiryDate),
+                          value: formatDate(amendment.newExpiryDate, locale),
                         },
                       ]
                     : []),
@@ -154,15 +155,15 @@ export default async function AmendmentDetailPage({ params }: Params) {
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("amendments.effectiveLabel")}
-                value={amendment.effectiveDate ? formatDate(amendment.effectiveDate) : "—"}
+                value={amendment.effectiveDate ? formatDate(amendment.effectiveDate, locale) : "—"}
               />
               <Meta
                 label={t("amendments.signed")}
-                value={amendment.signedDate ? formatDate(amendment.signedDate) : "—"}
+                value={amendment.signedDate ? formatDate(amendment.signedDate, locale) : "—"}
               />
               <Meta
                 label={t("amendments.activated")}
-                value={amendment.activatedAt ? formatDate(amendment.activatedAt) : "—"}
+                value={amendment.activatedAt ? formatDate(amendment.activatedAt, locale) : "—"}
               />
             </dl>
           </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { FileText, MoreHorizontal, Paperclip, ShieldCheck } from "lucide-react";
 
@@ -16,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { PersonLink } from "@/components/people/person-link";
 import { UnsavedValue } from "@/components/unsaved/unsaved-value";
+import type { Locale } from "@/lib/i18n/config";
 import {
   CATEGORY_RULES,
   VERIFICATION_LABELS,
@@ -26,9 +28,9 @@ import {
   type EmployeeDocumentsDTO,
   type UnfiledDocumentDTO,
 } from "@/lib/modules/hr/documents/employee-document.types";
+import { formatDate } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
-import { fileSize, uploadNewVersion, uploadToEmployment } from "./employee-file-upload";
+import { fileSize, uploadNewVersion, uploadToEmployment, useFileWords } from "./employee-file-upload";
 import { hrLabel, useHrTranslations } from "./hr-text";
 import type { Translate } from "@/lib/i18n/translator";
 import { FormSelect } from "@/components/ui/form-select";
@@ -53,8 +55,8 @@ const VERIFICATION_TONE: Record<CredentialVerificationStatus, "success" | "warni
 
 type Status = "current" | "historical" | "all";
 
-function date(value: string | null): string {
-  return value ? formatDate(value) : "—";
+function date(value: string | null, locale: Locale): string {
+  return value ? formatDate(value, locale) : "—";
 }
 
 export function VerificationBadge({ status, verifiable = true }: { status: CredentialVerificationStatus; verifiable?: boolean }) {
@@ -69,12 +71,13 @@ export function VerificationBadge({ status, verifiable = true }: { status: Crede
 }
 
 function ExpiryText({ row }: { row: Pick<EmployeeDocumentDTO, "expiryDate" | "expiry" | "daysToExpiry" | "isCurrent"> }) {
+  const locale = useLocale();
   const t = useHrTranslations();
   if (!row.expiryDate) return <span className="text-fg-subtle">—</span>;
   const tone = !row.isCurrent ? "text-fg-muted" : row.expiry === "EXPIRED" ? "text-danger-strong" : row.expiry === "EXPIRING" ? "text-warning-strong" : "text-fg";
   return (
     <span className={cn("whitespace-nowrap", tone)}>
-      {formatDate(row.expiryDate)}
+      {formatDate(row.expiryDate, locale)}
       {row.isCurrent && row.expiry === "EXPIRING" ? <span className="block text-meta">{t("worklist.inDays", { count: row.daysToExpiry ?? 0 })}</span> : null}
       {row.isCurrent && row.expiry === "EXPIRED" ? <span className="block text-meta">{t("employeeDocs.expired")}</span> : null}
     </span>
@@ -93,6 +96,7 @@ function StateBadge({ row }: { row: EmployeeDocumentDTO }) {
 /* -------------------------------------------------------------------------- */
 
 export function EmployeeDocuments({ data, heading = true, focusId }: { data: EmployeeDocumentsDTO; heading?: boolean; focusId?: string }) {
+  const locale = useLocale();
   const [group, setGroup] = React.useState<DocumentGroup | "ALL">("ALL");
   const [status, setStatus] = React.useState<Status>("current");
   const [verification, setVerification] = React.useState<CredentialVerificationStatus | "ALL">("ALL");
@@ -109,7 +113,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
     if (status === "current" && (!row.isCurrent || row.archived)) return false;
     if (status === "historical" && row.isCurrent && !row.archived) return false;
     if (verification !== "ALL" && row.verificationStatus !== verification) return false;
-    const haystack = `${row.title} ${row.categoryLabel} ${row.issuer ?? ""} ${row.documentNumber ?? ""}`.toLowerCase();
+    const haystack = `${row.title} ${categoryName(t, row)} ${row.issuer ?? ""} ${row.documentNumber ?? ""}`.toLowerCase();
     return words.every((word) => haystack.includes(word));
   });
   const summaries = data.summaries.filter((row) => group === "ALL" || row.group === group);
@@ -157,7 +161,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                   data-group={entry.group}
                   className={cn("nesto-card flex flex-col items-start gap-0.5 p-3 text-left transition-colors hover:border-line-strong", group === entry.group && "border-accent ring-1 ring-accent")}
                 >
-                  <span className="text-meta font-medium text-fg-muted">{entry.label}</span>
+                  <span className="text-meta font-medium text-fg-muted">{hrLabel(t, "documentGroup", entry.group, entry.label)}</span>
                   <span className="text-card font-semibold tabular-nums text-fg">{entry.count}</span>
                   <span className="flex flex-wrap gap-1">
                     {entry.expiring > 0 ? <Badge tone="warning">{t("employeeDocs.expiring", { count: entry.expiring })}</Badge> : null}
@@ -226,9 +230,9 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                           </button>
                           {row.newFileSinceVerification ? <span className="block text-meta text-warning-strong">{t("employeeDocs.newFileSince")}</span> : null}
                         </TableCell>
-                        <TableCell>{row.categoryLabel}</TableCell>
+                        <TableCell>{categoryName(t, row)}</TableCell>
                         <TableCell>{row.issuer ?? "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap">{date(row.issueDate)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{date(row.issueDate, locale)}</TableCell>
                         <TableCell>
                           <ExpiryText row={row} />
                         </TableCell>
@@ -253,7 +257,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                     <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setSelected(row)}>
                       <span className="block truncate font-medium text-fg">{row.title}</span>
                       <span className="block text-meta text-fg-muted">
-                        {row.categoryLabel}
+                        {categoryName(t, row)}
                         {row.issuer ? ` · ${row.issuer}` : ""}
                       </span>
                       <span className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
@@ -281,12 +285,12 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
                       <span className="font-medium text-fg">{row.title}</span>
                       <span className="text-fg-muted">
                         {" · "}
-                        {row.categoryLabel}
+                        {categoryName(t, row)}
                         {row.issuer ? ` · ${row.issuer}` : ""}
                       </span>
                     </span>
                     <span className="flex items-center gap-2 text-meta text-fg-muted">
-                      {row.expiryDate ? t("employeeDocs.expiresOn", { date: formatDate(row.expiryDate) }) : null}
+                      {row.expiryDate ? t("employeeDocs.expiresOn", { date: formatDate(row.expiryDate, locale) }) : null}
                       <VerificationBadge status="VERIFIED" />
                     </span>
                   </li>
@@ -306,6 +310,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
 }
 
 function UnfiledFiles({ files, canFile, onFile }: { files: UnfiledDocumentDTO[]; canFile: boolean; onFile: (file: UnfiledDocumentDTO) => void }) {
+  const locale = useLocale();
   const t = useHrTranslations();
   return (
     <section className="space-y-2" aria-labelledby="unfiled-heading" data-testid="unfiled-documents">
@@ -322,7 +327,7 @@ function UnfiledFiles({ files, canFile, onFile }: { files: UnfiledDocumentDTO[];
               </Link>
               <span className="text-meta text-fg-subtle">
                 {" · "}
-                {fileSize(file.sizeBytes)} · {t("employeeDocs.uploaded", { date: formatDate(file.uploadedAt) })}
+                {fileSize(file.sizeBytes)} · {t("employeeDocs.uploaded", { date: formatDate(file.uploadedAt, locale) })}
               </span>
             </span>
             {canFile && file.storageStatus === "AVAILABLE" ? (
@@ -347,6 +352,7 @@ function base(row: Pick<EmployeeDocumentDTO, "employeeId" | "id">) {
 
 function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDocumentDTO; contracts: Array<{ value: string; label: string }>; onOpen?: () => void; onRenew: () => void }) {
   const t = useHrTranslations();
+  const words = useFileWords();
   const { run, pending } = useCommand();
   const [dialog, setDialog] = React.useState<"verify" | "reject" | "supersede" | "archive" | "edit" | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
@@ -393,7 +399,7 @@ function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDoc
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
-          if (file) void run("version", () => uploadNewVersion(row.file.documentId, file), t("employeeDocs.versionUploaded"));
+          if (file) void run("version", () => uploadNewVersion(row.file.documentId, file, words), t("employeeDocs.versionUploaded"));
         }}
       />
       {/* A new version on its way up would be lost by leaving now (AUD-03 §3 files). */}
@@ -406,6 +412,7 @@ function DocumentActions({ row, contracts, onOpen, onRenew }: { row: EmployeeDoc
         description={t("employeeDocs.verifyDescription")}
         fields={[{ name: "note", label: t("candidate.note"), type: "textarea", rows: 2, placeholder: t("employeeDocs.verifyPlaceholder") }]}
         submitLabel={t("employeeDocs.verify")}
+        saveKind="none"
         module="hr"
         testId="verify-document-dialog"
         onSubmit={async (payload) => {
@@ -464,6 +471,7 @@ function versionOf(row: EmployeeDocumentDTO): number {
 /* -------------------------------------------------------------------------- */
 
 function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: EmployeeDocumentDTO | null; onOpenChange: (open: boolean) => void; contracts: Array<{ value: string; label: string }>; onRenew: (row: EmployeeDocumentDTO) => void }) {
+  const locale = useLocale();
   const t = useHrTranslations();
   return (
     <Drawer open={row !== null} onOpenChange={onOpenChange}>
@@ -473,7 +481,7 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <DrawerTitle className="text-card font-semibold text-fg">{row.title}</DrawerTitle>
-                <DrawerDescription className="text-meta text-fg-muted">{row.categoryLabel}</DrawerDescription>
+                <DrawerDescription className="text-meta text-fg-muted">{categoryName(t, row)}</DrawerDescription>
               </div>
               <DocumentActions row={row} contracts={contracts} onRenew={() => onRenew(row)} />
             </div>
@@ -488,7 +496,7 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
               <dt className="text-fg-muted">{t("employeeDocs.number")}</dt>
               <dd>{row.documentNumber ?? "—"}</dd>
               <dt className="text-fg-muted">{t("employeeDocs.issued")}</dt>
-              <dd>{date(row.issueDate)}</dd>
+              <dd>{date(row.issueDate, locale)}</dd>
               <dt className="text-fg-muted">{t("worklist.expires")}</dt>
               <dd>
                 <ExpiryText row={row} />
@@ -497,7 +505,7 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
                 <>
                   <dt className="text-fg-muted">{t("employeeDocs.inEffect")}</dt>
                   <dd>
-                    {date(row.effectiveFrom)} – {row.effectiveTo ? date(row.effectiveTo) : t("compensation.open")}
+                    {date(row.effectiveFrom, locale)} – {row.effectiveTo ? date(row.effectiveTo, locale) : t("compensation.open")}
                   </dd>
                 </>
               ) : null}
@@ -505,7 +513,7 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
               <dd>{hrLabel(t, "visibility", row.visibility)}</dd>
               <dt className="text-fg-muted">{t("employeeDocs.filedBy")}</dt>
               <dd>
-                {row.createdBy ? <PersonLink memberId={row.createdByMemberId} name={row.createdBy} /> : "—"} · {formatDate(row.createdAt)}
+                {row.createdBy ? <PersonLink memberId={row.createdByMemberId} name={row.createdBy} /> : "—"} · {formatDate(row.createdAt, locale)}
               </dd>
               {row.verifiable ? (
                 <>
@@ -513,7 +521,7 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
                   <dd>
                     {hrLabel(t, "verification", row.verificationStatus)}
                     {row.verifiedBy ? <> {t("employeeDocs.by")} <PersonLink memberId={row.verifiedByMemberId} name={row.verifiedBy} /></> : null}
-                    {row.verifiedAt ? `, ${formatDate(row.verifiedAt)}` : ""}
+                    {row.verifiedAt ? `, ${formatDate(row.verifiedAt, locale)}` : ""}
                     {row.verificationNote ? <span className="block text-meta text-fg-muted">“{row.verificationNote}”</span> : null}
                     {row.newFileSinceVerification ? <span className="block text-meta text-warning-strong">{t("employeeDocs.newFileAfter")}</span> : null}
                   </dd>
@@ -572,12 +580,15 @@ function DocumentDrawer({ row, onOpenChange, contracts, onRenew }: { row: Employ
 
 type AddRequest = { replaces?: EmployeeDocumentDTO; unfiled?: UnfiledDocumentDTO };
 
+/** A document's category in the reader's language; the server's English label shows for a category the dictionary lacks. */
+const categoryName = (t: Translate<"hr">, row: { category: string; categoryLabel: string }) => hrLabel(t, "documentCategory", row.category, row.categoryLabel);
+
 function metadataFields(t: Translate<"hr">, category: EmployeeDocumentCategory | "", visibilities: string[], contracts: Array<{ value: string; label: string }>, withCategory: Array<{ value: string; label: string }> | null): FormField[] {
   const rule = category ? CATEGORY_RULES[category] : null;
   const dated = rule ? rule.class === "EMPLOYMENT" || rule.class === "COMPENSATION" : false;
   return [
     ...(withCategory ? [{ name: "category", label: t("employeeDocs.whatItIs"), type: "select" as const, required: true, emptyLabel: t("changes.choose"), options: withCategory, wide: true }] : []),
-    { name: "title", label: t("employeeDocs.title"), type: "text", placeholder: rule ? t("employeeDocs.forExample", { label: rule.label }) : t("employeeDocs.whatHrCallsIt"), wide: true },
+    { name: "title", label: t("employeeDocs.title"), type: "text", placeholder: rule ? t("employeeDocs.forExample", { label: hrLabel(t, "documentCategory", category as string, rule.label) }) : t("employeeDocs.whatHrCallsIt"), wide: true },
     { name: "issuer", label: t("employeeDocs.issuedBy"), type: "text" },
     { name: "documentNumber", label: t("employeeDocs.number"), type: "text" },
     { name: "issueDate", label: t("employeeDocs.issuedOn"), type: "date" },
@@ -595,6 +606,7 @@ function metadataFields(t: Translate<"hr">, category: EmployeeDocumentCategory |
 
 function AddDocumentDialog({ request, onClose, data, contracts }: { request: AddRequest | null; onClose: () => void; data: EmployeeDocumentsDTO; contracts: Array<{ value: string; label: string }> }) {
   const t = useHrTranslations();
+  const words = useFileWords();
   const { run } = useCommand();
   const [file, setFile] = React.useState<File | null>(null);
   const [fileError, setFileError] = React.useState<string | null>(null);
@@ -608,7 +620,7 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
 
   const addable = data.capabilities.addable;
   const entry = addable.find((row) => row.category === (fixed ?? category));
-  const options = addable.map((row) => ({ value: row.category, label: `${CATEGORY_RULES[row.category].label}` }));
+  const options = addable.map((row) => ({ value: row.category, label: hrLabel(t, "documentCategory", row.category, CATEGORY_RULES[row.category].label) }));
   const fields = metadataFields(t, fixed ?? category, entry?.visibilities ?? [], contracts, fixed ? null : options);
   const renewing = request?.replaces;
   const needsFile = !request?.unfiled;
@@ -638,7 +650,7 @@ function AddDocumentDialog({ request, onClose, data, contracts }: { request: Add
             setFileError(t("employeeDocs.chooseFile"));
             throw { status: 400, code: "VALIDATION_ERROR", message: t("employeeDocs.chooseFile"), details: {} };
           }
-          documentId = await uploadToEmployment(data.employeeId, file, String(payload.title ?? "") || file.name);
+          documentId = await uploadToEmployment(data.employeeId, file, String(payload.title ?? "") || file.name, words);
         }
         const body = { ...payload, category: chosen, documentId, visibility: payload.visibility ?? undefined };
         const url = renewing ? `/api/hr/employees/${data.employeeId}/documents/${renewing.id}/renew` : `/api/hr/employees/${data.employeeId}/documents`;
@@ -685,6 +697,7 @@ function EditDocumentDialog({ row, open, onOpenChange }: { row: EmployeeDocument
       fields={fields}
       initial={{ title: row.title, issuer: row.issuer, documentNumber: row.documentNumber, issueDate: row.issueDate, expiryDate: row.expiryDate, effectiveFrom: row.effectiveFrom, effectiveTo: row.effectiveTo, visibility: row.visibility }}
       submitLabel={t("candidate.save")}
+      saveKind="save"
       module="hr"
       testId="edit-employee-document-dialog"
       wide

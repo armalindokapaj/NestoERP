@@ -59,6 +59,7 @@ export default async function EditBudgetPage({ params }: Params) {
         versionUpdatedAt={budget.updatedAt}
         cancelHref={`/finance/budgets/${budget.id}`}
         submitLabel={t("edit.save")}
+        saveKind="save"
         pendingLabel={t("settings.saving")}
       />
     </div>

@@ -1,6 +1,7 @@
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -16,7 +17,6 @@ import { requireModule } from "@/lib/context/current-user";
 import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
 import { selectableSuppliers } from "@/lib/modules/procurement/suppliers/supplier.service";
 import { rfqSupplierStatusLabels } from "@/lib/modules/procurement/procurement.status";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 
 type Params = { params: Promise<{ rfqId: string }> };
@@ -34,6 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** Enquiry detail (PRD #19 §267, §268). */
 export default async function RfqDetailPage({ params }: Params) {
+  const locale = await getLocale();
   const { rfqId } = await params;
   const context = await requireModule("procurement");
 
@@ -69,7 +70,7 @@ export default async function RfqDetailPage({ params }: Params) {
           { label: t("rfqs.answered"), value: `${rfq.respondedCount}` },
           {
             label: t("rfqs.responsesBy"),
-            value: rfq.responseDueDate ? formatDate(rfq.responseDueDate) : t("common.noDate"),
+            value: rfq.responseDueDate ? formatDate(rfq.responseDueDate, locale) : t("common.noDate"),
           },
         ]}
         actions={
@@ -151,7 +152,7 @@ export default async function RfqDetailPage({ params }: Params) {
                   <div className="flex items-center gap-2">
                     {entry.respondedAt ? (
                       <span className="text-meta text-fg-subtle">
-                        {t("rfqs.answeredOn", { date: formatDate(entry.respondedAt) })}
+                        {t("rfqs.answeredOn", { date: formatDate(entry.respondedAt, locale) })}
                       </span>
                     ) : null}
                     <Badge
@@ -217,13 +218,13 @@ export default async function RfqDetailPage({ params }: Params) {
             <dl className="mt-4 space-y-3">
               <div>
                 <dt className="nesto-eyebrow text-fg-subtle">{t("common.created")}</dt>
-                <dd className="mt-0.5 text-table text-fg">{formatDateTime(rfq.createdAt)}</dd>
+                <dd className="mt-0.5 text-table text-fg">{formatDateTime(rfq.createdAt, locale)}</dd>
               </div>
               {rfq.dates.issuedAt ? (
                 <div>
                   <dt className="nesto-eyebrow text-fg-subtle">{t("common.issued")}</dt>
                   <dd className="mt-0.5 text-table text-fg">
-                    {formatDateTime(rfq.dates.issuedAt)}
+                    {formatDateTime(rfq.dates.issuedAt, locale)}
                   </dd>
                 </div>
               ) : null}
@@ -231,7 +232,7 @@ export default async function RfqDetailPage({ params }: Params) {
                 <div>
                   <dt className="nesto-eyebrow text-fg-subtle">{t("common.closed")}</dt>
                   <dd className="mt-0.5 text-table text-fg">
-                    {formatDateTime(rfq.dates.closedAt)}
+                    {formatDateTime(rfq.dates.closedAt, locale)}
                   </dd>
                 </div>
               ) : null}

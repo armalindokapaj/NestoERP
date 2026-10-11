@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 
@@ -10,8 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { decideApprovalAction } from "@/lib/actions/procurement";
+import { formatDate } from "@/lib/i18n/format";
 import type { ProcurementApprovalDTO } from "@/lib/modules/procurement/procurement.types";
-import { formatDate } from "@/lib/utils/format";
 import { moneyLabel } from "./procurement-format";
 import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
 
@@ -36,6 +37,7 @@ export function ProcurementApprovalQueue({
    */
   steps?: Record<string, number>;
 }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useProcurementTranslations();
@@ -100,9 +102,9 @@ export function ProcurementApprovalQueue({
 
               <p className="text-meta text-fg-subtle">
                 {approval.submittedBy ? <PersonLink memberId={approval.submittedBy.memberId} name={approval.submittedBy.fullName} /> : t("approvals.somebody")} · {t("approvals.submitted")}{" "}
-                {formatDate(approval.submittedAt)}
+                {formatDate(approval.submittedAt, locale)}
                 {approval.project ? ` · ${approval.project.code}` : ""}
-                {showValue && approval.value ? ` · ${moneyLabel(approval.value)}` : ""}
+                {showValue && approval.value ? ` · ${moneyLabel(approval.value, locale)}` : ""}
               </p>
 
               {approval.decisionNote ? (

@@ -2,9 +2,9 @@ import { CommitmentActions } from "@/components/finance/commitment-actions";
 import { Money } from "@/components/finance/money";
 import { RecordHeader } from "@/components/modules/record-header";
 import { Badge } from "@/components/ui/badge";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { pendingCycle } from "@/lib/modules/finance/approvals/approval.service";
-import { formatDate } from "@/lib/utils/format";
 import { commitmentBreadcrumbs, commitmentLabel, loadCommitment } from "../commitment-context";
 import { FinanceRecordTabs } from "../../../invoices/[invoiceId]/record-tabs";
 
@@ -12,6 +12,7 @@ type Props = { children: React.ReactNode; params: Promise<{ commitmentId: string
 
 /** The record's frame: header and tabs stay mounted while Overview, Documents and Activity swap beneath them. */
 export default async function CommitmentTabsLayout({ children, params }: Props) {
+  const locale = await getLocale();
   const { commitmentId } = await params;
   const { context, commitment } = await loadCommitment(commitmentId);
 
@@ -42,7 +43,7 @@ export default async function CommitmentTabsLayout({ children, params }: Props) 
           },
           {
             label: t("columns.expected"),
-            value: commitment.expectedDate ? formatDate(commitment.expectedDate) : "—",
+            value: commitment.expectedDate ? formatDate(commitment.expectedDate, locale) : "—",
           },
           {
             label: t("commitments.countsToward"),

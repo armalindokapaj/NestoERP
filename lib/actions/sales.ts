@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { actionFailure } from "@/lib/actions/result";
 import { invalidInput, readSubmittedLines, scalarFormValues } from "@/lib/modules/finance/finance.form-data";
 import { approvalGuardFrom, type PendingCycle } from "@/lib/core/approvals/approval-guard";
@@ -54,11 +55,11 @@ function revalidateSales(recordPath?: string) {
   revalidatePath("/dashboard");
 }
 
-function toResult(error: unknown): SalesActionResult {
+async function toResult(error: unknown): Promise<SalesActionResult> {
   // A duplicate is a question for a person, not a failure: the form re-renders
   // with the matches and an "add anyway" button (PRD #17 §44).
   if (error instanceof DuplicateLeadError) {
-    return { ok: false, error: error.message, duplicates: error.matches };
+    return localizeActionFailure({ ok: false, error: error.message, duplicates: error.matches });
   }
   return actionFailure(error, "sales");
 }
@@ -68,8 +69,8 @@ function toResult(error: unknown): SalesActionResult {
  * line's error is `lineItems.<index>.<field>`, the index being the row's
  * submitted position.
  */
-function invalid(error: z.ZodError, submitted: number[] | null = null): SalesActionResult {
-  return invalidInput(error, submitted ? { lineItems: submitted } : {});
+async function invalid(error: z.ZodError, submitted: number[] | null = null): Promise<SalesActionResult> {
+  return localizeActionFailure(invalidInput(error, submitted ? { lineItems: submitted } : {}));
 }
 
 function formValues(formData: FormData): Record<string, unknown> {

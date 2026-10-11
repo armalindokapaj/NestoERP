@@ -7,6 +7,7 @@ import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTyp
 import type { Project3DConfig } from "@/lib/3d/runtime/types";
 import { cn } from "@/lib/utils/cn";
 import { GroupCard, SectionHeading, ToggleRow } from "./rozaris-fields";
+import { useEditorWord } from "./editor-text";
 
 /* The Rozaris Web3D Camera panel's "Editor Tools" (panels/CameraPanel.tsx). */
 
@@ -28,6 +29,7 @@ const IDLE_DRONE_DEFAULTS = {
 } satisfies Partial<Project3DConfig>;
 
 export function CameraEditorTools({ change, viewerRef, canEdit }: { change: (patch: Partial<Project3DConfig>) => void; viewerRef: React.RefObject<ThreeProjectViewerHandle | null>; canEdit: boolean }) {
+  const editorServerText = useEditorWord();
   const [previewing, setPreviewing] = React.useState(false);
   const [showPath, setShowPath] = React.useState(false);
 
@@ -50,7 +52,7 @@ export function CameraEditorTools({ change, viewerRef, canEdit }: { change: (pat
 
   return (
     <div className="space-y-3">
-      <SectionHeading>Editor Tools</SectionHeading>
+      <SectionHeading>{editorServerText("Editor Tools")}</SectionHeading>
       <GroupCard>
         <button
           type="button"
@@ -58,16 +60,16 @@ export function CameraEditorTools({ change, viewerRef, canEdit }: { change: (pat
           className={cn("flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold hover:bg-surface-muted", previewing ? "text-accent-strong" : "text-fg-muted")}
         >
           {previewing ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-          {previewing ? "Stop Preview" : "Preview Drone"}
+          {previewing ? editorServerText("Stop Preview") : editorServerText("Preview Drone")}
         </button>
-        <ToggleRow label="Show Drone Path" checked={showPath} onChange={toggleShowPath} />
+        <ToggleRow label={editorServerText("Show Drone Path")} checked={showPath} onChange={toggleShowPath} />
         <button
           type="button"
           onClick={() => change(IDLE_DRONE_DEFAULTS)}
           disabled={!canEdit}
           className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <RotateCcw className="h-3.5 w-3.5" /> Reset Drone Settings
+          <RotateCcw className="h-3.5 w-3.5" /> {editorServerText("Reset Drone Settings")}
         </button>
       </GroupCard>
     </div>

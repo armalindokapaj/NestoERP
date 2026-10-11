@@ -47,7 +47,7 @@ async function acceptAllowed(token: string): Promise<TeamActionResult | null> {
 }
 
 /** One reading of a failure for both transports (AUD-09 §3, §6). */
-function toResult(error: unknown): TeamActionResult {
+async function toResult(error: unknown): Promise<TeamActionResult> {
   return actionFailure(error, "team");
 }
 
@@ -129,7 +129,7 @@ export async function inviteMemberAction(formData: FormData): Promise<InviteActi
       ...(result.inviteUrl ? { inviteUrl: result.inviteUrl } : {}),
     };
   } catch (error) {
-    const failure = toResult(error);
+    const failure = await toResult(error);
     return failure as InviteActionResult;
   }
 }
@@ -147,7 +147,7 @@ export async function resendInvitationAction(inviteId: string): Promise<InviteAc
       ...(result.inviteUrl ? { inviteUrl: result.inviteUrl } : {}),
     };
   } catch (error) {
-    return toResult(error) as InviteActionResult;
+    return (await toResult(error)) as InviteActionResult;
   }
 }
 

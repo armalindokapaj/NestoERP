@@ -11,11 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";
 import { AccessError } from "@/lib/access/guards";
 import { requireModule } from "@/lib/context/current-user";
+import { formatDateTime } from "@/lib/i18n/format";
 import * as stopWork from "@/lib/modules/hse/stop-work/stop-work.service";
 import { stopWorkReleaseGapLabels } from "@/lib/modules/hse/hse.status";
 import { hseLabel } from "@/lib/i18n/modules/hse/labels";
-import { formatDateTime, orDash } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { orDash } from "@/lib/utils/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 type Params = { params: Promise<{ stopWorkId: string }> };
 
@@ -32,6 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** One stop-work record (PRD #22 §170, §174, §323). */
 export default async function StopWorkPage({ params }: Params) {
+  const locale = await getLocale();
   const { stopWorkId } = await params;
   const context = await requireModule("hse");
   const t = await getTranslations("hse");
@@ -66,7 +68,7 @@ export default async function StopWorkPage({ params }: Params) {
         }
         meta={[
           { label: t("record.project"), value: record.project.code },
-          { label: t("stopWork.detail.issued"), value: formatDateTime(record.issuedAt) },
+          { label: t("stopWork.detail.issued"), value: formatDateTime(record.issuedAt, locale) },
           {
             label: t("stopWork.detail.issuedBy"),
             value: record.issuedBy ? (
@@ -160,7 +162,7 @@ export default async function StopWorkPage({ params }: Params) {
                 ) : (
                   t("action.detail.somebody")
                 )}
-                {record.releasedAt ? t("action.detail.onDate", { date: formatDateTime(record.releasedAt) }) : ""}.
+                {record.releasedAt ? t("action.detail.onDate", { date: formatDateTime(record.releasedAt, locale) }) : ""}.
               </p>
             </section>
           ) : null}
@@ -190,9 +192,9 @@ export default async function StopWorkPage({ params }: Params) {
                   )
                 }
               />
-              <Meta label={t("stopWork.detail.issued")} value={formatDateTime(record.issuedAt)} />
+              <Meta label={t("stopWork.detail.issued")} value={formatDateTime(record.issuedAt, locale)} />
               {record.cancelledAt ? (
-                <Meta label={t("record.cancelled")} value={formatDateTime(record.cancelledAt)} />
+                <Meta label={t("record.cancelled")} value={formatDateTime(record.cancelledAt, locale)} />
               ) : null}
             </dl>
           </section>

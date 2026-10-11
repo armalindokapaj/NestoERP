@@ -4,6 +4,7 @@ import { describeFailure, VALIDATION_MESSAGE } from "@/lib/api/failure";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { currentRequestContext, newRequestId } from "@/lib/core/observability/request-context";
 import { issuesToFieldErrors, type FieldErrors, type FormErrorCategory } from "@/lib/forms/errors";
+import { localizeActionFailure } from "@/lib/i18n/errors/server";
 import { isNextControlFlow } from "@/lib/unsaved/outcome";
 
 /**
@@ -35,9 +36,14 @@ export type ActionFailure = {
  * What a server action answers for a thrown error — the shared `toResult`.
  * Next's own control flow (a redirect, a not-found) is not a failure and is
  * thrown on. An unexpected error is logged under `scope` with a reference the
- * person can quote.
+ * person can quote. The sentences are in the reader's language (`readActionFailure`
+ * is the same answer in the English the services wrote).
  */
-export function actionFailure(error: unknown, scope = "action"): ActionFailure {
+export async function actionFailure(error: unknown, scope = "action"): Promise<ActionFailure> {
+  return localizeActionFailure(readActionFailure(error, scope));
+}
+
+export function readActionFailure(error: unknown, scope = "action"): ActionFailure {
   if (isNextControlFlow(error)) throw error;
   const failure = describeFailure(error);
   let reference: string | undefined;
@@ -60,7 +66,11 @@ export function actionFailure(error: unknown, scope = "action"): ActionFailure {
  * (`lineItems.2.unitPrice`, not just `lineItems`), and a rule over the whole
  * payload as the form-level sentence.
  */
-export function validationFailure(error: ZodError, message = VALIDATION_MESSAGE): ActionFailure {
+export async function validationFailure(error: ZodError, message = VALIDATION_MESSAGE): Promise<ActionFailure> {
+  return localizeActionFailure(readValidationFailure(error, message));
+}
+
+export function readValidationFailure(error: ZodError, message = VALIDATION_MESSAGE): ActionFailure {
   const { fieldErrors, formErrors } = issuesToFieldErrors(error.issues);
   return {
     ok: false,

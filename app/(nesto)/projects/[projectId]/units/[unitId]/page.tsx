@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/config";
+import { numberText } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { FileText, ImageIcon } from "lucide-react";
 
@@ -20,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const dash = (value: string | number | null | undefined) => (value === null || value === undefined || value === "" ? "—" : value);
-const area = (value: string | null) => (value === null ? "—" : `${Number(value).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`);
+const area = (value: string | null, locale: Locale) => (value === null ? "—" : `${numberText(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 }, locale, "en")} m²`);
 
 /**
  * The unit's overview (E-05D §10, §11, §45, §90, §91): its technical data as the
@@ -29,6 +31,7 @@ const area = (value: string | null) => (value === null ? "—" : `${Number(value
  * a value, because hiding what somebody entered is worse than an unusual row.
  */
 export default async function UnitOverviewPage({ params }: Params) {
+  const locale = await getLocale();
   const { projectId, unitId } = await params;
   const page = await loadUnitPage(projectId, unitId);
   const { context, unit, publishing } = page;
@@ -97,7 +100,7 @@ export default async function UnitOverviewPage({ params }: Params) {
             <h2 id="unit-areas" className="text-card font-semibold text-fg">
               {t("unitPage.areas")}
             </h2>
-            <DetailGrid className="mt-4" columns={3} items={areas.map((field) => ({ label: t(`area.${field}`), value: <span className="tabular-nums">{area(unit.areas[field])}</span> }))} />
+            <DetailGrid className="mt-4" columns={3} items={areas.map((field) => ({ label: t(`area.${field}`), value: <span className="tabular-nums">{area(unit.areas[field], locale)}</span> }))} />
           </section>
         </div>
 

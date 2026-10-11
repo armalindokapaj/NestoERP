@@ -215,7 +215,9 @@ export function FormSection({
  * `saveKind` says whether this form's submit is an ordinary save of a record
  * that exists ("save") or creates one ("create"): what "Save and continue" is
  * called in the unsaved-changes prompt. A form whose submit is a workflow step
- * (Send, Submit, Approve) is not a RecordForm.
+ * (Send, Submit, Approve) is not a RecordForm. Every call site passes it; the
+ * English label is only a fallback, because a label in another language says
+ * nothing about the kind (tests/architecture/form-save-kind.test.ts).
  */
 export function RecordForm({
   action,

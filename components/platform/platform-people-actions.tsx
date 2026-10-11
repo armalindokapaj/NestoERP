@@ -45,7 +45,7 @@ export function CreatePersonButton({ groups }: { groups: Array<{ value: string; 
   const t = useTranslations("adminAccess");
   const personFields = usePersonFields();
   const command = usePlatformCommand();
-  return <><Button size="sm" onClick={() => setOpen(true)}>{t("peopleActions.createPerson")}</Button><FormDialog open={open} onOpenChange={setOpen} title={t("peopleActions.createPersonTitle")} description={t("peopleActions.createPersonDescription")} fields={[{ name: "parentGroupId", label: t("peopleActions.fields.parentGroup"), type: "select", required: true, options: groups }, ...personFields]} initial={{ parentGroupId: groups[0]?.value, lifecycleStatus: "EMPLOYEE" }} submitLabel={t("peopleActions.createPerson")} wide onSubmit={(payload) => command({ action: "person.create", ...payload }, t("peopleActions.personCreated")).then(() => undefined)} /></>;
+  return <><Button size="sm" onClick={() => setOpen(true)}>{t("peopleActions.createPerson")}</Button><FormDialog open={open} onOpenChange={setOpen} title={t("peopleActions.createPersonTitle")} description={t("peopleActions.createPersonDescription")} fields={[{ name: "parentGroupId", label: t("peopleActions.fields.parentGroup"), type: "select", required: true, options: groups }, ...personFields]} initial={{ parentGroupId: groups[0]?.value, lifecycleStatus: "EMPLOYEE" }} submitLabel={t("peopleActions.createPerson")} saveKind="create" wide onSubmit={(payload) => command({ action: "person.create", ...payload }, t("peopleActions.personCreated")).then(() => undefined)} /></>;
 }
 
 export function EditPersonButton({ person }: { person: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } }) {
@@ -53,14 +53,14 @@ export function EditPersonButton({ person }: { person: { id: string; firstName: 
   const t = useTranslations("adminAccess");
   const personFields = usePersonFields();
   const command = usePlatformCommand();
-  return <><Button size="sm" variant="ghost" onClick={() => setOpen(true)}>{t("peopleActions.edit")}</Button><FormDialog open={open} onOpenChange={setOpen} title={t("peopleActions.editTitle", { name: `${person.firstName} ${person.lastName}` })} fields={personFields} initial={person} submitLabel={t("peopleActions.save")} wide onSubmit={(payload) => command({ action: "person.update", personId: person.id, ...payload }, t("peopleActions.personUpdated")).then(() => undefined)} /></>;
+  return <><Button size="sm" variant="ghost" onClick={() => setOpen(true)}>{t("peopleActions.edit")}</Button><FormDialog open={open} onOpenChange={setOpen} title={t("peopleActions.editTitle", { name: `${person.firstName} ${person.lastName}` })} fields={personFields} initial={person} submitLabel={t("peopleActions.save")} saveKind="save" wide onSubmit={(payload) => command({ action: "person.update", personId: person.id, ...payload }, t("peopleActions.personUpdated")).then(() => undefined)} /></>;
 }
 
 export function EditPersonDialog({ open, onOpenChange, person }: { open: boolean; onOpenChange: (open: boolean) => void; person: { id: string; firstName: string; lastName: string; preferredName: string | null; jobTitle: string | null; workEmail: string | null; workPhone: string | null; lifecycleStatus: string } }) {
   const t = useTranslations("adminAccess");
   const personFields = usePersonFields();
   const command = usePlatformCommand();
-  return <FormDialog open={open} onOpenChange={onOpenChange} title={t("peopleActions.editTitle", { name: `${person.firstName} ${person.lastName}` })} fields={personFields} initial={person} submitLabel={t("peopleActions.save")} wide onSubmit={(payload) => command({ action: "person.update", personId: person.id, ...payload }, t("peopleActions.personUpdated")).then(() => undefined)} />;
+  return <FormDialog open={open} onOpenChange={onOpenChange} title={t("peopleActions.editTitle", { name: `${person.firstName} ${person.lastName}` })} fields={personFields} initial={person} submitLabel={t("peopleActions.save")} saveKind="save" wide onSubmit={(payload) => command({ action: "person.update", personId: person.id, ...payload }, t("peopleActions.personUpdated")).then(() => undefined)} />;
 }
 
 export function CreateUserButton({ personId, personName }: { personId: string; personName: string }) {

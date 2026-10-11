@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, MessageSquare, MoreHorizontal, Pencil, Plus, Send, Stamp } from "lucide-react";
@@ -36,6 +37,7 @@ import { SummaryFigure, TimesheetStatusBadge, TimesheetWarnings } from "./timesh
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { initial: TimesheetWeekDTO; options: TimesheetFormOptions; basePath?: string }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useTimesheetsTranslations();
@@ -209,7 +211,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
           </Button>
         </div>
         <h2 className="text-section font-semibold text-fg" data-testid="timesheet-week-label">
-          {weekLabel(week.periodStart)}
+          {weekLabel(week.periodStart, locale)}
         </h2>
         <TimesheetStatusBadge status={week.status} />
         {!isCurrent ? (
@@ -305,7 +307,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
 
       <div className="space-y-3 lg:hidden" data-testid="timesheet-days">
         {week.days.map((day) => {
-          const label = dayLabel(day.date);
+          const label = dayLabel(day.date, locale);
           const logs = week.logs.filter((log) => log.workDate === day.date);
           const canLog = editable && !day.future && !day.locked;
           if (day.future && logs.length === 0) return null;
@@ -410,7 +412,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
 
       <Dialog open={entries !== null} onOpenChange={(open) => !open && setEntries(null)}>
         <DialogContent className="max-w-md">
-          <DialogTitle>{entries ? `${dayLabel(entries.date).weekday} ${dayLabel(entries.date).day}` : t("common.entries")}</DialogTitle>
+          <DialogTitle>{entries ? `${dayLabel(entries.date, locale).weekday} ${dayLabel(entries.date, locale).day}` : t("common.entries")}</DialogTitle>
           <DialogDescription>{t("week.entriesDescription")}</DialogDescription>
           <ul className="mt-4 divide-y divide-line">
             {(entries?.logIds ?? []).map((id) => logsById.get(id)).filter((log): log is WorkLogDTO => Boolean(log)).map((log) => (

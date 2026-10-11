@@ -270,6 +270,18 @@ function albanianDigits(plain: string): string {
   return fraction ? `${grouped},${fraction}` : grouped;
 }
 
+/**
+ * A decimal string as it is written for the reader, never rounded:
+ * "1234567.25" → "1,234,567.25" · "1 234 567,25". The sign, if any, is kept.
+ */
+export function decimalText(plain: string, locale: Locale): string {
+  const negative = plain.startsWith("-");
+  const unsigned = negative ? plain.slice(1) : plain;
+  const [whole, fraction] = unsigned.split(".");
+  if (locale === "sq") return `${negative ? "-" : ""}${albanianDigits(unsigned)}`;
+  return `${negative ? "-" : ""}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${fraction ? `.${fraction}` : ""}`;
+}
+
 export function albanianNumber(value: number, options: Intl.NumberFormatOptions = {}): string {
   const sign = value < 0 && !Object.is(Math.abs(value), 0) ? "-" : "";
   const currency = options.style === "currency" ? String(options.currency) : null;

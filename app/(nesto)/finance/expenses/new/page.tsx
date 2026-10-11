@@ -81,6 +81,7 @@ export default async function NewExpensePage({
         }
         cancelHref="/finance/expenses"
         submitLabel={t("expenses.create")}
+        saveKind="create"
         pendingLabel={t("revise.creating")}
       />
     </div>

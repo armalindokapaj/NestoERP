@@ -6,6 +6,9 @@ import { can } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import type { RecordType } from "@/lib/core/records/record.types";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
+import { getRequestLocale } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/config";
 import { OPEN_HAZARD_STATUSES, OPEN_INCIDENT_STATUSES } from "@/lib/modules/hse/hse.status";
 import { companyDays } from "./company-day";
 
@@ -628,7 +631,7 @@ const timesheetNotSubmitted = paged({
         const { lastDueWeek } = await import("@/lib/modules/timesheets/timesheet.deadline");
         const { resolveTimesheetSettings } = await import("@/lib/modules/timesheets/timesheet.settings");
         const { businessInstant } = await import("@/lib/modules/timesheets/timesheet.time");
-        const week = lastDueWeek(now, await resolveTimesheetSettings(companyId));
+        const week = lastDueWeek(now, await resolveTimesheetSettings(companyId), SOURCE_LOCALE);
         if (!week) return [];
         const rows = await prisma.timesheet.findMany({
           where: { companyId, periodStart: businessInstant(week), status: "DRAFT", member: { status: "ACTIVE" }, ...after(page) },
@@ -641,18 +644,19 @@ const timesheetNotSubmitted = paged({
         const { weekLabel } = await import("@/lib/modules/timesheets/timesheet.time");
         return rows.map((row): AttentionCandidate => ({
           entityType: "timesheet", entityId: row.id, projectId: null,
-          title: `Submit your timesheet for ${weekLabel(row.week)}`, body: "The submission deadline has passed.",
+          title: `Submit your timesheet for ${weekLabel(row.week, SOURCE_LOCALE)}`, body: "The submission deadline has passed.",
           priority: "HIGH", dismissible: true, episode: row.week, recipients: [row.memberId],
         }));
       },
     ),
   ],
   async holds(companyId, type, id, now) {
+    const locale = await getRequestLocale();
     if (type !== "timesheet") return false;
     const { lastDueWeek } = await import("@/lib/modules/timesheets/timesheet.deadline");
     const { resolveTimesheetSettings } = await import("@/lib/modules/timesheets/timesheet.settings");
     const { businessInstant } = await import("@/lib/modules/timesheets/timesheet.time");
-    const week = lastDueWeek(now, await resolveTimesheetSettings(companyId));
+    const week = lastDueWeek(now, await resolveTimesheetSettings(companyId), locale);
     if (!week) return false;
     return (await prisma.timesheet.count({ where: { companyId, id, status: "DRAFT", periodStart: { lte: businessInstant(week) } } })) > 0;
   },
@@ -739,7 +743,7 @@ const dailyLogMissing = paged({
         const { dateLabel } = await import("@/lib/modules/daily-logs/daily-log.time");
         return rows.map((row): AttentionCandidate => ({
           entityType: "project", entityId: row.projectId, projectId: row.projectId,
-          title: `No daily log for ${row.projectName}`, body: dateLabel(row.date),
+          title: `No daily log for ${row.projectName}`, body: dateLabel(row.date, SOURCE_LOCALE),
           priority: "NORMAL", dismissible: true, episode: row.date, recipients: [row.projectManagerMemberId],
         }));
       },
@@ -819,7 +823,7 @@ const milestoneOverdue = paged({
         const { dateLabel } = await import("@/lib/modules/project-planning/planning.dates");
         return rows.map((row): AttentionCandidate => ({
           entityType: "project_milestone", entityId: row.id, projectId: row.projectId,
-          title: `Milestone overdue: ${row.name}`, body: `${row.project.name} · due ${dateLabel(row.target)}`,
+          title: `Milestone overdue: ${row.name}`, body: `${row.project.name} · due ${dateLabel(row.target, SOURCE_LOCALE)}`,
           priority: row.critical ? "HIGH" : "NORMAL", dismissible: true,
           // A new forecast is a new episode: dismissing one date never hides the next.
           episode: row.target ?? "overdue",
@@ -931,7 +935,7 @@ const announcementAckRequired = paged({
  * compliance and the managers of the contractor's live projects. Expired
  * cannot be waved away; renewing, waiving or archiving the item resolves it.
  */
-function complianceCondition(key: "CONTRACTOR_COMPLIANCE_EXPIRING" | "CONTRACTOR_COMPLIANCE_EXPIRED" | "CONTRACTOR_COMPLIANCE_MISSING", status: "EXPIRING" | "EXPIRED" | "MISSING"): AttentionConditionDefinition {
+function complianceCondition(key: "CONTRACTOR_COMPLIANCE_EXPIRING" | "CONTRACTOR_COMPLIANCE_EXPIRED" | "CONTRACTOR_COMPLIANCE_MISSING", status: "EXPIRING" | "EXPIRED" | "MISSING", locale: Locale): AttentionConditionDefinition {
   return paged({
     key,
     moduleKey: "contractors",
@@ -949,7 +953,7 @@ function complianceCondition(key: "CONTRACTOR_COMPLIANCE_EXPIRING" | "CONTRACTOR
           return rows.map((row): AttentionCandidate => ({
             entityType: "contractor_compliance", entityId: row.id, projectId: null,
             title: status === "MISSING" ? `Missing: ${row.title}` : status === "EXPIRED" ? `Expired: ${row.title}` : `Expiring: ${row.title}`,
-            body: row.expiresAt ? `${row.contractorName} · ${status === "EXPIRED" ? "expired" : "expires"} ${dateLabel(row.expiresAt)}` : row.contractorName,
+            body: row.expiresAt ? `${row.contractorName} · ${status === "EXPIRED" ? "expired" : "expires"} ${dateLabel(row.expiresAt, locale)}` : row.contractorName,
             priority: status === "EXPIRED" ? "HIGH" : "NORMAL", dismissible: status !== "EXPIRED",
             episode: row.expiresAt ?? (row.statusChangedAt ?? row.createdAt).toISOString(),
             recipients: recipientsByContractor.get(row.contractorId) ?? [],
@@ -989,7 +993,7 @@ function credentialCondition(key: AttentionConditionKey, kind: "employee_documen
           return found.map((row): AttentionCandidate => ({
             entityType: kind, entityId: row.id, projectId: null,
             title: `${condition === "UNVERIFIED" ? "To verify" : condition === "EXPIRED" ? "Expired" : "Expiring"}: ${row.label} · ${row.personName}`,
-            body: row.expiresAt ? `${condition === "EXPIRED" ? "Expired" : "Expires"} ${credentialDateLabel(row.expiresAt)}` : null,
+            body: row.expiresAt ? `${condition === "EXPIRED" ? "Expired" : "Expires"} ${credentialDateLabel(row.expiresAt, SOURCE_LOCALE)}` : null,
             priority: condition === "EXPIRED" ? "HIGH" : "NORMAL", dismissible: condition !== "EXPIRED",
             episode: row.episode,
             recipients: [row.selfMemberId],
@@ -1013,9 +1017,9 @@ const qualificationExpiring = credentialCondition("QUALIFICATION_EXPIRING", "per
 const qualificationExpired = credentialCondition("QUALIFICATION_EXPIRED", "person_qualification", "EXPIRED");
 const qualificationUnverified = credentialCondition("QUALIFICATION_UNVERIFIED", "person_qualification", "UNVERIFIED");
 
-const complianceExpiring = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRING", "EXPIRING");
-const complianceExpired = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRED", "EXPIRED");
-const complianceMissing = complianceCondition("CONTRACTOR_COMPLIANCE_MISSING", "MISSING");
+const complianceExpiring = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRING", "EXPIRING", SOURCE_LOCALE);
+const complianceExpired = complianceCondition("CONTRACTOR_COMPLIANCE_EXPIRED", "EXPIRED", SOURCE_LOCALE);
+const complianceMissing = complianceCondition("CONTRACTOR_COMPLIANCE_MISSING", "MISSING", SOURCE_LOCALE);
 
 /** An RFI past its due date without an answer, for its assignee and whoever raised it. */
 const rfiOverdue = paged({
@@ -1031,7 +1035,7 @@ const rfiOverdue = paged({
         const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
         return rows.map((row): AttentionCandidate => ({
           entityType: "rfi", entityId: row.id, projectId: row.projectId,
-          title: `RFI overdue: ${row.rfiNumber}`, body: `${row.subject} · ${row.project.name} · due ${dateLabel(dateOf(row.dueAt))}`,
+          title: `RFI overdue: ${row.rfiNumber}`, body: `${row.subject} · ${row.project.name} · due ${dateLabel(dateOf(row.dueAt), SOURCE_LOCALE)}`,
           priority: row.priority === "CRITICAL" || row.priority === "HIGH" ? "HIGH" : "NORMAL", dismissible: true,
           episode: dateOf(row.dueAt) ?? "overdue",
           recipients: [row.assignedToMemberId, row.createdByMemberId],
@@ -1060,7 +1064,7 @@ const rfiResponseRequired = paged({
         const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
         return rows.map((row): AttentionCandidate => ({
           entityType: "rfi", entityId: row.id, projectId: row.projectId,
-          title: `${row.status === "CLARIFICATION_REQUIRED" ? "Clarify" : "Answer"} RFI ${row.rfiNumber}`, body: [row.subject, row.dueAt ? `due ${dateLabel(dateOf(row.dueAt))}` : null].filter(Boolean).join(" · "),
+          title: `${row.status === "CLARIFICATION_REQUIRED" ? "Clarify" : "Answer"} RFI ${row.rfiNumber}`, body: [row.subject, row.dueAt ? `due ${dateLabel(dateOf(row.dueAt), SOURCE_LOCALE)}` : null].filter(Boolean).join(" · "),
           priority: row.priority === "CRITICAL" ? "HIGH" : "NORMAL", dismissible: true,
           // A new assignee or a clarification is a new ask.
           episode: `${row.assignedToMemberId}:${row.status}`,
@@ -1090,7 +1094,7 @@ const submittalReviewOverdue = paged({
         const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
         return rows.map((row): AttentionCandidate => ({
           entityType: "technical_submittal", entityId: row.id, projectId: row.projectId,
-          title: `Review overdue: submittal ${row.submittalNumber}`, body: `${row.title} · due ${dateLabel(dateOf(row.dueAt))}`,
+          title: `Review overdue: submittal ${row.submittalNumber}`, body: `${row.title} · due ${dateLabel(dateOf(row.dueAt), SOURCE_LOCALE)}`,
           priority: "HIGH", dismissible: true,
           episode: `${row.currentRevision?.id ?? "none"}:${dateOf(row.dueAt)}`,
           recipients: [row.assignedReviewerMemberId ?? row.project.projectManagerMemberId],
@@ -1146,7 +1150,7 @@ const engineeringReviewOverdue = paged({
         const { dateLabel, dateOf } = await import("@/lib/modules/engineering/engineering.shared");
         return rows.map((row): AttentionCandidate => ({
           entityType: "engineering_document", entityId: row.id, projectId: row.projectId,
-          title: `Review overdue: ${row.documentNumber}${row.currentRevision ? ` Rev ${row.currentRevision.revisionCode}` : ""}`, body: `${row.title} · due ${dateLabel(dateOf(row.reviewDueAt))}`,
+          title: `Review overdue: ${row.documentNumber}${row.currentRevision ? ` Rev ${row.currentRevision.revisionCode}` : ""}`, body: `${row.title} · due ${dateLabel(dateOf(row.reviewDueAt), SOURCE_LOCALE)}`,
           priority: "HIGH", dismissible: true,
           episode: `${row.currentRevision?.id ?? "none"}:${dateOf(row.reviewDueAt)}`,
           recipients: [row.reviewerMemberId ?? row.project.projectManagerMemberId],

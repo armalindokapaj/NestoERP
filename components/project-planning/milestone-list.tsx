@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { AlertTriangle, ChevronDown, Flag, Link2, MoreHorizontal } from "lucide-react";
 
 import { ScrollRegion } from "@/components/ui/scroll-region";
@@ -67,6 +67,7 @@ function MilestoneMeta({ milestone }: { milestone: MilestoneSummaryDTO }) {
 }
 
 function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneSummaryDTO; capabilities: PlanningCapabilities; onOpen: (id: string, panel?: DrawerPanel) => void }) {
+  const locale = useLocale();
   const t = useTranslations("projects");
   const closed = milestone.status === "COMPLETED" || milestone.status === "CANCELLED";
   const actions: Array<{ panel: DrawerPanel; label: string; show: boolean }> = [
@@ -107,11 +108,11 @@ function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneS
       <dl className="mt-3 grid grid-cols-3 gap-2 text-meta">
         <div>
           <dt className="text-fg-subtle">{milestone.status === "COMPLETED" ? t("milestoneList.actual") : t("milestoneList.forecast")}</dt>
-          <dd className="font-medium tabular-nums text-fg">{shortDateLabel(milestone.status === "COMPLETED" ? milestone.actualDate : (milestone.forecastDate ?? milestone.plannedDate))}</dd>
+          <dd className="font-medium tabular-nums text-fg">{shortDateLabel(milestone.status === "COMPLETED" ? milestone.actualDate : (milestone.forecastDate ?? milestone.plannedDate), locale)}</dd>
         </div>
         <div>
           <dt className="text-fg-subtle">{t("milestoneList.baseline")}</dt>
-          <dd className="tabular-nums text-fg">{shortDateLabel(milestone.baselineDate)}</dd>
+          <dd className="tabular-nums text-fg">{shortDateLabel(milestone.baselineDate, locale)}</dd>
         </div>
         <div>
           <dt className="text-fg-subtle">{t("milestoneList.variance")}</dt>
@@ -135,6 +136,7 @@ function MobileCard({ milestone, capabilities, onOpen }: { milestone: MilestoneS
 }
 
 function Row({ milestone, onOpen }: { milestone: MilestoneSummaryDTO; onOpen: (id: string) => void }) {
+  const locale = useLocale();
   const t = useTranslations("projects");
   return (
     <tr className="cursor-pointer border-b border-line/70 transition-colors last:border-0 hover:bg-row-hover" onClick={(event) => !(event.target as HTMLElement).closest("a") && onOpen(milestone.id)} data-testid="milestone-row">
@@ -152,9 +154,9 @@ function Row({ milestone, onOpen }: { milestone: MilestoneSummaryDTO; onOpen: (i
       <td className="truncate px-3 py-2.5 align-top text-table text-fg-muted">
         <OwnerName owner={milestone.owner} />
       </td>
-      <td className="whitespace-nowrap px-3 py-2.5 align-top text-table tabular-nums text-fg-muted">{dateLabel(milestone.baselineDate)}</td>
-      <td className="whitespace-nowrap px-3 py-2.5 align-top text-table tabular-nums text-fg">{dateLabel(milestone.forecastDate ?? milestone.plannedDate)}</td>
-      <td className="whitespace-nowrap px-3 py-2.5 align-top text-table tabular-nums text-fg">{dateLabel(milestone.actualDate)}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 align-top text-table tabular-nums text-fg-muted">{dateLabel(milestone.baselineDate, locale)}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 align-top text-table tabular-nums text-fg">{dateLabel(milestone.forecastDate ?? milestone.plannedDate, locale)}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 align-top text-table tabular-nums text-fg">{dateLabel(milestone.actualDate, locale)}</td>
       <td className="px-3 py-2.5 align-top text-table">
         <Variance days={milestone.varianceDays} short />
       </td>

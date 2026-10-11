@@ -13,7 +13,9 @@ import { inGroupWorkspace } from "@/config/workspace";
 import { requireUserContext } from "@/lib/context/current-user";
 import { resolveWorkspaceContexts } from "@/lib/context/workspace-access";
 import { globalSearchForWorkspace } from "@/lib/core/search/search.service";
-import { getTranslations } from "@/lib/i18n/server";
+import { StatusText } from "@/components/i18n/common-text";
+import { recordTypeName } from "@/lib/i18n/modules/common/labels";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -52,7 +54,9 @@ function entityLabel(entityType: string): string {
 export default async function SearchPage({ searchParams }: Params) {
   const context = await requireUserContext();
   const params = await searchParams;
-  const [m, tModules] = await Promise.all([getTranslations("misc"), getTranslations("modules")]);
+  const [m, tModules, tCommon, locale] = await Promise.all([getTranslations("misc"), getTranslations("modules"), getTranslations("common"), getLocale()]);
+  // English keeps its humanised type; the dictionary nouns differ from it for a few types ("Employee record").
+  const typeLabel = (entityType: string): string => (locale === "en" ? entityLabel(entityType) : recordTypeName(tCommon, entityType, entityLabel(entityType)));
   const moduleLabel = (key: string): string => (modules[key as ModuleKey] ? tModules(`${key as ModuleKey}.label`) : key);
 
   const term = typeof params.q === "string" ? params.q : "";
@@ -173,11 +177,11 @@ export default async function SearchPage({ searchParams }: Params) {
                             </span>
                             {row.company ? <CompanyTag name={row.company.name} className="shrink-0" /> : null}
                             <span className="hidden shrink-0 text-micro text-fg-subtle sm:block">
-                              {entityLabel(row.entityType)}
+                              {typeLabel(row.entityType)}
                             </span>
                             {row.status ? (
                               <Badge tone="default" className="shrink-0">
-                                {row.status}
+                                <StatusText status={row.status} />
                               </Badge>
                             ) : null}
                           </>

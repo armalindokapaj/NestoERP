@@ -2,9 +2,9 @@ import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/i18n/format";
 import type { ProposalSummaryDTO } from "@/lib/modules/sales/sales.types";
-import { formatDate } from "@/lib/utils/format";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { formatAmount } from "./sales-format";
 
 /**
@@ -27,6 +27,7 @@ export async function ProposalTable({
   /** The list's parsed sort and allowlist; header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("sales");
   const columns: TableColumn<ProposalSummaryDTO>[] = [
     {
@@ -60,7 +61,7 @@ export async function ProposalTable({
       label: t("tables.total"),
       align: "right",
       render: (row) => (
-        <span className="tabular-nums">{formatAmount(row.totalAmount, row.currency)}</span>
+        <span className="tabular-nums">{formatAmount(row.totalAmount, row.currency, locale)}</span>
       ),
     },
     {
@@ -72,7 +73,7 @@ export async function ProposalTable({
       render: (row) =>
         row.validUntil ? (
           <span className="flex items-center gap-2">
-            {formatDate(row.validUntil)}
+            {formatDate(row.validUntil, locale)}
             {row.expiry === "EXPIRING_SOON" ? <Badge tone="warning">{t("tables.expiringSoon")}</Badge> : null}
             {row.expiry === "EXPIRED" ? <Badge tone="danger">{t("tables.expired")}</Badge> : null}
           </span>

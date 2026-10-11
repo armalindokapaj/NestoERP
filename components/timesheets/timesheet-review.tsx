@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { Pencil, RotateCcw, Stamp } from "lucide-react";
@@ -29,6 +30,7 @@ import { SummaryFigure, TimesheetStatusBadge, TimesheetWarnings } from "./timesh
 const NO_OPTIONS: TimesheetFormOptions = { projects: [], recent: [] };
 
 export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; discussion: React.ReactNode }) {
+  const locale = useLocale();
   const router = useRouter();
   const toast = useToast();
   const t = useTimesheetsTranslations();
@@ -63,7 +65,7 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
         <div className="min-w-0 flex-1">
           <p className="text-meta text-fg-muted">{t("meta.timesheet")}</p>
           <h1 className="text-page font-semibold text-fg">
-            <PersonLink memberId={week.member.memberId} name={week.member.name} /> <span className="font-normal text-fg-muted">· {weekLabel(week.periodStart)}</span>
+            <PersonLink memberId={week.member.memberId} name={week.member.name} /> <span className="font-normal text-fg-muted">· {weekLabel(week.periodStart, locale)}</span>
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -57,6 +57,7 @@ export default async function EditInspectionPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/inspections/${inspectionId}`}
         submitLabel={t("page.saveInspection")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={inspection.updatedAt}
         projects={options.projects.map((project) => ({

@@ -6,6 +6,7 @@ import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { FormSelect } from "@/components/ui/form-select";
+import { useEditorWord } from "./editor-text";
 
 /** Inspector building blocks for the Experience Editor's dark panels. */
 
@@ -42,12 +43,17 @@ export class PanelBoundary extends React.Component<{ label: string; children: Re
 
   render() {
     if (!this.state.failed) return this.props.children;
-    return (
-      <div role="alert" className="rounded-lg border border-danger/30 bg-surface p-3 text-xs text-fg-muted">
-        <p className="font-medium text-danger-strong">{this.props.label} could not be shown.</p>
-        <p className="mt-1 text-fg-subtle">The rest of the editor and your unsaved changes are unaffected.</p>
-        <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => this.setState({ failed: false })}>Try again</Button>
-      </div>
-    );
+    return <PanelFailure label={this.props.label} onRetry={() => this.setState({ failed: false })} />;
   }
+}
+
+function PanelFailure({ label, onRetry }: { label: string; onRetry: () => void }) {
+  const editorServerText = useEditorWord();
+  return (
+    <div role="alert" className="rounded-lg border border-danger/30 bg-surface p-3 text-xs text-fg-muted">
+      <p className="font-medium text-danger-strong">{editorServerText("{0} could not be shown.", label)}</p>
+      <p className="mt-1 text-fg-subtle">{editorServerText("The rest of the editor and your unsaved changes are unaffected.")}</p>
+      <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={onRetry}>{editorServerText("Try again")}</Button>
+    </div>
+  );
 }

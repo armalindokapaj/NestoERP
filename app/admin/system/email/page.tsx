@@ -1,4 +1,5 @@
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDateTime } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import type { Metadata } from "next";
 
@@ -6,7 +7,6 @@ import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { PageHeader } from "@/components/ui/page-header";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { systemOverview } from "@/lib/modules/platform/platform-system.service";
-import { formatDateTime } from "@/lib/utils/format";
 import { Fact } from "../_parts";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,6 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * changed in the deployment, not here.
  */
 export default async function EmailPage() {
+  const locale = await getLocale();
   const t = await getTranslations("adminPlatform");
   const context = await requirePlatformContext();
   const { email } = await systemOverview(context);
@@ -32,7 +33,7 @@ export default async function EmailPage() {
           <Fact label={t("system.email.status")}><span className={email.status === "Configured" ? "font-medium text-success-strong" : "font-medium text-warning-strong"}>{enumLabel(t, "enums.emailStatus", email.status)}</span></Fact>
           <Fact label={t("system.email.sender")}>{email.sender ?? t("common.notSet")}</Fact>
           <Fact label={t("system.email.apiKey")}>{email.apiKey === "Configured" ? t("common.configured") : email.apiKey === "Not set" ? t("common.notSet") : email.apiKey}</Fact>
-          <Fact label={t("system.email.lastTest")}>{email.lastTest ? `${enumLabel(t, "enums.mailStatus", email.lastTest.status, email.lastTest.status.toLowerCase())} · ${formatDateTime(email.lastTest.at)}${email.lastTest.errorCode ? ` · ${email.lastTest.errorCode}` : ""}` : t("common.never")}</Fact>
+          <Fact label={t("system.email.lastTest")}>{email.lastTest ? `${enumLabel(t, "enums.mailStatus", email.lastTest.status, email.lastTest.status.toLowerCase())} · ${formatDateTime(email.lastTest.at, locale)}${email.lastTest.errorCode ? ` · ${email.lastTest.errorCode}` : ""}` : t("common.never")}</Fact>
           <Fact label={t("system.email.failed")}>{email.failed7d}</Fact>
         </dl>
         {email.status !== "Configured" ? <p className="mt-4 text-table text-warning-strong">{t("system.email.notDelivering")}</p> : null}

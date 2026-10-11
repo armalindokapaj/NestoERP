@@ -12,6 +12,9 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { prisma } from "@/lib/database/prisma";
+import type { Locale } from "@/lib/i18n/config";
+import { SOURCE_LOCALE } from "@/lib/i18n/config";
+import { dayText } from "@/lib/i18n/format";
 import { SELF_VISIBLE } from "@/lib/modules/hr/documents/employee-document.access";
 import { CATEGORY_RULES, EXPIRING_SOON_DAYS, EXPIRY_WINDOWS, expiryWindowOf } from "@/lib/modules/hr/documents/employee-document.types";
 import { addDays, daysBetween, dayOf, dbDay } from "@/lib/modules/hr/employment/employment.dates";
@@ -40,11 +43,8 @@ const JOB = "hr.credential-expiry";
 /** Rows read at a time; a company with more is walked by cursor, never cut off (PRD #51 §133-§138). */
 const BATCH = 100;
 const LIVE: CredentialVerificationStatus[] = ["UNVERIFIED", "VERIFIED"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function dateLabel(day: string): string {
-  const [year, month, date] = day.split("-").map(Number);
-  return `${date} ${MONTHS[month - 1]} ${year}`;
+function dateLabel(day: string, locale: Locale): string {
+  return dayText(day, "d MMM yyyy", locale);
 }
 
 /** HR's verifiers in a company: who hears about the employee file's deadlines and waits (§87, §153). */
@@ -121,7 +121,7 @@ async function settleDocument(companyId: string, row: DocumentRow, today: string
       entityId: row.id,
       actorMemberId: null,
       projectId: null,
-      payload: { memberIds, label: documentLabel(row), personName: person, expiresAt: expires, dateLabel: dateLabel(expires), window: String(window), days: daysBetween(today, expires), at: now.toISOString() },
+      payload: { memberIds, label: documentLabel(row), personName: person, expiresAt: expires, dateLabel: dateLabel(expires, SOURCE_LOCALE), window: String(window), days: daysBetween(today, expires), at: now.toISOString() },
     });
     return { moved: moving, told: true };
   });
@@ -204,7 +204,7 @@ async function settleQualification(companyId: string, row: QualificationRow, tod
       entityId: row.id,
       actorMemberId: null,
       projectId: null,
-      payload: { memberIds, title: row.title, typeLabel: QUALIFICATION_TYPE_RULES[row.type].label, personName: person, expiresAt: expires, dateLabel: dateLabel(expires), window: String(window), days: daysBetween(today, expires), at: now.toISOString() },
+      payload: { memberIds, title: row.title, typeLabel: QUALIFICATION_TYPE_RULES[row.type].label, personName: person, expiresAt: expires, dateLabel: dateLabel(expires, SOURCE_LOCALE), window: String(window), days: daysBetween(today, expires), at: now.toISOString() },
     });
     return { moved, told: true };
   });

@@ -40,6 +40,7 @@ export function WarehouseForm({
   versionUpdatedAt,
   cancelHref,
   submitLabel,
+  saveKind,
   pendingLabel,
   projects,
 }: {
@@ -48,6 +49,7 @@ export function WarehouseForm({
   versionUpdatedAt?: string;
   cancelHref: string;
   submitLabel: string;
+  saveKind: "save" | "create";
   pendingLabel: string;
   projects: { value: string; label: string }[];
 }) {
@@ -62,6 +64,7 @@ export function WarehouseForm({
       module="inventory"
       cancelHref={cancelHref}
       submitLabel={submitLabel}
+      saveKind={saveKind}
       pendingLabel={pendingLabel}
       versionUpdatedAt={versionUpdatedAt}
     >

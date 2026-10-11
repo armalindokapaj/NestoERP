@@ -55,6 +55,7 @@ export default async function EditHazardPage({ params }: Params) {
         action={update}
         cancelHref={`/hse/hazards/${hazardId}`}
         submitLabel={t("page.saveHazard")}
+        saveKind="save"
         pendingLabel={t("page.saving")}
         versionUpdatedAt={hazard.updatedAt}
         projects={options.projects.map((project) => ({

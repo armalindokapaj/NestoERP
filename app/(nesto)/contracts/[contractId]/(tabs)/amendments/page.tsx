@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 import { FileStack } from "lucide-react";
@@ -9,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import * as amendments from "@/lib/modules/contracts/amendments/amendment.service";
 import { amendmentStatusLabels } from "@/lib/modules/contracts/amendments/amendment.status";
-import { formatDate } from "@/lib/utils/format";
 import { contractsLabel } from "@/lib/i18n/modules/contracts/labels";
 import { contractContext } from "../../contract-context";
 
@@ -28,6 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * expiry move only when an amendment is activated (PRD #18 §333).
  */
 export default async function ContractAmendmentsPage({ params }: Params) {
+  const locale = await getLocale();
   const { contractId } = await params;
   const { context, contract } = await contractContext(contractId);
 
@@ -56,7 +57,7 @@ export default async function ContractAmendmentsPage({ params }: Params) {
                     contractValue: amendment.commercial.newContractValue,
                   }
                 : null,
-              t,
+              t, locale,
             );
             return (
               <li
@@ -72,11 +73,11 @@ export default async function ContractAmendmentsPage({ params }: Params) {
                   </Link>
                   <p className="text-meta text-fg-subtle">
                     {amendment.effectiveDate
-                      ? t("amendments.effective", { date: formatDate(amendment.effectiveDate) })
+                      ? t("amendments.effective", { date: formatDate(amendment.effectiveDate, locale) })
                       : t("amendments.noEffective")}
                     {value ? t("amendments.newValue", { value }) : ""}
                     {amendment.newExpiryDate
-                      ? t("amendments.newExpiry", { date: formatDate(amendment.newExpiryDate) })
+                      ? t("amendments.newExpiry", { date: formatDate(amendment.newExpiryDate, locale) })
                       : ""}
                   </p>
                 </div>

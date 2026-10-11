@@ -1,5 +1,11 @@
 import type { Prisma } from "@prisma/client";
 
+
+import { numberText } from "@/lib/i18n/format";
+
+import type { Locale } from "@/lib/i18n/config";
+import { dateText } from "@/lib/i18n/format";
+
 import type { ApprovalMoney, ApprovalPriority } from "../approvals.types";
 import type { MatchFilters } from "../approvals.cycle-provider";
 
@@ -55,19 +61,19 @@ export function excludesAmountFilter(filters: MatchFilters): boolean {
   return filters.amountMin !== undefined || filters.amountMax !== undefined;
 }
 
-export function formatAmount(amount: DecimalLike, currency: string | null | undefined): string {
+export function formatAmount(amount: DecimalLike, currency: string | null | undefined, locale: Locale): string {
   if (amount === null || amount === undefined || !currency) return "—";
   const value = Number(amount.toString());
   try {
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+    return numberText(value, { style: "currency", currency, maximumFractionDigits: 2 }, locale);
   } catch {
     return `${currency} ${value.toFixed(2)}`;
   }
 }
 
-export function formatDate(value: Date | null | undefined): string {
+export function formatDate(value: Date | null | undefined, locale: Locale): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(value);
+  return dateText(value, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }, locale);
 }
 
 export function labelOf(value: string | null | undefined): string {

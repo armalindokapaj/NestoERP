@@ -1,13 +1,13 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { formatDate } from "@/lib/i18n/format";
 import type { RequestSummaryDTO } from "@/lib/modules/procurement/procurement.types";
 import { priorityLabels } from "@/lib/modules/procurement/procurement.status";
-import { formatDate } from "@/lib/utils/format";
 import { companyColumn, isGroupRows, RecordLink } from "./company-cells";
 import { dueLabel, formatAmount } from "./procurement-format";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
-import { getTranslations } from "@/lib/i18n/server";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 
 /**
  * The purchase request list (PRD #19 §249, §277).
@@ -25,6 +25,7 @@ export async function RequestTable({
   showProject?: boolean;
   caption?: string;
 }) {
+  const locale = await getLocale();
   const grouped = isGroupRows(requests);
   const t = await getTranslations("procurement");
 
@@ -85,7 +86,7 @@ export async function RequestTable({
       align: "right",
       render: (row) => (
         <span className="tabular-nums">
-          {row.currency ? formatAmount(row.estimatedTotal, row.currency) : "—"}
+          {row.currency ? formatAmount(row.estimatedTotal, row.currency, locale) : "—"}
         </span>
       ),
     },
@@ -106,7 +107,7 @@ export async function RequestTable({
       render: (row) =>
         row.requiredDate ? (
           <span className={row.attention.overdue ? "text-warning-strong" : undefined}>
-            {formatDate(row.requiredDate)}
+            {formatDate(row.requiredDate, locale)}
             {row.attention.overdue ? ` · ${dueLabel(t, row.attention.daysToRequired)}` : ""}
           </span>
         ) : (

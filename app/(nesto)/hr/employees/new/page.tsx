@@ -13,6 +13,7 @@ import {
   personOptions,
   tradeOptions,
 } from "@/lib/modules/hr/employees/employee.repository";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { getTranslations } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,7 +33,7 @@ export default async function NewEmployeePage() {
   const context = await requireModule("hr");
 
   if (!can(context, "hr.employee.create_profile")) redirect("/access-denied");
-  const t = await getTranslations("hr");
+  const [t, tr] = await Promise.all([getTranslations("hr"), getTranslations("roles")]);
 
   const [members, managers, people, departments, trades] = await Promise.all([
     membersWithoutProfile(context),
@@ -73,10 +74,11 @@ export default async function NewEmployeePage() {
         trades={trades.map((trade) => ({ value: trade.id, label: trade.name }))}
         managers={managers.map((manager) => ({
           value: manager.id,
-          label: `${manager.user.firstName} ${manager.user.lastName} — ${manager.role.name}`,
+          label: `${manager.user.firstName} ${manager.user.lastName} — ${adminRoleName(tr, manager.role.name)}`,
         }))}
         cancelHref="/hr/employees"
         submitLabel={t("employees.createEmployee")}
+        saveKind="create"
         pendingLabel={t("common.creating")}
       />
     </div>
