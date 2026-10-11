@@ -23,10 +23,12 @@ describe("fail-safe browser logout", () => {
     const { logout } = await import("@/lib/auth/client-lifecycle");
     const first = logout();
     expect(logout()).toBe(first);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(state.reset).toHaveBeenCalledOnce();
     expect(state.leave).toHaveBeenCalledOnce();
     expect(document.cookie).toContain("nesto.signed-out=1");
+    // The request leaves once the device-side sign-out hooks have had their turn (MOB-08 §36).
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(replace).not.toHaveBeenCalled();
     complete(new Response());
     await first;

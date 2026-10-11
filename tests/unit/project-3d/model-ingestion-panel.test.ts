@@ -10,6 +10,11 @@ vi.mock("@/components/ui/toast", () => ({ useToast: () => mocks.toast }));
 vi.mock("@/components/3d/platform/RemoveModelDialog", () => ({ RemoveModelDialog: () => null }));
 vi.mock("@/components/engineering/engineering-api", async (original) => ({ ...await original<object>(), engineeringApi: mocks.api }));
 vi.mock("@/lib/3d/platform/model-upload", async (original) => ({ ...await original<object>(), checkModelFile: mocks.check, putModelFile: mocks.put }));
+// The model and role selects draw NESTO's own dropdown, which needs a real DOM; a plain <select> takes the same props and the same change event.
+vi.mock("@/components/ui/form-select", async () => {
+  const { createElement } = await import("react");
+  return { FormSelect: (props: Record<string, unknown>) => createElement("select", props) };
+});
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const intent = { versionId: "v1", upload: { method: "PUT", url: "/signed", headers: {}, expiresAt: "2099-01-01T00:00:00Z" } };

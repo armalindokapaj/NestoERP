@@ -8,6 +8,13 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(urlQuery),
   usePathname: () => "/finance/invoices",
 }));
+// The Sort select and the toolbar's filters draw NESTO's own dropdown, which
+// keeps its options out of static markup; a plain <select> in its place shows
+// what it was given.
+vi.mock("@/components/ui/form-select", async () => {
+  const { createElement } = await import("react");
+  return { FormSelect: (props: Record<string, unknown>) => createElement("select", props) };
+});
 
 import { DataTable, columnMetaOf, type TableColumn } from "@/components/data/data-table";
 import { ListToolbar } from "@/components/data/list-toolbar";

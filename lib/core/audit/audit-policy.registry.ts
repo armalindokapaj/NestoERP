@@ -164,11 +164,11 @@ export const AuditAction = {
   PERSON_WORK_PROFILE_UPDATED: "PERSON_WORK_PROFILE_UPDATED",
   // A person's profile photo, set or removed (E-08 §43, §109).
   PERSON_PROFILE_PHOTO_UPDATED: "PERSON_PROFILE_PHOTO_UPDATED",
-  // Implementing a group, on the platform (E-06 §114, §116)
+  // Implementing a group, on the platform (E-06 §114, §116). Older logs also hold
+  // PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION and PLATFORM_PARENT_GROUP_ACTIVATED,
+  // from before a group was active from creation.
   PLATFORM_PARENT_GROUP_CREATED: "PLATFORM_PARENT_GROUP_CREATED",
   PLATFORM_PARENT_GROUP_UPDATED: "PLATFORM_PARENT_GROUP_UPDATED",
-  PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION: "PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION",
-  PLATFORM_PARENT_GROUP_ACTIVATED: "PLATFORM_PARENT_GROUP_ACTIVATED",
   PLATFORM_COMPANY_ADDED_TO_GROUP: "PLATFORM_COMPANY_ADDED_TO_GROUP",
   PLATFORM_COMPANY_UPDATED: "PLATFORM_COMPANY_UPDATED",
   PLATFORM_COMPANY_CREATED: "PLATFORM_COMPANY_CREATED",
@@ -699,8 +699,6 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.ORGANIZATION_USER_PROVISIONED, moduleKey: "organization", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: [...["requestedByUserId", "approvedByUserId", "provisionedByUserId", "personProfileId", "userId", "companyId", "companyDepartmentId", "functionalRoleKey", "managerUserId", "status"], "username", "newAccount", "companyMemberId"], required: true },
   { actionKey: AuditAction.PLATFORM_PARENT_GROUP_CREATED, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["slug", "name", "status"], required: true },
   { actionKey: AuditAction.PLATFORM_PARENT_GROUP_UPDATED, moduleKey: "platform", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["name", "country"], required: true },
-  { actionKey: AuditAction.PLATFORM_PARENT_GROUP_READY_FOR_VALIDATION, moduleKey: "platform", category: "CONFIGURATION", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
-  { actionKey: AuditAction.PLATFORM_PARENT_GROUP_ACTIVATED, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["status"], required: true },
   { actionKey: AuditAction.PLATFORM_COMPANY_ADDED_TO_GROUP, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "slug", "name", "groupLevelMembers"], required: true },
   { actionKey: AuditAction.PLATFORM_COMPANY_CREATED, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "slug", "name", "structure"], required: true },
   { actionKey: AuditAction.PLATFORM_COMPANY_ATTACHED_TO_GROUP, moduleKey: "platform", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["companyId", "name", "parentGroupId", "parentGroupName", "structure", "people", "departmentsMerged"], required: true },

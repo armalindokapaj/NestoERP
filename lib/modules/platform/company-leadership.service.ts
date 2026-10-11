@@ -264,7 +264,9 @@ async function provisionCeo(tx: Tx, actor: GroupActor, company: Company, input: 
   if (!previous || reactivating) await assertWithinLimit(tx, company.id, "users");
   const departmentId = await place(tx, actor, company, user.id, "CEO");
   if (previous) {
-    await tx.companyMember.updateMany({ where: { id: previous.id }, data: { roleId: ceoRole.id, status: "ACTIVE", groupDerived: false, departmentId: departmentId ?? undefined, joinedAt: reactivating ? new Date() : undefined, deactivatedAt: null, deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
+    // Moves the membership from the state just read, so a change made meanwhile is refused instead of overwritten.
+    const written = await tx.companyMember.updateMany({ where: { id: previous.id, status: previous.status }, data: { roleId: ceoRole.id, status: "ACTIVE", groupDerived: false, departmentId: departmentId ?? undefined, joinedAt: reactivating ? new Date() : undefined, deactivatedAt: null, deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
+    if (written.count === 0) throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
     // The next request builds their access afresh from the CEO role (§68, §70).
     await revokeSessions(tx, { membershipId: previous.id, relocate: false });
     return { userId: user.id, membershipId: previous.id, username: user.username, name, newAccount: false, reactivated: reactivating, previousRoleKey: previous.role.key };
