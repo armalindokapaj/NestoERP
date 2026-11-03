@@ -4,7 +4,7 @@ import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
 import { engineeringLabel, type EngineeringLabelGroup } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 
-import { EmptyNote, Metric, MetricStrip, Panel } from "@/components/engineering/engineering-ui";
+import { EmptyNote, Metric, MetricGrid, Panel } from "@/components/engineering/engineering-ui";
 import { one, orNotFound, type SearchParams } from "@/components/engineering/page-helpers";
 import { ProjectFilter } from "@/components/engineering/project-filter";
 import { ModulePage } from "@/components/modules/module-page";
@@ -57,7 +57,7 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
     <ModulePage experience={experience} activeSection="reports" title={t("reports.title")} description={t("reports.description")}>
       <div className="space-y-6">
         <ProjectFilter projects={projects} label={t("reports.project")} allLabel={t("reports.allProjects")} />
-        <MetricStrip>
+        <MetricGrid>
           <Metric label={t("reports.openRfis")} value={report.rfis.open} testId="report-open-rfis" />
           <Metric label={t("reports.overdueRfis")} value={report.rfis.overdue} tone="danger" />
           <Metric label={t("reports.averageResponse")} value={report.rfis.averageResponseDays === null ? "—" : t("ui.days", { count: report.rfis.averageResponseDays })} />
@@ -66,7 +66,7 @@ export default async function EngineeringReportsPage({ searchParams }: { searchP
           <Metric label={t("reports.documentsPending")} value={report.documents.pendingReview} />
           <Metric label={t("reports.supersededDocuments")} value={report.documents.superseded} />
           {report.compliance ? <Metric label={t("reports.complianceAlerts")} value={report.compliance.alerts} tone="warning" /> : null}
-        </MetricStrip>
+        </MetricGrid>
         <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2">
           <Panel title={t("reports.rfisByContractor")}>
             <Bars rows={byContractor(report.rfis.byContractor)} empty={t("reports.noRfis")} />

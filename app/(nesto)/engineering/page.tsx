@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 
-import { Due, EmptyNote, Metric, MetricStrip, Panel } from "@/components/engineering/engineering-ui";
+import { Due, EmptyNote, Metric, MetricGrid, Panel } from "@/components/engineering/engineering-ui";
 import { RfiRegister } from "@/components/engineering/registers";
 import { ModulePage } from "@/components/modules/module-page";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +27,12 @@ export default async function EngineeringPage() {
   return (
     <ModulePage experience={experience} activeSection="overview" title={t("my.title")} description={t("my.description")}>
       <div className="space-y-6">
-        <MetricStrip>
+        <MetricGrid>
           <Metric label={t("my.rfisToAnswer")} value={work.counts.assignedRfis} href="/engineering/rfis?assignee=me&open=1" testId="my-rfis" />
           <Metric label={t("my.answersOverdue")} value={work.counts.overdueRfis} tone="danger" />
           <Metric label={t("my.reviewsAssigned")} value={work.counts.reviews} testId="my-reviews" />
           <Metric label={t("my.reviewsOverdue")} value={work.counts.overdueReviews} tone="danger" />
-        </MetricStrip>
+        </MetricGrid>
         <Panel title={t("my.rfisPanel")} testId="my-rfis-panel">
           <RfiRegister items={work.assignedRfis} showProject showAssignee={false} emptyTitle={t("my.noRfiWaiting")} />
         </Panel>

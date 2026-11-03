@@ -300,7 +300,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
     <div
       data-testid="record-navigation-header"
       data-shell-breadcrumb
-      className="max-sm:hidden sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
+      className="max-sm:hidden sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]"
     >
       <div role="group" className="flex shrink-0 items-center" aria-label={t("historyNavigation")}>
         <HistoryButton

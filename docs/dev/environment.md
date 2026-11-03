@@ -28,6 +28,8 @@ Legend: **R** required · **O** optional · **—** not used / must not be set.
 | `AUTH_TRUST_HOST` | Auth.js host trust. | O | O | O | O |
 | `APP_ENV` | Server-side authority: `development`, `test`, `demo`, `staging` or `production`. It takes precedence over `NODE_ENV`. | O | R (`demo`) | R | R |
 | `NODE_ENV` | Set by Next/tooling. | auto | auto | auto | auto |
+| `NESTO_DESIGN_SYSTEM` | Release flag for version 2 of the design system (UI-02 §33): `1` or `2` sets the default version, and where dev mode is on a `nesto.ds` cookie may switch it. Unset or anything else: version 1, no switch (`lib/layout/design-state.ts`). | O | O | O | O |
+| `NESTO_UI_RULER` | `off` disables the page ruler for everyone without reverting the rest of version 2 (UI-02 §33.3). | O | O | O | O |
 | `NEXT_PUBLIC_APP_URL` | Public origin (client-visible). | O | R | R | R |
 | `NEXT_PUBLIC_SITE_URL` | Origin for metadata, sitemap and robots (client-visible). | O | O | O | O |
 | `APP_URL` | Origin for emailed links, never taken from the Host header. | O | O | R | R |

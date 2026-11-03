@@ -1,5 +1,6 @@
 import type * as React from "react";
 
+import { ContextTabsOverflow } from "@/components/navigation/context-tabs-overflow";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -7,6 +8,10 @@ import { cn } from "@/lib/utils/cn";
  * pinned under the breadcrumb bar. Full width of the content column, opaque, with
  * a hairline under it. Put it as a direct child of the page's own container so
  * it stays pinned for the whole page. Pages without tabs render nothing (§12).
+ *
+ * One row at every width: 46px, and in version 2 40px, 44px under touch
+ * (`--nesto-shell-tab-row-h`; UI-02 §7). Where the tabs outgrow the row it
+ * scrolls sideways, and version 2 marks the edge they continue past (§24).
  */
 export function ContextTabsFrame({ label, children, className, testId }: { label: string; children: React.ReactNode; className?: string; testId?: string }) {
   return (
@@ -18,10 +23,11 @@ export function ContextTabsFrame({ label, children, className, testId }: { label
       )}
     >
       {/* Phones may scroll the tabs sideways; desktop tab sets are kept short enough not to (§20). */}
-      <div className="overflow-x-auto overscroll-x-contain">
-        <nav aria-label={label} data-testid={testId} className="flex h-[2.875rem] min-w-max items-stretch gap-1 border-b border-line">
+      <div className="overflow-x-auto overscroll-x-contain" data-tab-scroller>
+        <nav aria-label={label} data-testid={testId} className="flex h-(--nesto-shell-tab-row-h) min-w-max items-stretch gap-1 border-b border-line">
           {children}
         </nav>
+        <ContextTabsOverflow />
       </div>
     </div>
   );

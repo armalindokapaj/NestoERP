@@ -41,6 +41,9 @@ export const theme = {
     accentFg: color("accent-fg"),
     accentStrong: color("accent-strong"),
     accentSoft: color("accent-soft"),
+    /** A pressed control's ground and the decorative gold: today's hover and accent, their own values in version 2 (UI-02 §6.1). */
+    pressed: color("pressed"),
+    gold: color("gold"),
     ring: color("ring"),
     graphite: color("graphite"),
     graphiteFg: color("graphite-fg"),

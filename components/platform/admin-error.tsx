@@ -12,7 +12,7 @@ export function AdminSectionError({ error, reset }: { error: Error & { digest?: 
   const t = useTranslations("admin");
   return (
     <div className="space-y-3">
-      <ErrorState title={t("errors.sectionTitle")} description={t("errors.sectionDescription")} onRetry={reset} retryLabel={t("errors.tryAgain")} />
+      <ErrorState title={t("errors.sectionTitle")} description={t("errors.sectionDescription")} onRetry={reset} retryLabel={t("errors.tryAgain")} reference={error.digest} />
       {process.env.NODE_ENV === "development" ? <pre className="overflow-x-auto rounded-lg bg-surface-muted p-3 text-meta text-fg-muted">{error.message}{error.digest ? `\n${error.digest}` : ""}</pre> : null}
     </div>
   );

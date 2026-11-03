@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { HelpEntry } from "@/components/help/help-entry";
 import { ModuleTabs } from "@/components/modules/module-tabs";
-import { headerActionsClass } from "@/components/ui/page-header";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import type { ResolvedModuleExperience } from "@/lib/access/module-access";
 import { getTranslations } from "@/lib/i18n/server";
 
@@ -23,6 +23,9 @@ import { getTranslations } from "@/lib/i18n/server";
  * so the menu, the heading and the breadcrumb agree (UX-07). The header ends
  * with the module's Help entry, a quiet link after the page's own actions: the
  * primary action stays the one that stands out (UX-16).
+ *
+ * The heading block is the one every page shares (`PageHeaderFrame`,
+ * components/ui/page-header.tsx; UI-02 §7.2).
  */
 export async function ModulePage({
   experience,
@@ -47,24 +50,22 @@ export async function ModulePage({
   const moduleLabel = names(`${experience.module}.label`);
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title ?? moduleLabel}</h1>
-          {description === null ? null : (
-            <p className="mt-1.5 text-body text-fg-muted">
-              {description ?? names(`${experience.module}.description`)}
-            </p>
-          )}
-        </div>
-        <div className={headerActionsClass}>
-          {actions}
-          <HelpEntry moduleKey={experience.module} moduleLabel={moduleLabel} />
-        </div>
-      </div>
+      <PageHeaderFrame
+        kind="module"
+        title={title ?? moduleLabel}
+        subtitle={description === null ? null : description ?? names(`${experience.module}.description`)}
+        actions={
+          <>
+            {actions}
+            <HelpEntry moduleKey={experience.module} moduleLabel={moduleLabel} />
+          </>
+        }
+      />
 
       <ModuleTabs experience={experience} activeSection={activeSection} />
 
-      {toolbar ? <div>{toolbar}</div> : null}
+      {/* Search, filters, the view and export, in one row above what they act on (UI-02 §7.2). */}
+      {toolbar ? <div data-page-toolbar>{toolbar}</div> : null}
 
       <div>{children}</div>
     </div>

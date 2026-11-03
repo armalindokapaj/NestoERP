@@ -18,8 +18,9 @@ export function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        // 44px tall under touch (AUD-04 §3, MW-19).
-        "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-control bg-surface px-3 text-body text-fg touch:h-11",
+        // 44px tall under touch (AUD-04 §3, MW-19). 36px with a mouse; version 2 gives it the
+        // one control height of the density, the same as a text field (UI-02 §6.4).
+        "flex h-(--nesto-height-action) w-full items-center justify-between gap-2 rounded-md border border-control bg-surface px-3 text-body text-fg touch:h-11",
         // The outline was removed with only a 1px border change left; a solid 2px ring now (AUD-11 AV-04).
         "transition-colors hover:bg-hover focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "disabled:cursor-not-allowed disabled:opacity-60",

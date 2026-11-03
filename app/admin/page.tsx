@@ -2,6 +2,8 @@ import { Suspense } from "react";
 
 import { AdminSectionBoundary } from "@/components/platform/admin-section-boundary";
 import { AdminRefreshButton } from "@/components/platform/admin-refresh-button";
+import { PageSections } from "@/components/layout/page-sections";
+import { PageSectionLinks } from "@/components/ui/page-sections";
 import { getTranslations } from "@/lib/i18n/server";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { dashboardSummary } from "@/lib/modules/platform/platform-dashboard.query";
@@ -30,8 +32,12 @@ export default async function PlatformDashboardPage() {
     <AdminSectionBoundary title={title}><Suspense fallback={fallback}>{node}</Suspense></AdminSectionBoundary>
   );
   return (
+    // The page's sections, for the scroll ruler: the heading and each section that loads (UI-02 §8, §26.3).
+    <PageSections template="overview">
     <div className="space-y-6">
       <DashboardHeader context={context} actions={<AdminRefreshButton />} />
+      {/* "On this page", where the ruler has no room: under the page's heading (UI-02 §8.1). */}
+      <PageSectionLinks />
       {section(t("dashboard.summaryLabel"), <SummarySection context={context} summary={summary} />, <SummarySkeleton />)}
       <Suspense fallback={null}><FirstRun summary={summary} /></Suspense>
       <div className="grid gap-4 xl:grid-cols-[3fr_2fr] [&>*]:min-w-0">
@@ -44,5 +50,6 @@ export default async function PlatformDashboardPage() {
       </div>
       {section(t("dashboard.usageTitle"), <UsageSection context={context} />, <ListSkeleton rows={2} label={t("dashboard.usageTitle").toLowerCase()} />)}
     </div>
+    </PageSections>
   );
 }

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./tokens-v2.css";
 @import "./project-viewer.css";
 
 /*
@@ -7,7 +8,9 @@
  *
  * tokens.css declares the raw values; this file maps them onto Tailwind's
  * theme so components can only ever spend tokens, and defines the handful of
- * structural rules the app shell needs.
+ * structural rules the app shell needs. tokens-v2.css restates those values
+ * for version 2 of the design system, under `:root[data-ds="2"]` only
+ * (UI-02 §33).
  */
 
 @theme inline {
@@ -17,6 +20,7 @@
   --color-surface-muted: var(--nesto-surface-muted);
   --color-sidebar: var(--nesto-sidebar);
   --color-row-hover: var(--nesto-row-hover);
+  --color-pressed: var(--nesto-pressed);
 
   --color-fg: var(--nesto-fg);
   --color-fg-muted: var(--nesto-fg-muted);
@@ -25,14 +29,19 @@
   --color-line: var(--nesto-border);
   --color-line-strong: var(--nesto-border-strong);
   --color-control: var(--nesto-control-border);
+  /* A secondary button's boundary: the firm divider today, the control border in version 2 (UI-02 §10.1). */
+  --color-button-line: var(--nesto-button-border);
 
   --color-primary: var(--nesto-primary);
   --color-primary-fg: var(--nesto-primary-fg);
   --color-primary-hover: var(--nesto-primary-hover);
+  --color-primary-pressed: var(--nesto-primary-pressed);
   --color-accent: var(--nesto-accent);
   --color-accent-fg: var(--nesto-accent-fg);
   --color-accent-strong: var(--nesto-accent-strong);
   --color-accent-soft: var(--nesto-accent-soft);
+  /* Decoration only — a short rule, a marker — never text (UI-02 §6.1). */
+  --color-gold: var(--nesto-gold);
   --color-hover: var(--nesto-hover);
   --color-ring: var(--nesto-ring);
   --color-hero: var(--nesto-hero);
@@ -51,6 +60,8 @@
   --color-danger-strong: var(--nesto-danger-strong);
   --color-danger-soft: var(--nesto-danger-soft);
   --color-danger-fg: var(--nesto-danger-fg);
+  --color-danger-hover: var(--nesto-danger-hover);
+  --color-danger-pressed: var(--nesto-danger-pressed);
   --color-info: var(--nesto-info);
   --color-info-strong: var(--nesto-info-strong);
   --color-info-soft: var(--nesto-info-soft);
@@ -62,41 +73,55 @@
     Palatino, Georgia, ui-serif, serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 
-  /* The scale from §7. Nothing in the product may go below 11px. */
-  --text-hero: 3.5rem; /* 56px — public hero only */
-  --text-hero--line-height: 1.05;
-  --text-hero--letter-spacing: -0.03em;
-  --text-headline: 3.25rem; /* 52px — the dashboard heading (40px below md, set in the component) */
-  --text-headline--line-height: 1.05;
-  --text-headline--letter-spacing: -0.01em;
-  --text-display: 2.25rem; /* 36px */
-  --text-display--line-height: 1.1;
-  --text-display--letter-spacing: -0.03em;
-  --text-page: 1.75rem; /* 28px */
-  --text-page--line-height: 1.2;
-  --text-page--letter-spacing: -0.02em;
-  --text-section: 1.25rem; /* 20px */
-  --text-section--line-height: 1.35;
-  --text-section--letter-spacing: -0.015em;
-  --text-card: 1rem; /* 16px */
-  --text-card--line-height: 1.45;
-  --text-body: 0.875rem; /* 14px */
-  --text-body--line-height: 1.55;
-  --text-table: 0.8125rem; /* 13px */
-  --text-table--line-height: 1.4;
-  --text-meta: 0.75rem; /* 12px */
-  --text-meta--line-height: 1.45;
+  /*
+   * The scale from §7. Nothing in the product may go below 11px.
+   *
+   * `@theme inline` copies these values into the utilities, so each step points
+   * at a --nesto-* variable rather than stating a size: tokens.css declares the
+   * values, and tokens-v2.css can restate them for version 2 (UI-02 §6.2).
+   */
+  --text-hero: var(--nesto-text-hero); /* 56px — public hero only */
+  --text-hero--line-height: var(--nesto-leading-hero);
+  --text-hero--letter-spacing: var(--nesto-tracking-hero);
+  --text-headline: var(--nesto-text-headline); /* 52px — the dashboard heading (40px below md, set in the component) */
+  --text-headline--line-height: var(--nesto-leading-headline);
+  --text-headline--letter-spacing: var(--nesto-tracking-headline);
+  --text-display: var(--nesto-text-display); /* 36px */
+  --text-display--line-height: var(--nesto-leading-display);
+  --text-display--letter-spacing: var(--nesto-tracking-display);
+  --text-page: var(--nesto-text-page); /* 28px */
+  --text-page--line-height: var(--nesto-leading-page);
+  --text-page--letter-spacing: var(--nesto-tracking-page);
+  --text-section: var(--nesto-text-section); /* 20px */
+  --text-section--line-height: var(--nesto-leading-section);
+  --text-section--letter-spacing: var(--nesto-tracking-section);
+  --text-card: var(--nesto-text-card); /* 16px */
+  --text-card--line-height: var(--nesto-leading-card);
+  --text-body: var(--nesto-text-body); /* 14px */
+  --text-body--line-height: var(--nesto-leading-body);
+  --text-table: var(--nesto-text-table); /* 13px */
+  --text-table--line-height: var(--nesto-leading-table);
+  --text-meta: var(--nesto-text-meta); /* 12px */
+  --text-meta--line-height: var(--nesto-leading-meta);
   /* §7 sets the floor at 11px — nothing in the product may go below this. */
-  --text-micro: 0.6875rem; /* 11px */
-  --text-micro--line-height: 1.45;
+  --text-micro: var(--nesto-text-micro); /* 11px */
+  --text-micro--line-height: var(--nesto-leading-micro);
+  /* UI-02 §6.2: long reading content, and the ruler's decorative tick labels
+     (the one step under the floor: supplemental, never essential). The
+     dashboard metric is the `text-metric` utility below. */
+  --text-reading: var(--nesto-text-reading); /* 16px */
+  --text-reading--line-height: var(--nesto-leading-reading);
+  --text-tick: var(--nesto-text-tick); /* 10px */
+  --text-tick--line-height: var(--nesto-leading-tick);
 
   /* ---- Radius (§9) --------------------------------------------------- */
-  --radius-sm: 6px;
-  --radius-md: 8px; /* buttons, inputs */
-  --radius-lg: 10px; /* small cards */
-  --radius-xl: 12px; /* dashboard cards */
-  --radius-2xl: 14px; /* dialogs */
-  --radius-3xl: 16px; /* large feature cards */
+  /* Variables for the same reason as the type scale (UI-02 §6.3). */
+  --radius-sm: var(--nesto-radius-sm); /* 6px */
+  --radius-md: var(--nesto-radius-md); /* 8px — buttons, inputs */
+  --radius-lg: var(--nesto-radius-lg); /* 10px — small cards */
+  --radius-xl: var(--nesto-radius-xl); /* 12px — dashboard cards */
+  --radius-2xl: var(--nesto-radius-2xl); /* 14px — dialogs */
+  --radius-3xl: var(--nesto-radius-3xl); /* 16px — large feature cards */
 
   /* ---- Shadows (§10) ------------------------------------------------- */
   --shadow-card: var(--nesto-shadow-card);
@@ -144,6 +169,30 @@
 }
 
 /*
+ * Version 2 of the design system (UI-02 §33). `ds2:` applies only inside
+ * <html data-ds="2">, which the root layout renders for version 2 and never
+ * for version 1 — so a `ds2:` class cannot change today's look. Most of the
+ * difference between the versions is in the tokens (styles/tokens-v2.css);
+ * this is for the few places where a component needs another class.
+ *
+ * It adds no specificity, like every Tailwind variant, and it is declared
+ * after them, so `ds2:text-page` beats `md:text-display` on the same element,
+ * while a state still wins over it (`ds2:bg-surface hover:bg-hover`). Where
+ * touch sizing must win, write the pair: `ds2:h-8 ds2:touch:h-11`.
+ */
+@custom-variant ds2 (&:where([data-ds="2"], [data-ds="2"] *));
+
+/*
+ * The dashboard metric (UI-02 §6.2): 30/36, 26/32 in compact density, always
+ * in tabular numerals so a column of figures lines up.
+ */
+@utility text-metric {
+  font-size: var(--nesto-text-metric);
+  line-height: var(--tw-leading, var(--nesto-leading-metric));
+  font-variant-numeric: tabular-nums;
+}
+
+/*
  * Stacking order (AUD-04 §6, MW-10). One ladder, so a menu opened inside a
  * dialog or a sheet is never drawn underneath it:
  *
@@ -174,7 +223,7 @@
      * field or an error-summary link is never focused underneath them
      * (AUD-04 §6, MW-08). `focus()` and `scrollIntoView()` both honour it.
      */
-    scroll-padding-top: calc(var(--nesto-sticky-stack) + 1rem);
+    scroll-padding-top: calc(var(--nesto-sticky-cover) + 1rem);
     scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);
   }
 
@@ -190,9 +239,30 @@
     --nesto-sticky-stack: calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h) + var(--nesto-shell-tabs-h));
     /* MOB-01 §8: the name pages use; where a page's own sticky regions start. */
     --nesto-sticky-top-offset: var(--nesto-sticky-stack);
+    /*
+     * What only a measurement knows (UI-02 §7.3, §16.2): the height of a page's
+     * own pinned toolbars (components/ui/sticky.tsx) and of the shell's banner.
+     * Nothing until version 2 publishes them (lib/hooks/use-published-height.ts),
+     * so the cover — everything pinned over the top of the page, which focus and
+     * anchors must land clear of — is the stack itself.
+     */
+    --nesto-page-sticky-h: 0px;
+    --nesto-shell-banner-h: 0px;
+    --nesto-sticky-cover: calc(var(--nesto-sticky-stack) + var(--nesto-page-sticky-h));
+    /* How the layers under the top bar and the phone's bottom bar are held. Version 2 lets them go in a window too low for them (UI-02 §7.3, §24; tokens-v2.css). */
+    --nesto-layer-pin: sticky;
+    --nesto-bottom-nav-pin: fixed;
+    --nesto-bottom-nav-margin: 0 auto;
+    /* The room a page keeps for the phone's bottom bar: none, until a bar is on the page (the `html:has(...)` rules below). */
+    --nesto-bottom-nav-space: 0px;
+    /* How far a tab row fades at an edge it continues past: not at all, until version 2 says so (UI-02 §24). */
+    --nesto-tab-fade-start: 0px;
+    --nesto-tab-fade-end: 0px;
     --nesto-z-shell-header: 30;
     --nesto-z-shell-breadcrumb: 29;
     --nesto-z-shell-tabs: 28;
+    /* How far below the stack the scroll ruler starts (UI-02 §8.2): nothing, unless a page has context tabs. */
+    --nesto-ruler-inset: 0px;
   }
 
   @media (min-width: 768px) {
@@ -208,9 +278,11 @@
     }
   }
 
-  /* Context tabs are 46px; they only count while a page has them. */
+  /* Context tabs are 46px (`--nesto-shell-tab-row-h`); they only count while a page has them. */
   :root:has([data-context-tabs]) {
-    --nesto-shell-tabs-h: 2.875rem;
+    --nesto-shell-tabs-h: var(--nesto-shell-tab-row-h);
+    /* Until the page scrolls, the tab row sits the page's top padding below where it pins; the ruler keeps clear of both places. */
+    --nesto-ruler-inset: var(--nesto-space-page-y);
   }
 
   /*
@@ -756,12 +828,12 @@ html[data-unsaved-masked] [data-experience-editor] {
  */
 [data-context-tabs] ~ * [data-context-tabs],
 [data-context-tabs] ~ [data-context-tabs] {
-  top: calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h) + 2.875rem);
+  top: calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h) + var(--nesto-shell-tab-row-h));
   z-index: calc(var(--nesto-z-shell-tabs) - 1);
 }
 
 :root:has([data-context-tabs] ~ * [data-context-tabs], [data-context-tabs] ~ [data-context-tabs]) {
-  --nesto-shell-tabs-h: 5.75rem;
+  --nesto-shell-tabs-h: calc(var(--nesto-shell-tab-row-h) * 2);
 }
 
 /*

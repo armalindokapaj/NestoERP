@@ -64,7 +64,9 @@ export function SidebarProvider({
 
   return (
     <SidebarContext.Provider value={value}>
-      <div data-sidebar={state} className={className}>
+      {/* `data-app-shell`: the root of a signed-in shell, here the company and the
+          platform one. Version 2 scopes its display type to it (UI-02 §6.2, tokens-v2.css). */}
+      <div data-sidebar={state} data-app-shell className={className}>
         {children}
       </div>
     </SidebarContext.Provider>

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { AssignContractorButton, NewWorkPackageButton } from "@/components/contractors/contractor-dialogs";
 import { CompliancePanel } from "@/components/contractors/contractor-panels";
 import { AssignmentTable, WorkPackageTable } from "@/components/contractors/contractor-tables";
-import { Metric, MetricStrip } from "@/components/engineering/engineering-ui";
+import { Metric, MetricGrid } from "@/components/engineering/engineering-ui";
 import { orNotFound } from "@/components/engineering/page-helpers";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { Button } from "@/components/ui/button";
@@ -53,13 +53,13 @@ export default async function ProjectContractorsPage({ params }: Params) {
   return (
     <div className="space-y-6">
       <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
-      <MetricStrip className="xl:grid-cols-5">
+      <MetricGrid className="xl:grid-cols-5">
         <Metric label={t("contractorsTab.activeContractors")} value={assignments.filter((row) => row.status === "ACTIVE").length} testId="metric-active-contractors" />
         <Metric label={t("contractorsTab.openWorkPackages")} value={packages.filter((row) => ["PLANNED", "ACTIVE", "AT_RISK", "ON_HOLD"].includes(row.status)).length} href={`/projects/${project.id}/work-packages`} />
         <Metric label={t("contractorsTab.openRfis")} value={openRfis} href={actions.canViewEngineering ? `/projects/${project.id}/engineering/rfis?open=1` : undefined} />
         <Metric label={t("contractorsTab.openSubmittals")} value={openSubmittals} href={actions.canViewEngineering ? `/projects/${project.id}/engineering/submittals` : undefined} />
         <Metric label={t("contractorsTab.complianceAlerts")} value={compliance.length} tone="warning" testId="metric-project-compliance" />
-      </MetricStrip>
+      </MetricGrid>
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">

@@ -77,6 +77,15 @@ export const en = {
       light: "Light",
       dark: "Dark",
       system: "System",
+      /** Density, page ruler and — in development — the design version (UI-02 §15). */
+      display: "Display",
+      density: "Density",
+      densities: { comfortable: "Comfortable", compact: "Compact" },
+      ruler: "Page ruler",
+      rulers: { auto: "Auto", off: "Off" },
+      design: "Design",
+      designs: { "1": "Classic", "2": "New" },
+      notSaved: "This browser did not keep the change. It lasts until you leave the page.",
       language: "Language",
       help: "Help Center",
       whatsNew: "What's New",
@@ -468,6 +477,15 @@ export const en = {
       density: "Density",
       densityHint: "Comfortable spacing, tuned for long working sessions.",
       densityLater: "Selectable density arrives with the settings module.",
+      densityChoiceHint: "Compact fits more rows on a screen for work with a mouse and keyboard. Touch screens always keep larger controls.",
+      densities: { comfortable: "Comfortable", compact: "Compact" },
+      ruler: "Page ruler",
+      rulerHint: "A ruler beside long overview pages that shows where you are and takes you to a section.",
+      rulers: { auto: "Auto", off: "Off" },
+      design: "Design",
+      designHint: "Switch between the classic interface and the new one. Offered in development only.",
+      designs: { "1": "Classic", "2": "New" },
+      notSaved: "This browser did not keep the change. It lasts until you leave the page.",
     },
 
     profile: {
@@ -1149,6 +1167,13 @@ export const en = {
     savedOpening: "Saved. Opening…",
   },
   ui: {
+    /** The Architectural Scroll Ruler and its "On this page" links (UI-02 §8). */
+    ruler: {
+      /** The scrollbar's name, and its value as a screen reader says it. */
+      label: "Page position",
+      valueText: "{percent} percent down page",
+      onThisPage: "On this page",
+    },
     backTo: "Back to {label}",
     goBack: "Go back",
     switchTo: "Switch {label}",
@@ -1188,6 +1213,12 @@ export const en = {
     historyNavigation: "History navigation",
     breadcrumb: "Breadcrumb",
     showHiddenCrumbs: "Show hidden breadcrumb levels",
+    /** The toggle on a password field (UI-02 §7.5); its pressed state says whether the password is shown. */
+    showPassword: "Show password",
+    /** Under a failure, the reference support can look it up by (UI-02 §16.1). */
+    errorReference: "Reference: {id}",
+    /** On the screen that replaces an app that could not start (UI-02 §7.5). */
+    errorSignIn: "Sign in",
     errorTitle: "Something went wrong.",
     errorBody: "Please try again.",
     networkTitle: "You appear to be offline.",

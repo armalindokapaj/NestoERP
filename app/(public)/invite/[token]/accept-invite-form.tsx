@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useMiscTranslations } from "@/components/activity/misc-text";
 import { acceptInviteAction } from "@/lib/actions/team";
 import type { Translate } from "@/lib/i18n/translator";
@@ -34,7 +35,7 @@ const formSchema = (m: Translate<"misc">) =>
 
 type FormValues = z.infer<ReturnType<typeof formSchema>>;
 
-export function AcceptInviteForm({ token, email }: { token: string; email: string }) {
+export function AcceptInviteForm({ token, email, revealPassword = false }: { token: string; email: string; /** Version 2: the field carries a Show password control (UI-02 §7.5). */ revealPassword?: boolean }) {
   const m = useMiscTranslations();
   const schema = React.useMemo(() => formSchema(m), [m]);
   const [error, setError] = React.useState<string | null>(null);
@@ -98,9 +99,9 @@ export function AcceptInviteForm({ token, email }: { token: string; email: strin
 
       <div className="space-y-1.5">
         <Label htmlFor="password">{m("invite.password")}</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
+          reveal={revealPassword}
           autoComplete="new-password"
           {...register("password")}
         />

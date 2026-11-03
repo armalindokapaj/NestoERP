@@ -56,6 +56,11 @@ export type MobileAccount = {
  * the safe area, the keyboard and a form's own action bar are handled in CSS
  * (`.nesto-bottom-nav` and the `html:has(...)` rules in styles/globals.css), so
  * no page adds bottom padding of its own (§15).
+ *
+ * Version 2 holds it through `--nesto-bottom-nav-pin` (styles/tokens-v2.css):
+ * fixed as here, and in a window too low for it the bar ends the page instead
+ * of covering it — every destination is still in the top bar's menu (UI-02
+ * §7.3, §24).
  */
 export function MobileBottomNav({
   navigation,

@@ -9,7 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { CompleteWorkPackageButton, EditWorkPackageButton } from "@/components/contractors/contractor-dialogs";
 import { RecordDocuments } from "@/components/documents/record-documents";
-import { Due, Facts, Metric, MetricStrip, Panel, Person, Ref, ReviewBadge } from "@/components/engineering/engineering-ui";
+import { Due, Facts, Metric, MetricGrid, Panel, Person, Ref, ReviewBadge } from "@/components/engineering/engineering-ui";
 import { LinksPanel } from "@/components/engineering/links-panel";
 import { orNotFound } from "@/components/engineering/page-helpers";
 import { CommandBar } from "@/components/engineering/record-dialogs";
@@ -68,14 +68,14 @@ export default async function WorkPackagePage({ params }: Params) {
         {wp.discipline ? <span className="text-table text-fg-muted">{contractorsLabel(tContractors, "discipline", wp.discipline, DISCIPLINE_LABELS[wp.discipline])}</span> : null}
         {wp.completedAt ? <span className="text-table text-fg-muted">{t("workPackage.completed")}{wp.completedBy ? <> {t("workPackage.by")} <PersonLink memberId={wp.completedBy.id} name={wp.completedBy.name} /></> : null}</span> : null}
       </div>
-      <MetricStrip className="xl:grid-cols-6">
+      <MetricGrid className="xl:grid-cols-6">
         <Metric label={t("workPackage.openTasks")} value={wp.counts.openTasks} />
         <Metric label={t("workPackage.openRfis")} value={wp.counts.openRfis} href={`${engineering}/rfis?workPackageId=${wp.id}`} />
         <Metric label={t("workPackage.submittals")} value={wp.counts.submittals} href={`${engineering}/submittals?workPackageId=${wp.id}`} />
         <Metric label={t("workPackage.engineeringDocs")} value={wp.counts.engineeringDocuments} href={`${engineering}/documents?workPackageId=${wp.id}`} />
         <Metric label={t("workPackage.qaqc")} value={wp.counts.qaqc} />
         <Metric label={t("workPackage.hse")} value={wp.counts.hse} />
-      </MetricStrip>
+      </MetricGrid>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-5">
           {wp.description ? (

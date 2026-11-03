@@ -35,7 +35,7 @@ Shared/shell rows first, then every module and Platform Admin area. Findings are
 | Theme | config/theme.ts vs CSS | config/theme.ts | — | — | — | — | — | D: drift — z-index listed 5 of 9 rungs (floating 65, tooltip 66, sheet 55, prompt 80 missing), radius 6 and motion rise 600 missing, colours missing strong/soft/fg variants → aligned; `--nesto-z-*` tokens added | unit theme-drift (every number checked against the CSS) |
 | Motion | reduced motion | globals.css | — | — | — | — | — | W global 0.01ms rule + static skeletons; D: smooth scrolling not disabled → `scroll-behavior: auto` | unit; e2e reduced motion |
 | Forced colours | global | globals.css `@media (forced-colors: active)` | — | — | — | — | — | D: every `ring-*` focus indicator (box-shadow) vanished in forced colours → system Highlight outline; selected tints → underline | unit; e2e forced colours (Chromium) |
-| Platform Admin | shell | app/admin/layout.tsx (outside partition) | — | — | — | — | — | OPEN: no skip link / LiveAnnouncer in the platform layout (not in partition) | e2e scans light/dark |
+| Platform Admin, Group | shell | app/admin/layout.tsx, app/group/layout.tsx | Skip link first in the tab order; focus to `#nesto-main` after a navigation | "Skip to main content" | the two stable live regions | — | — | Closed: both layouts mount SkipLink, LiveAnnouncer and RouteFocus, as the application shell does. Group pages have an error boundary of their own and, in version 2, a loading boundary (UI-02 §16.1, §22.1) | e2e scans light/dark; the group area has no seeded sign-in, so its boundaries are unverified in a browser |
 
 ## Modules and Platform Admin
 

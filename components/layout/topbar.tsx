@@ -9,13 +9,16 @@ import { AccountPanel } from "@/components/shell/account-panel";
 import { can, canAccessModule } from "@/lib/access/can";
 import type { NavigationGroup } from "@/config/navigation";
 import { getTranslations } from "@/lib/i18n/server";
+import { getDesignState } from "@/lib/layout/design-server";
 import type { UserContext } from "@/lib/context/types";
 import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
 
 /**
  * Universal top bar (PRD #3 §16, §76; UI-01 §5). Identical for every role.
  *
- * 56px on mobile, 64px from tablet up. The left zone carries the navigation
+ * 56px on mobile, 64px from tablet up; version 2 adds a 60px tablet step
+ * (UI-02 §7) — one height, `--nesto-shell-header-h`, which every layer pinned
+ * under the bar is offset by. The left zone carries the navigation
  * controls, the company switcher and, after it, + Create; the right zone is
  * the universal cluster, always in the order Search, Notifications, Account
  * (UI-01 §1) and 44px targets at every width. Page titles are not here: every
@@ -43,12 +46,14 @@ export async function Topbar({
   const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
   // Company Settings is offered only where its own page would open (settings-access.ts), never by title.
   const companySettings = context.workspace.scopeType === "COMPANY" && canAccessModule(context, "settings") && can(context, "company.name.update");
+  // Which display preferences the panel may offer: the environment's answer (UI-02 §15, §33).
+  const { options: appearance } = await getDesignState();
 
   return (
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
     // element the box that `position: fixed` children are placed in, which pinned the phone's
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
-    <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-14 items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:h-16 md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
+    <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <MobileHeader navigation={navigation} isDemo={context.parentGroup.isDemo} />
 
@@ -85,6 +90,7 @@ export async function Topbar({
                 whatsNew: "/whats-new",
                 organizationSettings: companySettings ? { href: "/settings/company", kind: "company" } : undefined,
               },
+              appearance,
             }}
           />
         </div>

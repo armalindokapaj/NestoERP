@@ -27,7 +27,9 @@ function splitNavigation(navigation: NavigationGroup[]) {
  *
  * Width is driven entirely by --nesto-nav-width, so the rail, the full
  * sidebar and the content offset can never disagree. Hidden below 1024px,
- * where navigation moves into the drawer.
+ * where navigation moves into the drawer. Version 2 is 208px, 64px as a rail,
+ * and sits under the top bar's layer, not over it (UI-02 §7, §7.3). It widens
+ * only when the person asks: nothing here expands on hover (§7).
  *
  * Three stacked parts (OW §18): the workspace header, fixed at the top; the
  * navigation, which scrolls on its own; and the foot, fixed at the bottom. The
@@ -44,7 +46,7 @@ export async function Sidebar({ navigation, isDemo }: { navigation: NavigationGr
   const { top, middle, bottom } = splitNavigation(navigation);
   const t = await getTranslations("shell");
   return (
-    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
+    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden ds2:z-(--nesto-z-sidebar) w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
       <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header">
         <OrganizationWorkspaceHeader variant="sidebar" />
       </div>

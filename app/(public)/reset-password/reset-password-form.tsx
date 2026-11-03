@@ -11,6 +11,7 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { resetPasswordAction } from "@/lib/actions/auth";
 import { translateAuthError } from "@/lib/i18n/auth-errors";
 
@@ -32,7 +33,7 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function ResetPasswordForm({ token }: { token: string }) {
+export function ResetPasswordForm({ token, revealPassword = false }: { token: string; /** Version 2: the field carries a Show password control (UI-02 §7.5). */ revealPassword?: boolean }) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = useTranslations("auth");
@@ -87,9 +88,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
       <div className="space-y-1.5">
         <Label htmlFor="password">{t("reset.newPassword")}</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
+          reveal={revealPassword}
           autoComplete="new-password"
           autoFocus
           aria-invalid={Boolean(errors.password)}

@@ -21,6 +21,12 @@ export type ErrorStateProps = {
   size?: "page" | "section";
   /** A second way out (Back, Home), beside Retry. */
   action?: React.ReactNode;
+  /**
+   * The failure's safe reference — an error boundary's `digest`, never a
+   * message or a stack. Version 2 shows it under the actions, so a person can
+   * quote it to support (UI-02 §16.1); version 1 draws nothing for it.
+   */
+  reference?: string;
 };
 
 /** The standard NESTO error component (spec §58). */
@@ -33,6 +39,7 @@ export function ErrorState({
   icon,
   size = "page",
   action,
+  reference,
 }: ErrorStateProps) {
   const t = useTranslations("ui");
   const title = titleProp ?? t("errorTitle");
@@ -63,6 +70,11 @@ export function ErrorState({
           ) : null}
           {action}
         </div>
+      ) : null}
+      {reference ? (
+        <p className="mt-4 hidden max-w-full text-meta text-fg-muted [overflow-wrap:anywhere] ds2:block">
+          {t("errorReference", { id: reference })}
+        </p>
       ) : null}
     </div>
   );

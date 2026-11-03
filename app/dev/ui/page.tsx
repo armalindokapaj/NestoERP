@@ -1,0 +1,102 @@
+import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
+
+import { isDevMode } from "@/lib/auth/dev-mode";
+import { PageSections } from "@/components/layout/page-sections";
+import { getDesignState } from "@/lib/layout/design-server";
+import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
+
+import { ButtonEntry, IconButtonEntry } from "./_catalog/buttons";
+import { CardEntry, MetricStripEntry } from "./_catalog/cards";
+import { FieldEntry } from "./_catalog/fields";
+import { RulerEntry } from "./_catalog/ruler";
+import { BadgeEntry, TagEntry } from "./_catalog/status";
+import { TableEntry } from "./_catalog/tables";
+import { CatalogToolbar } from "./_catalog/toolbar";
+
+export const metadata: Metadata = { title: "Component catalog", robots: { index: false, follow: false } };
+
+/* Reads the preference cookies, and must never be prerendered into a build. */
+export const dynamic = "force-dynamic";
+
+const ENTRIES = [
+  ["buttons", "Button"],
+  ["icon-buttons", "IconButton"],
+  ["badges", "Badge"],
+  ["tags", "Tag"],
+  ["cards", "Card"],
+  ["metrics", "MetricStrip"],
+  ["tables", "Table"],
+  ["fields", "Inputs"],
+  ["ruler", "Scroll ruler"],
+] as const;
+
+/**
+ * The component catalog (UI-02 §26.2): the shared primitives of components/ui,
+ * each in every state it has, in whichever colour scheme, density and design
+ * version the switches at the top choose. The specimens are the real
+ * components — nothing here is a picture of one — so what this page shows is
+ * what the product renders.
+ *
+ * A developer's page, in English like the other development tools. It exists
+ * only where development conveniences do — a developer's machine, and a
+ * hosted demo that turns them on (APP_ENV=demo or NESTO_DEMO_MODE; lib/auth/
+ * dev-mode.ts) — and is a 404 everywhere else, before anything is read (held
+ * by `pnpm verify:production-guards`). It
+ * sits outside the application shells on purpose — a primitive is shown on the
+ * page ground, with no module's layout around it — and behind the session gate
+ * like every route that is not public (lib/permissions/route-access.ts).
+ */
+export default async function ComponentCatalogPage() {
+  if (!isDevMode) notFound();
+
+  const design = await getDesignState();
+  const theme = readThemeChoice((await cookies()).get(THEME_COOKIE)?.value);
+
+  return (
+    <div className="min-h-dvh bg-canvas" data-testid="component-catalog">
+      <header className="sticky top-0 z-20 border-b border-line bg-canvas">
+        {/* The two rows are the shell's top bar and breadcrumb bar in height, so this header is exactly the sticky
+            stack the scroll ruler and anchor jumps start under (styles/globals.css) wherever the first row is one line. */}
+        <div className="mx-auto flex min-h-(--nesto-shell-header-h) max-w-[1280px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-(--nesto-space-page-x) py-2">
+          <div className="min-w-0">
+            <h1 className="text-card font-semibold text-fg">Component catalog</h1>
+            <p className="text-meta text-fg-muted">
+              UI-02 primitives · design version {design.version} · development only
+            </p>
+          </div>
+          <CatalogToolbar theme={theme} density={design.density} version={design.version} switchable={design.switchable} />
+        </div>
+        <nav aria-label="Catalog entries" className="mx-auto max-w-[1280px] overflow-x-auto px-(--nesto-space-page-x)">
+          {/* 39px and the header's 1px border: the breadcrumb bar's 40. */}
+          <ul className="flex min-h-[39px] items-center gap-1 text-table">
+            {ENTRIES.map(([id, label]) => (
+              <li key={id}>
+                <a href={`#${id}`} className="inline-flex min-h-8 items-center whitespace-nowrap rounded-md px-2 text-fg-muted transition-colors hover:bg-hover hover:text-fg touch:min-h-11">
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </header>
+
+      {/* Capped narrower than the product's pages: the ruler's room is worked out from this cap (styles/tokens-v2.css). */}
+      <main id="nesto-main" tabIndex={-1} className="mx-auto max-w-(--nesto-ruler-page-max) px-(--nesto-space-page-x) py-8 [--nesto-ruler-page-max:1280px] focus:outline-none">
+        {/* The catalog is its own specimen of the scroll ruler: each entry is a section (UI-02 §8, §26.3). */}
+        <PageSections template="system">
+          <ButtonEntry />
+          <IconButtonEntry />
+          <BadgeEntry />
+          <TagEntry />
+          <CardEntry />
+          <MetricStripEntry />
+          <TableEntry />
+          <FieldEntry />
+          <RulerEntry version={design.version} />
+        </PageSections>
+      </main>
+    </div>
+  );
+}

@@ -34,8 +34,9 @@
     ".next-adm04/types/**/*.ts",
     ".next-i18n/types/**/*.ts",
     ".next-ios/types/**/*.ts",
+    ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next/types/**/*.ts"
+    ".next-uxtest/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

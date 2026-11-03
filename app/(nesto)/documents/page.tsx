@@ -139,7 +139,9 @@ async function DocumentPanel({
 }) {
   const locale = await getLocale();
   return (
-    <section className="nesto-card p-5">
+    // `ds2:min-w-0`: a grid item is as wide as its longest file name unless told otherwise, which pushes a phone
+    // sideways. Version 1 keeps the 7px it has today; the 14px table text of version 2 would make it 27px (UI-02 §6.2).
+    <section className="nesto-card p-5 ds2:min-w-0">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-card font-semibold text-fg">{title}</h2>
         <Link

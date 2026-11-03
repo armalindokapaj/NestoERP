@@ -1,15 +1,24 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Building2, CircleHelp, LogOut, Moon, Settings, ShieldCheck, Sparkles, Sun } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { LocaleSwitch } from "@/components/i18n/locale-switch";
 import { useSignOut } from "@/components/layout/use-sign-out";
 import Link from "@/components/navigation/nav-link";
+import {
+  ChoiceGroup,
+  applyDensityChoice,
+  applyDesignVersion,
+  applyRulerChoice,
+  readDisplayPreferences,
+} from "@/components/settings/display-preferences";
 import { applyThemeChoice } from "@/components/settings/theme-preference";
 import { Avatar } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DENSITY_CHOICES, DESIGN_VERSIONS, RULER_CHOICES, type AppearanceOptions } from "@/lib/layout/design-state";
 import { isThemeChoice, type ThemeChoice } from "@/lib/layout/theme-state";
 import { topbarOffset } from "@/lib/layout/topbar-line";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
@@ -37,6 +46,8 @@ export type AccountPanelModel = {
     /** Back to the platform dashboard, only for a platform operator outside a company. */
     platformAdmin?: string;
   };
+  /** Which display preferences may be offered: the environment's answer, which the client cannot read (UI-02 §15, §33). */
+  appearance: AppearanceOptions;
 };
 
 const THEMES: { value: ThemeChoice; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }[] = [
@@ -49,6 +60,91 @@ function readTheme(): ThemeChoice {
   const choice = document.documentElement.dataset.theme;
   if (isThemeChoice(choice) && choice !== "system") return choice;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+/**
+ * Density, page ruler and — on a developer's machine — the design version
+ * (UI-02 §15). Density and the ruler belong to version 2, so version 1 shows
+ * neither; the version switch shows wherever the server offers it.
+ *
+ * Mounted with the panel, so its first render already reads what the document
+ * shows and no row appears a frame late.
+ */
+function DisplayPreferences({ options }: { options: AppearanceOptions }) {
+  const t = useTranslations("shell");
+  const router = useRouter();
+  const [display, setDisplay] = React.useState(readDisplayPreferences);
+  const [saved, setSaved] = React.useState(true);
+  const isNew = display.design === "2";
+  if (!isNew && !options.designSwitch) return null;
+
+  const line = (label: string, control: React.ReactNode) => (
+    <>
+      <span className="truncate text-meta text-fg-muted">{label}</span>
+      {control}
+    </>
+  );
+
+  return (
+    <section aria-label={t("account.display")} className="border-t border-line px-3 py-2.5" data-testid="account-display">
+      <div className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
+        {isNew
+          ? line(
+              t("account.density"),
+              <ChoiceGroup
+                look="panel"
+                label={t("account.density")}
+                value={display.density}
+                options={DENSITY_CHOICES.map((value) => ({ value, label: t(`account.densities.${value}`) }))}
+                onChange={(density) => {
+                  setDisplay((current) => ({ ...current, density }));
+                  setSaved(applyDensityChoice(density));
+                }}
+                testId="account-density"
+              />,
+            )
+          : null}
+        {isNew && options.ruler
+          ? line(
+              t("account.ruler"),
+              <ChoiceGroup
+                look="panel"
+                label={t("account.ruler")}
+                value={display.ruler}
+                options={RULER_CHOICES.map((value) => ({ value, label: t(`account.rulers.${value}`) }))}
+                onChange={(ruler) => {
+                  setDisplay((current) => ({ ...current, ruler }));
+                  setSaved(applyRulerChoice(ruler));
+                }}
+                testId="account-ruler"
+              />,
+            )
+          : null}
+        {options.designSwitch
+          ? line(
+              t("account.design"),
+              <ChoiceGroup
+                look="panel"
+                label={t("account.design")}
+                value={display.design}
+                options={DESIGN_VERSIONS.map((value) => ({ value, label: t(`account.designs.${value}`) }))}
+                onChange={(design) => {
+                  const kept = applyDesignVersion(design);
+                  setSaved(kept);
+                  // Density comes and goes with the version, so the rows are read back from the document.
+                  setDisplay(readDisplayPreferences());
+                  // The server decides what a version shows.
+                  if (kept) router.refresh();
+                }}
+                testId="account-design"
+              />,
+            )
+          : null}
+      </div>
+      {/* §15: said plainly when the browser kept nothing; the change still applies to this page. */}
+      <p role="status" className="text-meta text-warning-strong [&:not(:empty)]:mt-2">{saved ? null : t("account.notSaved")}</p>
+    </section>
+  );
 }
 
 const row =
@@ -170,6 +266,8 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
           </div>
           <LocaleSwitch label={t("account.language")} className="h-11 shrink-0 border border-line px-3" />
         </section>
+
+        <DisplayPreferences options={model.appearance} />
 
         <nav aria-label={t("account.help")} className="border-t border-line p-1.5">
           {link(destinations.help, icon(CircleHelp), t("account.help"), "account-help")}

@@ -19,7 +19,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  *
  * The negative margin pulls it back through the top bar's 32px desktop gutter
  * to sit 12px off the sidebar border — the same inner gutter the rail uses, so
- * the control reads as belonging to the navigation it moves.
+ * the control reads as belonging to the navigation it moves. Version 2's
+ * gutter is 24px, so the pull is 12px there (UI-02 §6.3).
  */
 export function SidebarToggle() {
   const { state, toggle } = useSidebar();
@@ -35,7 +36,7 @@ export function SidebarToggle() {
           type="button"
           onClick={toggle}
           aria-label={label}
-          className="hidden size-8 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg xl:-ml-5 xl:grid touch:size-11"
+          className="hidden size-8 shrink-0 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg xl:-ml-5 xl:grid touch:size-11 ds2:xl:-ml-3"
         >
           <Icon aria-hidden="true" className="size-4" />
         </button>

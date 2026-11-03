@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { NestoLogo } from "@/components/layout/nesto-logo";
 import { DeviceUnavailableActions } from "@/components/security/device-unavailable-actions";
 import { getTranslations } from "@/lib/i18n/server";
 
@@ -22,7 +23,9 @@ export default async function DeviceUnavailablePage({ searchParams }: Params) {
   return (
     <main className="grid min-h-dvh place-items-center bg-canvas p-6" data-testid="device-unavailable" data-reason={kind}>
       <div className="flex max-w-sm flex-col items-stretch gap-3 text-center">
-        <h1 className="text-lg font-semibold text-fg">{title}</h1>
+        {/* Version 2: the mark every system page opens with, and the same heading step (UI-02 §7.5). */}
+        <NestoLogo className="mb-5 hidden self-center ds2:flex" />
+        <h1 className="text-lg font-semibold text-fg ds2:text-section">{title}</h1>
         <p className="text-table text-fg-muted">{body}</p>
         <DeviceUnavailableActions update={kind === "update"} />
       </div>

@@ -3,8 +3,12 @@ import Link from "next/link";
 
 import { BrandPanel } from "@/components/layout/brand-panel";
 import { NestoLogo } from "@/components/layout/nesto-logo";
+import { isDevMode } from "@/lib/auth/dev-mode";
+import { quickLoginSections } from "@/lib/auth/quick-login";
 import { getTranslations } from "@/lib/i18n/server";
+import { getDesignState } from "@/lib/layout/design-server";
 import { LoginForm } from "./login-form";
+import { QuickLogin } from "./quick-login";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth");
@@ -32,7 +36,8 @@ function isSignInNotice(reason: string | undefined): reason is keyof typeof SIGN
  * Split layout on desktop — brand visual beside the form. Below the desktop
  * breakpoint the visual drops away entirely and the form stands alone (§84),
  * because a decorative panel above a login form is just something to scroll
- * past on a phone.
+ * past on a phone. Recovery and the invitation share the layout as
+ * `FocusedFormPage` (components/layout/focused-page.tsx; UI-02 §7.5).
  *
  * Authenticated visitors never reach here — middleware sends them to /dashboard.
  */
@@ -42,7 +47,7 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string; reason?: string }>;
 }) {
   const { callbackUrl, reason } = await searchParams;
-  const [t, tShell] = await Promise.all([getTranslations("auth"), getTranslations("shell")]);
+  const [t, tShell, { version }] = await Promise.all([getTranslations("auth"), getTranslations("shell"), getDesignState()]);
   const notice = isSignInNotice(reason) ? t(SIGN_IN_NOTICES[reason]) : null;
 
   return (
@@ -70,7 +75,7 @@ export default async function LoginPage({
               </p>
             ) : null}
 
-            <LoginForm callbackUrl={callbackUrl} />
+            <LoginForm callbackUrl={callbackUrl} revealPassword={version === "2"} />
 
             <div className="mt-6 text-center">
               <Link
@@ -80,6 +85,8 @@ export default async function LoginPage({
                 {t("backToHome")}
               </Link>
             </div>
+
+            {isDevMode ? <QuickLogin sections={await quickLoginSections()} /> : null}
           </div>
         </main>
 

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
+import { navMarkerClass } from "@/components/layout/nav-marker";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { useSidebar } from "@/components/layout/sidebar-provider";
@@ -33,7 +34,11 @@ function NavItem({
   const pending = usePendingDestination(item.href);
 
   /* Light accent ground, accent icon and text, plus a 2px left marker
-     (PRD #3 §12). */
+     (PRD #3 §12). Version 2 (UI-02 §7.1, §9.1): the selection tint, the label in
+     the primary text colour and a step heavier, and a short gold rule at the
+     edge; every other row is neutral — its icon too — and takes the neutral
+     hover and pressed grounds. Nothing moves under the pointer or on press, and
+     the focus outline is the global one, so it shows whatever the row's state. */
   const link = (
     <Link
       href={item.href}
@@ -51,18 +56,18 @@ function NavItem({
         "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
         // 44px rows in the drawer and under touch (AUD-04 §4, MW-02); the mouse rail is unchanged.
         dense ? "min-h-11 py-2.5" : "py-2.5 touch:min-h-11",
-        active ? "bg-accent-soft text-accent-strong" : "text-fg-muted hover:bg-hover hover:text-fg",
+        active ? "bg-accent-soft text-accent-strong ds2:font-semibold ds2:text-fg" : "text-fg-muted hover:bg-hover hover:text-fg ds2:active:bg-pressed",
       )}
     >
       {active ? (
-        <span aria-hidden="true" className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-accent" />
+        <span aria-hidden="true" className={navMarkerClass} />
       ) : null}
       <Icon
         aria-hidden="true"
         strokeWidth={1.6}
         className={cn(
           "size-[18px] shrink-0",
-          active ? "text-accent" : "text-accent-strong group-hover:text-accent",
+          active ? "text-accent ds2:text-fg" : "text-accent-strong group-hover:text-accent ds2:text-fg-muted ds2:group-hover:text-fg",
         )}
       />
       <span className="nesto-nav-label truncate">{label}</span>
@@ -105,13 +110,14 @@ export function SidebarNav({
   return (
     <nav
       aria-label={t("mainNavigation")}
-      className={cn("flex flex-col px-3 py-2", inDrawer ? "gap-4" : "gap-6")}
+      // Version 2: 8px at the sides, so a row on the 64px rail is still a 44px-wide target (UI-02 §7).
+      className={cn("flex flex-col px-3 py-2", inDrawer ? "gap-4" : "gap-6 ds2:px-2")}
     >
       {navigation.map((group, index) => (
         <div key={group.group}>
           {group.group !== "primary" ? (
             <>
-              <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-accent-strong">
+              <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-accent-strong ds2:text-fg-muted">
                 {t(`groups.${group.group}`)}
               </p>
               {/* The rail has no room for group headings, so a hairline keeps

@@ -4,7 +4,7 @@ import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
-import { dateLabel, Metric, MetricStrip, Panel, EmptyNote } from "@/components/engineering/engineering-ui";
+import { dateLabel, Metric, MetricGrid, Panel, EmptyNote } from "@/components/engineering/engineering-ui";
 import { orNotFound } from "@/components/engineering/page-helpers";
 import { NewDocumentButton, NewRfiButton, NewSubmittalButton } from "@/components/engineering/record-dialogs";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +44,7 @@ export default async function ProjectEngineeringOverviewPage({ params }: Params)
           {can(context, "engineering_document.create") ? <NewDocumentButton projectId={projectId} drawing /> : null}
         </div>
       </div>
-      <MetricStrip>
+      <MetricGrid>
         <Metric label={t("engineering.metricOpenRfis")} value={counts.openRfis} href={`${base}/rfis?open=1`} testId="metric-open-rfis" />
         <Metric label={t("engineering.overdueRfis")} value={counts.overdueRfis} tone="danger" href={`${base}/rfis?overdue=1`} testId="metric-overdue-rfis" />
         <Metric label={t("engineering.submittalsInReview")} value={counts.submittalsInReview} href={`${base}/submittals?inReview=1`} testId="metric-in-review" />
@@ -53,7 +53,7 @@ export default async function ProjectEngineeringOverviewPage({ params }: Params)
         <Metric label={t("engineering.drawingsAwaiting")} value={counts.drawingsAwaitingReview} href={`${base}/drawings?awaitingReview=1`} testId="metric-drawings-awaiting" />
         <Metric label={t("engineering.reviewsOverdue")} value={counts.overdueReviews} tone="danger" testId="metric-overdue-reviews" />
         <Metric label={t("engineering.complianceAlerts")} value={counts.complianceAlerts} tone="warning" href={`/projects/${projectId}/contractors`} testId="metric-compliance" />
-      </MetricStrip>
+      </MetricGrid>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2">
         <Panel title={t("engineering.needsAttention")} description={t("engineering.needsAttentionBody")} testId="engineering-attention">
           {overview.attention.length === 0 ? (

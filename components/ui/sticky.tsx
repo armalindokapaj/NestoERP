@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { usePublishedGeometry } from "@/lib/hooks/use-published-height";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -21,6 +22,12 @@ import { cn } from "@/lib/utils/cn";
  *
  * Layers under the shell use z 10–27 (`--nesto-z-sticky` and below the shell's
  * 28); StickyActions is a bottom bar and is separate.
+ *
+ * Version 2 publishes the stack's total as `--nesto-page-sticky-h` (UI-02
+ * §7.3), so focus, anchors and the scroll ruler land clear of a page's pinned
+ * toolbars as well as the shell's (`--nesto-sticky-cover`, styles/globals.css),
+ * and lets the regions go in a window too low to pin them (`--nesto-layer-pin`,
+ * styles/tokens-v2.css).
  */
 type Level = "header" | "subheader" | "tabs";
 const ORDER: Level[] = ["header", "subheader", "tabs"];
@@ -39,6 +46,7 @@ export function StickyStack({ children }: { children: React.ReactNode }) {
     setHeights((current) => (current[level] === height ? current : { ...current, [level]: height }));
   }, []);
   const value = React.useMemo(() => ({ heights, report }), [heights, report]);
+  usePublishedGeometry("--nesto-page-sticky-h", ORDER.reduce((total, level) => total + (heights[level] ?? 0), 0));
   return <StickyStackContext.Provider value={value}>{children}</StickyStackContext.Provider>;
 }
 

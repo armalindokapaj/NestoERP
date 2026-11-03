@@ -13,7 +13,8 @@
  */
 const TABBABLE = [
   "a[href]",
-  "button:not([disabled])",
+  // A busy button (`loading` on Button) refuses activation without being `disabled`, so it is named here too.
+  "button:not([disabled]):not([data-busy])",
   "input:not([disabled]):not([type=hidden])",
   "select:not([disabled])",
   "textarea:not([disabled])",

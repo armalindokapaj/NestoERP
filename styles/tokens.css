@@ -65,6 +65,25 @@
   --nesto-accent-strong: light-dark(#7a5c22, #d9bc7c);
   --nesto-accent-soft: light-dark(#f6efdf, #211c12);
   --nesto-hover: light-dark(#f2efe8, #212024);
+  /*
+   * Two names version 2 of the design system gives a value of its own
+   * (UI-02 §6.1, styles/tokens-v2.css): the ground of a control while it is
+   * pressed, and the gold of a decorative rule. Here they are today's hover
+   * and accent, so spending them changes nothing in version 1.
+   */
+  --nesto-pressed: var(--nesto-hover);
+  --nesto-gold: var(--nesto-accent);
+  /*
+   * The shared primitives' own names (UI-02 §9.1, §10.1): a filled button
+   * while it is pressed, the danger button's hover and pressed fills, and the
+   * boundary of a secondary button. Here each is the colour the button already
+   * has in that state, so version 1 is unchanged; version 2 gives the fills a
+   * step of contrast each and draws the boundary in the control border.
+   */
+  --nesto-primary-pressed: var(--nesto-primary-hover);
+  --nesto-danger-hover: var(--nesto-danger);
+  --nesto-danger-pressed: var(--nesto-danger);
+  --nesto-button-border: var(--nesto-border-strong);
   --nesto-ring: light-dark(#8f6c2c, #c9a961);
 
   /*
@@ -155,6 +174,8 @@
   --nesto-sidebar-width-collapsed: 72px;
   --nesto-topbar-height: 64px;
   --nesto-topbar-height-mobile: 56px;
+  /* One row of context tabs: 46px. Version 2 restates the shell's heights (UI-02 §7). */
+  --nesto-shell-tab-row-h: 2.875rem;
   --nesto-content-max: 1600px;
 
   /* ---- Z-index (§85) ------------------------------------------------- */
@@ -171,6 +192,64 @@
 }
 
 /*
+ * The type scale and the radius scale (§7, §9).
+ *
+ * The values behind `text-*` and `rounded-*`: globals.css maps each Tailwind
+ * step onto the variable of the same name, because `@theme inline` would
+ * otherwise copy a literal into every utility and leave nothing to restate.
+ * These are today's values exactly; styles/tokens-v2.css restates them for
+ * version 2 (UI-02 §6.2, §6.3), and tests/unit/a11y/theme-drift.test.ts holds
+ * config/theme.ts to the ones here.
+ */
+:root {
+  --nesto-text-hero: 3.5rem; /* 56px — public hero only */
+  --nesto-leading-hero: 1.05;
+  --nesto-tracking-hero: -0.03em;
+  --nesto-text-headline: 3.25rem; /* 52px — the dashboard heading */
+  --nesto-leading-headline: 1.05;
+  --nesto-tracking-headline: -0.01em;
+  --nesto-text-display: 2.25rem; /* 36px */
+  --nesto-leading-display: 1.1;
+  --nesto-tracking-display: -0.03em;
+  --nesto-text-page: 1.75rem; /* 28px */
+  --nesto-leading-page: 1.2;
+  --nesto-tracking-page: -0.02em;
+  --nesto-text-section: 1.25rem; /* 20px */
+  --nesto-leading-section: 1.35;
+  --nesto-tracking-section: -0.015em;
+  --nesto-text-card: 1rem; /* 16px */
+  --nesto-leading-card: 1.45;
+  --nesto-text-body: 0.875rem; /* 14px */
+  --nesto-leading-body: 1.55;
+  --nesto-text-table: 0.8125rem; /* 13px */
+  --nesto-leading-table: 1.4;
+  --nesto-text-meta: 0.75rem; /* 12px */
+  --nesto-leading-meta: 1.45;
+  /* §7 sets the floor at 11px. */
+  --nesto-text-micro: 0.6875rem; /* 11px */
+  --nesto-leading-micro: 1.45;
+
+  /*
+   * Roles UI-02 §6.2 adds. Nothing in version 1 spends them, so they carry the
+   * UI-02 values in both versions: long reading content 16/26, the dashboard
+   * metric 30/36 and the ruler's decorative tick label 10/14.
+   */
+  --nesto-text-reading: 1rem;
+  --nesto-leading-reading: calc(26 / 16);
+  --nesto-text-metric: 1.875rem;
+  --nesto-leading-metric: calc(36 / 30);
+  --nesto-text-tick: 0.625rem;
+  --nesto-leading-tick: calc(14 / 10);
+
+  --nesto-radius-sm: 6px;
+  --nesto-radius-md: 8px; /* buttons, inputs */
+  --nesto-radius-lg: 10px; /* small cards */
+  --nesto-radius-xl: 12px; /* dashboard cards */
+  --nesto-radius-2xl: 14px; /* dialogs */
+  --nesto-radius-3xl: 16px; /* large feature cards */
+}
+
+/*
  * Responsive tokens (MOB-01 §8). Semantic names that components spend, so a
  * page never restates a padding or a control height. They answer to the
  * viewport here, in CSS, so the right value is already in the server-rendered
@@ -184,16 +263,45 @@
   --nesto-space-page-y-end: 1.5rem;
   --nesto-space-section: 1.5rem;
   --nesto-space-card: 1rem;
+  /* Above a card's heading: 16px at every width. Version 2's compact density tightens it with the sides (UI-02 §11.1). */
+  --nesto-space-card-y: 1rem;
   --nesto-space-control: 0.5rem;
 
   /* A control is 40px with a mouse and 44px under touch (globals.css `touch:`). */
   --nesto-height-control: 2.5rem;
   --nesto-height-control-compact: 2rem;
+  /* A table row's minimum height: today's 48px at every width. Version 2
+     makes it follow the density (UI-02 §6.4). */
+  --nesto-height-row: 3rem;
+  /* Its heading row: 40px. */
+  --nesto-height-row-head: 2.5rem;
+  /*
+   * Buttons and the select trigger are a step denser than a text field today:
+   * 32, 36 and 44px, each 44px under touch (`touch:h-11` on the primitive).
+   * Version 2 gives every control one height (UI-02 §6.4), so there the middle
+   * step is `--nesto-height-control`.
+   */
+  --nesto-height-action-sm: 2rem;
+  --nesto-height-action: 2.25rem;
+  --nesto-height-action-lg: 2.75rem;
+  /* The icon of an icon-only button: 16px today, 20px in an ordinary version-2 control (UI-02 §6.3). */
+  --nesto-size-action-icon: 1rem;
   --nesto-touch-target-min: 2.75rem;
 
   --nesto-radius-control: 8px;
+  /* A button is a pill today and 8px in version 2 (UI-02 §6.3). */
+  --nesto-radius-button: 9999px;
   --nesto-radius-card: 12px;
   --nesto-radius-sheet: 16px;
+  /*
+   * Two names only version 2 spends (styles/tokens-v2.css): the corners of a
+   * floating overlay — a menu, a popover, a select's list, each of which keeps
+   * its own radius today — and the room above and below a table cell's
+   * content, which today is none: the row's height holds the text (UI-02
+   * §6.3, §6.4).
+   */
+  --nesto-radius-overlay: 12px;
+  --nesto-space-cell-y: 0px;
 
   --nesto-content-max-width: 1600px;
 
@@ -207,6 +315,15 @@
   --nesto-z-content: 0;
   --nesto-z-sticky: 10;
   --nesto-z-critical: 90;
+
+  /*
+   * The Architectural Scroll Ruler (UI-02 §7.3, §8.2): a 44px rail at the right
+   * edge of the content viewport, above a page's own sticky headings and below
+   * the shell, so it can never sit over a menu, a drawer or a dialog. Only
+   * version 2 draws it (components/ui/scroll-ruler.tsx).
+   */
+  --nesto-ruler-width: 2.75rem;
+  --nesto-z-ruler: 20;
 }
 
 @media (min-width: 640px) {

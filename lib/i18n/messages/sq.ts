@@ -66,6 +66,14 @@ export const sq: Messages = {
       light: "E çelët",
       dark: "E errët",
       system: "Sistemi",
+      display: "Shfaqja",
+      density: "Dendësia",
+      densities: { comfortable: "Komode", compact: "Kompakte" },
+      ruler: "Vizorja",
+      rulers: { auto: "Auto", off: "Fikur" },
+      design: "Dizajni",
+      designs: { "1": "Klasik", "2": "I ri" },
+      notSaved: "Ky shfletues nuk e ruajti ndryshimin. Ai vlen derisa të largoheni nga faqja.",
       language: "Gjuha",
       help: "Qendra e ndihmës",
       whatsNew: "Çfarë ka të re",
@@ -455,6 +463,15 @@ export const sq: Messages = {
       density: "Dendësia",
       densityHint: "Hapësira komode, e përshtatur për seanca të gjata pune.",
       densityLater: "Zgjedhja e dendësisë vjen me modulin e cilësimeve.",
+      densityChoiceHint: "Kompakte shfaq më shumë rreshta në ekran për punë me mi dhe tastierë. Ekranet me prekje mbajnë gjithmonë kontrolle më të mëdha.",
+      densities: { comfortable: "Komode", compact: "Kompakte" },
+      ruler: "Vizorja e faqes",
+      rulerHint: "Një vizore anash faqeve të gjata të përmbledhjes, që tregon ku ndodheni dhe ju çon te një seksion.",
+      rulers: { auto: "Auto", off: "Fikur" },
+      design: "Dizajni",
+      designHint: "Kaloni mes ndërfaqes klasike dhe asaj të re. Ofrohet vetëm në mjedisin e zhvillimit.",
+      designs: { "1": "Klasik", "2": "I ri" },
+      notSaved: "Ky shfletues nuk e ruajti ndryshimin. Ai vlen derisa të largoheni nga faqja.",
     },
 
     profile: {
@@ -1134,6 +1151,11 @@ export const sq: Messages = {
     savedOpening: "U ruajt. Po hapet…",
   },
   ui: {
+    ruler: {
+      label: "Pozicioni në faqe",
+      valueText: "{percent} për qind poshtë në faqe",
+      onThisPage: "Në këtë faqe",
+    },
     backTo: "Kthehu te {label}",
     goBack: "Kthehu pas",
     switchTo: "Ndrysho {label}",
@@ -1169,6 +1191,12 @@ export const sq: Messages = {
     historyNavigation: "Navigimi në historik",
     breadcrumb: "Shtegu i navigimit",
     showHiddenCrumbs: "Shfaq nivelet e fshehura të shtegut",
+    /** The toggle on a password field (UI-02 §7.5); its pressed state says whether the password is shown. */
+    showPassword: "Shfaq fjalëkalimin",
+    /** Under a failure, the reference support can look it up by (UI-02 §16.1). */
+    errorReference: "Referenca: {id}",
+    /** On the screen that replaces an app that could not start (UI-02 §7.5). */
+    errorSignIn: "Hyr",
     errorTitle: "Diçka shkoi keq.",
     errorBody: "Ju lutemi provoni përsëri.",
     networkTitle: "Duket se jeni jashtë linje.",

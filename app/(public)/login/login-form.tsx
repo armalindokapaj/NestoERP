@@ -10,11 +10,12 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signInAction } from "@/lib/actions/auth";
 import { credentialsSchema, type CredentialsInput } from "@/lib/auth/schema";
 import { translateAuthError } from "@/lib/i18n/auth-errors";
 
-export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
+export function LoginForm({ callbackUrl, revealPassword = false }: { callbackUrl?: string; /** Version 2: the field carries a Show password control (UI-02 §7.5). */ revealPassword?: boolean }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const t = useTranslations("auth");
@@ -72,9 +73,9 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 
       <div className="space-y-1.5">
         <Label htmlFor="password">{t("login.password")}</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
+          reveal={revealPassword}
           autoComplete="current-password"
           placeholder="••••••••"
           aria-invalid={Boolean(errors.password)}

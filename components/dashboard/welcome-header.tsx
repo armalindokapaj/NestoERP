@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { PageSection } from "@/components/ui/page-sections";
 import type { UserContext } from "@/lib/context/types";
 import { dateText } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils/cn";
@@ -54,8 +55,11 @@ export async function WelcomeHeader({
           <p className="nesto-eyebrow text-accent-strong">{today}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h1 className="font-serif text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05]">
-              {t(`${heading}.lead`)} <em className="italic text-accent-strong">{t(`${heading}.accent`)}</em>
+            {/* Version 2: no display face and nothing above the page title (UI-02 §6.2). */}
+            <h1 className="font-serif text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] ds2:text-page ds2:font-semibold ds2:leading-(--nesto-leading-page)">
+              {t(`${heading}.lead`)} <em className="italic text-accent-strong ds2:not-italic">{t(`${heading}.accent`)}</em>
+              {/* The top of the page, as the first of its sections (UI-02 §26.3). */}
+              <PageSection id="overview" label={`${t(`${heading}.lead`)} ${t(`${heading}.accent`)}`} order={0} />
             </h1>
             <Badge tone="neutral" className="max-md:hidden">{roleLabel}</Badge>
           </div>

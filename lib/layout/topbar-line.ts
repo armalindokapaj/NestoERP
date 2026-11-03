@@ -5,14 +5,23 @@
  * so they read as one family and never float at different heights.
  *
  * A surface with no breadcrumb bar (the group area, a phone) uses the lower
- * edge of the top bar's own row, marked `data-topbar-row`.
+ * edge of the top bar's own row, marked `data-topbar-row`. So does a window too
+ * low to keep the breadcrumb bar pinned (UI-02 §7.3, styles/tokens-v2.css):
+ * there the bar scrolls with the page, and its top edge is no longer the line.
  */
 export function topbarLine(from?: Element | null): number | null {
   if (typeof document === "undefined") return null;
-  const bar = document.querySelector<HTMLElement>("[data-shell-breadcrumb]");
-  if (bar && bar.getClientRects().length > 0) return bar.getBoundingClientRect().top;
+  const bar = pinnedBreadcrumbBar();
+  if (bar) return bar.getBoundingClientRect().top;
   const row = from?.closest<HTMLElement>("[data-topbar-row]") ?? document.querySelector<HTMLElement>("[data-topbar-row]");
   return row && row.getClientRects().length > 0 ? row.getBoundingClientRect().bottom : null;
+}
+
+/** The breadcrumb bar, while it is drawn and held under the top bar. */
+function pinnedBreadcrumbBar(): HTMLElement | null {
+  const bar = document.querySelector<HTMLElement>("[data-shell-breadcrumb]");
+  if (!bar || bar.getClientRects().length === 0) return null;
+  return getComputedStyle(bar).position === "sticky" ? bar : null;
 }
 
 /**
@@ -32,8 +41,8 @@ export function topbarOffset(trigger: Element | null, fallback = 8): number {
  */
 export function topbarContentBox(from?: Element | null): { left: number; right: number } | null {
   if (typeof document === "undefined") return null;
-  const bar = document.querySelector<HTMLElement>("[data-shell-breadcrumb]");
-  const box = bar && bar.getClientRects().length > 0 ? bar : (from?.closest<HTMLElement>("[data-topbar-row]") ?? document.querySelector<HTMLElement>("[data-topbar-row]"));
+  const bar = pinnedBreadcrumbBar();
+  const box = bar ? bar : (from?.closest<HTMLElement>("[data-topbar-row]") ?? document.querySelector<HTMLElement>("[data-topbar-row]"));
   if (!box || box.getClientRects().length === 0) return null;
   const rect = box.getBoundingClientRect();
   const style = getComputedStyle(box);

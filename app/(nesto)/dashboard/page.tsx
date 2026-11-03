@@ -14,6 +14,8 @@ import { PendingApprovalsFigure, PendingApprovalsList, PendingApprovalsSkeleton 
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { GroupHero } from "@/components/dashboard/group-hero";
 import { WelcomeHeader } from "@/components/dashboard/welcome-header";
+import { PageSections } from "@/components/layout/page-sections";
+import { PageSectionLinks } from "@/components/ui/page-sections";
 import { SectionBoundary } from "@/components/modules/page-section";
 import { ModuleMessages } from "@/components/i18n/module-messages";
 import { getTranslations } from "@/lib/i18n/server";
@@ -76,6 +78,8 @@ export default async function DashboardPage() {
 
   return (
     <ModuleMessages namespaces={["dashboard"]}>
+      {/* The page's sections, for the scroll ruler: the heading and each widget that arrives (UI-02 §8, §26.3). */}
+      <PageSections template="overview">
       <div className="space-y-6">
         <WelcomeHeader
           context={context}
@@ -133,6 +137,8 @@ export default async function DashboardPage() {
             </>
           }
         />
+        {/* "On this page", where the ruler has no room: under the page's heading (UI-02 §8.1). */}
+        <PageSectionLinks />
 
         <Suspense fallback={null}>
           <GroupBanner group={group} />
@@ -157,7 +163,7 @@ export default async function DashboardPage() {
         ) : null}
 
         <DashboardGrid>
-          {widgets.map((definition) => {
+          {widgets.map((definition, index) => {
             const span = widgetSpanClasses[SPAN[definition.size]];
             return (
               <div
@@ -171,7 +177,7 @@ export default async function DashboardPage() {
                   <Suspense
                     fallback={<WidgetSkeleton title={widgetText(t, definition.key, "title", definition.title)} />}
                   >
-                    <Widget context={context} definition={definition} />
+                    <Widget context={context} definition={definition} order={index + 1} />
                   </Suspense>
                 </SectionBoundary>
               </div>
@@ -179,6 +185,7 @@ export default async function DashboardPage() {
           })}
         </DashboardGrid>
       </div>
+      </PageSections>
     </ModuleMessages>
   );
 }
@@ -216,13 +223,16 @@ async function Kpi({
 async function Widget({
   context,
   definition,
+  order,
 }: {
   context: UserContext;
   definition: DashboardPlan["widgets"][number];
+  /** Its place among the page's sections (UI-02 §26.3). */
+  order: number;
 }) {
   const widget = await loadPlannedWidget(context, definition);
   // Inside its planned cell: the cell owns the span, the widget fills it.
-  return <DashboardWidget widget={widget} fill />;
+  return <DashboardWidget widget={widget} fill order={order} />;
 }
 
 function KpiSkeleton() {

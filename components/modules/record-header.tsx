@@ -1,7 +1,7 @@
 import * as React from "react";
 
 import { Breadcrumbs, type Crumb } from "@/components/ui/breadcrumbs";
-import { headerActionsClass } from "@/components/ui/page-header";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { cn } from "@/lib/utils/cn";
 
@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils/cn";
  * (AUD-04 §3, D-02-02, D-03-03, MW-01): the group was `shrink-0` with no cap,
  * so five actions at 320px scrolled the body. Long titles, codes and metadata
  * break anywhere instead of widening the header.
+ *
+ * Both headers here draw the block every page shares (`PageHeaderFrame`,
+ * components/ui/page-header.tsx; UI-02 §7.2, §18.1).
  */
 export function RecordHeader({
   breadcrumbs,
@@ -38,36 +41,23 @@ export function RecordHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-4", className)}>
-      <Breadcrumbs items={breadcrumbs} />
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg [overflow-wrap:anywhere]">{title}</h1>
-          {subtitle ? <p className="mt-1 text-table text-fg-subtle [overflow-wrap:anywhere]">{subtitle}</p> : null}
-
-          {status || badges ? (
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              {status ? <StatusBadge status={status} /> : null}
-              {badges}
-            </div>
-          ) : null}
-
-          {meta && meta.length > 0 ? (
-            <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2">
-              {meta.map((entry) => (
-                <div key={entry.label} className="min-w-0">
-                  <dt className="nesto-eyebrow text-fg-subtle">{entry.label}</dt>
-                  <dd className="mt-0.5 text-table text-fg [overflow-wrap:anywhere]">{entry.value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-        </div>
-
-        {actions ? <div className={headerActionsClass}>{actions}</div> : null}
-      </div>
-    </div>
+    <PageHeaderFrame
+      kind="record"
+      lead={<Breadcrumbs items={breadcrumbs} />}
+      title={title}
+      subtitle={subtitle || undefined}
+      status={
+        status || badges ? (
+          <>
+            {status ? <StatusBadge status={status} /> : null}
+            {badges}
+          </>
+        ) : undefined
+      }
+      meta={meta}
+      actions={actions || undefined}
+      className={className}
+    />
   );
 }
 
@@ -90,17 +80,14 @@ export function RecordContextHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="space-y-3">
-      {breadcrumbs ? <Breadcrumbs items={breadcrumbs} /> : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="min-w-0 text-section font-semibold text-fg [overflow-wrap:anywhere]">{title}</h1>
-          {subtitle ? <span className="min-w-0 text-table text-fg-subtle [overflow-wrap:anywhere]">{subtitle}</span> : null}
-          {status ? <StatusBadge status={status} /> : null}
-        </div>
-        {actions ? <div className={headerActionsClass}>{actions}</div> : null}
-      </div>
-    </div>
+    <PageHeaderFrame
+      kind="context"
+      lead={breadcrumbs ? <Breadcrumbs items={breadcrumbs} /> : null}
+      title={title}
+      subtitle={subtitle || undefined}
+      status={status ? <StatusBadge status={status} /> : undefined}
+      actions={actions || undefined}
+    />
   );
 }
 

@@ -83,14 +83,28 @@ export function toHex(color: Rgba): string {
   return `#${h(color.r)}${h(color.g)}${h(color.b)}`;
 }
 
-/** Raw declarations of `--nesto-*` custom properties in the first `:root` block. */
-export function readTokenDeclarations(css: string): Map<string, string> {
+/**
+ * Raw declarations of `--nesto-*` custom properties in every block whose
+ * selector is exactly `:root`, or exactly another selector: `:root[data-ds="2"]`
+ * is where styles/tokens-v2.css restates the values for version 2 (UI-02 §6.1).
+ *
+ * Every block, so a colour declared further down the file is measured like the
+ * ones at the top. Blocks at the top level are laid over each other as the
+ * cascade lays them — the later one wins. A block inside a media query applies
+ * only some of the time, so it adds the names it alone declares and never
+ * replaces a value the file states unconditionally.
+ */
+export function readTokenDeclarations(css: string, selector = ":root"): Map<string, string> {
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  const root = /:root\s*\{([\s\S]*?)\n\}/.exec(withoutComments);
-  if (!root) throw new Error("tokens.css has no :root block");
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // `indent` is empty for a top-level block; the block ends at the brace with the same indent.
+  const blocks = [...withoutComments.matchAll(new RegExp(`^([ \\t]*)${escaped}\\s*\\{([\\s\\S]*?)\\n\\1\\}`, "gm"))];
+  if (blocks.length === 0) throw new Error(`The stylesheet has no ${selector} block`);
   const declarations = new Map<string, string>();
-  for (const match of root[1].matchAll(/--(nesto-[\w-]+)\s*:\s*([^;]+);/g)) {
-    declarations.set(match[1], match[2].trim());
+  for (const [, indent, body] of blocks) {
+    for (const match of body.matchAll(/--(nesto-[\w-]+)\s*:\s*([^;]+);/g)) {
+      if (indent === "" || !declarations.has(match[1])) declarations.set(match[1], match[2].trim());
+    }
   }
   return declarations;
 }

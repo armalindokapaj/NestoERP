@@ -12,6 +12,7 @@ import { PlatformSearch } from "@/components/platform/platform-search";
 import { AccountPanel } from "@/components/shell/account-panel";
 import { ContextNotifications } from "@/components/shell/context-notifications";
 import { PageContainer } from "@/components/ui/page-container";
+import type { AppearanceOptions } from "@/lib/layout/design-state";
 import { cn } from "@/lib/utils/cn";
 
 type Capabilities = { companies: boolean; users: boolean; roles: boolean };
@@ -21,8 +22,13 @@ type Capabilities = { companies: boolean; users: boolean; roles: boolean };
  * the sections its seat may use and the account controls. Navigation is built
  * from the seat's capabilities, so nothing here links to a page that would
  * refuse the person.
+ *
+ * Its pinned header is two rows: the top bar's, then the sections. Version 2
+ * draws them at the shell's own heights (UI-02 §7) and counts the second as the
+ * tab row of the sticky stack, there being no breadcrumb bar here
+ * (`data-group-shell`, styles/tokens-v2.css).
  */
-export function GroupShell({ group, user, capabilities, children }: { group: { name: string; roleName: string }; user: { id: string; firstName: string; lastName: string }; capabilities: Capabilities; children: React.ReactNode }) {
+export function GroupShell({ group, user, capabilities, appearance, children }: { group: { name: string; roleName: string }; user: { id: string; firstName: string; lastName: string }; capabilities: Capabilities; appearance: AppearanceOptions; children: React.ReactNode }) {
   const t = useTranslations("group");
   const pathname = usePathname();
   const items = [
@@ -34,9 +40,9 @@ export function GroupShell({ group, user, capabilities, children }: { group: { n
   const active = (href: string) => (href === "/group" ? pathname === "/group" : pathname.startsWith(href));
 
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas" data-testid="group-shell">
+    <div className="flex min-h-dvh flex-col bg-canvas" data-app-shell data-group-shell data-testid="group-shell">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur-sm">
-        <div data-topbar-row className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-3 px-4 md:px-6">
+        <div data-topbar-row className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-3 px-4 ds2:h-(--nesto-shell-header-h) md:px-6">
           <Link href="/group" className="flex min-w-0 items-center gap-3" data-testid="group-context">
             <OrganizationMark name={group.name} logoUrl={null} />
             <span className="min-w-0 leading-tight">
@@ -54,6 +60,7 @@ export function GroupShell({ group, user, capabilities, children }: { group: { n
                 roleLabel: group.roleName,
                 workspaceName: group.name,
                 destinations: { profile: "/group/account", settings: "/group/account", help: "/group/help", whatsNew: "/group/whats-new" },
+                appearance,
               }}
             />
           </div>
@@ -62,7 +69,7 @@ export function GroupShell({ group, user, capabilities, children }: { group: { n
           <ul className="flex gap-1">
             {items.map((item) => (
               <li key={item.href}>
-                <Link href={item.href} aria-current={active(item.href) ? "page" : undefined} className={cn("-mb-px flex h-11 items-center gap-2 border-b-2 px-3 text-table transition-colors", active(item.href) ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>
+                <Link href={item.href} aria-current={active(item.href) ? "page" : undefined} className={cn("-mb-px flex h-11 items-center gap-2 border-b-2 px-3 text-table transition-colors ds2:h-(--nesto-shell-tab-row-h)", active(item.href) ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>
                   <item.icon aria-hidden="true" className="size-[18px]" strokeWidth={1.6} />
                   {item.label}
                 </Link>

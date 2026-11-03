@@ -21,8 +21,12 @@ export type ContrastPair = {
 
 const t = (token: string): Paint => ({ token });
 
-/** The grounds text and controls sit on. */
-export const GROUNDS = ["canvas", "surface", "surface-muted", "sidebar", "row-hover", "hover", "accent-soft"] as const;
+/**
+ * The grounds text and controls sit on. `accent-soft` is the selected surface
+ * and `pressed` the ground of a control while it is pressed (UI-02 §6.1, §6.5):
+ * in version 1 that is the hover ground, in version 2 a step of its own.
+ */
+export const GROUNDS = ["canvas", "surface", "surface-muted", "sidebar", "row-hover", "hover", "pressed", "accent-soft"] as const;
 
 const textOnGrounds = (token: string, where: string, grounds: readonly string[] = GROUNDS): ContrastPair[] =>
   grounds.map((ground) => ({ id: `${token} on ${ground}`, fg: t(token), bg: t(ground), kind: "text", where }));
@@ -35,6 +39,7 @@ export const CONTRAST_PAIRS: ContrastPair[] = [
   ...textOnGrounds("fg", "body text, titles, labels"),
   ...textOnGrounds("fg-muted", "secondary text, ghost buttons, badge default, inactive nav"),
   ...textOnGrounds("fg-subtle", "metadata, placeholders, group labels, icons"),
+  // The gold foreground of UI-02 §6.1: canvas, surface, hover, pressed and selected among them.
   ...textOnGrounds("accent-strong", "links, active nav, selected segmented option"),
 
   // ---- Status text (StatusBadge, Badge, inline figures) -------------------
@@ -42,6 +47,10 @@ export const CONTRAST_PAIRS: ContrastPair[] = [
     { id: `${status}-strong on ${status}-soft`, fg: t(`${status}-strong`), bg: t(`${status}-soft`), kind: "text", where: "StatusBadge / Badge tone" },
     { id: `${status}-strong on surface`, fg: t(`${status}-strong`), bg: t("surface"), kind: "text", where: "status figures, error text" },
     { id: `${status}-strong on canvas`, fg: t(`${status}-strong`), bg: t("canvas"), kind: "text", where: "status text on the page ground" },
+    // UI-02 §6.5: a status figure in a row that is hovered, pressed or selected.
+    { id: `${status}-strong on hover`, fg: t(`${status}-strong`), bg: t("hover"), kind: "text", where: "status text in a hovered row" },
+    { id: `${status}-strong on pressed`, fg: t(`${status}-strong`), bg: t("pressed"), kind: "text", where: "status text in a pressed row" },
+    { id: `${status}-strong on accent-soft`, fg: t(`${status}-strong`), bg: t("accent-soft"), kind: "text", where: "status text in a selected row" },
   ]),
   { id: "fg-muted on surface-muted (badge default)", fg: t("fg-muted"), bg: t("surface-muted"), kind: "text", where: "StatusBadge / Badge default" },
   { id: "fg on hover (badge neutral)", fg: t("fg"), bg: t("hover"), kind: "text", where: "StatusBadge / Badge neutral, subtle button" },
@@ -49,8 +58,12 @@ export const CONTRAST_PAIRS: ContrastPair[] = [
   // ---- Solid fills carrying text -------------------------------------------
   { id: "primary-fg on primary", fg: t("primary-fg"), bg: t("primary"), kind: "text", where: "primary button, checked checkbox" },
   { id: "primary-fg on primary-hover", fg: t("primary-fg"), bg: t("primary-hover"), kind: "text", where: "primary button hover" },
+  // UI-02 §10.1: a filled button keeps its text readable through hover and pressed.
+  { id: "primary-fg on primary-pressed", fg: t("primary-fg"), bg: t("primary-pressed"), kind: "text", where: "primary button pressed" },
   { id: "accent-fg on accent", fg: t("accent-fg"), bg: t("accent"), kind: "text", where: "accent button, activity count" },
   { id: "danger-fg on danger", fg: t("danger-fg"), bg: t("danger"), kind: "text", where: "danger button, critical count" },
+  { id: "danger-fg on danger-hover", fg: t("danger-fg"), bg: t("danger-hover"), kind: "text", where: "danger button hover" },
+  { id: "danger-fg on danger-pressed", fg: t("danger-fg"), bg: t("danger-pressed"), kind: "text", where: "danger button pressed" },
   { id: "graphite-fg on graphite", fg: t("graphite-fg"), bg: t("graphite"), kind: "text", where: "tooltip, brand panel" },
   { id: "hero-fg on hero", fg: t("hero-fg"), bg: t("hero"), kind: "text", where: "phone My Day card text" },
   { id: "hero-accent on hero", fg: t("hero-accent"), bg: t("hero"), kind: "text", where: "phone My Day card eyebrow and arrow ground" },
@@ -72,6 +85,10 @@ export const CONTRAST_PAIRS: ContrastPair[] = [
 
   // ---- Control boundaries --------------------------------------------------
   ...uiOnGrounds("control-border", "input, textarea, select, search, checkbox, switch off track", ["canvas", "surface", "surface-muted", "row-hover", "sidebar"]),
+  // UI-02 §10.1: a secondary button's boundary is the control border, on its hover and pressed grounds too.
+  ...uiOnGrounds("control-border", "secondary button boundary while hovered and pressed", ["hover", "pressed"]),
+  // UI-02 §12.4: a selected table row is the selection tint, and its checkbox stands on it.
+  ...uiOnGrounds("control-border", "checkbox in a selected table row", ["accent-soft"]),
   { id: "surface thumb vs control-border track", fg: t("surface"), bg: t("control-border"), kind: "ui", where: "switch off: thumb against track" },
   { id: "surface thumb vs accent track", fg: t("surface"), bg: t("accent"), kind: "ui", where: "switch on: thumb against track" },
   { id: "accent (focused input border) vs surface", fg: t("accent"), bg: t("surface"), kind: "ui", where: "focused control border" },

@@ -35,6 +35,7 @@ export default function ContentError({ error, reset }: { error: Error & { digest
       <ErrorState
         title={t("pageErrorTitle")}
         description={t("pageErrorDescription")}
+        reference={error.digest}
         onRetry={() =>
           startTransition(() => {
             router.refresh();

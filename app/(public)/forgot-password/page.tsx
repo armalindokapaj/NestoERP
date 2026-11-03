@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { FocusedFormPage, FocusedHeading, focusedLinkClass } from "@/components/layout/focused-page";
 import { getTranslations } from "@/lib/i18n/server";
+import { getDesignState } from "@/lib/layout/design-server";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,7 +17,22 @@ export async function generateMetadata(): Promise<Metadata> {
  * (PRD #50 §19, §20).
  */
 export default async function ForgotPasswordPage() {
-  const t = await getTranslations("auth");
+  const [t, tShell, { version }] = await Promise.all([getTranslations("auth"), getTranslations("shell"), getDesignState()]);
+
+  // Version 2: the same focused layout as sign-in (UI-02 §7.5).
+  if (version === "2") {
+    return (
+      <FocusedFormPage homeLabel={tShell("homeLink")}>
+        <FocusedHeading title={t("forgot.title")} description={t("forgot.description")} />
+        <ForgotPasswordForm />
+        <div className="mt-6 text-center">
+          <Link href="/login" className={focusedLinkClass}>
+            {t("forgot.backToSignIn")}
+          </Link>
+        </div>
+      </FocusedFormPage>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-md space-y-6 px-4 py-16">

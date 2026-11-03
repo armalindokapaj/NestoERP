@@ -3,6 +3,7 @@ import { ArrowRight, Building2, ChevronRight, CircleAlert, Info, MapPin, Triangl
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { PageSection } from "@/components/ui/page-sections";
 import { widgetSpanClasses } from "@/components/dashboard/dashboard-grid";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { ACTIVITY_ACTION, type AlertPriority, type ResolvedWidget, type WidgetActivityItem, type WidgetAlert } from "@/lib/modules/dashboard/dashboard.types";
@@ -13,6 +14,7 @@ import { localizeActivity, localizeAttention } from "@/lib/i18n/system";
 import type { Translate } from "@/lib/i18n/translator";
 import { widgetText } from "./config-text";
 import { rowText } from "./row-text";
+import { sectionAnchorId } from "@/lib/ui/section-id";
 
 /**
  * The one widget renderer (PRD #4 §17, §18).
@@ -78,8 +80,11 @@ function RowLink({ href, companyId, className, children }: { href: string; compa
   );
 }
 
-/** `fill`: rendered inside a cell that already carries the span (NAV-03 streamed dashboard). */
-export async function DashboardWidget({ widget, fill = false }: { widget: ResolvedWidget; fill?: boolean }) {
+/**
+ * `fill`: rendered inside a cell that already carries the span (NAV-03 streamed dashboard).
+ * `order`: the widget is one of the page's sections, at this place among them (UI-02 §26.3).
+ */
+export async function DashboardWidget({ widget, fill = false, order }: { widget: ResolvedWidget; fill?: boolean; order?: number }) {
   const t = await getTranslations("dashboard");
   const locale = await getLocale();
   const { definition, payload } = widget;
@@ -105,6 +110,7 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
           <div className="flex items-center gap-2">
             <h2 id={`widget-${definition.key}`} className="text-card font-semibold text-fg">
               {widgetText(t, definition.key, "title", definition.title)}
+              {order === undefined ? null : <PageSection id={sectionAnchorId(definition.key)} label={widgetText(t, definition.key, "title", definition.title)} order={order} />}
             </h2>
             {payload.kind === "alerts" && payload.items.length > 0 ? (
               <span className="grid h-[26px] min-w-[26px] place-items-center rounded-full bg-accent-soft px-1.5 text-meta font-bold text-accent-strong" data-testid="alerts-count">
@@ -242,7 +248,7 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
                   <p className="text-body font-semibold text-fg">
                     {split ? (
                       <>
-                        <span className={cn("font-serif text-[1.625rem] font-normal leading-none", tone.figure)}>{split.figure}</span> {split.rest}
+                        <span className={cn("font-serif text-[1.625rem] font-normal leading-none ds2:font-semibold", tone.figure)}>{split.figure}</span> {split.rest}
                       </>
                     ) : (
                       item.title
