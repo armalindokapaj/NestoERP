@@ -28,6 +28,8 @@ describe("Platform 3D canonical Project structure", () => {
 
   afterAll(async () => {
     if (projectId) {
+      await prisma.projectUnit.updateMany({ where: { projectId }, data: { currentPublicationId: null } });
+      await prisma.unitPublication.deleteMany({ where: { projectId } });
       await prisma.projectUnit.deleteMany({ where: { projectId } });
       await prisma.projectFloor.deleteMany({ where: { projectId } });
       await prisma.projectBuilding.deleteMany({ where: { projectId } });
@@ -65,6 +67,18 @@ describe("Platform 3D canonical Project structure", () => {
     expect(structure.buildings[0]!.floors).toHaveLength(4);
     expect(ground.name).toBe("Ground Floor");
     expect(structure.buildings[0]!.floors.flatMap((floor) => floor.units).map((unit) => unit.unitCode)).toEqual(["A-101", "A-102", "A-103"]);
+
+    // Published the moment they exist (units publish on create, 2026-11): a Platform Admin is nobody's member, so automatically.
+    const published = await prisma.projectUnit.findMany({ where: { id: { in: units.ids } }, select: { publicationStatus: true, currentPublication: { select: { versionNumber: true, publishedByMemberId: true, snapshot: true } } } });
+    expect(published.map((unit) => [unit.publicationStatus, unit.currentPublication?.versionNumber, unit.currentPublication?.publishedByMemberId])).toEqual([
+      ["PUBLISHED", 1, null],
+      ["PUBLISHED", 1, null],
+      ["PUBLISHED", 1, null],
+    ]);
+    expect((published[0]!.currentPublication!.snapshot as { areas: { saleableArea: string } }).areas.saleableArea).toBe("91.00");
+    const evidence = await prisma.auditEvent.findMany({ where: { entityId: { in: units.ids }, actionKey: "PROJECT_UNIT_PUBLISHED" }, select: { actorType: true, actorUserId: true, actorMemberId: true, parentGroupId: true, companyId: true } });
+    expect(evidence).toHaveLength(3);
+    for (const event of evidence) expect(event).toEqual({ actorType: "USER", actorUserId: admin.userId, actorMemberId: null, parentGroupId: groupId, companyId });
   });
 
   it("rejects normalized collisions and protects non-empty parents", async () => {
@@ -82,6 +96,12 @@ describe("Platform 3D canonical Project structure", () => {
     const moved = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unit.id } });
     expect(moved.id).toBe(unit.id);
     expect(moved.floorId).toBe(target.id);
+    // Another floor is a publish fact: the move went out as version 2, and version 1 still holds the old floor.
+    const versions = await prisma.unitPublication.findMany({ where: { unitId: unit.id }, orderBy: { versionNumber: "asc" }, select: { versionNumber: true, publishedByMemberId: true, snapshot: true } });
+    expect(versions.map((row) => [row.versionNumber, row.publishedByMemberId, (row.snapshot as { floor: { id: string } }).floor.id])).toEqual([
+      [1, null, source.id],
+      [2, null, target.id],
+    ]);
   });
 
   it("allows view-only structure reads and refuses writes", async () => {

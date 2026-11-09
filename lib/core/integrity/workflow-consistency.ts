@@ -298,7 +298,7 @@ export const APPROVAL_SOURCES: ReadonlyArray<{
   statusColumn: string;
   /** The source status that means "waiting for a decision": it needs a PENDING cycle. */
   pending: string;
-  /** Further source statuses a PENDING cycle may sit on: a published unit's submitted correction stays PUBLISHED until decided. */
+  /** Further source statuses a PENDING cycle may sit on, where a source waits for a decision without changing state. */
   alsoPendingIn?: string[];
 }> = [
   { provider: "finance", cycle: "finance_approvals", recordType: "INVOICE", source: "invoices", statusColumn: "status", pending: "PENDING_APPROVAL" },
@@ -317,7 +317,6 @@ export const APPROVAL_SOURCES: ReadonlyArray<{
   { provider: "hse", cycle: "hse_approvals", recordType: "WORK_PERMIT", source: "hse_work_permits", statusColumn: "status", pending: "PENDING_APPROVAL" },
   { provider: "hse", cycle: "hse_approvals", recordType: "INCIDENT_CLOSE", source: "hse_incidents", statusColumn: "status", pending: "PENDING_CLOSE" },
   { provider: "timesheets", cycle: "timesheet_approvals", recordType: "TIMESHEET", source: "timesheets", statusColumn: "status", pending: "SUBMITTED" },
-  { provider: "projects", cycle: "unit_publication_approvals", recordType: "UNIT", source: "project_units", statusColumn: "publicationStatus", pending: "READY_FOR_PUBLISHING", alsoPendingIn: ["PUBLISHED"] },
 ];
 
 const CYCLE_TABLES = [...new Set([...APPROVAL_SOURCES.map((source) => source.cycle), "unit_sale_approvals"])];
@@ -378,6 +377,26 @@ function approvalChecks(): Check[] {
   }
 
   checks.push(
+    {
+      // Units publish on create (2026-11): unit publishing has no decision left, and the 2026-11 migration cancelled every open request.
+      key: "approvals.projects.unit_publication_retired",
+      code: "APPROVAL_CYCLE_WITHOUT_SOURCE",
+      level: "error",
+      reason: "a unit publishing request is PENDING — units publish on create, and nothing in the Center can decide it",
+      sql: Prisma.sql`
+        SELECT 'unit_publication_approvals:' || c."id" AS id, c."companyId" AS company_id
+        FROM "unit_publication_approvals" c WHERE c."status"::text = 'PENDING'`,
+    },
+    {
+      // Nothing writes Draft, Ready for Publishing or Revision Required any more; such a unit is old data the 2026-11 migration missed.
+      key: "units.publication.retired_state",
+      code: "UNIT_RETIRED_PUBLICATION_STATE",
+      level: "warning",
+      reason: "a unit is in a retired publishing state — every unit is Published or Archived since units publish on create",
+      sql: Prisma.sql`
+        SELECT 'project_units:' || u."id" AS id, u."companyId" AS company_id
+        FROM "project_units" u WHERE u."publicationStatus"::text IN ('DRAFT', 'READY_FOR_PUBLISHING', 'REVISION_REQUIRED')`,
+    },
     {
       key: "approvals.unit_sales.same_company",
       code: "CROSS_COMPANY_LINK",

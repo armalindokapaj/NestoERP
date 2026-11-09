@@ -27,8 +27,8 @@ const area = (value: string | null, locale: Locale) => (value === null ? "—" :
 
 /**
  * The unit's overview (E-05D §10, §11, §45, §90, §91): its technical data as the
- * kind of unit it is, its primary image, its Sales Plan and whether it is ready
- * to publish. A field a kind of unit does not have is left out — unless it holds
+ * kind of unit it is, its primary image, its Sales Plan and how complete its
+ * listing is (information only). A field a kind of unit does not have is left out — unless it holds
  * a value, because hiding what somebody entered is worse than an unusual row.
  */
 export default async function UnitOverviewPage({ params }: Params) {

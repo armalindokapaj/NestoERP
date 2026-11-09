@@ -140,7 +140,7 @@ async function main() {
   console.log(`✓ Structure: ${structure.buildings} buildings, ${structure.floors} floors, ${structure.units} units`);
   console.log(`✓ Unit sales: ${unitSales.forSale} for sale, ${unitSales.onHold} on hold, ${unitSales.reserved} reserved, ${unitSales.sold} sold`);
   console.log(`✓ Unit finance: ${unitFinance.contracts} units under a live sale contract, ${unitFinance.schedules} active schedules, ${unitFinance.payments} contract payments, ${unitFinance.requests} open contract requests`);
-  console.log(`✓ Unit publishing: ${unitPublishing.published} published, ${unitPublishing.waiting} waiting for review, ${unitPublishing.revision} sent back, ${unitPublishing.files} unit files`);
+  console.log(`✓ Unit publishing: ${unitPublishing.published} published with their files, ${unitPublishing.automatic} published automatically, ${unitPublishing.files} unit files`);
   console.log(`✓ Planning: ${planning.phases} phases, ${planning.milestones} milestones, ${planning.dependencies} dependencies, ${planning.blockers} blockers`);
   console.log(`✓ Announcements: ${announcements.announcements} announcements (${announcements.targets} acknowledgment targets), ${announcements.favorites} favorites, ${announcements.recent} recent items`);
   console.log(`✓ Contractors & engineering: ${engineering.contractors} contractors, ${engineering.workPackages} work packages, ${engineering.compliance} compliance items, ${engineering.documents} engineering documents, ${engineering.rfis} RFIs, ${engineering.submittals} submittals, ${engineering.transmittals} transmittals`);

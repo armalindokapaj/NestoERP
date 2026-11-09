@@ -88,13 +88,8 @@ export const rows = {
   "made “{name}” the primary image of {unitCode}": "caktoi “{name}” si imazh kryesor të njësisë {unitCode}",
   "removed the image “{name}” from {unitCode}": "hoqi imazhin “{name}” nga njësia {unitCode}",
   "reordered the images of {unitCode}": "rirenditi imazhet e njësisë {unitCode}",
-  "submitted the changes to {unitCode} for publishing": "dorëzoi ndryshimet e njësisë {unitCode} për publikim",
-  "submitted {unitCode} for publishing": "dorëzoi njësinë {unitCode} për publikim",
   "published {unitCode}": "publikoi njësinë {unitCode}",
   "published {unitCode} as version {versionNumber}": "publikoi versionin {versionNumber} të njësisë {unitCode}",
-  "returned the unpublished changes to {unitCode} for revision": "ktheu për rishikim ndryshimet e papublikuara të njësisë {unitCode}",
-  "asked for a revision of {unitCode}": "kërkoi rishikimin e njësisë {unitCode}",
-  "unpublished {unitCode}": "çpublikoi njësinë {unitCode}",
   "archived {unitCode}": "arkivoi {unitCode}",
   "restored {unitCode}": "riktheu {unitCode}",
   // team

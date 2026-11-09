@@ -115,7 +115,6 @@ export const approvalNouns = {
   "Budget": "Buxheti",
   "Commitment": "Angazhimi",
   "Proposal": "Oferta",
-  "Unit": "Njësia",
   "Contract": "Kontrata",
   "Amendment": "Shtojca e kontratës",
   "Inspection": "Inspektimi",

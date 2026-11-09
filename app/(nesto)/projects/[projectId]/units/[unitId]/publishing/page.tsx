@@ -5,7 +5,7 @@ import Link from "@/components/navigation/nav-link";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
-import { PublicationBadge, ReadinessPanel, UnpublishedChangesBadge } from "@/components/project-structure/unit-page/publication-badge";
+import { PublicationBadge, ReadinessPanel } from "@/components/project-structure/unit-page/publication-badge";
 import { listUnitPublications } from "@/lib/modules/project-structure/unit-publishing.service";
 import { loadUnitPage, UnitShell } from "../unit-page";
 
@@ -16,8 +16,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Publishing: where the unit stands, what a reviewer needs to decide, and every
- * version ever published (E-05D §28, §45, §47, §50). The actions are in the
+ * Publishing: where the unit stands and every version ever published (E-05D
+ * §45, §50). Each change to the unit went out as its own version the moment it
+ * was saved (units publish on create, 2026-11); a version nobody's change wrote
+ * — the 2026-11 backfill, a unit made in the 3D tool, a file promoted by the
+ * scanner — reads "Published automatically". Archive and restore are in the
  * header, the same on every section of the unit.
  */
 export default async function UnitPublishingPage({ params }: Params) {
@@ -40,7 +43,6 @@ export default async function UnitPublishingPage({ params }: Params) {
                 {t("unitPage.publishing")}
               </h2>
               <PublicationBadge status={publishing.status} versionNumber={current?.versionNumber} />
-              {publishing.hasUnpublishedChanges ? <UnpublishedChangesBadge /> : null}
             </div>
             <DetailGrid
               className="mt-4"
@@ -50,32 +52,16 @@ export default async function UnitPublishingPage({ params }: Params) {
                   value: current ? (
                     <>
                       v{current.versionNumber} · {formatDateTime(current.publishedAt, locale)}
-                      {current.publishedBy ? <> · <PersonLink memberId={current.publishedByMemberId} name={current.publishedBy} /></> : null}
+                      {current.publishedByMemberId === null ? <> · {t("unitPage.publishedAutomatically")}</> : current.publishedBy ? <> · <PersonLink memberId={current.publishedByMemberId} name={current.publishedBy} /></> : null}
                     </>
                   ) : (
                     t("unitPage.neverPublished")
                   ),
                 },
                 { label: t("unitPage.statusSince"), value: publishing.statusChangedAt ? formatDateTime(publishing.statusChangedAt, locale) : "—" },
-                ...(publishing.pendingRequest
-                  ? [
-                      { label: t("unitPage.submittedBy"), value: publishing.pendingRequest.submittedBy ? <PersonLink memberId={publishing.pendingRequest.submittedByMemberId} name={publishing.pendingRequest.submittedBy} /> : "—" },
-                      { label: t("unitPage.submitted"), value: formatDateTime(publishing.pendingRequest.submittedAt, locale) },
-                    ]
-                  : []),
               ]}
             />
-            {publishing.hasUnpublishedChanges && current ? (
-              <p className="mt-4 rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-table text-warning-strong">
-                {t("unitPage.changedSince", { version: current.versionNumber })}
-              </p>
-            ) : null}
-            {publishing.revisionReason ? (
-              <div className="mt-4 rounded-md border border-line bg-surface-muted px-3 py-2" data-testid="revision-reason">
-                <p className="nesto-eyebrow text-fg-subtle">{t("unitPage.revisionRequested")}</p>
-                <p className="mt-1 whitespace-pre-line text-table text-fg">{publishing.revisionReason}</p>
-              </div>
-            ) : null}
+            <p className="mt-4 text-table text-fg-muted">{t("unitPage.publishesOnSave")}</p>
           </section>
 
           {history ? (
@@ -95,7 +81,11 @@ export default async function UnitPublishingPage({ params }: Params) {
                         </Link>
                         {row.isCurrent ? <span className="text-meta font-medium text-success-strong">{t("unitPage.current")}</span> : null}
                         <span className="text-fg-muted">{formatDateTime(row.publishedAt, locale)}</span>
-                        {row.publishedBy ? <span className="text-fg-muted">{t("unitPage.by")} <PersonLink memberId={row.publishedByMemberId} name={row.publishedBy} /></span> : null}
+                        {row.publishedByMemberId === null ? (
+                          <span className="text-fg-muted">{t("unitPage.publishedAutomatically")}</span>
+                        ) : row.publishedBy ? (
+                          <span className="text-fg-muted">{t("unitPage.by")} <PersonLink memberId={row.publishedByMemberId} name={row.publishedBy} /></span>
+                        ) : null}
                       </span>
                       {row.salesPlanVersionNumber ? <span className="text-meta text-fg-subtle">{t("unitPage.salesPlanVersion", { version: row.salesPlanVersionNumber })}</span> : null}
                     </li>

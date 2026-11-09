@@ -30,7 +30,6 @@ import { createFloor } from "@/lib/modules/project-structure/structure.floors";
 import { createBuildingSchema, createFloorSchema, createUnitSchema } from "@/lib/modules/project-structure/structure.schema";
 import { createUnit } from "@/lib/modules/project-structure/structure.units";
 import { addUnitMedia, setUnitSalesPlan } from "@/lib/modules/project-structure/unit-files.service";
-import { submitUnitForPublishing } from "@/lib/modules/project-structure/unit-publishing.service";
 import * as qaqcInspections from "@/lib/modules/qaqc/inspections/inspection.service";
 import { inspectionSchema as qaqcInspectionSchema, submitInspectionSchema as qaqcSubmitSchema } from "@/lib/modules/qaqc/qaqc.schema";
 import { createOpportunitySchema } from "@/lib/modules/sales/opportunities/opportunity.schema";
@@ -215,7 +214,7 @@ function proves(spec: Spec) {
       expect((await getApprovalDetail(approver, spec.key, approvalId)).item.status).toBe(spec.cycleAfter);
 
       // Conflict: the closed cycle cannot be decided again, the other way, and nothing more is written.
-      const other: ApprovalDecision = spec.decision !== "APPROVE" ? "APPROVE" : spec.key === "projects" ? "RETURN" : "REJECT";
+      const other: ApprovalDecision = spec.decision !== "APPROVE" ? "APPROVE" : "REJECT";
       const again = await refusal(decideApproval(approver, spec.key, approvalId, other, { note: NOTE[other] ?? "aud10 again" }));
       expect(again.code).toBe("CONFLICT");
       expect(codeOf(again)).toBe("APPROVAL_ALREADY_DECIDED");
@@ -568,9 +567,10 @@ const timesheets: Spec = {
 };
 
 /*
- * Unit publishing: a complete unit the Architect submits on a project this file
- * builds for itself; the Architecture head publishes it. The Architect holds no
- * publish grant, so is refused.
+ * A unit on a project this file builds for itself, with its Sales Plan and an
+ * image: published the moment it was created and with each change since — unit
+ * publishing has no Center source any more (units publish on create, 2026-11).
+ * The A7 test sells it.
  */
 const MARINA = "aud10b_marina";
 const UNIT_PREFIX = "AUD10B";
@@ -620,8 +620,8 @@ async function uploadToUnit(context: UserContext, unitId: string, name: string, 
   return result.documentId;
 }
 
-/** A complete unit the Architect has submitted for publishing, on a project of its own. */
-async function submittedUnit() {
+/** A complete unit on a project of its own: published, with nothing waiting for review. */
+async function publishedUnit() {
   setFileScanner(null);
   const [owner, architect, rep] = await Promise.all([loginAs("OWNER"), loginAs("ARCHITECT"), loginAs("SALES")]);
   await removeMarina();
@@ -635,28 +635,9 @@ async function submittedUnit() {
   await setUnitSalesPlan(architect, unitId, { documentId: plan });
   const image = await uploadToUnit(architect, unitId, "render", "Render.png", "image/png", await png());
   await addUnitMedia(architect, unitId, { documentId: image, category: "INTERIOR_RENDER", caption: null });
-  const version = (await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId }, select: { version: true } })).version;
-  await submitUnitForPublishing(architect, unitId, { expectedVersion: version });
-  const approval = await prisma.unitPublicationApproval.findFirstOrThrow({ where: { recordId: unitId, status: "PENDING" } });
-  return { unitId, approvalId: approval.id, owner, architect, rep };
+  expect(await prisma.unitPublicationApproval.count({ where: { recordId: unitId } })).toBe(0);
+  return { unitId, owner, architect, rep };
 }
-
-const projects: Spec = {
-  key: "projects",
-  decision: "APPROVE",
-  async make() {
-    const { unitId, approvalId, architect } = await submittedUnit();
-    return { recordId: unitId, approvalId, trailIds: [unitId], approver: await loginAsEmail(DEMO_EMAIL.architectureHead), refused: { who: architect, code: "FORBIDDEN" } };
-  },
-  source: async (id) => (await prisma.projectUnit.findUniqueOrThrow({ where: { id } })).publicationStatus,
-  cycle: cycleIn(prisma.unitPublicationApproval as never),
-  sourceBefore: "READY_FOR_PUBLISHING",
-  sourceAfter: "PUBLISHED",
-  cycleAfter: "APPROVED",
-  // publishUnit: the publication audit, and the request's decision through the shared approval trail.
-  adds: { activity: ["UNIT_PUBLISHED"], audit: ["APPROVAL_APPROVED", "PROJECT_UNIT_PUBLISHED"], outbox: ["APPROVAL_APPROVED"] },
-  auditProviderKey: "projects",
-};
 
 /*
  * Unit sales: where the company's Sold rule is Manual approval, Sales asks for a
@@ -708,19 +689,20 @@ const unitSales: Spec = {
   auditProviderKey: "unit_sales",
 };
 
-const SPECS: Spec[] = [finance, procurement, sales, legal, qaqc, hse, hr, documents, timesheets, projects, unitSales];
+// Unit publishing ("projects") left the Center when units began to publish on create (2026-11).
+const SPECS: Spec[] = [finance, procurement, sales, legal, qaqc, hse, hr, documents, timesheets, unitSales];
 
 for (const spec of SPECS) proves(spec);
 
 /* A7 — two sources on one record ---------------------------------------- */
 
-describe("a unit's publishing and its sale are two sources on one record (A7)", () => {
-  it("opens the cycle a link is about — the pending sale, or the named source — and audits the sale under its own source", async () => {
-    const { unitId, approvalId: publishingId } = await submittedUnit();
+describe("a unit's sale is the one Center source on a unit (A7; unit publishing retired 2026-11)", () => {
+  it("opens the pending sale, finds nothing under the retired publishing source, and audits the sale under its own source", async () => {
+    const { unitId } = await publishedUnit();
     const people = await manualApproval();
     const head = await loginAsEmail(DEMO_EMAIL.architectureHead);
-    await decideApproval(head, "projects", publishingId, "APPROVE", { note: null });
     expect((await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } })).publicationStatus).toBe("PUBLISHED");
+    await expect(decideApproval(head, "projects", "unit_publication_approval_old", "APPROVE", { note: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
 
     // Sales puts the published unit on sale, reserves it and asks for the sale to be approved.
     await updateCommercialDetails(people.sales, unitId, commercialDetailsSchema.parse({ askingPrice: "310000.00", currency: "EUR", priceBasis: "SALEABLE_AREA" }));
@@ -731,16 +713,15 @@ describe("a unit's publishing and its sale are two sources on one record (A7)", 
     // Both sources claim project_unit; the link lands on what waits on this reader, not the first source registered.
     const owner = await loginAs("OWNER");
     expect(await findApprovalForRecord(owner, "project_unit", unitId)).toBe(`unit_sales:${saleId}`);
-    // A link that names its source opens that source's cycle.
-    expect(await findApprovalForRecord(owner, "project_unit", unitId, { providerKey: "projects" })).toBe(`projects:${publishingId}`);
+    // A link that names its source opens that source's cycle; an old link naming unit publishing finds nothing.
     expect(await findApprovalForRecord(owner, "project_unit", unitId, { providerKey: "unit_sales" })).toBe(`unit_sales:${saleId}`);
-    // Positive control: a reader with no sale approval to open still reaches the publishing cycle.
-    expect(await findApprovalForRecord(head, "project_unit", unitId, { providerKey: "projects" })).toBe(`projects:${publishingId}`);
+    expect(await findApprovalForRecord(owner, "project_unit", unitId, { providerKey: "projects" })).toBeNull();
+    expect(await findApprovalForRecord(head, "project_unit", unitId, { providerKey: "projects" })).toBeNull();
 
     // The sale's request audit names the unit-sales source (before AUD-10 it said "projects").
     const requested = await prisma.auditEvent.findMany({ where: { entityId: unitId, actionKey: "APPROVAL_REQUEST_CREATED" }, select: { changesJson: true } });
     const keys = requested.map((row) => (row.changesJson as { providerKey?: { after?: string } }).providerKey?.after).sort();
-    expect(keys).toEqual(["projects", "unit_sales"]);
+    expect(keys).toEqual(["unit_sales"]);
     const outbox = await prisma.notificationEventOutbox.findFirstOrThrow({ where: { entityId: unitId, eventType: "APPROVAL_REQUESTED", payloadJson: { path: ["recordLabel"], equals: "Unit sale" } } });
     expect((outbox.payloadJson as { providerKey?: string }).providerKey).toBe("unit_sales");
   });

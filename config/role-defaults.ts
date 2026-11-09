@@ -270,15 +270,14 @@ const LADDERS: Record<ModuleKey, ModuleLadder> = {
       "project.unit.delete",
       "project.unit.move",
       /*
-       * Preparing a unit for publishing: its canonical documents, its media and
-       * submitting it for review (E-05D §19). Publishing it is not on the
-       * ladder — the people who prepare a unit are not thereby the people who
-       * approve it for Sales (§89); an Architecture Manager holds it as an
-       * override, as do the Owner and the Admin.
+       * A unit's canonical documents and its media (E-05D §19). Publishing is
+       * nobody's grant: a unit is published when it is created and each change
+       * goes out at once (units publish on create, 2026-11). Archiving it is not
+       * on the ladder; an Architecture Manager holds it as an override, as do
+       * the Owner and the Admin.
        */
       "project.unit.documents.manage",
       "project.unit.media.manage",
-      "project.unit.submit_for_publish",
     ],
   },
   tasks: {
@@ -1191,15 +1190,12 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     // The company's planning rules, and moving a locked baseline (PRD #44 §76, §309).
     // The company's list of project types (E-05A §62).
     // The company's list of unit types (E-05B §20, §21).
-    // Publishing units, and taking them out of use again (E-05D §19).
+    // Taking units out of use and back again (E-05D §19, §32).
     projects: {
       extra: [
         "project_planning.settings.manage",
         "project.type.manage",
         "project.unit_type.manage",
-        "project.unit.publish",
-        "project.unit.revision_request",
-        "project.unit.unpublish",
         "project.unit.archive",
         // Selling units, reopening a sale and correcting a reservation included (E-05E §39).
         "project.unit.sales.view",
@@ -1337,10 +1333,6 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.media.manage",
         "project.unit.documents.manage",
         "project.unit.media.manage",
-        "project.unit.submit_for_publish",
-        "project.unit.publish",
-        "project.unit.revision_request",
-        "project.unit.unpublish",
         "project.unit.archive",
         "project.unit.sales_status.manage",
         "project.unit.price.manage",
@@ -1561,9 +1553,9 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     /**
      * The physical project on the projects they are assigned to (E-05B §59, §60):
      * buildings, floors and the technical data of every unit. The ladder's
-     * CONTRIBUTE rung stops short of it, which is where Engineers stay. They
-     * prepare a unit for publishing — its documents, its media, the request —
-     * and do not publish it themselves (E-05D §19, §120).
+     * CONTRIBUTE rung stops short of it, which is where Engineers stay, and a
+     * unit's documents and media; what they save is published at once (E-05D
+     * §19, §120; units publish on create, 2026-11).
      */
     projects: {
       extra: [
@@ -1580,7 +1572,6 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.move",
         "project.unit.documents.manage",
         "project.unit.media.manage",
-        "project.unit.submit_for_publish",
       ],
     },
     // Design-related work and instructions on their projects' logs (PRD #43 §135).
@@ -2072,7 +2063,7 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
  * never a manager role — and this is where the extra authority comes from. Most
  * functions manage with the member's own row plus the organization rungs below.
  * The two that had manager roles before E-06 keep those rows here, so an
- * Architecture Manager still publishes units and a Sales Manager still decides
+ * Architecture Manager still archives units and a Sales Manager still decides
  * proposals and reopens sales (§153, §154), while every other Architect and
  * Sales user keeps the member row.
  */
@@ -2080,7 +2071,8 @@ const MANAGER_MATRIX: Partial<Record<RoleKey, RoleMatrixRow>> = {
   /*
    * The Architect's own row, across every project of the company rather than
    * the ones they are assigned to — the head of design reviews all of it — and
-   * the approvals inbox where unit publishing requests wait (E-05D §19, §21).
+   * the approvals inbox (E-05D §19; unit publishing requests are retired since
+   * units publish on create, 2026-11).
    */
   ARCHITECT: {
     calendar: "C/C", approvals: "A/C", announcements: "V/C", meetings: "C/C", timesheets: "C/S", dailyLogs: "V/C", contractors: "V/C", engineering: "A/C", projects: "C/C", tasks: "C/P", clients: "V/C", documents: "C/C",
@@ -2098,9 +2090,8 @@ const MANAGER_MATRIX: Partial<Record<RoleKey, RoleMatrixRow>> = {
 const MANAGER_OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> = {
   ARCHITECT: {
     /**
-     * Everything an Architect does to units, on every project, and the review
-     * that follows it: publishing a unit, asking for a revision, taking a
-     * published unit back out of use and archiving it (E-05D §19, §120).
+     * Everything an Architect does to units, on every project, and archiving
+     * and restoring them (E-05D §19, §32, §120).
      * The rest of this role's overrides are the Architect's.
      */
     projects: {
@@ -2118,10 +2109,6 @@ const MANAGER_OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Overr
         "project.unit.move",
         "project.unit.documents.manage",
         "project.unit.media.manage",
-        "project.unit.submit_for_publish",
-        "project.unit.publish",
-        "project.unit.revision_request",
-        "project.unit.unpublish",
         "project.unit.archive",
       ],
     },

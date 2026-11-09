@@ -7,6 +7,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { floorKeyOf, floorRank, generateUnitCodes, planFloorRange, structureKey } from "@/lib/modules/project-structure/structure.rules";
+import { deleteOwnPublications, publishLiveUnits, type PublishActor } from "@/lib/modules/project-structure/unit-publishing.state";
 import { project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
 import type { Project3DStructureCreate, Project3DStructureUpdate } from "./project-3d.schema";
@@ -42,6 +43,16 @@ async function audit(context: PlatformContext, parentGroupId: string, tx: Tx, pr
     reason,
     metadata: structureMetadata(operation, entity.label),
   }, { tx });
+}
+
+/**
+ * A unit the Platform Admin creates or changes here is published at once, like
+ * one a member creates in Projects (units publish on create, 2026-11). The
+ * Platform Admin is nobody's member, so the version is published automatically,
+ * and the audit names the platform user.
+ */
+function publisher(context: PlatformContext, parentGroupId: string): PublishActor {
+  return { kind: "platform", context, parentGroupId };
 }
 
 function structureMetadata(operation: string, label: string) {
@@ -114,8 +125,10 @@ export async function createPlatformProjectStructure(context: PlatformContext, p
       if (collisions) throw new AccessError("CONFLICT", "One or more unit codes already exist in this Project.", { code: "UNIT_CODE_COLLISION" });
       if (input.action === "unit.bulk" && input.dryRun) return { action: input.action, ids: [], preview: { count: units.length, labels: units.map((unit) => unit.unitCode) } };
       const last = await tx.projectUnit.aggregate({ where: { floorId: floor.id }, _max: { sortOrder: true } });
-      const rows = await tx.projectUnit.createManyAndReturn({ data: units.map((unit, index) => ({ companyId: project.companyId, projectId, floorId: floor.id, unitCode: unit.unitCode, unitCodeKey: structureKey(unit.unitCode), name: unit.name, unitTypeId: type.id, internalArea: decimal(input.internalArea), saleableArea: decimal(input.saleableArea), rooms: input.rooms, bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, sortOrder: (last._max.sortOrder ?? 0) + index + 1, createdBy: context.userId })), select: { id: true } });
+      const publishedAt = new Date();
+      const rows = await tx.projectUnit.createManyAndReturn({ data: units.map((unit, index) => ({ companyId: project.companyId, projectId, floorId: floor.id, unitCode: unit.unitCode, unitCodeKey: structureKey(unit.unitCode), name: unit.name, unitTypeId: type.id, internalArea: decimal(input.internalArea), saleableArea: decimal(input.saleableArea), rooms: input.rooms, bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, sortOrder: (last._max.sortOrder ?? 0) + index + 1, createdBy: context.userId, publicationStatus: "PUBLISHED" as const, publicationStatusChangedAt: publishedAt })), select: { id: true } });
       await audit(context, assignedCompany(project).parentGroupId, tx, projectId, { type: "ProjectFloor", id: floor.id, label: floor.name }, input.action, null, { floorId: floor.id, count: rows.length }, input.reason);
+      await publishLiveUnits(tx, publisher(context, assignedCompany(project).parentGroupId), project.companyId, rows.map((row) => row.id));
       return { action: input.action, ids: rows.map((row) => row.id) };
     });
   } catch (error) { return knownWriteConflict(error); }
@@ -138,6 +151,11 @@ export async function updatePlatformProjectStructure(context: PlatformContext, p
         const changed = await tx.projectFloor.updateMany({ where: { id: row.id, version: input.expectedVersion }, data: { buildingId: target.id, number: input.number, name: input.name, levelType: input.levelType, floorKey: floorKeyOf(input.levelType, input.number, input.name), elevation: decimal(input.elevation), description: input.description, isActive: input.isActive, updatedBy: context.userId, version: { increment: 1 } } });
         if (!changed.count) throw new AccessError("CONFLICT", "The floor changed while you were editing it.", { code: "STRUCTURE_STALE" });
         await audit(context, assignedCompany(project).parentGroupId, tx, projectId, { type: "ProjectFloor", id: row.id, label: input.name }, "floor.update", { floorId: row.id, buildingId: row.buildingId, name: row.name, isActive: row.isActive, version: row.version }, { floorId: row.id, buildingId: target.id, name: input.name, isActive: input.isActive, version: row.version + 1 }, input.reason);
+        // Another building is a publish fact of every unit on the floor.
+        if (target.id !== row.buildingId) {
+          const units = await tx.projectUnit.findMany({ where: { floorId: row.id, companyId: project.companyId }, select: { id: true } });
+          await publishLiveUnits(tx, publisher(context, assignedCompany(project).parentGroupId), project.companyId, units.map((unit) => unit.id));
+        }
         return { version: row.version + 1 };
       }
       const row = assertFound(await tx.projectUnit.findFirst({ where: { id: recordId, projectId, companyId: project.companyId } }));
@@ -147,6 +165,7 @@ export async function updatePlatformProjectStructure(context: PlatformContext, p
       const changed = await tx.projectUnit.updateMany({ where: { id: row.id, version: input.expectedVersion }, data: { floorId: targetFloor.id, unitCode: input.unitCode, unitCodeKey: structureKey(input.unitCode), name: input.name, unitTypeId: unitType.id, internalArea: decimal(input.internalArea), saleableArea: decimal(input.saleableArea), rooms: input.rooms, bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, isActive: input.isActive, updatedBy: context.userId, version: { increment: 1 } } });
       if (!changed.count) throw new AccessError("CONFLICT", "The unit changed while you were editing it.", { code: "STRUCTURE_STALE" });
       await audit(context, assignedCompany(project).parentGroupId, tx, projectId, { type: "ProjectUnit", id: row.id, label: input.unitCode }, "unit.update", { unitId: row.id, floorId: row.floorId, unitCode: row.unitCode, isActive: row.isActive, version: row.version }, { unitId: row.id, floorId: targetFloor.id, unitCode: input.unitCode, isActive: input.isActive, version: row.version + 1 }, input.reason);
+      await publishLiveUnits(tx, publisher(context, assignedCompany(project).parentGroupId), project.companyId, [row.id]);
       return { version: row.version + 1 };
     });
   } catch (error) { return knownWriteConflict(error); }
@@ -170,10 +189,12 @@ export async function deletePlatformProjectStructure(context: PlatformContext, p
       return { deleted: true };
     }
     const row = assertFound(await tx.projectUnit.findFirst({ where: { id: recordId, projectId, companyId: project.companyId }, select: { id: true, unitCode: true, floorId: true, salesPlanDocumentId: true } }));
+    // Its own published versions are no reference: every unit has one from the moment it exists, and they go with it.
     const counts = await Promise.all([
-      tx.project3DUnitMeshBinding.count({ where: { projectUnitId: row.id } }), tx.unitPublication.count({ where: { unitId: row.id } }), tx.unitMedia.count({ where: { unitId: row.id } }), tx.unitDocumentLink.count({ where: { unitId: row.id } }), tx.unitCommercialProfile.count({ where: { unitId: row.id } }), tx.unitReservation.count({ where: { unitId: row.id } }), tx.opportunityUnit.count({ where: { unitId: row.id } }), tx.contractUnit.count({ where: { unitId: row.id } }),
+      tx.project3DUnitMeshBinding.count({ where: { projectUnitId: row.id } }), tx.unitPublicationApproval.count({ where: { recordId: row.id } }), tx.unitMedia.count({ where: { unitId: row.id } }), tx.unitDocumentLink.count({ where: { unitId: row.id } }), tx.unitCommercialProfile.count({ where: { unitId: row.id } }), tx.unitReservation.count({ where: { unitId: row.id } }), tx.opportunityUnit.count({ where: { unitId: row.id } }), tx.contractUnit.count({ where: { unitId: row.id } }),
     ]);
     if (row.salesPlanDocumentId || counts.some(Boolean)) throw new AccessError("CONFLICT", "This Unit is used by 3D, publishing, media, documents, or Sales. Deactivate it instead.", { code: "UNIT_REFERENCED" });
+    await deleteOwnPublications(tx, project.companyId, row.id);
     await tx.projectUnit.delete({ where: { id: row.id } });
     await audit(context, assignedCompany(project).parentGroupId, tx, projectId, { type: "ProjectUnit", id: row.id, label: row.unitCode }, "unit.delete", { unitId: row.id, floorId: row.floorId, unitCode: row.unitCode }, null, reason);
     return { deleted: true };

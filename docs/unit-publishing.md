@@ -1,283 +1,193 @@
-# The unit page and publishing (E-05D)
+# The unit page and publishing (E-05D; publish on create, 2026-11)
 
-Every unit E-05B created has one page, and that page is where the unit becomes
-technically complete and approved for downstream use. Sales, Finance, the 3D
-explorer and external publishing all read the same unit by its id, and — once
-they exist — its **published version**, never a copy of the unit.
+Every unit E-05B created has one page. Sales, Finance, the 3D explorer and
+external publishing all read the same unit by its id, and its **published
+version**, never a copy of the unit.
 
 ```
 ONE UNIT · ONE UNIT ID · ONE UNIT PAGE · ONE LOGICAL SALES PLAN · ZERO DUPLICATION
 ```
 
+Since 2026-11 (owner's decision) a unit is **published the moment it is
+created**, whatever its completeness, and **every change to what it publishes
+goes out at once** as its next version. There is no Submit, no review, no
+"unpublished changes", no Revision Required and no Unpublish. Archive is the
+only way out of use.
+
 ```
-DRAFT ──submit──→ READY_FOR_PUBLISHING ──publish──→ PUBLISHED ──publish (changes)──→ PUBLISHED v2, v3…
-  │                     │                                │
-  │                     └──request_revision──→ REVISION_REQUIRED ──submit──↗
-  │                                                      ↑
-  └────────────── publish (a publisher, directly) ───────┘   PUBLISHED ──request_revision──↗
-                                                             PUBLISHED ──unpublish──→ READY_FOR_PUBLISHING
-any working state ──archive──→ ARCHIVED ──restore──→ what it was (a waiting unit comes back as Draft)
+create ──→ PUBLISHED v1 ──(any change to a publish fact)──→ PUBLISHED v2, v3 …
+               │                                    ↑
+               └──archive──→ ARCHIVED ──restore─────┘  (next version if it changed meanwhile)
 ```
 
 Publishing status is **not** a sales status (§15). A Published unit is not
-thereby For Sale: E-05E adds the commercial status beside it
-(`docs/unit-sales.md`).
+thereby For Sale: Sales adds the commercial status beside it
+(`docs/unit-sales.md`); a unit on sale cannot be archived.
 
 ## Where things live
 
 | Concern | Location |
 | --- | --- |
 | Types, labels, DTOs (client-safe) | `lib/modules/project-structure/unit-publishing.types.ts` |
-| Readiness, display by kind of unit, snapshot, unpublished changes (pure, client-safe) | `lib/modules/project-structure/unit-publishing.rules.ts` |
-| The state machine | `lib/modules/project-structure/unit-publication.machine.ts` (registered in `lib/core/state/registry.ts`) |
-| What publishing reads about a unit, in one batched query; the drift refresh; the row lock | `lib/modules/project-structure/unit-publishing.state.ts` |
-| Publishing requests (the Approvals Center's rows) | `lib/modules/project-structure/unit-publishing.requests.ts` |
-| Submit, publish, revision, unpublish, archive, restore, history | `lib/modules/project-structure/unit-publishing.service.ts` |
+| Display by kind of unit, the checklist, the snapshot and its fingerprint (pure, client-safe) | `lib/modules/project-structure/unit-publishing.rules.ts` |
+| The state machine (archive, restore) | `lib/modules/project-structure/unit-publication.machine.ts` (registered in `lib/core/state/registry.ts`) |
+| What publishing reads about a unit, in one batched query; **`publishLiveUnits`**; the Documents door; the row lock | `lib/modules/project-structure/unit-publishing.state.ts` |
+| Reads, archive, restore, history | `lib/modules/project-structure/unit-publishing.service.ts` |
 | Sales Plan, documents, media | `lib/modules/project-structure/unit-files.service.ts` |
-| Validation | `lib/modules/project-structure/unit-publishing.schema.ts` |
-| Approvals Center provider | `lib/modules/approvals/providers/projects.provider.ts` (key `projects`, label *Unit publishing*) |
-| Record registry | `project_unit` in `lib/core/records/record.registry.ts` — files filed on a unit are exactly as readable as the unit |
-| API | `app/api/project-units/[unitId]/{publishing,submit-for-publishing,publish,revision-required,unpublish,archive,restore,publications/**,documents/**,document-candidates,sales-plan,media/**,activity}` |
+| Record registry | `project_unit` in `lib/core/records/record.registry.ts` |
+| API | `app/api/project-units/[unitId]/{publishing,archive,restore,publications/**,documents/**,document-candidates,sales-plan,media/**,activity}` |
 | UI | `app/(nesto)/projects/[projectId]/units/[unitId]/**` (Overview, Documents, Media, Publishing, Activity), `components/project-structure/unit-page/*` |
 | Demo data | `prisma/seed/unit-publishing.ts` |
 
 ## Data
 
-Migration `20260917150000_unit_publishing_e05d`, purely additive. Every existing
-unit starts **Draft** with no unpublished changes (§105); nothing is published by
-a migration, and no unit held a Sales Plan or media before (§106).
-
-- **ProjectUnit** gains `publicationStatus` (moved only by the machine),
-  `preArchivePublicationStatus`, `publicationStatusChangedAt`,
-  `currentPublicationId`, `hasUnpublishedChanges`, `revisionReason` and
-  `salesPlanDocumentId` (unique: one logical Sales Plan per unit, one unit per
-  Sales Plan).
+- **ProjectUnit** — `publicationStatus` (set to `PUBLISHED` at creation, moved
+  afterwards only by the machine), `preArchivePublicationStatus`,
+  `publicationStatusChangedAt`, `currentPublicationId` (always the latest
+  version of a unit in use), `salesPlanDocumentId` (unique: one logical Sales
+  Plan per unit). `hasUnpublishedChanges` and `revisionReason` belong to the
+  retired review and stay `false` / null.
 - **UnitPublication** — `versionNumber` (unique per unit, ≥ 1), `publishedAt`,
-  `publishedByMemberId`, `snapshot` (JSON), and the exact
-  `salesPlanDocumentId`/`salesPlanDocumentVersionId` and
-  `primaryMediaDocumentId`/`primaryMediaDocumentVersionId` it went out with.
-  Written once, never updated.
-- **UnitMedia** — a canonical Document shown as an image of the unit:
-  `category` (Cover, Floor plan image, Interior render, Exterior render, View,
-  Other), `caption`, `sortOrder`, `isPrimary`. Unique per unit and document.
-- **UnitDocumentLink** — a canonical Document attached to the unit, with its
-  `category` (Technical drawing, Specification, Other attachable now; Sales Plan
-  is the unit's own pointer; Contract, Finance and Legal wait for E-05F).
-- **UnitPublicationApproval** — one row per request to publish, read by the
-  Approvals Center (`PENDING`, `APPROVED`, `RETURNED`, `CANCELLED`; `REJECTED`
-  exists for the cycle contract and is never written).
+  `publishedByMemberId` (**null = published automatically**: the 2026-11
+  backfill, a unit a Platform Admin made in the 3D tool, a file version the scan
+  worker promoted), `snapshot` (JSON) and the exact Sales Plan and primary image
+  document/version ids. Written once, never updated.
+- **UnitMedia**, **UnitDocumentLink** — unchanged (E-05D §38-§44).
+- **UnitPublicationApproval** — history only. Nothing writes it any more.
 
-Held by the database, not only the service:
+The enum keeps `DRAFT`, `READY_FOR_PUBLISHING` and `REVISION_REQUIRED` for
+history; nothing writes them. Database rules held: composite FKs keep every
+publication, image and link on its unit's project and company; a unit's current
+version is one of its own; one primary image per unit; `(unitId, versionNumber)`
+unique.
 
-| Rule | How |
-| --- | --- |
-| A publication, image or document link belongs to its unit's project and company | composite FK `(unitId, projectId, companyId)` → unit `(id, projectId, companyId)` |
-| A unit's current version is one of its own | composite FK `(currentPublicationId, id)` → publication `(id, unitId)` |
-| At most one primary image per unit | partial unique index on `unit_media(unitId) WHERE isPrimary` |
-| At most one open request per unit | partial unique index on `unit_publication_approvals(recordId) WHERE status = 'PENDING'` |
-| Two publishes cannot write the same version | unique `(unitId, versionNumber)` |
+### Migration `20261109120000_units_publish_on_create`
 
-Nothing copies a unit, a file or a client. Media and document links point at
-Documents; publications hold the approved *facts* and the ids of the exact file
-versions, not the files.
+1. `unit_publications.publishedByMemberId` becomes nullable.
+2. Every unit not archived gets its next version (max + 1, publisher null) when
+   it has no current version or its live facts differ from it by the
+   fingerprint, with exactly the snapshot `buildSnapshot` writes; each becomes
+   `PUBLISHED`, `hasUnpublishedChanges = false`, `revisionReason = NULL`
+   (`publicationStatusChangedAt` set where the state changed). Archived units
+   are untouched. A `PROJECT_UNIT_PUBLISHED` audit event (actor SYSTEM) per
+   version.
+3. Every `PENDING` publishing request is cancelled as archiving used to cancel
+   one: the row (`CANCELLED`, `decidedAt`), its attention items (only those
+   whose dedupe key carries the request's id), and an `APPROVAL_CANCELLED`
+   audit event per unit.
+
+Ids derive from the rows (`upub_…`, `audit_upub_…`), timestamps are UTC, and the
+statements are safe to run again.
 
 ## Rules
 
 | Rule | Where |
 | --- | --- |
-| A unit is submitted and published only when complete: code, type, building and floor, its primary area (saleable; for parking and storage any of saleable, internal or gross; for land saleable or gross), for a residential unit bedrooms, bathrooms and orientation, an available PDF Sales Plan, an available primary image, the unit active, and no attached file archived or unavailable (§16, §17) | `evaluateReadiness`, checked again under the unit's row lock |
-| An incomplete unit is refused with what is missing — *This unit cannot be published. Missing: Sales Plan, Primary image.* — and the page explains instead of greying the button (§46, §81) | `UNIT_NOT_READY` (422, `details.missing`); the not-ready dialog |
-| Submitting a draft or a unit sent back makes it Ready for Publishing and opens one request; a published unit with unpublished changes stays Published and opens a request for its changes | `submitUnitForPublishing` |
-| Publishing locks the unit, validates again, writes the next version with the exact Sales Plan and image versions, points the unit at it, clears unpublished changes and the revision reason, and closes the open request — all or nothing (§23, §66, §82) | `publishUnit` |
-| A publisher may publish a unit without waiting for a request | the machine's `publish` is legal from Draft and Revision Required |
-| Republishing with nothing changed is refused; if the changes were reverted while a request was open, the request is settled against the live version | `UNIT_NO_UNPUBLISHED_CHANGES` |
-| Revision Required needs a reason (§22, §67). On a waiting unit it sends the unit back; on a published unit whose changes are waiting it returns the changes and keeps the live version; on a published unit with nothing waiting it takes the unit out of use | `requestUnitRevision` |
-| Unpublishing needs a reason and returns the unit to Ready for Publishing, with a request open so it is visibly waiting (§31, §68) | `unpublishUnit` |
-| Archive keeps everything and cancels an open request; restore returns to the state before, except that a waiting unit comes back as Draft (§32) | `archiveUnit`, `restoreUnit` |
-| Every transition carries the version the person saw: *This unit was updated by another user. Refresh before continuing.* (§54) | `STRUCTURE_STALE` |
-| **Unpublished changes** (§27-§30): a published unit differs from its current version when its code, name, type, building, floor, position, orientation, any area, room counts, attributes, technical notes, Sales Plan version or primary image (or its version) differ. Renaming a building or a unit type is not a change to the unit. Putting a value back is no change | `publishFingerprint`; the flag is refreshed inside every edit, move, floor move, Sales Plan version and primary change, and recomputed on the page |
-| One logical Sales Plan (§33-§36, §78): the first PDF uploaded to the unit becomes it; a later upload is a new version of the same document. A second, different document is refused — *Upload the new file as a new version of it.* A publication keeps the version it went out with | `setUnitSalesPlan`, `UNIT_SALES_PLAN_EXISTS` |
-| A document attached to a unit is one of the unit's own or one filed on its project — a typical floor plan is attached to many units and never copied; another project's is a 422 on `documentId` (§63, §100) | `attachUnitDocument`, `CROSS_PROJECT_REFERENCE` |
-| Media are JPEG, PNG or WebP. The first image becomes primary; choosing another clears the old one in the same transaction (§42, §76). Removing the primary leaves none | `addUnitMedia`, `updateUnitMedia` |
-| A unit with a publication, a Sales Plan, media, links, files or a request is not deleted — it is archived or deactivated (E-05B §56) | `UNIT_REFERENCED` |
-| A unit on sale — For Sale, On Hold, Reserved or Sold — is not unpublished, sent back from Published, or archived until Sales takes it off sale (E-05E §35, `docs/unit-sales.md`) | `assertNotOnSale`; `UNIT_ON_SALE` |
+| Every creation publishes version 1 in its own transaction: one unit, a bulk range, a copied floor, and the Platform Admin's `unit.create` / `unit.bulk` in the 3D tool | `createUnit`, `bulkCreateUnits`, `copyUnits`; `createPlatformProjectStructure` |
+| A **publish fact** is the unit's code, name, type, building, floor, position, orientation, any area, room counts, attributes, technical notes, Sales Plan version and primary image (and its version). Renaming a building, floor or type is not; neither is deactivating, attaching a drawing or adding a non-primary image | `publishFingerprint` |
+| Every write that can change a publish fact calls `publishLiveUnits` in its own transaction: unit edit, unit move, floor moved to another building, Sales Plan set or new version recorded, primary image chosen, added (first image) or removed, restore, and the 3D tool's unit and floor edits. A unit whose fingerprint differs from its current version (or that has none) gets the next version; a save that changes nothing, or puts back what the current version already holds, writes nothing | `publishLiveUnits` |
+| The version is written by whoever made the change (`publishedByMemberId`, `UNIT_PUBLISHED` activity, `PROJECT_UNIT_PUBLISHED` audit); a Platform Admin's change and a promoted file version are "Published automatically" (no member, no activity row; audit as the platform user or SYSTEM) | `PublishActor` |
+| Publishing never changes the unit's state or its row `version`, so the version an edit returns is the one the next save sends | `publishLiveUnits` |
+| The unit rows are locked in id order before the next version number is read: two changes at once get two versions | `publishLiveUnits` |
+| A file version made current later — the scan worker, or a synchronous upload — publishes every unit whose Sales Plan or primary image it is, in the promotion's transaction | `promoteVersion` → `publishUnitsUsingDocument` |
+| The checklist (§16, §45) is **information only**: key items (code, type, location, bedrooms/bathrooms/orientation for homes, active, no unavailable attachments) and recommended ones (primary area, Sales Plan, primary image). It never refuses anything | `evaluateReadiness`, `ReadinessPanel` |
+| Archive keeps everything; a unit on sale is refused (`UNIT_ON_SALE`). An archived unit publishes nothing; restore brings it back **Published** and publishes its live facts as the next version if they moved (or as its first, if it never had one) | `archiveUnit`, `restoreUnit` |
+| Archive and restore carry the version the person saw | `STRUCTURE_STALE` |
+| One logical Sales Plan (§33-§36, §78); a document attached to a unit is the unit's own or its project's (§63, §100); media are JPEG, PNG or WebP, the first is primary (§42, §76) | `setUnitSalesPlan`, `attachUnitDocument`, `addUnitMedia`, `updateUnitMedia` |
+| A unit is deleted only while nothing else points at it — no Sales Plan, media, links, files, old publishing request, sales or legal history; its own versions go with it | `deleteUnit`, `deleteOwnPublications` |
 
 The snapshot keeps exactly: code, name, type (id, name, category), building (id,
 name, code), floor (id, name, number, level), position, orientation, the eight
-areas as two-decimal strings, rooms, bedrooms, bathrooms, attributes, technical
-notes, and the Sales Plan and primary image references (§73). Nothing about who
-edited what, and nothing internal.
+areas as two-decimal strings, rooms, bedrooms, bathrooms, attributes (nulls
+dropped), technical notes, and the Sales Plan (document, version, its number,
+file name) and primary image (document, version, category, caption) — each
+only when available.
 
-## Authorisation (§18-§20, §85-§89, §99-§104)
+## Authorisation
 
-Every read and write goes through the unit's project door first (E-05B): a unit,
-publication, image or link id from a project the person cannot open is a 404
-that names nothing. Then the action's permission — never a role name.
+Every read and write goes through the unit's project door first (E-05B): an id
+from a project the person cannot open is a 404 that names nothing.
 
 | Permission | What it allows |
 | --- | --- |
-| `project.structure.view` | The unit page (E-05B) |
+| `project.structure.view` | The unit page |
 | `project.unit.publication_history.view` | Published versions and their snapshots |
-| `project.unit.documents.manage` | The Sales Plan and attached documents; uploading files to the unit |
-| `project.unit.media.manage` | Images: add, caption, categorise, order, choose the primary, remove |
-| `project.unit.submit_for_publish` | Submit the unit, or its changes, for review |
-| `project.unit.publish` | Publish (and approve a request in the Approvals Center) |
-| `project.unit.revision_request` | Revision Required, and Return in the Approvals Center |
-| `project.unit.unpublish` | Take a published unit back to Ready for Publishing |
-| `project.unit.archive` | Archive and restore |
+| `project.unit.documents.manage` | The Sales Plan and attached documents |
+| `project.unit.media.manage` | Images |
+| `project.unit.archive` | Archive and restore (Owner, CEO, Architecture's company manager and group head) |
 
-| Role | Read | Prepare & submit | Publish, revision, unpublish, archive |
-| --- | --- | --- | --- |
-| Owner | yes | yes | yes |
-| Architect as company department manager or group head | every project of the company | yes (override) | yes (override) |
-| Project Manager | own projects | yes (MANAGE rung) | no |
-| Architect | assigned projects | yes (override) | no |
-| Engineer, Sales, Finance, Legal, CEO, others | in their scope | no | no |
-| Viewer | assigned projects | no | no |
-
-Files follow the Documents module's own gate (§88, §102): the Documents and Media
-sections appear only with the Documents module and `document.view`, a file is
-listed only when `buildDocumentAccessWhere` lets the reader open it, uploads need
-`document.create` and `project.unit.documents.manage`, a new Sales Plan version
-`document.update` as well, and thumbnails and previews go through the download
-gate after the unit's door. Hiding a section is never the protection; every API
-repeats the check.
-
-This enhancement introduced **Architecture Manager** and **Sales Manager**
-roles; E-06 replaced both with positions (`docs/organization.md`). An Architect
-who manages the company's Architecture branch or heads Group Architecture holds
-the Architect's row across every project of the company plus publishing, the
-approvals inbox, and no project creation or status authority (E-05A §8, §58). A
-Sales member who manages or heads Sales decides proposals, which Sales may not
-(E-05E §39 builds on it).
+Publishing is nobody's grant: whoever may change a unit publishes the change.
+`project.unit.submit_for_publish`, `project.unit.publish`,
+`project.unit.revision_request` and `project.unit.unpublish` were removed from
+`config/`; `scripts/access-sync.ts` deletes a permission the registry no longer
+declares, and its role grants with it (`role_permissions` cascade), on the
+deploy that ships this.
 
 ## API
 
 | Method and path | Does |
 | --- | --- |
-| `GET /api/project-units/:unitId/publishing` | Status, current version, unpublished changes, revision reason, the open request, readiness, capabilities |
-| `POST …/submit-for-publishing` | `{ expectedVersion }` |
-| `POST …/publish` | `{ expectedVersion?, note? }` → `{ status, version, publicationId, versionNumber, alreadyPublished }` |
-| `POST …/revision-required` | `{ reason, expectedVersion? }` → `{ status, version, returnedChangesOnly }` |
-| `POST …/unpublish` | `{ reason, expectedVersion }` |
+| `GET /api/project-units/:unitId/publishing` | Status, current version (with who published it, or null), readiness, capabilities |
 | `POST …/archive`, `POST …/restore` | `{ expectedVersion }` |
 | `GET …/publications`, `GET …/publications/:publicationId` | History, newest first; one version with its snapshot |
-| `GET …/documents` | Sales Plan, links, media and unfiled uploads the reader may open, with capabilities |
-| `POST …/documents`, `DELETE …/documents/:linkId` | `{ documentId, category }`; removing a link keeps the document |
-| `GET …/document-candidates?kind=document\|image&q=` | Files of this unit or its project that could be attached |
-| `POST …/sales-plan` | `{ documentId }` — make an uploaded PDF the Sales Plan, or record its new version |
-| `GET …/media`, `POST …/media` | `{ documentId, category?, caption? }` |
-| `PATCH …/media/:mediaId`, `DELETE …/media/:mediaId`, `POST …/media/reorder` | `{ category?, caption?, isPrimary: true }`; `{ ids }` naming every image once |
-| `GET …/media/:mediaId/thumbnail` | The image's thumbnail, `private` cache |
-| `GET …/activity` | The unit's history |
+| Documents, Sales Plan, media, candidates, activity | As E-05D (§33-§44) |
 
-Files themselves are uploaded through the Documents API with the unit as their
-parent (`context: "record"`, `entityType: "project_unit"`), and new versions
-through `/api/documents/:id/versions/*`. There is no unit file storage.
-
-Paths follow E-05B's `/api/project-units/...` rather than the PRD's `/api/units`.
-The unit read stays `GET /api/project-units/:unitId`, and the unit list takes
-`publicationStatus` and `unpublishedChanges=true`.
+`submit-for-publishing`, `publish`, `revision-required` and `unpublish` are
+gone. The unit list's `publicationStatus` filter takes `PUBLISHED` or
+`ARCHIVED`; an old link's retired status or `unpublishedChanges=true` is
+ignored, not refused.
 
 ## Approvals Center
 
-Provider `projects`, label *Unit publishing*, record type `project_unit`. A
-pending request shows the unit, its floor and project, its published version and
-readiness, with a warning when it cannot be published yet. **Approve** publishes
-through `publishUnit`; **Return** is Revision Required through
-`requestUnitRevision` with the reviewer's note. There is no Reject: a unit that is
-not right goes back to be corrected. A publisher may approve their own
-submission (`selfPermission: project.unit.publish`), as they could publish
-directly. Requests notify everybody who holds `project.unit.publish` and can open
-the unit, raise `PENDING_APPROVAL` attention, and are resolved by the decision.
+No unit publishing source: the provider was removed from the registry. The key
+`projects` stays in `PROVIDER_KEYS` so an old link or a stored delegation still
+parses; the registry answers it as an unknown source. `verify:workflows` errors
+on any PENDING `unit_publication_approvals` row and warns on a unit left in a
+retired state.
 
-## Audit and activity (§48, §49, §83, §84)
+## Audit and activity
 
-Audit: `PROJECT_UNIT_DOCUMENT_LINKED` / `_UNLINKED`,
-`PROJECT_UNIT_SALES_PLAN_CHANGED`, `PROJECT_UNIT_MEDIA_CHANGED` (`change`:
-ADDED, UPDATED, PRIMARY, REMOVED, REORDERED), `PROJECT_UNIT_PUBLICATION_STATUS_CHANGED`
-(submit, revision, returned changes, restore), `PROJECT_UNIT_PUBLISHED` (version,
-publication, file versions), `PROJECT_UNIT_UNPUBLISHED` (with reason, `CRITICAL`),
-`PROJECT_UNIT_ARCHIVED`, plus the `APPROVAL_*` events of the request. All written
-in the transaction of the change.
-
-Activity on the unit's own history (the Activity section): created, updated,
-code changed, moved, Sales Plan added and new versions, documents attached and
-removed, images added, updated, reordered, removed and made primary, submitted,
-revision required, changes returned, published (with its version), unpublished,
-archived and restored.
+Audit: `PROJECT_UNIT_PUBLISHED` (version, publication, file versions; metadata
+`automatic: true`), `PROJECT_UNIT_ARCHIVED`, `PROJECT_UNIT_PUBLICATION_STATUS_CHANGED`
+(restore), the document and media events. Activity on the unit: created,
+updated, code changed, moved, published (with its version), files and images,
+archived, restored. Older rows of the retired actions stay readable.
 
 ## Screens
 
-**The unit page** `/projects/:projectId/units/:unitId` keeps E-05B's breadcrumb —
-Projects / company / project / building / floor / code — and header: the code,
-the type, the publication badge (*Published v3*), *Unpublished changes*, *Waiting
-for review* and *Inactive* where they apply, the location, and the actions the
-reader may take: **Submit for Publishing** / **Submit changes**, **Publish** /
-**Publish changes**, **Revision Required** / **Return changes**, a menu with
-Unpublish, Archive and Restore, and E-05B's Edit, Move and delete. Below the
-project tabs, the unit's sections are routes:
-
-- **Overview** — technical data by kind of unit (a parking space shows no
-  bedrooms unless somebody entered them), areas, the primary image (first on a
-  phone), the Sales Plan and the readiness checklist (*6 / 7 required items
-  complete*).
-- **Documents** — the Sales Plan (upload, upload a new version, its versions in
-  Documents), technical documents (upload with a category, attach an existing
-  project document, remove), and any upload nothing points at yet.
-- **Media** — the images in order, the primary marked; make primary, edit
-  category and caption, move earlier or later, remove, view whole. Upload or add
-  from the project.
-- **Publishing** — the reviewer's view: status, current version and who published
-  it, who submitted and when, the revision reason, the unpublished-changes note,
-  readiness, and the publication history linking to each version's snapshot.
-- **Activity** — the unit's history.
-
-The unit edit dialog asks before discarding unsaved changes, and warns on leaving
-the page (§53). The unit list has a Publication column (with *Changed*) and a
-Publication filter, and a phone card shows the badge.
-
-No `loading.tsx` is added under the unit: a loading boundary would turn the page
-guards' redirects into client navigations inside a 200 (see
-`app/(nesto)/dashboard/loading.tsx`). Images load lazily through preview grants,
-with the thumbnail as the placeholder.
+The unit header shows the publication badge (*Published v3* or *Archived*), the
+commercial status, *Inactive* where it applies, and a menu with Archive or
+Restore for those who may. **Publishing** shows the current version and who
+published it (or *Published automatically*), the note that every saved change
+is published at once, the checklist, and the history with each version's
+snapshot. The unit list has a Publication column (badge only) and a
+Published / Archived filter.
 
 ## Seed
 
-Riverside Residences, Block A, Floor 1: **A-101** Published v1 (Sales Plan, a
-floor plan image as primary, an exterior render, an electrical layout);
-**A-102** Published v2 with its saleable area corrected since and the change
-waiting for review; **A-103** Ready for Publishing; **A-104** Revision Required
-with the reviewer's reason; **B-101** Draft with a Sales Plan; **A-201** to
-**A-204** Published v1 with a Sales Plan and a floor plan each, the stock E-05E's
-seed sells. Company B's
-**OF-001** is Published v1 with its own files, so isolation has something to
-refuse in both directions. The Head of Group Architecture's inbox holds the two
-requests.
+Riverside Residences, Block A: **A-101** v1 (Sales Plan, floor plan image,
+render, drawing); **A-102** v3 (balcony then saleable area corrected, each a
+version); **A-103** v1, complete; **A-104** v1 with a Sales Plan and no image;
+**B-101** v1 with a Sales Plan; **A-201** to **A-204** v1 with plan and image,
+the stock the sales seed sells; every other unit v1, published automatically.
+Company B's **OF-001** v1. No publishing requests.
 
 ## Tests
 
 | Suite | Covers |
 | --- | --- |
-| `tests/unit/project-structure/publishing-rules.test.ts` | Readiness by kind of unit, hints and order; display; the snapshot's fields; what counts as an unpublished change; the machine's moves; validation; role defaults for every E-05D permission |
-| `tests/api/project-structure/unit-publishing.test.ts` | Readiness refusals; submit and one request under a race; v1 with exact file versions; unpublished changes from an edit, a revert and a move; v2; two publishers racing; readiness re-checked at publish; revision with reasons, returned changes, unpublish, archive and restore; one logical Sales Plan and its versions; project drawings attached to many units, another project's refused; archived attachments in readiness; media primary swap, the partial index, order and removal; Architect as member, manager and head/Owner/PM/Sales/Finance capabilities; outsiders and Company B get 404; the unit list filter; the Approvals Center approving and returning |
-| `tests/security/*` | Every new route swept both ways between companies (34 attempts each, all 404); `linkId`, `mediaId` and `publicationId` resolve to real rows of the unit they belong to |
-| `tests/e2e/modules/unit-publishing.spec.ts` | The Architect uploads a Sales Plan and an image and submits; the Head of Group Architecture publishes; an edit shows as unpublished changes while v1 keeps its area; Sales reads with no actions; Publish on an incomplete unit explains what is missing; the seeded states in the unit list |
-| `tests/e2e/responsive/project-structure-mobile.spec.ts` | A published unit's page, sections, Sales Plan and history on a phone, without horizontal scroll |
+| `tests/unit/project-structure/publishing-rules.test.ts` | The checklist by kind of unit; display; the snapshot; the fingerprint; the machine (archive, restore only); validation; role defaults and the removed grants |
+| `tests/api/project-structure/unit-publishing.test.ts` | v1 at creation (incomplete too), bulk and copy; edit → v2 with v1 intact, no-op save writes nothing, returned version still saves; move and floor move; Sales Plan, primary swap and removal with exact file versions; a scanner-promoted version published automatically; two changes at once; archive/restore; delete with own versions; access; list filter and old links; no Center source |
+| `tests/api/project-3d/platform-structure.test.ts` | Platform-created units are Published v1 with no member; a platform move writes v2 |
+| `tests/e2e/modules/unit-publishing.spec.ts` | A new unit is published; an edit appears as the next version while the old one keeps its values; archive and restore; Sales reads with no actions |
 
 ## Limits
 
-- **No field-level diff** between versions (§51 does not require one): each
-  version's snapshot is shown whole.
-- **The stored `hasUnpublishedChanges` flag** is refreshed by every write that
-  can change it. A Sales Plan version promoted later by the scan worker is seen
-  on the unit page at once (it recomputes) but reaches the unit list's flag only
-  with the next write to the unit or the next "record new version" call the
-  Documents section makes after an upload.
-- **Publication requirements are fixed per kind of unit**; a project or company
-  setting for them (§16 "future configuration") is not built.
-- **Publishing is per unit.** No bulk submit or publish.
-- **Unit page sections are English**, like every module page; the two new roles
-  are named in Albanian as well.
-- **Sales has its own section** on the unit page since E-05E, with its own
-  contract in `docs/unit-sales.md`.
+- **Archiving a Sales Plan or primary image in Documents** (or a quarantine)
+  changes what the unit would publish without a write to the unit; it goes out
+  with the unit's next change. A version made current by the scanner is
+  published at once (the Documents door).
+- **No field-level diff** between versions: each snapshot is shown whole.
+- **The checklist is fixed per kind of unit.**
+- **A unit left in a retired state by old data** is not published by edits;
+  archive and restore bring it back Published (`verify:workflows` warns).

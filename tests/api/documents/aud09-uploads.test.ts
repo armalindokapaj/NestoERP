@@ -64,7 +64,7 @@ const HTML = new TextEncoder().encode("<!DOCTYPE html><html><body>not text</body
 let storageRoot: string;
 let pm: UserContext;
 let unitB: string;
-let unitSnapshot: Array<{ id: string; version: number; hasUnpublishedChanges: boolean; updatedAt: Date }>;
+let unitSnapshot: Array<{ id: string; version: number; hasUnpublishedChanges: boolean; currentPublicationId: string | null; updatedAt: Date }>;
 let quotaBefore: { maxStorageBytes: bigint | null } | null;
 const started = new Date();
 const locker = new PrismaClient();
@@ -76,7 +76,7 @@ beforeAll(async () => {
   setFileScanner(null);
   pm = await loginAs("PROJECT_MANAGER");
   unitB = (await prisma.projectUnit.findFirstOrThrow({ where: { projectId: PROJECT.a, unitCode: "A-102" }, select: { id: true } })).id;
-  unitSnapshot = await prisma.projectUnit.findMany({ where: { id: { in: [UNIT_A, unitB] } }, select: { id: true, version: true, hasUnpublishedChanges: true, updatedAt: true } });
+  unitSnapshot = await prisma.projectUnit.findMany({ where: { id: { in: [UNIT_A, unitB] } }, select: { id: true, version: true, hasUnpublishedChanges: true, currentPublicationId: true, updatedAt: true } });
   quotaBefore = await prisma.companyStorageQuota.findUnique({ where: { companyId: pm.companyId }, select: { maxStorageBytes: true } });
 });
 
@@ -102,7 +102,9 @@ afterAll(async () => {
   await prisma.auditEvent.deleteMany({ where: { entityId: { in: [UNIT_A, unitB] }, createdAt: { gte: started } } });
   await prisma.activity.deleteMany({ where: { entityId: { in: [UNIT_A, unitB] }, createdAt: { gte: started } } });
   for (const unit of unitSnapshot ?? []) {
-    await prisma.projectUnit.update({ where: { id: unit.id }, data: { version: unit.version, hasUnpublishedChanges: unit.hasUnpublishedChanges, updatedAt: unit.updatedAt } });
+    // A change to a unit's publish facts goes out as its next version at once (2026-11): point back, then drop what this file published.
+    await prisma.projectUnit.update({ where: { id: unit.id }, data: { version: unit.version, hasUnpublishedChanges: unit.hasUnpublishedChanges, currentPublicationId: unit.currentPublicationId, updatedAt: unit.updatedAt } });
+    await prisma.unitPublication.deleteMany({ where: { unitId: unit.id, createdAt: { gte: started }, id: { not: unit.currentPublicationId ?? undefined } } });
   }
   if (quotaBefore) await prisma.companyStorageQuota.update({ where: { companyId: pm.companyId }, data: { maxStorageBytes: quotaBefore.maxStorageBytes } });
   setStorageProvider(null);

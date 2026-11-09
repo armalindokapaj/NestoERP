@@ -204,9 +204,9 @@ export const unitListQuerySchema = z.object({
   internalAreaMax: optionalArea,
   saleableAreaMin: optionalArea,
   saleableAreaMax: optionalArea,
-  // Publishing (E-05D §13, §28).
-  publicationStatus: z.enum(["DRAFT", "READY_FOR_PUBLISHING", "PUBLISHED", "REVISION_REQUIRED", "ARCHIVED"]).optional().catch(undefined),
-  unpublishedChanges: z.enum(["true"]).optional().catch(undefined),
+  // Publishing (E-05D §13): a unit is Published or Archived (units publish on create, 2026-11). An old
+  // link's retired status or `unpublishedChanges=true` is ignored, not refused — unknown keys are dropped.
+  publicationStatus: z.enum(["PUBLISHED", "ARCHIVED"]).optional().catch(undefined),
   sort: z.enum(UNIT_SORTS).optional().catch(undefined),
   page: z.coerce.number().int().min(1).max(100_000).optional().catch(undefined),
   limit: z.coerce.number().int().min(1).max(100).optional().catch(undefined),

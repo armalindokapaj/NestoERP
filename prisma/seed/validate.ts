@@ -8,6 +8,7 @@
  * The demo is exact where the product says it is (one visible group, five
  * companies, one project each) and "at least" where it only has to be rich.
  */
+import { STRUCTURE_SEED } from "./structure";
 import type { PrismaClient } from "@prisma/client";
 
 import { GROUP_DEPARTMENTS } from "../../config/group-departments";
@@ -195,10 +196,11 @@ export async function validateSeed(prisma: PrismaClient): Promise<void> {
     { label: "Company A submitted timesheets", actual: await prisma.timesheet.count({ where: { companyId: COMPANY_A, status: "SUBMITTED" } }), expected: 1, comparison: "gte" },
     { label: "Company A returned timesheets", actual: await prisma.timesheet.count({ where: { companyId: COMPANY_A, status: "RETURNED" } }), expected: 1, comparison: "gte" },
     { label: "demo branches with a manager", actual: await prisma.department.count({ where: { companyId: { in: DEMO_COMPANY_IDS }, managerMemberId: { not: null } } }), expected: POSITIONS.filter((position) => position.level === "COMPANY_MANAGER").length, comparison: "eq" },
-    // E-05D §104: a published unit, one waiting for review and one sent back, each with a Sales Plan.
+    // E-05D §104, units publish on create (2026-11): every unit is Published with a version, or Archived; nothing waits for review.
     { label: "Company A published units", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, publicationStatus: "PUBLISHED", currentPublicationId: { not: null } } }), expected: 2, comparison: "gte" },
-    { label: "Company A unit publishing requests waiting", actual: await prisma.unitPublicationApproval.count({ where: { companyId: COMPANY_A, status: "PENDING" } }), expected: 2, comparison: "gte" },
-    { label: "Company A units sent back for revision", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, publicationStatus: "REVISION_REQUIRED", revisionReason: { not: null } } }), expected: 1, comparison: "gte" },
+    { label: "units neither published with a version nor archived", actual: await prisma.projectUnit.count({ where: { projectId: { in: [STRUCTURE_SEED.riverside, STRUCTURE_SEED.emptyProject, STRUCTURE_SEED.companyBProject] }, NOT: { OR: [{ publicationStatus: "ARCHIVED" }, { publicationStatus: "PUBLISHED", currentPublicationId: { not: null } }] } } }), expected: 0, comparison: "eq" },
+    { label: "unit publishing requests waiting", actual: await prisma.unitPublicationApproval.count({ where: { status: "PENDING" } }), expected: 0, comparison: "eq" },
+    { label: "Company A units with an earlier version", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, publications: { some: { versionNumber: { gte: 2 } } } } }), expected: 1, comparison: "gte" },
     { label: "Company A unit Sales Plans", actual: await prisma.projectUnit.count({ where: { companyId: COMPANY_A, salesPlanDocumentId: { not: null } } }), expected: 5, comparison: "gte" },
     // E-05E: a unit in each commercial state, a deal holding two units, and one reservation in Company B.
     { label: "Company A units for sale", actual: await prisma.unitCommercialProfile.count({ where: { companyId: COMPANY_A, status: "FOR_SALE" } }), expected: 1, comparison: "gte" },

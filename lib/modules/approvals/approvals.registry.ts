@@ -10,7 +10,6 @@ import { procurementApprovalProvider } from "./providers/procurement.provider";
 import { qaqcApprovalProvider } from "./providers/qaqc.provider";
 import { salesApprovalProvider } from "./providers/sales.provider";
 import { timesheetApprovalProvider } from "./providers/timesheets.provider";
-import { projectsApprovalProvider } from "./providers/projects.provider";
 import { unitSalesApprovalProvider } from "./providers/unit-sales.provider";
 
 /**
@@ -63,8 +62,7 @@ export const approvalProviders = createApprovalRegistry([
   qaqcApprovalProvider,
   hseApprovalProvider,
   timesheetApprovalProvider,
-  // Unit publishing (E-05D §21, §47).
-  projectsApprovalProvider,
+  // Unit publishing (E-05D §21) left the Center when units began to publish on create (2026-11): there is nothing to approve.
   // Unit sales, where the company's Sold rule asks for approval (E-05F §42).
   unitSalesApprovalProvider,
 ]);

@@ -85,8 +85,9 @@ export async function seedStructureRecords(prisma: PrismaClient, members: SeedMe
   type UnitSeed = Omit<Prisma.ProjectUnitCreateManyInput, "companyId" | "projectId" | "floorId" | "unitCodeKey" | "sortOrder" | "createdBy">;
   const unitsOn = async (companyId: string, projectId: string, floorId: string, rows: UnitSeed[], createdBy: string) => {
     units += rows.length;
+    // Published from the start, as every unit is since units publish on create (2026-11); the publishing seed writes their versions.
     await prisma.projectUnit.createMany({
-      data: rows.map((row, index) => ({ ...row, companyId, projectId, floorId, unitCodeKey: structureKey(row.unitCode), sortOrder: index + 1, createdBy })),
+      data: rows.map((row, index) => ({ ...row, companyId, projectId, floorId, unitCodeKey: structureKey(row.unitCode), sortOrder: index + 1, createdBy, publicationStatus: "PUBLISHED" as const, publicationStatusChangedAt: new Date() })),
     });
   };
 

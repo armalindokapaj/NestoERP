@@ -41,7 +41,7 @@ ApprovalProviderRegistry  →  UnifiedApprovalService  →  /api/approvals  → 
 | `qaqc` | `QualityApproval` — inspection, NCR | QA/QC inspection and NCR services | No |
 | `hse` | `HseApproval` — inspection, risk assessment, permit, incident closure | HSE services (incident closure approves only) | No |
 | `timesheets` | `TimesheetApproval` — a week (+ one `ApprovalStep` naming the approver) | `approve/return/rejectTimesheet` (PRD #42, see `docs/timesheets.md`) | Yes, editable again |
-| `projects` (*Unit publishing*) | `UnitPublicationApproval` — a unit, or its unpublished changes | `publishUnit`, `requestUnitRevision` (E-05D, see `docs/unit-publishing.md`); no reject | Yes, Revision Required |
+| ~~`projects` (*Unit publishing*)~~ | Retired 2026-11: units publish on create and every change goes out at once, so there is nothing to approve (`docs/unit-publishing.md`). The key stays in `PROVIDER_KEYS` so an old link or delegation parses; no provider answers to it. `unit_publication_approvals` keeps its history | — | — |
 
 QA/QC and HSE are included because both already own explicit approval records;
 verifying a corrective action stays their own work and never enters the Center.

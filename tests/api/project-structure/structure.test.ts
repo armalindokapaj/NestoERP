@@ -75,6 +75,9 @@ async function cleanup() {
   });
   const unitIds = [...new Set([...made.units, ...units.map((row) => row.id)])];
 
+  // Every unit has its published versions from creation (units publish on create, 2026-11).
+  await prisma.projectUnit.updateMany({ where: { id: { in: unitIds } }, data: { currentPublicationId: null } });
+  await prisma.unitPublication.deleteMany({ where: { unitId: { in: unitIds } } });
   await prisma.projectUnit.deleteMany({ where: { id: { in: unitIds } } });
   await prisma.projectFloor.deleteMany({ where: { id: { in: floorIds } } });
   await prisma.projectBuilding.deleteMany({ where: { id: { in: buildingIds } } });
@@ -94,6 +97,8 @@ async function removeSites() {
     prisma.projectFloor.findMany({ where: { projectId: { in: sites } }, select: { id: true } }),
     prisma.projectBuilding.findMany({ where: { projectId: { in: sites } }, select: { id: true } }),
   ])).flat().map((row) => row.id);
+  await prisma.projectUnit.updateMany({ where: { projectId: { in: sites } }, data: { currentPublicationId: null } });
+  await prisma.unitPublication.deleteMany({ where: { projectId: { in: sites } } });
   await prisma.projectUnit.deleteMany({ where: { projectId: { in: sites } } });
   await prisma.projectFloor.deleteMany({ where: { projectId: { in: sites } } });
   await prisma.projectBuilding.deleteMany({ where: { projectId: { in: sites } } });

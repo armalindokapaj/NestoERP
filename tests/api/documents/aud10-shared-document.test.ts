@@ -47,7 +47,7 @@ let architect: UserContext;
 let restricted: UserContext;
 let documentId: string;
 let storageKey: string;
-let unitSnapshot: Array<{ id: string; version: number; hasUnpublishedChanges: boolean; updatedAt: Date }>;
+let unitSnapshot: Array<{ id: string; version: number; hasUnpublishedChanges: boolean; currentPublicationId: string | null; updatedAt: Date }>;
 const started = new Date();
 
 async function expectStorageCode(promise: Promise<unknown>, code: string) {
@@ -70,7 +70,7 @@ beforeAll(async () => {
   architect = await loginAs("ARCHITECT");
   restricted = await loginAsMembership(RESTRICTED_MEMBERSHIP);
   unitB = (await prisma.projectUnit.findFirstOrThrow({ where: { projectId: PROJECT.a, unitCode: "A-102" }, select: { id: true } })).id;
-  unitSnapshot = await prisma.projectUnit.findMany({ where: { id: { in: [UNIT_A, unitB] } }, select: { id: true, version: true, hasUnpublishedChanges: true, updatedAt: true } });
+  unitSnapshot = await prisma.projectUnit.findMany({ where: { id: { in: [UNIT_A, unitB] } }, select: { id: true, version: true, hasUnpublishedChanges: true, currentPublicationId: true, updatedAt: true } });
 
   const session = await createUploadSession(
     contributor,
@@ -93,7 +93,9 @@ afterAll(async () => {
     await prisma.document.deleteMany({ where: { id: documentId } });
   }
   for (const unit of unitSnapshot ?? []) {
-    await prisma.projectUnit.update({ where: { id: unit.id }, data: { version: unit.version, hasUnpublishedChanges: unit.hasUnpublishedChanges, updatedAt: unit.updatedAt } });
+    // A change to a unit's publish facts goes out as its next version at once (2026-11): point back, then drop what this file published.
+    await prisma.projectUnit.update({ where: { id: unit.id }, data: { version: unit.version, hasUnpublishedChanges: unit.hasUnpublishedChanges, currentPublicationId: unit.currentPublicationId, updatedAt: unit.updatedAt } });
+    await prisma.unitPublication.deleteMany({ where: { unitId: unit.id, createdAt: { gte: started }, id: { not: unit.currentPublicationId ?? undefined } } });
   }
   setStorageProvider(null);
   setFileScanner(undefined);

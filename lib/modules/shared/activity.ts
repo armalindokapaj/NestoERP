@@ -52,6 +52,40 @@ export async function recordActivity(
 }
 
 /**
+ * Several entries of one change by one person, in one INSERT — the units one
+ * bulk creation published each get their own line, without a round trip each.
+ * Each project they name is marked active once.
+ */
+export async function recordActivities(
+  tx: TransactionClient,
+  context: UserContext,
+  inputs: ActivityInput[],
+): Promise<void> {
+  if (inputs.length === 0) return;
+  const correlationId = currentRequestContext()?.correlationId ?? null;
+  await tx.activity.createMany({
+    data: inputs.map((input) => ({
+      companyId: context.companyId,
+      module: input.module,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      action: input.action,
+      message: input.message,
+      actorMemberId: context.membershipId,
+      actorUserId: context.userId,
+      metadata: input.metadata,
+      correlationId,
+    })),
+  });
+  const byProject = new Map<string, ActivityInput>();
+  for (const input of inputs) {
+    const projectId = projectOf(input);
+    if (projectId && !byProject.has(projectId)) byProject.set(projectId, input);
+  }
+  for (const input of byProject.values()) await touchProjectActivity(tx, context.companyId, input);
+}
+
+/**
  * Activity for an actor who has no `UserContext` yet (PRD #48 §20).
  *
  * There is exactly one of these: somebody accepting an invitation becomes a

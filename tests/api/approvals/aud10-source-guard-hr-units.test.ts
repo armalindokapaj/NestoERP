@@ -20,7 +20,6 @@ import { createFloor } from "@/lib/modules/project-structure/structure.floors";
 import { createBuildingSchema, createFloorSchema, createUnitSchema, updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
 import { createUnit, updateUnit } from "@/lib/modules/project-structure/structure.units";
 import { addUnitMedia, setUnitSalesPlan } from "@/lib/modules/project-structure/unit-files.service";
-import { submitUnitForPublishing } from "@/lib/modules/project-structure/unit-publishing.service";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, prisma } from "../../helpers";
 import { actAs } from "../../security/harness/actor";
 import { routeHandlers } from "../../security/harness/mutations";
@@ -32,8 +31,9 @@ vi.mock("@/lib/context/resolve-user-context", () => import("../../security/harne
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn }));
 
 /**
- * HR leave decisions carry a real precondition (AUD-10 §4, A2, CW-05) and the
- * Center publishes the unit the reviewer saw (A4, A5).
+ * HR leave decisions carry a real precondition (AUD-10 §4, A2, CW-05). The
+ * Center used to publish the unit the reviewer saw (A4, A5); since units publish
+ * on create (2026-11) the edit publishes itself, and the last block says so.
  *
  * Leave keeps no cycle table: a request is its own approval and each
  * submission stamps `submittedAt`. The HR page, the API and the Center all
@@ -228,7 +228,7 @@ describe("HR leave: the submission decided is the one on screen (AUD-10 §4, A2)
 });
 
 /* -------------------------------------------------------------------------- */
-/* Unit publishing from the Center (A4, A5)                                    */
+/* Unit publishing left the Center (A4, A5 retired; units publish on create)  */
 /* -------------------------------------------------------------------------- */
 
 const MARINA = "aud10a_marina";
@@ -285,8 +285,8 @@ async function upload(context: UserContext, unitId: string, name: string, fileNa
   return result.documentId;
 }
 
-/** A complete unit the Architect has submitted for publishing, on a project of this file's own. */
-async function submittedUnit() {
+/** A complete unit on a project of this file's own: published at creation and with each change since. */
+async function publishedUnit() {
   setFileScanner(null);
   const [owner, architect] = await Promise.all([loginAs("OWNER"), loginAs("ARCHITECT")]);
   await removeMarina();
@@ -301,46 +301,35 @@ async function submittedUnit() {
   const png = new Uint8Array(await sharp({ create: { width: 12, height: 8, channels: 3, background: { r: 40, g: 120, b: 160 } } }).png().toBuffer());
   const image = await upload(architect, unitId, "render", "Render.png", "image/png", png);
   await addUnitMedia(architect, unitId, { documentId: image, category: "INTERIOR_RENDER", caption: null });
-  const version = (await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId }, select: { version: true } })).version;
-  await submitUnitForPublishing(architect, unitId, { expectedVersion: version });
-  const request = await prisma.unitPublicationApproval.findFirstOrThrow({ where: { recordId: unitId, status: "PENDING" } });
-  return { unitId, requestId: request.id, architect };
+  return { unitId, architect };
 }
 
-describe("the Center publishes the unit the reviewer saw (AUD-10 §4, A4, A5)", () => {
-  it("A4 a unit edited while its request waited is not published from the stale drawer; the reloaded one publishes", async () => {
-    const { unitId, requestId, architect } = await submittedUnit();
+/*
+ * A4 and A5 proved the Center published the unit the reviewer saw. Since units
+ * publish on create (2026-11) there is no reviewer: the edit itself is
+ * published, in its own transaction, and the Center has no unit publishing
+ * source to decide from.
+ */
+describe("a unit's edit is published by the edit itself, not from the Center (A4, A5 retired)", () => {
+  it("publishes the corrected area at once, and the old Center source refuses to decide anything", async () => {
+    const { unitId, architect } = await publishedUnit();
     const head = await loginAsEmail(DEMO_EMAIL.architectureHead);
-    const seen = (await getApprovalDetail(head, "projects", requestId)).item;
-    const unitBefore = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId }, select: { version: true } });
-    // The drawer's version is the unit's own row version, not the request's step count.
-    expect(seen.version).toBe(unitBefore.version);
+    const before = await prisma.unitPublication.count({ where: { unitId } });
 
-    // The Architect corrects the area while the request is still open.
     const current = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } });
-    await updateUnit(architect, unitId, updateUnitSchema.parse({ unitCode: current.unitCode, unitTypeId: current.unitTypeId, saleableArea: "121.50", internalArea: "92.40", bedrooms: 2, bathrooms: 2, rooms: 3, orientation: "SW", position: "CORNER", isActive: true, expectedVersion: current.version }));
-    const edited = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId }, select: { version: true, publicationStatus: true } });
-    expect(edited.version).toBeGreaterThan(unitBefore.version);
-    expect(await prisma.unitPublicationApproval.count({ where: { id: requestId, status: "PENDING" } })).toBe(1);
+    await updateUnit(architect, unitId, updateUnitSchema.parse({ unitCode: current.unitCode, unitTypeId: current.unitTypeId, saleableArea: "121.50", isActive: true, expectedVersion: current.version }));
+    const published = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId }, select: { publicationStatus: true, currentPublication: { select: { versionNumber: true, publishedByMemberId: true, snapshot: true } } } });
+    expect(published.publicationStatus).toBe("PUBLISHED");
+    expect(published.currentPublication).toMatchObject({ versionNumber: before + 1, publishedByMemberId: architect.membershipId });
+    expect(JSON.stringify(published.currentPublication!.snapshot)).toContain("121.5");
+    expect(await prisma.unitPublicationApproval.count({ where: { recordId: unitId } })).toBe(0);
 
-    const stale = await decideApproval(head, "projects", requestId, "APPROVE", { note: null, expectedVersion: seen.version }).then(
+    const refused = await getApprovalDetail(head, "projects", "unit_publication_approval_old").then(
       () => null,
       (error: unknown) => error,
     );
-    expect(stale).toBeInstanceOf(AccessError);
-    expect((stale as AccessError).code).toBe("CONFLICT");
-    // The unit service's own stale-version answer, checked under its lock.
-    expect(refusalCode(stale)).toBe("STRUCTURE_STALE");
-    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(0);
-    expect(await prisma.unitPublicationApproval.count({ where: { id: requestId, status: "PENDING" } })).toBe(1);
-
-    const reloaded = (await getApprovalDetail(head, "projects", requestId)).item;
-    expect(reloaded.version).toBe(edited.version);
-    await decideApproval(head, "projects", requestId, "APPROVE", { note: null, expectedVersion: reloaded.version });
-    const published = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId }, select: { publicationStatus: true } });
-    expect(published.publicationStatus).toBe("PUBLISHED");
-    const publication = await prisma.unitPublication.findFirstOrThrow({ where: { unitId } });
-    // What was published is what the reviewer saw after reloading: the corrected area.
-    expect(JSON.stringify(publication.snapshot)).toContain("121.5");
+    expect(refused).toBeInstanceOf(AccessError);
+    expect((refused as AccessError).code).toBe("NOT_FOUND");
+    await expect(decideApproval(head, "projects", "unit_publication_approval_old", "APPROVE", { note: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

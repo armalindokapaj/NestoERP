@@ -16,7 +16,7 @@ export type UnitFilters = {
   internalAreaMax: string;
   saleableAreaMin: string;
   saleableAreaMax: string;
-  /** Publishing (E-05D §13, §28): a status, or "CHANGES" for published units with unpublished changes. */
+  /** Publishing (E-05D §13): PUBLISHED or ARCHIVED, or "" for both. */
   publication: string;
   sort: UnitSort;
 };

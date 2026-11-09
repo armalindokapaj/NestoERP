@@ -154,10 +154,12 @@ const has = (items: UnifiedApprovalItem[], approvalId: string) => items.some((it
 
 describe("registry (§10, §240)", () => {
   it("registers the eight sources and refuses any key it does not know", async () => {
-    expect(approvalProviders.all().map((provider) => provider.key).sort()).toEqual(["documents", "finance", "hr", "hse", "legal", "procurement", "projects", "qaqc", "sales", "timesheets", "unit_sales"]);
+    // Unit publishing ("projects") left the Center when units began to publish on create (2026-11).
+    expect(approvalProviders.all().map((provider) => provider.key).sort()).toEqual(["documents", "finance", "hr", "hse", "legal", "procurement", "qaqc", "sales", "timesheets", "unit_sales"]);
     expect(() => approvalProviders.getProvider("../finance")).toThrow(AccessError);
     const owner = await loginAs("OWNER");
     await expectCode(getApprovalDetail(owner, "workflow", "anything"), "NOT_FOUND", "APPROVAL_PROVIDER_UNKNOWN");
+    await expectCode(getApprovalDetail(owner, "projects", "anything"), "NOT_FOUND", "APPROVAL_PROVIDER_UNKNOWN");
     await expectCode(decideApproval(owner, "finance' OR 1=1", "x", "APPROVE", { note: null }), "NOT_FOUND", "APPROVAL_PROVIDER_UNKNOWN");
   });
 
@@ -678,8 +680,8 @@ describe("role acceptance (§285-§300)", () => {
       expect(summary[role].filter((key) => key !== "documents"), role).toEqual([]);
     }
     expect(summary.HR).toContain("hr");
-    // The heads' own inboxes (E-05D §21; E-05E §39).
-    expect(summary.ARCHITECTURE_HEAD).toContain("projects");
+    // The heads' own inboxes (E-05E §39). Unit publishing has no inbox since units publish on create (2026-11).
+    expect(Object.values(summary).flat()).not.toContain("projects");
     expect(summary.SALES_HEAD).toContain("sales");
     expect(summary.CEO).toEqual(expect.arrayContaining(["procurement", "sales"]));
     expect(summary.LEGAL.every((key) => ["legal", "documents"].includes(key))).toBe(true);

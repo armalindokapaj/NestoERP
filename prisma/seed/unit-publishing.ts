@@ -7,23 +7,24 @@ import { placeholderPdf, seedStoredDocument } from "./document-objects";
 import { STRUCTURE_SEED } from "./structure";
 
 /**
- * The unit page and its publishing (E-05D §104, §105).
+ * The unit page and its publishing (E-05D §104; units publish on create,
+ * 2026-11). Every unit is Published from the moment it exists, and each change
+ * goes out at once as its next version; there is nothing waiting for review.
  *
- * Block A, Floor 1 of Riverside Residences shows every publishing state, and
- * Block B's first apartment a draft half-way there:
- *
- * - A-101 Published v1: Sales Plan, a floor plan image (primary), an exterior
- *   render and a technical drawing. Nothing changed since.
- * - A-102 Published v2 with unpublished changes: its saleable area was corrected
- *   after v2, and the Architect has submitted the change for review.
- * - A-103 Ready for Publishing: complete, waiting for the Architecture Manager.
- * - A-104 Revision Required: returned with a reason; no primary image yet.
- * - B-101 Draft: a Sales Plan and nothing else.
- * - A-201 to A-204 Published v1, each with its Sales Plan and floor plan: the
- *   stock the sales seed prices, holds, reserves and sells (E-05E).
+ * - A-101 v1: Sales Plan, a floor plan image (primary), an exterior render and a
+ *   technical drawing. Nothing changed since.
+ * - A-102 v3: v1, then v2 with its balcony corrected, then v3 when the Architect
+ *   corrected its saleable area — each published by the change that made it.
+ * - A-103 v1: complete, with its Sales Plan and floor plan.
+ * - A-104 v1: a Sales Plan and no primary image — incomplete, and published.
+ * - B-101 v1: a Sales Plan and nothing else.
+ * - A-201 to A-204 v1, each with its Sales Plan and floor plan: the stock the
+ *   sales seed prices, holds, reserves and sells (E-05E).
+ * - Every other unit v1, published automatically when the structure was laid out.
  *
  * Every file is a canonical Document filed against its unit, with version 1 and
- * real bytes, as a genuine upload leaves it. Everything else stays Draft (§105).
+ * real bytes, as a genuine upload leaves it. No publishing request is seeded:
+ * unit publishing has none.
  */
 
 const COMPANY_A = "company_demo_a";
@@ -106,10 +107,13 @@ export async function unitFile(prisma: PrismaClient, input: { id: string; unitId
   return document.id;
 }
 
-/** Publishes the unit as it now stands, the way the publish transaction would (E-05D §23). */
-export async function publish(prisma: PrismaClient, unitId: string, versionNumber: number, publisher: string, at: Date, companyId = COMPANY_A) {
+/**
+ * Publishes the unit as it now stands, the way `publishLiveUnits` would — dated
+ * in the past, so the history reads like one. `publisher` null is a version
+ * published automatically.
+ */
+export async function publish(prisma: PrismaClient, unitId: string, versionNumber: number, publisher: string | null, at: Date, companyId = COMPANY_A) {
   const state = (await loadPublishStates(prisma as unknown as Prisma.TransactionClient, companyId, [unitId])).get(unitId)!;
-  if (!state.readiness.ready) throw new Error(`Seed unit ${state.row.unitCode} is not ready to publish: ${state.readiness.missing.join(", ")}`);
   const snapshot = buildSnapshot(state.facts);
   const publication = await prisma.unitPublication.create({
     data: {
@@ -130,9 +134,16 @@ export async function publish(prisma: PrismaClient, unitId: string, versionNumbe
   });
   await prisma.projectUnit.update({
     where: { id: unitId },
-    data: { publicationStatus: "PUBLISHED", currentPublicationId: publication.id, hasUnpublishedChanges: false, publicationStatusChangedAt: at, version: { increment: 1 } },
+    data: { publicationStatus: "PUBLISHED", currentPublicationId: publication.id, hasUnpublishedChanges: false, ...(versionNumber === 1 ? { publicationStatusChangedAt: at } : {}) },
   });
   return publication.id;
+}
+
+/** Version 1 for every unit of these projects that has none: published automatically when it was laid out. */
+async function publishTheRest(prisma: PrismaClient, projectIds: string[]) {
+  const units = await prisma.projectUnit.findMany({ where: { projectId: { in: projectIds }, publicationStatus: "PUBLISHED", currentPublicationId: null }, select: { id: true, companyId: true, createdAt: true } });
+  for (const unit of units) await publish(prisma, unit.id, 1, null, unit.createdAt, unit.companyId);
+  return units.length;
 }
 
 async function activity(prisma: PrismaClient, input: { unitId: string; action: string; message: string; memberId: string; userId: string; at: Date }) {
@@ -189,29 +200,27 @@ export async function seedUnitPublishingRecords(prisma: PrismaClient, memberId: 
   await prisma.unitDocumentLink.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, unitId: UNIT_IDS.a101, documentId: drawing, category: "TECHNICAL_DRAWING", createdByMemberId: architect } });
   await publish(prisma, UNIT_IDS.a101, 1, manager, daysAgo(16));
 
-  /* A-102: v2 current, with a submitted correction --------------------------- */
+  /* A-102: three versions, each written by the change that made it ------------- */
   await salesPlan(a102, "A-102", 30);
   await floorPlan(a102, "A-102", "#8a6f3b");
   await publish(prisma, a102, 1, manager, daysAgo(28));
-  await prisma.projectUnit.update({ where: { id: a102 }, data: { balconyArea: new Prisma.Decimal("9.00"), outdoorArea: new Prisma.Decimal("9.00") } });
+  await prisma.projectUnit.update({ where: { id: a102 }, data: { balconyArea: new Prisma.Decimal("9.00"), outdoorArea: new Prisma.Decimal("9.00"), version: { increment: 1 } } });
   await publish(prisma, a102, 2, manager, daysAgo(12));
-  await prisma.projectUnit.update({ where: { id: a102 }, data: { saleableArea: new Prisma.Decimal("79.10"), hasUnpublishedChanges: true, version: { increment: 1 } } });
-  await prisma.unitPublicationApproval.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, recordId: a102, submittedByMemberId: architect, submittedAt: daysAgo(2) } });
+  await prisma.projectUnit.update({ where: { id: a102 }, data: { saleableArea: new Prisma.Decimal("79.10"), version: { increment: 1 } } });
+  await publish(prisma, a102, 3, architect, daysAgo(3));
 
-  /* A-103: waiting for review ------------------------------------------------- */
+  /* A-103: complete ------------------------------------------------------------ */
   await salesPlan(a103, "A-103", 6);
   await floorPlan(a103, "A-103", "#4f7a4a");
-  await prisma.projectUnit.update({ where: { id: a103 }, data: { publicationStatus: "READY_FOR_PUBLISHING", publicationStatusChangedAt: daysAgo(1), version: { increment: 1 } } });
-  await prisma.unitPublicationApproval.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, recordId: a103, submittedByMemberId: architect, submittedAt: daysAgo(1) } });
+  await publish(prisma, a103, 1, architect, daysAgo(6));
 
-  /* A-104: sent back ------------------------------------------------------------- */
+  /* A-104: a Sales Plan, no image yet — incomplete, and published all the same */
   await salesPlan(UNIT_IDS.a104, "A-104", 9);
-  const reason = "The Sales Plan shows 138 m²; the saleable area is 142.30 m². Correct one of them and resubmit.";
-  await prisma.unitPublicationApproval.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, recordId: UNIT_IDS.a104, status: "RETURNED", submittedByMemberId: architect, submittedAt: daysAgo(8), decidedByMemberId: manager, decidedAt: daysAgo(7), decisionNote: reason } });
-  await prisma.projectUnit.update({ where: { id: UNIT_IDS.a104 }, data: { publicationStatus: "REVISION_REQUIRED", revisionReason: reason, publicationStatusChangedAt: daysAgo(7), version: { increment: 1 } } });
+  await publish(prisma, UNIT_IDS.a104, 1, architect, daysAgo(9));
 
-  /* B-101: a draft on its way ------------------------------------------------------ */
+  /* B-101: a Sales Plan and nothing else ---------------------------------------- */
   await salesPlan(UNIT_IDS.b101, "B-101", 3);
+  await publish(prisma, UNIT_IDS.b101, 1, architect, daysAgo(3), COMPANY_A);
 
   /* Floor 2 of Block A: published, for Sales (E-05E) ---------------------------------- */
   const floorA2 = await prisma.projectUnit.findMany({ where: { floorId: "flr_riverside_a_2" }, orderBy: { sortOrder: "asc" }, select: { id: true, unitCode: true } });
@@ -227,15 +236,14 @@ export async function seedUnitPublishingRecords(prisma: PrismaClient, memberId: 
   const trail: Array<{ unitId: string; action: string; message: string; memberId: string; at: Date }> = [
     { unitId: UNIT_IDS.a101, action: "UNIT_SALES_PLAN_UPLOADED", message: "added the Sales Plan to A-101", memberId: architect, at: daysAgo(24) },
     { unitId: UNIT_IDS.a101, action: "UNIT_MEDIA_ADDED", message: "added the image “A-101 floor plan.jpg” to A-101", memberId: architect, at: daysAgo(20) },
-    { unitId: UNIT_IDS.a101, action: "UNIT_SUBMITTED_FOR_PUBLISHING", message: "submitted A-101 for publishing", memberId: architect, at: daysAgo(17) },
     { unitId: UNIT_IDS.a101, action: "UNIT_PUBLISHED", message: "published A-101", memberId: manager, at: daysAgo(16) },
     { unitId: a102, action: "UNIT_PUBLISHED", message: "published A-102", memberId: manager, at: daysAgo(28) },
     { unitId: a102, action: "UNIT_PUBLISHED", message: "published A-102 as version 2", memberId: manager, at: daysAgo(12) },
     { unitId: a102, action: "UNIT_UPDATED", message: "updated A-102", memberId: architect, at: daysAgo(3) },
-    { unitId: a102, action: "UNIT_SUBMITTED_FOR_PUBLISHING", message: "submitted the changes to A-102 for publishing", memberId: architect, at: daysAgo(2) },
-    { unitId: a103, action: "UNIT_SUBMITTED_FOR_PUBLISHING", message: "submitted A-103 for publishing", memberId: architect, at: daysAgo(1) },
-    { unitId: UNIT_IDS.a104, action: "UNIT_SUBMITTED_FOR_PUBLISHING", message: "submitted A-104 for publishing", memberId: architect, at: daysAgo(8) },
-    { unitId: UNIT_IDS.a104, action: "UNIT_REVISION_REQUIRED", message: "asked for a revision of A-104", memberId: manager, at: daysAgo(7) },
+    { unitId: a102, action: "UNIT_PUBLISHED", message: "published A-102 as version 3", memberId: architect, at: daysAgo(3) },
+    { unitId: a103, action: "UNIT_PUBLISHED", message: "published A-103", memberId: architect, at: daysAgo(6) },
+    { unitId: UNIT_IDS.a104, action: "UNIT_PUBLISHED", message: "published A-104", memberId: architect, at: daysAgo(9) },
+    { unitId: UNIT_IDS.b101, action: "UNIT_PUBLISHED", message: "published B-101", memberId: architect, at: daysAgo(3) },
     ...floorA2.map((unit, index) => ({ unitId: unit.id, action: "UNIT_PUBLISHED", message: `published ${unit.unitCode}`, memberId: manager, at: daysAgo(35 - index) })),
   ];
   for (const entry of trail) await activity(prisma, { ...entry, userId: userOf.get(entry.memberId)! });
@@ -252,5 +260,6 @@ export async function seedUnitPublishingRecords(prisma: PrismaClient, memberId: 
   await prisma.unitDocumentLink.create({ data: { companyId: "company_fixture_tenant", projectId: munichProject, unitId: munich, documentId: specB, category: "SPECIFICATION", createdByMemberId: ownerB } });
   await publish(prisma, munich, 1, ownerB, daysAgo(8), "company_fixture_tenant");
 
-  return { published: 2 + floorA2.length, waiting: 2, revision: 1, files: await prisma.document.count({ where: { entityType: "project_unit" } }) };
+  const automatic = await publishTheRest(prisma, [RIVERSIDE, STRUCTURE_SEED.emptyProject, munichProject]);
+  return { published: 5 + floorA2.length + 1, automatic, files: await prisma.document.count({ where: { entityType: "project_unit" } }) };
 }

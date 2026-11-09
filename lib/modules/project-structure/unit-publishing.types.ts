@@ -9,6 +9,13 @@ import type { AreaField, CountField, FloorLevelType, UnitAttributes, UnitOrienta
 export const UNIT_PUBLICATION_STATUSES = ["DRAFT", "READY_FOR_PUBLISHING", "PUBLISHED", "REVISION_REQUIRED", "ARCHIVED"] as const;
 export type UnitPublicationStatus = (typeof UNIT_PUBLICATION_STATUSES)[number];
 
+/**
+ * The states a unit is found in since units publish on create (2026-11): in use,
+ * or archived. Draft, Ready for Publishing and Revision Required stay in the
+ * enum for history and are never written; the unit list filters by these two.
+ */
+export const UNIT_PUBLICATION_FILTER_STATUSES = ["PUBLISHED", "ARCHIVED"] as const satisfies readonly UnitPublicationStatus[];
+
 export const UNIT_PUBLICATION_STATUS_LABELS: Record<UnitPublicationStatus, string> = {
   DRAFT: "Draft",
   READY_FOR_PUBLISHING: "Ready for Publishing",
@@ -50,19 +57,19 @@ export const UNIT_DOCUMENT_CATEGORY_LABELS: Record<UnitDocumentCategory, string>
 /** Images a unit's media may be (E-05D §40): what the thumbnail pipeline can read. */
 export const UNIT_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-export const REVISION_REASON_MAX = 2_000;
 export const CAPTION_MAX = 200;
 export const MAX_UNIT_MEDIA = 60;
 
-/* Readiness (§16, §45) ------------------------------------------------------ */
+/* Readiness (§16, §45): information only -------------------------------------- */
 
 export type ReadinessKey = "unitCode" | "unitType" | "location" | "primaryArea" | "bedrooms" | "bathrooms" | "orientation" | "salesPlan" | "primaryImage" | "active" | "references";
 
-/** `required: false` items are needed but do not block submitting or publishing. */
 /**
- * One line of the checklist. `label` and `hint` are English, as an error names
- * them (§81); `variant` and `count` say which of a line's wordings applies, so a
- * page can put it in its reader's language.
+ * One line of the checklist — information only: a unit is published whatever it
+ * says (units publish on create, 2026-11). `required` marks the key items the
+ * count is made of; the others are recommended for a complete listing. `label`
+ * and `hint` are English; `variant` and `count` say which of a line's wordings
+ * applies, so a page can put it in its reader's language.
  */
 export type ReadinessItem = { key: ReadinessKey; label: string; ok: boolean; required: boolean; hint: string | null; variant?: ReadinessVariant; count?: number };
 export type ReadinessVariant = "saleable" | "anyArea" | "saleableOrGross" | "missing" | "checking";
@@ -72,7 +79,7 @@ export type Readiness = {
   items: ReadinessItem[];
   complete: number;
   required: number;
-  /** The labels of what is missing, in order — what an error names (§81). */
+  /** The labels of the key items still missing, in order. */
   missing: string[];
 };
 
@@ -107,13 +114,8 @@ export type UnitSnapshot = {
 
 /* DTOs ---------------------------------------------------------------------- */
 
-export type PublicationRequestDTO = { id: string; submittedAt: string; submittedBy: string | null; submittedByMemberId: string };
-
+/** What the reader may do to the unit's publication and its files. Publishing itself is nobody's action: it follows every change. */
 export type UnitPublishingCapabilities = {
-  canSubmit: boolean;
-  canPublish: boolean;
-  canRequestRevision: boolean;
-  canUnpublish: boolean;
   canArchive: boolean;
   canRestore: boolean;
   canViewHistory: boolean;
@@ -121,13 +123,14 @@ export type UnitPublishingCapabilities = {
   canManageMedia: boolean;
 };
 
+/** `publishedBy`/`publishedByMemberId` are null for a version published automatically (the 2026-11 backfill, a Platform Admin's unit, a promoted file version). */
+export type CurrentPublicationDTO = { id: string; versionNumber: number; publishedAt: string; publishedBy: string | null; publishedByMemberId: string | null };
+
 export type UnitPublishingDTO = {
   status: UnitPublicationStatus;
   statusChangedAt: string | null;
-  currentPublication: { id: string; versionNumber: number; publishedAt: string; publishedBy: string | null; publishedByMemberId: string } | null;
-  hasUnpublishedChanges: boolean;
-  revisionReason: string | null;
-  pendingRequest: PublicationRequestDTO | null;
+  currentPublication: CurrentPublicationDTO | null;
+  /** Information only: what a complete listing has, never a condition of publishing. */
   readiness: Readiness;
   capabilities: UnitPublishingCapabilities;
 };
@@ -137,7 +140,7 @@ export type PublicationSummaryDTO = {
   versionNumber: number;
   publishedAt: string;
   publishedBy: string | null;
-  publishedByMemberId: string;
+  publishedByMemberId: string | null;
   isCurrent: boolean;
   salesPlanVersionNumber: number | null;
 };

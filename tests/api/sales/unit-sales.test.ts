@@ -4,7 +4,7 @@ import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { getUnitDetail, listUnitActivity } from "@/lib/modules/project-structure/structure.service";
 import { deleteUnit } from "@/lib/modules/project-structure/structure.units";
-import { archiveUnit, unpublishUnit } from "@/lib/modules/project-structure/unit-publishing.service";
+import { archiveUnit } from "@/lib/modules/project-structure/unit-publishing.service";
 import { listSalesInventory } from "@/lib/modules/sales/units/unit-sales.inventory";
 import { commercialDetailsSchema, parseInventoryQuery, reserveSchema } from "@/lib/modules/sales/units/unit-sales.schema";
 import {
@@ -90,8 +90,8 @@ async function refused(promise: Promise<unknown>, code: string, detail?: string)
   return error as AccessError;
 }
 
-/** A unit on the suite's floor; published unless said otherwise. */
-async function newUnit(options: { published?: boolean; saleableArea?: string } = {}) {
+/** A unit on the suite's floor; published, as every unit is, unless it is archived. */
+async function newUnit(options: { archived?: boolean; saleableArea?: string } = {}) {
   serial += 1;
   const code = `${T}-${String(serial).padStart(3, "0")}`;
   const unit = await prisma.projectUnit.create({
@@ -106,7 +106,7 @@ async function newUnit(options: { published?: boolean; saleableArea?: string } =
       internalArea: "80.00",
       sortOrder: serial,
       createdBy: "test",
-      publicationStatus: options.published === false ? "DRAFT" : "PUBLISHED",
+      publicationStatus: options.archived ? "ARCHIVED" : "PUBLISHED",
     },
     select: { id: true, unitCode: true },
   });
@@ -170,8 +170,9 @@ describe("asking price and commercial status (§7-§12, §58)", () => {
   });
 
   it("offers only a published, active unit for sale, holds with a reason, and moves back", async () => {
-    const draft = await newUnit({ published: false });
-    await refused(changeSaleStatus(sales, draft.id, { action: "put_on_sale", reason: null }), "CONFLICT", "UNIT_NOT_SELLABLE");
+    // Every unit is published from creation (2026-11); an archived one is out of use.
+    const archived = await newUnit({ archived: true });
+    await refused(changeSaleStatus(sales, archived.id, { action: "put_on_sale", reason: null }), "CONFLICT", "UNIT_NOT_SELLABLE");
 
     const unit = await newUnit();
     await changeSaleStatus(sales, unit.id, { action: "put_on_sale", reason: null });
@@ -335,12 +336,11 @@ describe("marking Sold and reopening (§29-§31, §42, §60)", () => {
     expect((await markUnitSold(sales, unit.id, {})).status).toBe("SOLD");
   });
 
-  it("refuses to take a unit on sale out of publication, and to delete a unit with a sales history", async () => {
+  it("refuses to archive a unit on sale — archiving is the only way out of use — and to delete a unit with a sales history", async () => {
     const unit = await newUnit();
     await onSale(unit.id);
     const version = (await prisma.projectUnit.findUniqueOrThrow({ where: { id: unit.id } })).version;
     const owned = await loginAsEmail(DEMO_EMAIL.architectureHead);
-    await refused(unpublishUnit(owned, unit.id, { reason: "x", expectedVersion: version }), "CONFLICT", "UNIT_ON_SALE");
     await refused(archiveUnit(owned, unit.id, { expectedVersion: version }), "CONFLICT", "UNIT_ON_SALE");
     await changeSaleStatus(sales, unit.id, { action: "take_off_sale", reason: null });
     await refused(deleteUnit(owner, unit.id), "CONFLICT", "UNIT_REFERENCED");

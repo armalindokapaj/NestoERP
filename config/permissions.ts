@@ -252,18 +252,14 @@ export const PERMISSIONS = [
   "project.unit.move",
   /**
    * The unit page and its publishing (E-05D §18). Documents and media attach
-   * canonical files to the one unit; submitting, publishing and asking for a
-   * revision move its publication state. Publishing is its own grant, never
-   * implied by editing (§89): the people who prepare a unit are not thereby
-   * the people who approve it for Sales. The history of published versions is
-   * read by everybody who reads the unit.
+   * canonical files to the one unit. A unit is published when it is created and
+   * each change goes out at once (units publish on create, 2026-11), so there is
+   * no grant to submit, publish, send back or unpublish: archiving — and
+   * restoring — is the one publication action. The history of published
+   * versions is read by everybody who reads the unit.
    */
   "project.unit.documents.manage",
   "project.unit.media.manage",
-  "project.unit.submit_for_publish",
-  "project.unit.publish",
-  "project.unit.revision_request",
-  "project.unit.unpublish",
   "project.unit.archive",
   "project.unit.publication_history.view",
   /**
@@ -1493,10 +1489,6 @@ const MUTATING_ACTIONS = new Set([
   "waive",
   // Project structure: a unit changes floor (E-05B §52).
   "move",
-  // Unit publishing (E-05D §18).
-  "submit_for_publish",
-  "revision_request",
-  "unpublish",
   // Unit sales (E-05E §38).
   "extend",
   "reserve",

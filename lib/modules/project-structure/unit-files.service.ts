@@ -13,7 +13,7 @@ import { assertSameSet, uniqueTarget } from "./structure.buildings";
 import { MODULE, UNIT_ENTITY } from "./structure.permissions";
 import { fail, findReadableUnit } from "./structure.service";
 import { isPdf, isUnitImage } from "./unit-publishing.rules";
-import { lockUnit, refreshUnpublishedChanges } from "./unit-publishing.state";
+import { lockUnit, publishLiveUnits } from "./unit-publishing.state";
 import {
   MAX_UNIT_MEDIA,
   type AttachableDocumentDTO,
@@ -34,6 +34,11 @@ import {
  * each one sits on it: the Sales Plan pointer, a document's category, an image's
  * category, caption, order and whether it is the primary one. A file is listed
  * only when the reader may open it through the Documents module (§88, §102).
+ *
+ * The Sales Plan's version and the primary image are publish facts: a change to
+ * either goes out as the unit's next version in the same transaction (units
+ * publish on create, 2026-11). A version the scanner promotes later is
+ * published by the Documents module's door (`publishUnitsUsingDocument`).
  */
 
 type Tx = Prisma.TransactionClient;
@@ -269,7 +274,11 @@ export async function setUnitSalesPlan(context: UserContext, unitId: string, inp
         select: { metadata: true },
       });
       const recorded = (last?.metadata as { documentVersionId?: string } | null)?.documentVersionId;
-      if (recorded && recorded === version?.id) return { documentId: document.id, versionNumber: version?.versionNumber ?? null, changed: false };
+      if (recorded && recorded === version?.id) {
+        // Nothing new to record; whatever the unit now publishes still goes out (a no-op when nothing changed).
+        await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
+        return { documentId: document.id, versionNumber: version?.versionNumber ?? null, changed: false };
+      }
     }
 
     await recordActivity(tx, context, {
@@ -291,7 +300,7 @@ export async function setUnitSalesPlan(context: UserContext, unitId: string, inp
       },
       { tx },
     );
-    await refreshUnpublishedChanges(tx, context.companyId, [unit.id]);
+    await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
     return { documentId: document.id, versionNumber: version?.versionNumber ?? null, changed: true };
   });
 }
@@ -337,7 +346,7 @@ export async function addUnitMedia(context: UserContext, unitId: string, input: 
       select: { id: true, isPrimary: true },
     });
     await mediaEvidence(tx, context, unit, { change: "ADDED", action: "UNIT_MEDIA_ADDED", message: `added the image “${document.name}” to ${unit.unitCode}`, after: { mediaId: media.id, documentId: document.id, category: input.category, caption: input.caption, isPrimary: media.isPrimary } });
-    if (media.isPrimary) await refreshUnpublishedChanges(tx, context.companyId, [unit.id]);
+    if (media.isPrimary) await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
     return media;
   }).catch((error: unknown) => {
     if (uniqueTarget(error)) throw fail("UNIT_MEDIA_ALREADY_ADDED", "That image is already on this unit.", "CONFLICT");
@@ -387,7 +396,7 @@ export async function updateUnitMedia(context: UserContext, unitId: string, medi
       await tx.unitMedia.updateMany({ where: { companyId: context.companyId, unitId: unit.id, isPrimary: true }, data: { isPrimary: false } });
       await tx.unitMedia.updateMany({ where: { companyId: context.companyId, unitId: unit.id, id: media.id }, data: { isPrimary: true } });
       await mediaEvidence(tx, context, unit, { change: "PRIMARY", action: "UNIT_PRIMARY_MEDIA_CHANGED", message: `made “${media.document.name}” the primary image of ${unit.unitCode}`, after: { mediaId: media.id, documentId: media.documentId, isPrimary: true } });
-      await refreshUnpublishedChanges(tx, context.companyId, [unit.id]);
+      await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
     }
   }).catch((error: unknown) => {
     if (uniqueTarget(error)) throw fail("UNIT_MEDIA_PRIMARY_CONFLICT", "Somebody else just chose the primary image. Refresh and try again.", "CONFLICT");
@@ -405,7 +414,7 @@ export async function removeUnitMedia(context: UserContext, unitId: string, medi
     await lockUnit(tx, unit.id);
     await tx.unitMedia.deleteMany({ where: { companyId: context.companyId, unitId: unit.id, id: media.id } });
     await mediaEvidence(tx, context, unit, { change: "REMOVED", action: "UNIT_MEDIA_REMOVED", message: `removed the image “${media.document.name}” from ${unit.unitCode}`, before: { mediaId: media.id, documentId: media.documentId, category: media.category, isPrimary: media.isPrimary }, after: { mediaId: media.id, documentId: media.documentId } });
-    if (media.isPrimary) await refreshUnpublishedChanges(tx, context.companyId, [unit.id]);
+    if (media.isPrimary) await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
   });
 }
 

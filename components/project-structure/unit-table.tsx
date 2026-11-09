@@ -166,7 +166,6 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                 ) : null}
                 <TableCell className="whitespace-nowrap">
                   <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
-                  {unit.publication.hasUnpublishedChanges ? <span className="ml-1.5 text-meta text-warning-strong">{t("unitTable.changed")}</span> : null}
                 </TableCell>
                 <TableCell>
                   <CommercialStatusBadge status={unit.commercialStatus} />

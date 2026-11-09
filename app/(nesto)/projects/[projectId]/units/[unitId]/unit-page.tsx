@@ -9,7 +9,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { RecordHeader } from "@/components/modules/record-header";
 import { UnitActions } from "@/components/project-structure/unit-actions";
-import { PublicationBadge, UnpublishedChangesBadge } from "@/components/project-structure/unit-page/publication-badge";
+import { PublicationBadge } from "@/components/project-structure/unit-page/publication-badge";
 import { PublishingActions } from "@/components/project-structure/unit-page/publishing-actions";
 import { CommercialStatusBadge } from "@/components/sales/unit-sales/commercial-status";
 import { Badge } from "@/components/ui/badge";
@@ -106,8 +106,6 @@ export async function UnitShell({ page, active, children }: { page: Page; active
             <PublicationBadge status={publishing.status} versionNumber={publishing.currentPublication?.versionNumber} />
             <CommercialStatusBadge status={unit.commercialStatus} />
             {publishing.status !== "PUBLISHED" && publishing.currentPublication ? <Badge tone="default">{t("unitPage.lastPublished", { version: publishing.currentPublication.versionNumber })}</Badge> : null}
-            {publishing.hasUnpublishedChanges ? <UnpublishedChangesBadge /> : null}
-            {publishing.pendingRequest ? <Badge tone="info">{t("unitPage.waitingReview")}</Badge> : null}
             {unit.isActive ? null : <Badge>{t("unitPage.inactive")}</Badge>}
           </>
         }

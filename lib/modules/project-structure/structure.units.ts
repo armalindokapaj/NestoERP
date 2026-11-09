@@ -17,7 +17,7 @@ import { attributesFor, findCodeConflicts, structureKey, unitWarnings } from "./
 import type { BulkUnitsInput, CopyUnitsInput, CreateUnitInput, TechnicalInput, UpdateUnitInput } from "./structure.schema";
 import { fail, findReadableUnit } from "./structure.service";
 import { AREA_FIELDS, type AreaField, type BatchPreview, type UnitAttributes } from "./structure.types";
-import { refreshUnpublishedChanges } from "./unit-publishing.state";
+import { deleteOwnPublications, publishLiveUnits } from "./unit-publishing.state";
 
 /**
  * Units (E-05B §16-§30, §40-§45, §51-§56, §83, §98, §117-§120).
@@ -28,6 +28,10 @@ import { refreshUnpublishedChanges } from "./unit-publishing.state";
  * normalised key, checked before writing and held by the database while
  * writing (§44, §96). A move stays inside the project (§118) and never changes
  * the code on its own (§119).
+ *
+ * A unit is published the moment it is created, complete or not, and every
+ * change to what it publishes goes out as its next version in the same
+ * transaction (units publish on create, 2026-11; `publishLiveUnits`).
  */
 
 type Tx = Prisma.TransactionClient;
@@ -105,6 +109,9 @@ export async function createUnit(context: UserContext, floorId: string, input: C
         ...data,
         sortOrder: (last._max.sortOrder ?? 0) + 1,
         createdBy: context.userId,
+        // Published from the start: version 1 is written below, in this transaction.
+        publicationStatus: "PUBLISHED",
+        publicationStatusChangedAt: new Date(),
       },
       select: { id: true, version: true },
     });
@@ -119,6 +126,7 @@ export async function createUnit(context: UserContext, floorId: string, input: C
       },
       { tx },
     );
+    await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
     return { id: unit.id, version: unit.version, warnings: unitWarnings(type.category, input) };
   }).catch((error: unknown) => {
     if (uniqueTarget(error)) throw codeTaken(input.unitCode);
@@ -148,6 +156,7 @@ async function writeBatch(
 
   const last = await tx.projectUnit.aggregate({ where: { companyId: context.companyId, floorId: floor.id }, _max: { sortOrder: true } });
   const start = (last._max.sortOrder ?? 0) + 1;
+  const publishedAt = new Date();
   const created = await tx.projectUnit.createManyAndReturn({
     data: rows.map((row, index) => ({
       ...(row as Omit<Prisma.ProjectUnitCreateManyInput, "companyId" | "projectId" | "floorId" | "unitCodeKey" | "sortOrder" | "createdBy">),
@@ -157,6 +166,9 @@ async function writeBatch(
       unitCodeKey: structureKey(row.unitCode),
       sortOrder: start + index,
       createdBy: context.userId,
+      // Published from the start: every unit's version 1 is written below, in this transaction.
+      publicationStatus: "PUBLISHED" as const,
+      publicationStatusChangedAt: publishedAt,
     })),
     select: { id: true },
   });
@@ -181,6 +193,7 @@ async function writeBatch(
     },
     { tx },
   );
+  await publishLiveUnits(tx, { kind: "member", context }, context.companyId, created.map((unit) => unit.id));
   return created.map((unit) => unit.id);
 }
 
@@ -331,7 +344,7 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
       });
       const after = snapshot({ unitCode: values.unitCode, name: values.name, ...data, attributes: data.attributes === Prisma.DbNull ? null : data.attributes, isActive: values.isActive });
       await recordUserAction(context, { actionKey: AuditAction.PROJECT_UNIT_UPDATED, entity: { type: UNIT_ENTITY, id: unit.id, label: values.unitCode }, projectId: unit.projectId, before, after }, { tx });
-      // The unit's own history shows its edits (E-05D §48); a published unit now differs from its version (§27).
+      // The unit's own history shows its edits (E-05D §48); what it publishes goes out as its next version at once.
       await recordActivity(tx, context, {
         module: MODULE,
         entityType: UNIT_ENTITY,
@@ -340,7 +353,7 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
         message: codeChanged ? `changed the unit code ${unit.unitCode} to ${values.unitCode}` : `updated ${values.unitCode}`,
         metadata: { projectId: unit.projectId },
       });
-      await refreshUnpublishedChanges(tx, context.companyId, [unit.id]);
+      await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
       // The id is the identity; a new code is a change to an attribute, and it is evidence of its own (§55).
       if (codeChanged) {
         await recordUserAction(context, { actionKey: AuditAction.UNIT_CODE_CHANGED, entity: { type: UNIT_ENTITY, id: unit.id, label: values.unitCode }, projectId: unit.projectId, before: { unitCode: unit.unitCode }, after: { unitCode: values.unitCode } }, { tx });
@@ -355,9 +368,11 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
 
 /**
  * A unit may be deleted with the grant while nothing points at it (E-05B §56).
- * Once it has a published version, a Sales Plan, media, attached documents,
- * files filed against it or a publishing request, it is history other modules
- * rely on: it is archived or deactivated instead, never deleted (E-05D §32).
+ * Once it has a Sales Plan, media, attached documents, files filed against it,
+ * a publishing request or a sales or legal history, it is history other modules
+ * rely on: it is archived or deactivated instead, never deleted (E-05D §32). Its
+ * own published versions do not count — every unit has one from the moment it
+ * is created (units publish on create, 2026-11) — and go with it.
  */
 export async function deleteUnit(context: UserContext, unitId: string): Promise<void> {
   const unit = await findReadableUnit(context, unitId);
@@ -365,9 +380,8 @@ export async function deleteUnit(context: UserContext, unitId: string): Promise<
 
   await prisma.$transaction(async (tx) => {
     const where = { companyId: context.companyId, unitId: unit.id };
-    const [row, publications, media, links, files, requests, sales] = await Promise.all([
+    const [row, media, links, files, requests, sales] = await Promise.all([
       tx.projectUnit.findFirst({ where: { companyId: context.companyId, id: unit.id }, select: { salesPlanDocumentId: true } }),
-      tx.unitPublication.count({ where }),
       tx.unitMedia.count({ where }),
       tx.unitDocumentLink.count({ where }),
       tx.document.count({ where: { companyId: context.companyId, entityType: "project_unit", entityId: unit.id } }),
@@ -376,10 +390,11 @@ export async function deleteUnit(context: UserContext, unitId: string): Promise<
       // Legal's (E-05F): a contract that sold it, or a request for one.
       Promise.all([tx.unitCommercialProfile.count({ where }), tx.unitReservation.count({ where }), tx.opportunityUnit.count({ where }), tx.unitPriceHistory.count({ where }), tx.contractUnit.count({ where }), tx.unitContractRequest.count({ where })]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
     ]);
-    if (row?.salesPlanDocumentId || publications || media || links || files || requests) {
+    if (row?.salesPlanDocumentId || media || links || files || requests) {
       throw fail("UNIT_REFERENCED", `${unit.unitCode} has documents, images or a publishing history, so it cannot be deleted. Archive it or deactivate it instead.`, "CONFLICT");
     }
     if (sales) throw fail("UNIT_REFERENCED", `${unit.unitCode} has a sales history, so it cannot be deleted. Archive it or deactivate it instead.`, "CONFLICT");
+    await deleteOwnPublications(tx, context.companyId, unit.id);
     await tx.projectUnit.delete({ where: { companyId: context.companyId, id: unit.id } });
     await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_DELETED", message: `removed unit ${unit.unitCode}`, metadata: { projectId: unit.projectId, floorId: unit.floorId } });
     await recordUserAction(
@@ -410,7 +425,6 @@ export async function moveUnit(context: UserContext, unitId: string, input: { fl
       data: { floorId: target.id, sortOrder: (last._max.sortOrder ?? 0) + 1, updatedBy: context.userId, version: { increment: 1 } },
     });
     if (!moved.count) throw fail("STRUCTURE_STALE", "This unit was updated by another user. Refresh before moving it.", "CONFLICT");
-    await refreshUnpublishedChanges(tx, context.companyId, [unit.id]);
     await recordActivity(tx, context, {
       module: MODULE,
       entityType: UNIT_ENTITY,
@@ -430,6 +444,8 @@ export async function moveUnit(context: UserContext, unitId: string, input: { fl
       },
       { tx },
     );
+    // Another floor is a publish fact: the move goes out as the unit's next version.
+    await publishLiveUnits(tx, { kind: "member", context }, context.companyId, [unit.id]);
     return { version: input.expectedVersion + 1 };
   });
 }

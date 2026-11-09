@@ -3,9 +3,11 @@ import { AREA_FIELDS, AREA_LABELS, type AreaField, type UnitAttributes, type Uni
 import type { Readiness, ReadinessItem, ReadinessVariant, UnitDisplay, UnitSnapshot } from "./unit-publishing.types";
 
 /**
- * The publishing rules the unit page previews and the server enforces (E-05D
- * §11, §16, §17, §27-§30, §73). Pure and client-safe: the readiness panel and the
- * refusal of a publish can never disagree.
+ * The publishing rules (E-05D §11, §16, §27-§30, §73): how a unit is displayed by
+ * its kind, how complete its listing is, what a published version keeps, and
+ * when the live unit differs from it. Pure and client-safe. Since units publish
+ * on create (2026-11) the checklist is information only — nothing refuses a
+ * unit for it — and the fingerprint decides when a change writes a new version.
  */
 
 /* Display (§10, §11) --------------------------------------------------------- */
@@ -69,15 +71,16 @@ export type ReadinessInput = {
 };
 
 /**
- * What a unit needs before it can be submitted or published (§16, §17). Apartments
- * and other homes also need bedrooms, bathrooms and an orientation (§45, §80);
- * other kinds of unit are not held to fields they do not have.
+ * How complete a unit's listing is (§16, §45) — information for the people
+ * preparing it, never a gate. Apartments and other homes also count bedrooms,
+ * bathrooms and an orientation (§80); other kinds of unit are not held to fields
+ * they do not have.
  */
 export function evaluateReadiness(input: ReadinessInput): Readiness {
   const category = input.unitType?.category ?? "OTHER";
   const items: ReadinessItem[] = [];
   const add = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string, required = true, words: { variant?: ReadinessVariant; count?: number } = {}) => items.push({ key, label, ok, required, hint: ok ? null : hint, ...words });
-  // Needed for a complete listing, but a unit may be published without them.
+  // Recommended for a complete listing, outside the count of key items.
   const recommend = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string, words: { variant?: ReadinessVariant; count?: number } = {}) => add(key, label, ok, hint, false, words);
   const areaWords: ReadinessVariant = PRIMARY_AREAS[category].length === 1 ? "saleable" : PRIMARY_AREAS[category].length === 3 ? "anyArea" : "saleableOrGross";
 
@@ -117,11 +120,6 @@ export function evaluateReadiness(input: ReadinessInput): Readiness {
   const requiredItems = items.filter((item) => item.required);
   const complete = requiredItems.filter((item) => item.ok).length;
   return { ready: complete === requiredItems.length, items, complete, required: requiredItems.length, missing: requiredItems.filter((item) => !item.ok).map((item) => item.label) };
-}
-
-/** The refusal a publish or a submission gives when something is missing (§46, §81). */
-export function notReadyMessage(readiness: Readiness, action: "published" | "submitted"): string {
-  return `This unit cannot be ${action}. Missing: ${readiness.missing.join(", ")}.`;
 }
 
 /* Snapshot and unpublished changes (§24, §27-§30, §73) ----------------------- */
@@ -204,8 +202,9 @@ function normaliseArea(value: string | null | undefined): string | null {
 }
 
 /**
- * Whether the live unit differs from its current publication (§27, §28). A unit
- * never published has nothing to differ from.
+ * Whether the live unit differs from its current publication (§27, §28) — when
+ * it does, the change that made it so writes the next version. A unit never
+ * published has nothing to differ from.
  */
 export function hasUnpublishedChanges(live: LiveUnitFacts, published: UnitSnapshot | null): boolean {
   if (!published) return false;

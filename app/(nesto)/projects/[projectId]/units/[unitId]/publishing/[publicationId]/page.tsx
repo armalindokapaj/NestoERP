@@ -52,7 +52,7 @@ export default async function PublicationDetailPage({ params }: Params) {
         </div>
         <p className="mt-1 text-table text-fg-muted">
           {t("unitPage.published", { date: formatDateTime(publication.publishedAt, locale) })}
-          {publication.publishedBy ? <> {t("unitPage.by")} <PersonLink memberId={publication.publishedByMemberId} name={publication.publishedBy} /></> : null}
+          {publication.publishedByMemberId === null ? <> · {t("unitPage.publishedAutomatically")}</> : publication.publishedBy ? <> {t("unitPage.by")} <PersonLink memberId={publication.publishedByMemberId} name={publication.publishedBy} /></> : null}
         </p>
         <DetailGrid
           className="mt-5"

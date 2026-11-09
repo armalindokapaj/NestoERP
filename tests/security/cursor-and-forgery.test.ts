@@ -257,7 +257,8 @@ describe("forged ids in a create are refused; the reader's own are accepted (RP-
     const project = await prisma.project.findUniqueOrThrow({ where: { id: PROJECT.companyB }, select: { id: true, name: true } });
     const client = await prisma.client.findFirstOrThrow({ where: { companyId: COMPANY.tenant }, select: { id: true, name: true } });
     const member = await prisma.companyMember.findFirstOrThrow({ where: { companyId: COMPANY.tenant }, select: { id: true } });
-    const unit = await prisma.projectUnit.findFirstOrThrow({ where: { companyId: COMPANY.tenant }, select: { id: true } });
+    // A unit no deal holds yet, so "nothing was linked" can be counted — not whichever row happens to come first.
+    const unit = await prisma.projectUnit.findFirstOrThrow({ where: { companyId: COMPANY.tenant, opportunityLinks: { none: {} } }, orderBy: { id: "asc" }, select: { id: true } });
     tenant = { project, client, member: member.id, unit: unit.id };
   });
 

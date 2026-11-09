@@ -3249,9 +3249,12 @@ model ProjectUnit {
   createdBy String
   updatedBy String?
 
-  /// Publishing (E-05D §13-§31). `currentPublicationId` points at the version
-  /// downstream modules read; `hasUnpublishedChanges` says the live unit has moved
-  /// on from it (§27, §28). The status moves only by the `unit_publication` machine.
+  /// Publishing (E-05D §13-§31; units publish on create, 2026-11). A unit is
+  /// Published from the moment it exists, and every change to its publish facts
+  /// writes the next version at once, so `currentPublicationId` always points at
+  /// what the unit now is. `hasUnpublishedChanges` and `revisionReason` belong to
+  /// the retired review workflow and stay false and null. The status moves only by
+  /// the `unit_publication` machine (archive, restore) and is set at creation.
   publicationStatus           UnitPublicationStatus  @default(DRAFT)
   preArchivePublicationStatus UnitPublicationStatus?
   publicationStatusChangedAt  DateTime?
@@ -3311,7 +3314,11 @@ model UnitPublication {
   versionNumber Int
 
   publishedAt         DateTime @default(now())
-  publishedByMemberId String
+  /// Who published it: the member whose change wrote this version. Null when it
+  /// was published automatically — the backfill that published every unit, a
+  /// unit created by a Platform Admin in the 3D tool, a file version promoted
+  /// by the scan worker.
+  publishedByMemberId String?
 
   /// Publish-relevant data only (§73): code, name, type, building and floor,
   /// areas, counts, orientation, position, attributes, technical notes.

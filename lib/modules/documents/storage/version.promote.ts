@@ -107,5 +107,20 @@ export async function promoteVersion(tx: Prisma.TransactionClient, versionId: st
     },
   });
   if (promoted.count === 0) throw new StorageError("INVALID_DOCUMENT_STORAGE_STATE");
+  await publishUnitsUsing(tx, version.documentId);
   return true;
+}
+
+/**
+ * A unit publishes what it is the moment it changes (units publish on create,
+ * 2026-11), and a unit's Sales Plan version and primary image are part of what
+ * it is. When the swap makes a new file current — often the scan worker, long
+ * after the upload's request ended — every unit whose Sales Plan or primary
+ * image this document is goes out as its next version, in the swap's own
+ * transaction. Project Structure owns the units and imports Documents, so its
+ * door is reached the way `frozenFileReason` reaches Engineering's.
+ */
+async function publishUnitsUsing(tx: Prisma.TransactionClient, documentId: string): Promise<void> {
+  const { publishUnitsUsingDocument } = await import("@/lib/modules/project-structure/unit-publishing.state");
+  await publishUnitsUsingDocument(tx, documentId);
 }

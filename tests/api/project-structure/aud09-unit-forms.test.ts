@@ -34,6 +34,8 @@ async function removeSite() {
   )
     .flat()
     .map((row) => row.id);
+  await prisma.projectUnit.updateMany({ where: { projectId: SITE }, data: { currentPublicationId: null } });
+  await prisma.unitPublication.deleteMany({ where: { projectId: SITE } });
   await prisma.projectUnit.deleteMany({ where: { projectId: SITE } });
   await prisma.projectFloor.deleteMany({ where: { projectId: SITE } });
   await prisma.projectBuilding.deleteMany({ where: { projectId: SITE } });
@@ -57,6 +59,8 @@ afterEach(async () => {
   actAs(null);
   const units = await prisma.projectUnit.findMany({ where: { projectId: SITE }, select: { id: true } });
   await prisma.auditEvent.deleteMany({ where: { entityId: { in: units.map((row) => row.id) } } });
+  await prisma.projectUnit.updateMany({ where: { projectId: SITE }, data: { currentPublicationId: null } });
+  await prisma.unitPublication.deleteMany({ where: { projectId: SITE } });
   await prisma.projectUnit.deleteMany({ where: { projectId: SITE } });
 });
 

@@ -30,7 +30,7 @@ import { areaRule, failureMessage, numberText, structureApi } from "./structure-
 import { parseOptionalDecimal } from "@/lib/forms/decimal";
 import { UnitDialog } from "./unit-dialog";
 import { EMPTY_FILTERS, type UnitFilters } from "./unit-filters";
-import { UNIT_PUBLICATION_STATUSES } from "@/lib/modules/project-structure/unit-publishing.types";
+import { UNIT_PUBLICATION_FILTER_STATUSES } from "@/lib/modules/project-structure/unit-publishing.types";
 import { UnitTable, type UnitRowActions } from "./unit-table";
 import { FormSelect } from "@/components/ui/form-select";
 
@@ -67,9 +67,8 @@ function queryString(selection: Selection, filters: UnitFilters, page: number): 
   if (selection.floorId) params.set("floorId", selection.floorId);
   if (filters.q.trim()) params.set("q", filters.q.trim());
   for (const key of FILTER_KEYS) if (filters[key]) params.set(key, filters[key]);
-  // One control, two parameters: a publication status, or published units with unpublished changes (E-05D §28).
-  if (filters.publication === "CHANGES") params.set("unpublishedChanges", "true");
-  else if (filters.publication) params.set("publicationStatus", filters.publication);
+  // Published or Archived (E-05D §13): every change is published at once, so there is nothing "changed" to find.
+  if (filters.publication) params.set("publicationStatus", filters.publication);
   if (filters.sort !== "structure") params.set("sort", filters.sort);
   if (page > 1) params.set("page", String(page));
   return params.toString();
@@ -480,7 +479,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
         {filtersOpen ? (
           <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="unit-filters">
             <FilterSelect label={t("workspace.type")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={structure.unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
-            <FilterSelect label={t("workspace.publication")} value={filters.publication} onChange={(publication) => setFilter({ publication })} options={[...UNIT_PUBLICATION_STATUSES.map((value) => ({ value, label: t(`publication.${value}`) })), { value: "CHANGES", label: t("workspace.unpublishedChanges") }]} />
+            <FilterSelect label={t("workspace.publication")} value={filters.publication} onChange={(publication) => setFilter({ publication })} options={UNIT_PUBLICATION_FILTER_STATUSES.map((value) => ({ value, label: t(`publication.${value}`) }))} />
             <FilterSelect label={t("workspace.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: t(`orientation.${value}`) }))} />
             <FilterSelect label={t("workspace.position")} value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: t(`position.${value}`) }))} />
             <FilterSelect label={t("workspace.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />

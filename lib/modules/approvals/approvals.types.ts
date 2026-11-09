@@ -51,6 +51,12 @@ export const DUE_STATE_LABELS: Record<DueState, string> = {
 export const APPROVAL_SORTS = ["urgency", "newest", "oldest", "due", "amount"] as const;
 export type ApprovalSort = (typeof APPROVAL_SORTS)[number];
 
+/**
+ * Every key a link, a filter or a stored delegation may name. `projects` was unit
+ * publishing, retired when units began to publish on create (2026-11): it stays a
+ * key so an old link or delegation still parses, and no provider answers to it —
+ * the registry refuses it as it refuses any source it does not hold.
+ */
 export const PROVIDER_KEYS = ["finance", "procurement", "hr", "sales", "legal", "documents", "qaqc", "hse", "timesheets", "projects", "unit_sales"] as const;
 export type ApprovalProviderKey = (typeof PROVIDER_KEYS)[number];
 

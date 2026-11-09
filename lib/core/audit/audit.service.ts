@@ -60,6 +60,11 @@ async function write(
   context: AuditContext,
   input: RecordAuditInput,
 ) {
+  return client.auditEvent.create({ data: auditRow(context, input) });
+}
+
+/** The row one event becomes: the policy's module, category and severity, its redacted snapshots, the request's ids. */
+function auditRow(context: AuditContext, input: RecordAuditInput): Prisma.AuditEventCreateManyInput {
   const policy = findAuditPolicy(input.actionKey);
   // An unregistered action key would store evidence nobody can interpret.
   if (!policy) throw new Error(`UNREGISTERED_AUDIT_ACTION:${input.actionKey}`);
@@ -72,36 +77,34 @@ async function write(
   // A job's audit names the job, so "System" is never the whole answer to who did it (PRD #51 §13).
   const jobKey = context.actor.type === "SYSTEM" ? currentRequestContext()?.jobKey : undefined;
 
-  return client.auditEvent.create({
-    data: {
-      companyId: context.companyId,
-      ...(context.parentGroupId ? { parentGroupId: context.parentGroupId } : {}),
-      actorType: context.actor.type,
-      actorUserId: context.actor.userId ?? null,
-      actorMemberId: context.actor.memberId ?? null,
-      actorDisplayNameSnapshot: context.actor.displayNameSnapshot ?? (jobKey ? `System (${jobKey})` : null),
-      actorRoleSnapshot: context.actor.roleSnapshot ?? null,
-      moduleKey: policy.moduleKey,
-      category: policy.category,
-      severity: policy.severity,
-      actionKey: policy.actionKey,
-      entityType: input.entity?.type ?? null,
-      entityId: input.entity?.id ?? null,
-      entityLabelSnapshot: input.entity?.label?.slice(0, 200) ?? null,
-      projectId: input.projectId ?? null,
-      beforeJson: snapshot === "BEFORE_AFTER" ? (before as Prisma.InputJsonValue) ?? undefined : undefined,
-      afterJson: snapshot === "BEFORE_AFTER" ? (after as Prisma.InputJsonValue) ?? undefined : undefined,
-      changesJson: changes ? (changes as unknown as Prisma.InputJsonValue) : undefined,
-      reason: input.reason?.slice(0, 2000) ?? null,
-      metadataJson: input.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined,
-      // The request's own ids when the caller did not pass any, so a decision,
-      // its outbox event and its audit share one correlation (PRD #32 §34, PRD #41 §229).
-      correlationId: context.correlationId ?? currentRequestContext()?.correlationId ?? null,
-      requestId: context.requestId ?? currentRequestContext()?.requestId ?? null,
-      ipAddress: context.ipAddress ?? null,
-      userAgent: context.userAgent?.slice(0, 500) ?? null,
-    },
-  });
+  return {
+    companyId: context.companyId,
+    ...(context.parentGroupId ? { parentGroupId: context.parentGroupId } : {}),
+    actorType: context.actor.type,
+    actorUserId: context.actor.userId ?? null,
+    actorMemberId: context.actor.memberId ?? null,
+    actorDisplayNameSnapshot: context.actor.displayNameSnapshot ?? (jobKey ? `System (${jobKey})` : null),
+    actorRoleSnapshot: context.actor.roleSnapshot ?? null,
+    moduleKey: policy.moduleKey,
+    category: policy.category,
+    severity: policy.severity,
+    actionKey: policy.actionKey,
+    entityType: input.entity?.type ?? null,
+    entityId: input.entity?.id ?? null,
+    entityLabelSnapshot: input.entity?.label?.slice(0, 200) ?? null,
+    projectId: input.projectId ?? null,
+    beforeJson: snapshot === "BEFORE_AFTER" ? (before as Prisma.InputJsonValue) ?? undefined : undefined,
+    afterJson: snapshot === "BEFORE_AFTER" ? (after as Prisma.InputJsonValue) ?? undefined : undefined,
+    changesJson: changes ? (changes as unknown as Prisma.InputJsonValue) : undefined,
+    reason: input.reason?.slice(0, 2000) ?? null,
+    metadataJson: input.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined,
+    // The request's own ids when the caller did not pass any, so a decision,
+    // its outbox event and its audit share one correlation (PRD #32 §34, PRD #41 §229).
+    correlationId: context.correlationId ?? currentRequestContext()?.correlationId ?? null,
+    requestId: context.requestId ?? currentRequestContext()?.requestId ?? null,
+    ipAddress: context.ipAddress ?? null,
+    userAgent: context.userAgent?.slice(0, 500) ?? null,
+  };
 }
 
 /**
@@ -154,6 +157,22 @@ export async function recordAuditEvent(
 /** A fixed name: savepoints nest by name, so a re-entrant optional write releases its own. */
 const OPTIONAL_AUDIT_SAVEPOINT = "nesto_optional_audit";
 
+/**
+ * Several events of one change, in one INSERT — a hundred units published by
+ * one bulk creation are a hundred events, not a hundred round trips. Every
+ * event must be `required`, so all of them commit with the change or none do;
+ * a batch holding an optional one is written one event at a time instead, so
+ * each optional write keeps its own savepoint.
+ */
+export async function recordAuditEvents(context: AuditContext, inputs: RecordAuditInput[], options: { tx: Prisma.TransactionClient }): Promise<void> {
+  if (inputs.length === 0) return;
+  if (inputs.some((input) => !findAuditPolicy(input.actionKey)?.required)) {
+    for (const input of inputs) await recordAuditEvent(context, input, options);
+    return;
+  }
+  await options.tx.auditEvent.createMany({ data: inputs.map((input) => auditRow(context, input)) });
+}
+
 /** An interactive transaction's client has no `$transaction` of its own; the root client does. */
 function isTransactionClient(client: Prisma.TransactionClient | typeof prisma): boolean {
   return !("$transaction" in client);
@@ -183,15 +202,16 @@ export async function recordPlatformAction(
   input: RecordAuditInput,
   options: { tx?: Prisma.TransactionClient; companyId?: string } = {},
 ): Promise<void> {
-  return recordAuditEvent(
-    {
-      companyId: options.companyId ?? null,
-      parentGroupId,
-      actor: { type: "USER", userId: context.userId, memberId: null, displayNameSnapshot: context.fullName, roleSnapshot: context.roleKey },
-    },
-    input,
-    { tx: options.tx },
-  );
+  return recordAuditEvent(platformAuditContext(context, parentGroupId, options.companyId), input, { tx: options.tx });
+}
+
+/** Who a Platform Admin's event names: the platform user and role, never a member. */
+export function platformAuditContext(context: { userId: string; fullName: string; roleKey: string }, parentGroupId: string, companyId?: string | null): AuditContext {
+  return {
+    companyId: companyId ?? null,
+    parentGroupId,
+    actor: { type: "USER", userId: context.userId, memberId: null, displayNameSnapshot: context.fullName, roleSnapshot: context.roleKey },
+  };
 }
 
 /** Platform action with no tenant owner, such as maintenance or a global flag. */

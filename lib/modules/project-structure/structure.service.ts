@@ -120,7 +120,6 @@ export const UNIT_SELECT = {
   createdAt: true,
   updatedAt: true,
   publicationStatus: true,
-  hasUnpublishedChanges: true,
   currentPublication: { select: { versionNumber: true } },
   // The commercial status is the one Sales fact everybody who reads the unit sees (E-05E §33, §39).
   commercialProfile: { select: { status: true } },
@@ -154,7 +153,7 @@ export function toUnitDTO(row: UnitRow): UnitDTO {
     version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    publication: { status: row.publicationStatus, versionNumber: row.currentPublication?.versionNumber ?? null, hasUnpublishedChanges: row.hasUnpublishedChanges },
+    publication: { status: row.publicationStatus, versionNumber: row.currentPublication?.versionNumber ?? null },
     commercialStatus: row.commercialProfile?.status ?? "NOT_FOR_SALE",
   };
 }
@@ -209,7 +208,6 @@ export async function listProjectUnits(context: UserContext, projectId: string, 
     ...(query.bedrooms !== undefined ? [{ bedrooms: query.bedrooms }] : []),
     ...(query.bathrooms !== undefined ? [{ bathrooms: query.bathrooms }] : []),
     ...(query.publicationStatus ? [{ publicationStatus: query.publicationStatus }] : []),
-    ...(query.unpublishedChanges ? [{ hasUnpublishedChanges: true }] : []),
   ];
   const internal = range(query.internalAreaMin, query.internalAreaMax);
   if (internal) filters.push({ internalArea: internal });

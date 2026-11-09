@@ -175,8 +175,8 @@ export type UnitDTO = {
   version: number;
   createdAt: string;
   updatedAt: string;
-  /** Where the unit stands in publishing (E-05D §13, §28): never its sales status. */
-  publication: { status: UnitPublicationStatusKey; versionNumber: number | null; hasUnpublishedChanges: boolean };
+  /** Where the unit stands in publishing (E-05D §13): Published (with its current version) or Archived — never its sales status. */
+  publication: { status: UnitPublicationStatusKey; versionNumber: number | null };
   /** Whether it is for sale, reserved or sold (E-05E §7, §33) — the status only; prices and clients need Sales' grant. */
   commercialStatus: UnitCommercialStatusKey;
 };

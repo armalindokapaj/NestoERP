@@ -8,35 +8,31 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { setFileScanner } from "@/lib/core/storage";
+import type { FileScanner } from "@/lib/core/storage";
 import { LocalStorageProvider } from "@/lib/core/storage/providers/local.provider";
 import { setStorageProvider, storageProvider } from "@/lib/core/storage/storage-provider.factory";
 import { approvalQuerySchema } from "@/lib/modules/approvals/approvals.schema";
 import { decideApproval, listApprovals } from "@/lib/modules/approvals/approvals.service";
 import { reconcileStorageUsage } from "@/lib/modules/documents/storage/cleanup.service";
+import { runScanForVersion } from "@/lib/modules/documents/storage/scan.service";
 import { attachDocumentFromBytes, completeUpload, createVersionUploadSession } from "@/lib/modules/documents/storage/upload.service";
 import { createBuilding } from "@/lib/modules/project-structure/structure.buildings";
-import { createFloor } from "@/lib/modules/project-structure/structure.floors";
-import { createBuildingSchema, createFloorSchema, createUnitSchema, parseUnitListQuery, updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
+import { createFloor, moveFloor } from "@/lib/modules/project-structure/structure.floors";
+import { bulkUnitsSchema, copyUnitsSchema, createBuildingSchema, createFloorSchema, createUnitSchema, parseUnitListQuery, updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
 import { getUnitDetail, listProjectUnits, listUnitActivity } from "@/lib/modules/project-structure/structure.service";
-import { createUnit, deleteUnit, moveUnit, updateUnit } from "@/lib/modules/project-structure/structure.units";
+import { bulkCreateUnits, copyUnits, createUnit, deleteUnit, moveUnit, updateUnit } from "@/lib/modules/project-structure/structure.units";
 import { addUnitMedia, attachUnitDocument, detachUnitDocument, listAttachableDocuments, listUnitFiles, removeUnitMedia, reorderUnitMedia, setUnitSalesPlan, updateUnitMedia } from "@/lib/modules/project-structure/unit-files.service";
-import {
-  archiveUnit,
-  getUnitPublication,
-  getUnitPublishing,
-  listUnitPublications,
-  publishingCapabilities,
-  publishUnit,
-  requestUnitRevision,
-  restoreUnit,
-  submitUnitForPublishing,
-  unpublishUnit,
-} from "@/lib/modules/project-structure/unit-publishing.service";
+import { archiveUnit, getUnitPublication, getUnitPublishing, listUnitPublications, publishingCapabilities, restoreUnit } from "@/lib/modules/project-structure/unit-publishing.service";
+import { loadPublishState } from "@/lib/modules/project-structure/unit-publishing.state";
 import type { UnitSnapshot } from "@/lib/modules/project-structure/unit-publishing.types";
 import { cleanupSessions, COMPANY, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, PROJECT, prisma } from "../../helpers";
 
 /**
- * The unit page and its publishing, against the real database (E-05D §107-§115).
+ * The unit page and its publishing, against the real database (E-05D §107-§115;
+ * units publish on create, 2026-11): a unit is published when it is created,
+ * whatever its completeness, and every change to what it publishes goes out as
+ * its next version in the same transaction. There is no submit, publish,
+ * revision or unpublish; archive is the only way out of use.
  *
  * Everything happens on a building this suite adds to a second Aurelia project
  * it builds for itself (each demo company runs one) and removes at the end: the
@@ -143,7 +139,7 @@ async function newVersion(context: UserContext, documentId: string, bytes: Uint8
   return completeUpload(context, session.uploadSessionId);
 }
 
-/** A unit with its Sales Plan and a primary image: ready to submit. */
+/** A unit with its Sales Plan and a primary image: v1 at creation, v2 with the Sales Plan, v3 with the image. */
 async function readyUnit(code: string) {
   const unitId = await newUnit(code);
   const plan = await uploadToUnit(architect, unitId, `${code} sales plan`, "Sales plan.pdf", "application/pdf", pdf(code));
@@ -151,6 +147,28 @@ async function readyUnit(code: string) {
   const image = await uploadToUnit(architect, unitId, `${code} render`, "Render.png", "image/png", await png(40));
   await addUnitMedia(architect, unitId, { documentId: image, category: "INTERIOR_RENDER", caption: null });
   return { unitId, plan, image };
+}
+
+/** The unit's versions, oldest first: number, who published it, and the snapshot. */
+async function versions(unitId: string) {
+  return prisma.unitPublication.findMany({ where: { unitId }, orderBy: { versionNumber: "asc" }, select: { id: true, versionNumber: true, publishedByMemberId: true, snapshot: true, salesPlanDocumentVersionId: true, primaryMediaDocumentVersionId: true } });
+}
+
+/** The unit points at its latest version, and that version is what the unit now is. */
+async function expectLive(unitId: string) {
+  const state = (await loadPublishState(prisma, COMPANY.a, unitId))!;
+  const latest = (await versions(unitId)).at(-1)!;
+  expect(state.row.publicationStatus).toBe("PUBLISHED");
+  expect(state.row.currentPublicationId).toBe(latest.id);
+  expect(state.drift).toBe(false);
+  expect(state.row.hasUnpublishedChanges).toBe(false);
+  return latest;
+}
+
+async function editUnit(context: UserContext, unitId: string, patch: Record<string, unknown>) {
+  const detail = await getUnitDetail(context, unitId);
+  // A partial update: what is left out keeps its saved value (AUD-09 §4).
+  return updateUnit(context, unitId, updateUnitSchema.parse({ unitCode: detail.unitCode, unitTypeId: detail.unitType.id, isActive: detail.isActive, expectedVersion: detail.version, ...patch }));
 }
 
 async function removeMarina() {
@@ -199,228 +217,243 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-/* Readiness and submission ---------------------------------------------------- */
+/* Publishing on create ---------------------------------------------------------- */
 
-describe("readiness (§16, §17, §45, §46, §81)", () => {
-  it("starts every unit as a Draft with nothing published, and lists exactly what is missing", async () => {
+describe("a unit is published the moment it is created (2026-11)", () => {
+  it("publishes version 1 of an incomplete unit, in the creator's name, and the checklist only informs", async () => {
     const unitId = await newUnit("101", { ...COMPLETE, saleableArea: null });
     const publishing = await getUnitPublishing(architect, unitId);
-    expect(publishing).toMatchObject({ status: "DRAFT", currentPublication: null, hasUnpublishedChanges: false, pendingRequest: null });
-    expect(publishing.readiness.ready).toBe(false);
-    expect(publishing.readiness.missing).toEqual(["Saleable area", "Sales Plan", "Primary image"]);
-    expect(publishing.readiness.complete).toBe(publishing.readiness.required - 3);
+    expect(publishing).toMatchObject({ status: "PUBLISHED", currentPublication: { versionNumber: 1, publishedByMemberId: owner.membershipId } });
+    expect(publishing.currentPublication?.publishedBy).toBeTruthy();
+    expect(publishing.statusChangedAt).not.toBeNull();
+    // Information only: what a complete listing still lacks, and nothing refused for it.
+    expect(publishing.readiness.items.filter((item) => !item.ok).map((item) => item.key)).toEqual(["primaryArea", "salesPlan", "primaryImage"]);
+    expect(publishing).not.toHaveProperty("pendingRequest");
+    expect(publishing).not.toHaveProperty("hasUnpublishedChanges");
 
-    const error = await refused(submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) }), "VALIDATION_ERROR", "UNIT_NOT_READY");
-    expect(error.message).toBe("This unit cannot be submitted. Missing: Saleable area, Sales Plan, Primary image.");
-    expect((error.details as { missing: string[] }).missing).toHaveLength(3);
+    const v1 = await expectLive(unitId);
+    expect(v1).toMatchObject({ versionNumber: 1, publishedByMemberId: owner.membershipId, salesPlanDocumentVersionId: null, primaryMediaDocumentVersionId: null });
+    expect(v1.snapshot as UnitSnapshot).toMatchObject({ unitCode: `${T}-101`, areas: { saleableArea: null, internalArea: "92.40" }, bedrooms: 2, salesPlan: null, primaryImage: null });
+    expect(await prisma.auditEvent.count({ where: { entityId: unitId, actionKey: "PROJECT_UNIT_PUBLISHED", actorMemberId: owner.membershipId } })).toBe(1);
+    expect((await listUnitActivity(sales, unitId)).items.map((item) => item.action)).toEqual(expect.arrayContaining(["UNIT_CREATED", "UNIT_PUBLISHED"]));
+    expect(await prisma.unitPublicationApproval.count({ where: { recordId: unitId } })).toBe(0);
   });
 
-  it("holds a parking space to its own fields: any area, no bedrooms or orientation", async () => {
+  it("holds a parking space to its own fields in the checklist: any area, no bedrooms or orientation", async () => {
     const unitId = await newUnit("P1", { internalArea: "12.50" }, parkingType);
-    const { readiness } = await getUnitPublishing(architect, unitId);
+    const { readiness, status } = await getUnitPublishing(architect, unitId);
+    expect(status).toBe("PUBLISHED");
     expect(readiness.items.map((item) => item.key)).not.toContain("bedrooms");
     expect(readiness.items.find((item) => item.key === "primaryArea")).toMatchObject({ ok: true, label: "Saleable, internal or gross area" });
   });
 
-  it("submits a complete unit: Ready for Publishing, one open request, the publishers asked", async () => {
-    const { unitId } = await readyUnit("102");
-    const result = await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
-    expect(result.status).toBe("READY_FOR_PUBLISHING");
-    const requests = await prisma.unitPublicationApproval.findMany({ where: { recordId: unitId } });
-    expect(requests).toHaveLength(1);
-    expect(requests[0]).toMatchObject({ status: "PENDING", submittedByMemberId: architect.membershipId, projectId: MARINA });
-    const outbox = await prisma.notificationEventOutbox.findFirst({ where: { entityId: unitId, eventType: "APPROVAL_REQUESTED" } });
-    expect(outbox).not.toBeNull();
+  it("publishes every unit a bulk creation or a copy makes, each its own version 1", async () => {
+    const bulk = await bulkCreateUnits(architect, floorId, bulkUnitsSchema.parse({ units: [{ unitCode: `${T}-B1`, name: null }, { unitCode: `${T}-B2`, name: null }, { unitCode: `${T}-B3`, name: null }], defaults: { unitTypeId: apartmentType, saleableArea: "80.00", bedrooms: 1 }, dryRun: false }));
+    expect(bulk.created).toHaveLength(3);
+    for (const unitId of bulk.created) expect(await expectLive(unitId)).toMatchObject({ versionNumber: 1, publishedByMemberId: architect.membershipId });
 
-    await refused(submitUnitForPublishing(architect, unitId, { expectedVersion: result.version }), "CONFLICT", "UNIT_ALREADY_SUBMITTED");
-    await refused(submitUnitForPublishing(architect, unitId, { expectedVersion: 1 }), "CONFLICT", "STRUCTURE_STALE");
+    const building = (await prisma.projectFloor.findUniqueOrThrow({ where: { id: floorId } })).buildingId;
+    const target = await createFloor(owner, building, createFloorSchema.parse({ number: 5, name: "Floor 5", levelType: "STANDARD" }));
+    const copied = await copyUnits(owner, target.id, copyUnitsSchema.parse({ sourceFloorId: floorId, units: bulk.created.map((sourceUnitId, index) => ({ sourceUnitId, unitCode: `${T}-C${index + 1}`, name: null })), dryRun: false }));
+    expect(copied.created).toHaveLength(3);
+    for (const unitId of copied.created) {
+      const v1 = await expectLive(unitId);
+      expect(v1).toMatchObject({ versionNumber: 1, publishedByMemberId: owner.membershipId });
+      expect((v1.snapshot as UnitSnapshot).floor.id).toBe(target.id);
+    }
+    expect(await prisma.auditEvent.count({ where: { entityId: { in: [...bulk.created, ...copied.created] }, actionKey: "PROJECT_UNIT_PUBLISHED" } })).toBe(6);
   });
 
-  it("lets two people submitting at once leave one request (§82)", async () => {
-    const { unitId } = await readyUnit("103");
-    const expected = await version(unitId);
-    const outcomes = await Promise.allSettled([submitUnitForPublishing(architect, unitId, { expectedVersion: expected }), submitUnitForPublishing(manager, unitId, { expectedVersion: expected })]);
-    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
-    // The loser was refused as a conflict, not for some other reason.
-    const loser = outcomes.find((outcome) => outcome.status === "rejected") as PromiseRejectedResult;
-    expect((loser.reason as AccessError).code).toBe("CONFLICT");
-    expect(await prisma.unitPublicationApproval.count({ where: { recordId: unitId, status: "PENDING" } })).toBe(1);
+  it("lets a unit that nothing else points at be deleted, with its own versions", async () => {
+    const unitId = await newUnit("102");
+    await editUnit(architect, unitId, { saleableArea: "114.00" });
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(2);
+    await deleteUnit(owner, unitId);
+    expect(await prisma.projectUnit.count({ where: { id: unitId } })).toBe(0);
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(0);
+
+    const { unitId: withFiles } = await readyUnit("103");
+    await refused(deleteUnit(owner, withFiles), "CONFLICT", "UNIT_REFERENCED");
   });
 });
 
-/* Publishing ------------------------------------------------------------------ */
+/* Every change goes out at once ---------------------------------------------------- */
 
-describe("publishing (§23-§26, §66, §72-§74, §82, §109)", () => {
-  it("publishes version 1 as an immutable snapshot with the exact Sales Plan version and primary image", async () => {
-    const { unitId, plan, image } = await readyUnit("201");
-    const submitted = await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
+describe("every change is published at once, with no review (§24-§30, §72-§74)", () => {
+  it("writes version 2 on an edit, keeps version 1 as it was, and writes nothing for a save that changes nothing", async () => {
+    const unitId = await newUnit("201");
+    const v1 = (await versions(unitId))[0]!;
 
-    await refused(publishUnit(architect, unitId, {}), "FORBIDDEN");
-    const published = await publishUnit(manager, unitId, { expectedVersion: submitted.version });
-    expect(published).toMatchObject({ status: "PUBLISHED", versionNumber: 1, alreadyPublished: false });
+    const saved = await editUnit(architect, unitId, { saleableArea: "120.00" });
+    const v2 = await expectLive(unitId);
+    expect(v2).toMatchObject({ versionNumber: 2, publishedByMemberId: architect.membershipId });
+    expect((v2.snapshot as UnitSnapshot).areas.saleableArea).toBe("120.00");
+    expect((await prisma.unitPublication.findUniqueOrThrow({ where: { id: v1.id } })).snapshot).toEqual(v1.snapshot);
+    expect(((await getUnitPublication(architect, unitId, v1.id)).snapshot.areas.saleableArea)).toBe("113.00");
 
-    const unit = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId }, select: { publicationStatus: true, currentPublicationId: true, hasUnpublishedChanges: true } });
-    expect(unit).toEqual({ publicationStatus: "PUBLISHED", currentPublicationId: published.publicationId, hasUnpublishedChanges: false });
-    const planVersion = (await prisma.document.findUniqueOrThrow({ where: { id: plan }, select: { currentVersionId: true } })).currentVersionId;
-    const imageVersion = (await prisma.document.findUniqueOrThrow({ where: { id: image }, select: { currentVersionId: true } })).currentVersionId;
-    const row = await prisma.unitPublication.findUniqueOrThrow({ where: { id: published.publicationId } });
-    expect(row).toMatchObject({ versionNumber: 1, publishedByMemberId: manager.membershipId, salesPlanDocumentVersionId: planVersion, primaryMediaDocumentVersionId: imageVersion });
-    const snapshot = row.snapshot as UnitSnapshot;
-    expect(snapshot).toMatchObject({ unitCode: `${T}-201`, areas: { saleableArea: "113.00" }, bedrooms: 2, orientation: "SW", salesPlan: { documentId: plan, versionNumber: 1 }, primaryImage: { documentId: image, category: "INTERIOR_RENDER" } });
+    // The version the edit returned is the one the next save sends: publishing did not move it.
+    expect(saved.version).toBe(await version(unitId));
+    await editUnit(architect, unitId, { saleableArea: "120.00", expectedVersion: saved.version });
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(2);
+    // Deactivating is not a publish fact either.
+    await editUnit(architect, unitId, { isActive: false });
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(2);
 
-    expect(await prisma.unitPublicationApproval.findFirst({ where: { recordId: unitId } })).toMatchObject({ status: "APPROVED", decidedByMemberId: manager.membershipId });
-    expect(await prisma.auditEvent.findFirst({ where: { entityId: unitId, actionKey: "PROJECT_UNIT_PUBLISHED" } })).not.toBeNull();
-    const detail = await getUnitPublication(sales, unitId, published.publicationId);
-    expect(detail).toMatchObject({ versionNumber: 1, isCurrent: true, salesPlanVersionNumber: 1 });
-  });
-
-  it("marks later changes as unpublished without touching the published version, and republishes as version 2", async () => {
-    const { unitId } = await readyUnit("202");
-    const first = await publishUnit(manager, unitId, {});
-    const before = await prisma.unitPublication.findUniqueOrThrow({ where: { id: first.publicationId }, select: { snapshot: true } });
-
-    const detail = await getUnitDetail(architect, unitId);
-    const input = updateUnitSchema.parse({ ...COMPLETE, unitCode: detail.unitCode, unitTypeId: apartmentType, saleableArea: "120.00", isActive: true, expectedVersion: detail.version });
-    const saved = await updateUnit(architect, unitId, input);
-    expect((await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } })).hasUnpublishedChanges).toBe(true);
-    expect((await getUnitPublishing(architect, unitId)).hasUnpublishedChanges).toBe(true);
-    expect((await prisma.unitPublication.findUniqueOrThrow({ where: { id: first.publicationId }, select: { snapshot: true } })).snapshot).toEqual(before.snapshot);
-
-    // Putting the value back is no change at all (§27).
-    await updateUnit(architect, unitId, { ...input, saleableArea: "113.00", expectedVersion: saved.version });
-    expect((await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } })).hasUnpublishedChanges).toBe(false);
-    await refused(publishUnit(manager, unitId, {}), "CONFLICT", "UNIT_NO_UNPUBLISHED_CHANGES");
-
-    await updateUnit(architect, unitId, { ...input, saleableArea: "121.50", expectedVersion: saved.version + 1 });
-    const second = await publishUnit(manager, unitId, {});
-    expect(second.versionNumber).toBe(2);
-    const history = await listUnitPublications(architect, unitId);
-    expect(history.map((row) => [row.versionNumber, row.isCurrent])).toEqual([
-      [2, true],
+    // Putting the value back is a change from version 2, and goes out as version 3.
+    await editUnit(architect, unitId, { saleableArea: "113.00", isActive: true });
+    expect(await expectLive(unitId)).toMatchObject({ versionNumber: 3 });
+    expect((await listUnitPublications(sales, unitId)).map((row) => [row.versionNumber, row.isCurrent])).toEqual([
+      [3, true],
+      [2, false],
       [1, false],
     ]);
-    expect(((await getUnitPublication(architect, unitId, first.publicationId)).snapshot.areas.saleableArea)).toBe("113.00");
-    expect((await getUnitPublishing(architect, unitId)).hasUnpublishedChanges).toBe(false);
+    expect((await listUnitActivity(sales, unitId)).items.filter((item) => item.action === "UNIT_PUBLISHED")).toHaveLength(3);
   });
 
-  it("counts a move to another floor as a change, and keeps the unit's id and published versions", async () => {
-    const { unitId } = await readyUnit("203");
-    await publishUnit(manager, unitId, {});
-    const other = await createFloor(owner, (await prisma.projectFloor.findUniqueOrThrow({ where: { id: floorId } })).buildingId, createFloorSchema.parse({ number: 4, name: "Floor 4", levelType: "STANDARD" }));
-    await moveUnit(owner, unitId, { floorId: other.id, expectedVersion: await version(unitId) });
-    expect((await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } })).hasUnpublishedChanges).toBe(true);
-    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(1);
+  it("publishes a move to another floor, and a floor moved to another building, for every unit on it", async () => {
+    const unitId = await newUnit("202");
+    const building = (await prisma.projectFloor.findUniqueOrThrow({ where: { id: floorId } })).buildingId;
+    const other = await createFloor(owner, building, createFloorSchema.parse({ number: 4, name: "Floor 4", levelType: "STANDARD" }));
+    const moved = await moveUnit(owner, unitId, { floorId: other.id, expectedVersion: await version(unitId) });
+    expect(moved.version).toBe(await version(unitId));
+    expect((await expectLive(unitId)).snapshot as UnitSnapshot).toMatchObject({ floor: { id: other.id } });
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(2);
+
+    const second = await newUnit("203");
+    await moveUnit(owner, second, { floorId: other.id, expectedVersion: await version(second) });
+    const east = await createBuilding(owner, MARINA, createBuildingSchema.parse({ name: `${T} East` }));
+    const floorRow = await prisma.projectFloor.findUniqueOrThrow({ where: { id: other.id } });
+    await moveFloor(owner, other.id, { buildingId: east.id, expectedVersion: floorRow.version });
+    for (const id of [unitId, second]) expect(((await expectLive(id)).snapshot as UnitSnapshot).building.id).toBe(east.id);
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(3);
   });
 
-  it("publishes once when two reviewers publish at the same moment (§82)", async () => {
-    const { unitId } = await readyUnit("204");
-    const expected = (await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) })).version;
-    const outcomes = await Promise.allSettled([publishUnit(manager, unitId, { expectedVersion: expected }), publishUnit(owner, unitId, { expectedVersion: expected })]);
-    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
-    expect(((outcomes.find((outcome) => outcome.status === "rejected") as PromiseRejectedResult).reason as AccessError).code).toBe("CONFLICT");
-    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(1);
+  it("publishes the Sales Plan and a new primary image with their exact file versions", async () => {
+    const { unitId, plan, image } = await readyUnit("204");
+    const all = await versions(unitId);
+    const planVersion = (await prisma.document.findUniqueOrThrow({ where: { id: plan }, select: { currentVersionId: true } })).currentVersionId;
+    const imageVersion = (await prisma.document.findUniqueOrThrow({ where: { id: image }, select: { currentVersionId: true } })).currentVersionId;
+    expect(all.map((row) => [row.versionNumber, row.salesPlanDocumentVersionId, row.primaryMediaDocumentVersionId])).toEqual([
+      [1, null, null],
+      [2, planVersion, null],
+      [3, planVersion, imageVersion],
+    ]);
+    expect(all[2]!.snapshot as UnitSnapshot).toMatchObject({ salesPlan: { documentId: plan, versionNumber: 1 }, primaryImage: { documentId: image, category: "INTERIOR_RENDER" } });
+    expect(await getUnitPublication(sales, unitId, all[2]!.id)).toMatchObject({ versionNumber: 3, isCurrent: true, salesPlanVersionNumber: 1 });
+
+    // A second image is not the primary one, so the unit has nothing new to publish; making it primary does.
+    const second = await uploadToUnit(architect, unitId, "view", "View.png", "image/png", await png(200));
+    const added = await addUnitMedia(architect, unitId, { documentId: second, category: "VIEW", caption: null });
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(3);
+    await updateUnitMedia(architect, unitId, added.id, { isPrimary: true });
+    expect(((await expectLive(unitId)).snapshot as UnitSnapshot).primaryImage?.documentId).toBe(second);
+    await removeUnitMedia(architect, unitId, added.id);
+    expect(await expectLive(unitId)).toMatchObject({ versionNumber: 5 });
+    expect(((await versions(unitId)).at(-1)!.snapshot as UnitSnapshot).primaryImage).toBeNull();
   });
 
-  it("refuses to publish a unit that is no longer complete, however it got there (§17)", async () => {
-    const { unitId, image } = await readyUnit("205");
-    await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
+  it("publishes a new Sales Plan version when the scanner makes it current, with nobody's change behind it", async () => {
+    const { unitId, plan } = await readyUnit("205");
+    const scanner: FileScanner = { provider: "test-clean", scan: async () => ({ verdict: "CLEAN" }) };
+    setFileScanner(scanner);
+    await newVersion(architect, plan, pdf("revision two"));
+    const latest = await expectLive(unitId);
+    expect(latest).toMatchObject({ versionNumber: 4, publishedByMemberId: null });
+    expect((latest.snapshot as UnitSnapshot).salesPlan?.versionNumber).toBe(2);
+    expect(await prisma.auditEvent.findFirst({ where: { entityId: unitId, actionKey: "PROJECT_UNIT_PUBLISHED", actorType: "SYSTEM" } })).not.toBeNull();
+    // The Documents section records the version afterwards; there is nothing left to publish.
+    expect(await setUnitSalesPlan(architect, unitId, { documentId: plan })).toMatchObject({ versionNumber: 2, changed: true });
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(4);
+    expect((await getUnitPublishing(sales, unitId)).currentPublication).toMatchObject({ versionNumber: 4, publishedBy: null, publishedByMemberId: null });
+    // A version scanned and promoted later is the same door: run the scan again and nothing moves.
+    const pending = await prisma.documentVersion.findFirstOrThrow({ where: { documentId: plan, versionNumber: 2 }, select: { id: true } });
+    expect(await runScanForVersion(pending.id)).toBe("NOT_CLAIMED");
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(4);
+  });
+
+  it("gives two changes made at the same moment their own version numbers", async () => {
+    const { unitId } = await readyUnit("206");
+    const second = await uploadToUnit(architect, unitId, "view", "View.png", "image/png", await png(120));
+    const added = await addUnitMedia(architect, unitId, { documentId: second, category: "VIEW", caption: null });
+    const outcomes = await Promise.allSettled([editUnit(architect, unitId, { saleableArea: "130.00" }), updateUnitMedia(manager, unitId, added.id, { isPrimary: true })]);
+    expect(outcomes.map((outcome) => outcome.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect((await versions(unitId)).map((row) => row.versionNumber)).toEqual([1, 2, 3, 4, 5]);
+    const latest = await expectLive(unitId);
+    expect(latest.snapshot as UnitSnapshot).toMatchObject({ areas: { saleableArea: "130.00" }, primaryImage: { documentId: second } });
+  });
+
+  it("publishes an incomplete unit's changes too: the checklist never blocks", async () => {
+    const { unitId, image } = await readyUnit("207");
     await prisma.document.update({ where: { id: image }, data: { status: "ARCHIVED" } });
-    const error = await refused(publishUnit(manager, unitId, {}), "VALIDATION_ERROR", "UNIT_NOT_READY");
-    expect(error.message).toContain("Primary image");
-    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(0);
+    expect((await getUnitPublishing(architect, unitId)).readiness.items.find((item) => item.key === "primaryImage")?.ok).toBe(false);
+    await editUnit(architect, unitId, { bedrooms: null, saleableArea: null });
+    const latest = await expectLive(unitId);
+    expect(latest.snapshot as UnitSnapshot).toMatchObject({ bedrooms: null, areas: { saleableArea: null }, primaryImage: null });
   });
 });
 
-/* Revision, unpublish, archive --------------------------------------------------- */
+/* Archive and restore --------------------------------------------------------------- */
 
-describe("revision, unpublishing and archiving (§22, §31, §32, §110)", () => {
-  it("sends a waiting unit back with a mandatory reason, and publishes it after resubmission", async () => {
-    const { unitId } = await readyUnit("301");
-    await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
-    await refused(requestUnitRevision(manager, unitId, { reason: "  " }), "VALIDATION_ERROR");
-    await refused(requestUnitRevision(architect, unitId, { reason: "Wrong plan" }), "FORBIDDEN");
-
-    const revised = await requestUnitRevision(manager, unitId, { reason: "Sales Plan dimensions do not match the saleable area." });
-    expect(revised).toMatchObject({ status: "REVISION_REQUIRED", returnedChangesOnly: false });
-    const publishing = await getUnitPublishing(architect, unitId);
-    expect(publishing).toMatchObject({ status: "REVISION_REQUIRED", revisionReason: "Sales Plan dimensions do not match the saleable area.", pendingRequest: null });
-    expect(await prisma.unitPublicationApproval.findFirst({ where: { recordId: unitId } })).toMatchObject({ status: "RETURNED", decisionNote: "Sales Plan dimensions do not match the saleable area." });
-
-    await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
-    const published = await publishUnit(manager, unitId, {});
-    expect(published.versionNumber).toBe(1);
-    expect((await getUnitPublishing(architect, unitId)).revisionReason).toBeNull();
-  });
-
-  it("returns a published unit's changes without taking the unit out of use", async () => {
-    const { unitId } = await readyUnit("302");
-    await publishUnit(manager, unitId, {});
-    const detail = await getUnitDetail(architect, unitId);
-    await updateUnit(architect, unitId, updateUnitSchema.parse({ ...COMPLETE, unitCode: detail.unitCode, unitTypeId: apartmentType, bedrooms: 3, isActive: true, expectedVersion: detail.version }));
-
-    const submitted = await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
-    expect(submitted.status).toBe("PUBLISHED");
-    expect((await getUnitPublishing(manager, unitId)).pendingRequest).not.toBeNull();
-
-    const returned = await requestUnitRevision(manager, unitId, { reason: "Three bedrooms is not what was built." });
-    expect(returned).toMatchObject({ status: "PUBLISHED", returnedChangesOnly: true });
-    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(1);
-
-    // With nothing waiting, the same action takes the published unit out of use.
-    const pulled = await requestUnitRevision(manager, unitId, { reason: "Hold for correction." });
-    expect(pulled).toMatchObject({ status: "REVISION_REQUIRED", returnedChangesOnly: false });
-  });
-
-  it("unpublishes to Ready for Publishing with a reason, archives, and restores without resurrecting a request", async () => {
-    const { unitId } = await readyUnit("303");
-    await publishUnit(manager, unitId, {});
-    await refused(unpublishUnit(architect, unitId, { reason: "x", expectedVersion: await version(unitId) }), "FORBIDDEN");
-    const unpublished = await unpublishUnit(manager, unitId, { reason: "Price list withdrawn.", expectedVersion: await version(unitId) });
-    expect(unpublished.status).toBe("READY_FOR_PUBLISHING");
-    expect(await prisma.unitPublicationApproval.count({ where: { recordId: unitId, status: "PENDING" } })).toBe(1);
-    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(1);
-
-    const archived = await archiveUnit(manager, unitId, { expectedVersion: unpublished.version });
+describe("archive is the only way out of use; restore brings the unit back published (§32)", () => {
+  it("archives, publishes nothing while archived, and restores Published with what changed as the next version", async () => {
+    const unitId = await newUnit("301");
+    await refused(archiveUnit(architect, unitId, { expectedVersion: await version(unitId) }), "FORBIDDEN");
+    const archived = await archiveUnit(manager, unitId, { expectedVersion: await version(unitId) });
     expect(archived.status).toBe("ARCHIVED");
-    expect(await prisma.unitPublicationApproval.count({ where: { recordId: unitId, status: "PENDING" } })).toBe(0);
-    await refused(submitUnitForPublishing(architect, unitId, { expectedVersion: archived.version }), "CONFLICT", "UNIT_ARCHIVED");
+    await refused(archiveUnit(manager, unitId, { expectedVersion: archived.version }), "CONFLICT");
 
-    const restored = await restoreUnit(manager, unitId, { expectedVersion: archived.version });
-    expect(restored.status).toBe("DRAFT");
-    await refused(deleteUnit(owner, unitId), "CONFLICT", "UNIT_REFERENCED");
+    await editUnit(owner, unitId, { saleableArea: "99.00" });
+    expect(await prisma.unitPublication.count({ where: { unitId } })).toBe(1);
+    expect((await getUnitPublishing(sales, unitId)).status).toBe("ARCHIVED");
+
+    await refused(restoreUnit(manager, unitId, { expectedVersion: archived.version }), "CONFLICT", "STRUCTURE_STALE");
+    const restored = await restoreUnit(manager, unitId, { expectedVersion: await version(unitId) });
+    expect(restored).toEqual({ status: "PUBLISHED", version: await version(unitId) });
+    const latest = await expectLive(unitId);
+    expect(latest).toMatchObject({ versionNumber: 2, publishedByMemberId: manager.membershipId });
+    expect((latest.snapshot as UnitSnapshot).areas.saleableArea).toBe("99.00");
+    expect((await listUnitActivity(sales, unitId)).items.map((item) => item.action)).toEqual(expect.arrayContaining(["UNIT_ARCHIVED", "UNIT_RESTORED"]));
   });
 
-  it("restores a published unit to Published, its version intact", async () => {
-    const { unitId } = await readyUnit("304");
-    await publishUnit(manager, unitId, {});
+  it("restores an unchanged unit Published with its version intact", async () => {
+    const unitId = await newUnit("302");
     const archived = await archiveUnit(owner, unitId, { expectedVersion: await version(unitId) });
     const restored = await restoreUnit(owner, unitId, { expectedVersion: archived.version });
     expect(restored.status).toBe("PUBLISHED");
-    expect((await getUnitPublishing(sales, unitId)).currentPublication?.versionNumber).toBe(1);
+    expect(await expectLive(unitId)).toMatchObject({ versionNumber: 1 });
+  });
+
+  it("restores a unit archived in a retired review state Published, with a version", async () => {
+    const unitId = await newUnit("303");
+    // Old data: a draft archived before units published on create, with no version of its own.
+    await prisma.projectUnit.update({ where: { id: unitId }, data: { publicationStatus: "ARCHIVED", preArchivePublicationStatus: "DRAFT", currentPublicationId: null } });
+    await prisma.unitPublication.deleteMany({ where: { unitId } });
+    const restored = await restoreUnit(owner, unitId, { expectedVersion: await version(unitId) });
+    expect(restored.status).toBe("PUBLISHED");
+    expect(await expectLive(unitId)).toMatchObject({ versionNumber: 1, publishedByMemberId: owner.membershipId });
+    expect((await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } })).preArchivePublicationStatus).toBeNull();
   });
 });
 
 /* The Sales Plan and documents ----------------------------------------------------- */
 
 describe("the Sales Plan and documents (§33-§39, §78, §112, §117)", () => {
-  it("keeps one logical Sales Plan: a new upload is a version, the publication keeps the old one", async () => {
+  it("keeps one logical Sales Plan: a new upload is a version of it, each publication keeps its own", async () => {
     const { unitId, plan } = await readyUnit("401");
-    const published = await publishUnit(manager, unitId, {});
     const v1 = (await prisma.document.findUniqueOrThrow({ where: { id: plan } })).currentVersionId;
+    const before = (await versions(unitId)).at(-1)!;
 
     const other = await uploadToUnit(architect, unitId, "second plan", "Another plan.pdf", "application/pdf", pdf("other"));
     await refused(setUnitSalesPlan(architect, unitId, { documentId: other }), "CONFLICT", "UNIT_SALES_PLAN_EXISTS");
 
     await newVersion(architect, plan, pdf("revision two"));
-    expect((await getUnitPublishing(architect, unitId)).hasUnpublishedChanges).toBe(true);
     const recorded = await setUnitSalesPlan(architect, unitId, { documentId: plan });
     expect(recorded).toMatchObject({ versionNumber: 2, changed: true });
     expect(await setUnitSalesPlan(architect, unitId, { documentId: plan })).toMatchObject({ changed: false });
-    expect((await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } })).hasUnpublishedChanges).toBe(true);
-
-    expect((await prisma.unitPublication.findUniqueOrThrow({ where: { id: published.publicationId } })).salesPlanDocumentVersionId).toBe(v1);
-    const next = await publishUnit(manager, unitId, {});
-    expect((await getUnitPublication(architect, unitId, next.publicationId)).snapshot.salesPlan?.versionNumber).toBe(2);
+    expect((await prisma.unitPublication.findUniqueOrThrow({ where: { id: before.id } })).salesPlanDocumentVersionId).toBe(v1);
+    const latest = await expectLive(unitId);
+    expect(latest.versionNumber).toBe(before.versionNumber + 1);
+    expect((await getUnitPublication(architect, unitId, latest.id)).snapshot.salesPlan?.versionNumber).toBe(2);
     expect(await prisma.document.count({ where: { entityType: "project_unit", entityId: unitId, name: { contains: "sales plan" } } })).toBe(1);
   });
 
@@ -442,6 +475,8 @@ describe("the Sales Plan and documents (§33-§39, §78, §112, §117)", () => {
     expect(await prisma.document.count({ where: { name: `${T} typical floor plan` } })).toBe(1);
     expect((await listUnitFiles(sales, second)).documents.map((link) => link.document.documentId)).toEqual([drawing.documentId]);
     expect((await listAttachableDocuments(architect, first, { kind: "document" })).map((row) => row.id)).not.toContain(drawing.documentId);
+    // An attached drawing is not a publish fact.
+    expect(await prisma.unitPublication.count({ where: { unitId: first } })).toBe(1);
 
     const elsewhere = await attachDocumentFromBytes(owner, { name: `${T} riverside drawing`, context: "project", projectId: PROJECT.a, fileName: "Riverside.pdf", mimeType: "application/pdf" } as Parameters<typeof attachDocumentFromBytes>[1], pdf("riverside"));
     const error = await refused(attachUnitDocument(architect, first, { documentId: elsewhere.documentId, category: "OTHER" }), "VALIDATION_ERROR");
@@ -453,22 +488,23 @@ describe("the Sales Plan and documents (§33-§39, §78, §112, §117)", () => {
     await refused(attachUnitDocument(sales, first, { documentId: drawing.documentId, category: "OTHER" }), "FORBIDDEN");
   });
 
-  it("flags an archived attachment in readiness (§17: no broken references)", async () => {
+  it("flags an archived attachment in the checklist (§17: no broken references), and publishes regardless", async () => {
     const { unitId } = await readyUnit("405");
     const drawing = await uploadToUnit(architect, unitId, "old drawing", "Old.pdf", "application/pdf", pdf("old"));
     await attachUnitDocument(architect, unitId, { documentId: drawing, category: "TECHNICAL_DRAWING" });
     expect((await getUnitPublishing(architect, unitId)).readiness.ready).toBe(true);
     await prisma.document.update({ where: { id: drawing }, data: { status: "ARCHIVED" } });
     expect((await getUnitPublishing(architect, unitId)).readiness.missing).toEqual(["Attached files available"]);
+    await editUnit(architect, unitId, { bathrooms: 3 });
+    expect(await expectLive(unitId)).toMatchObject({ versionNumber: 4 });
   });
 });
 
 /* Media ------------------------------------------------------------------------ */
 
 describe("media (§40-§44, §76, §113)", () => {
-  it("makes the first image primary, swaps the primary in one step, orders, and counts a new primary as a change", async () => {
+  it("makes the first image primary, swaps the primary in one step, orders, and removes", async () => {
     const { unitId } = await readyUnit("501");
-    await publishUnit(manager, unitId, {});
     const second = await uploadToUnit(architect, unitId, "view", "View.png", "image/png", await png(200));
     const added = await addUnitMedia(architect, unitId, { documentId: second, category: "VIEW", caption: "From the balcony" });
     expect(added.isPrimary).toBe(false);
@@ -477,7 +513,6 @@ describe("media (§40-§44, §76, §113)", () => {
     const media = (await listUnitFiles(architect, unitId)).media;
     expect(media.filter((item) => item.isPrimary).map((item) => item.id)).toEqual([added.id]);
     expect(media[0].thumbnailHref).toMatch(/\/api\/project-units\/.+\/media\/.+\/thumbnail$/);
-    expect((await prisma.projectUnit.findUniqueOrThrow({ where: { id: unitId } })).hasUnpublishedChanges).toBe(true);
 
     // The database holds the rule on its own: a second primary is refused.
     const other = media.find((item) => !item.isPrimary)!;
@@ -487,7 +522,7 @@ describe("media (§40-§44, §76, §113)", () => {
     expect((await listUnitFiles(architect, unitId)).media.map((item) => item.id)).toEqual([added.id, other.id]);
 
     await removeUnitMedia(architect, unitId, added.id);
-    expect((await getUnitPublishing(architect, unitId)).readiness.missing).toEqual(["Primary image"]);
+    expect((await getUnitPublishing(architect, unitId)).readiness.items.find((item) => item.key === "primaryImage")).toMatchObject({ ok: false, required: false });
     expect(await prisma.document.count({ where: { id: second } })).toBe(1);
   });
 
@@ -502,75 +537,71 @@ describe("media (§40-§44, §76, §113)", () => {
 /* Access ----------------------------------------------------------------------- */
 
 describe("access (§18-§20, §85-§89, §114, §120, §122)", () => {
-  it("lets the Architect prepare and submit but not publish; the Architecture Manager, the Owner and the CEO publish", async () => {
+  it("lets the Architect prepare a unit and the Architecture Manager, the Owner and the CEO archive it", async () => {
     const { unitId } = await readyUnit("601");
-    expect((await getUnitPublishing(architect, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: false, canManageDocuments: true, canManageMedia: true, canUnpublish: false });
-    expect((await getUnitPublishing(manager, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: true, canRequestRevision: true, canUnpublish: true, canArchive: true });
-    expect((await getUnitPublishing(owner, unitId)).capabilities.canPublish).toBe(true);
+    expect((await getUnitPublishing(architect, unitId)).capabilities).toEqual({ canArchive: false, canRestore: false, canViewHistory: true, canManageDocuments: true, canManageMedia: true });
+    expect((await getUnitPublishing(manager, unitId)).capabilities).toMatchObject({ canArchive: true, canRestore: true });
+    expect((await getUnitPublishing(owner, unitId)).capabilities.canArchive).toBe(true);
     // The CEO runs the company's units end to end (user, 2026-09-29).
-    expect((await getUnitPublishing(ceo, unitId)).capabilities).toMatchObject({ canSubmit: true, canPublish: true, canManageDocuments: true, canManageMedia: true });
-    // The Project Manager prepares and submits on their own projects; this is not one of them.
+    expect((await getUnitPublishing(ceo, unitId)).capabilities).toMatchObject({ canArchive: true, canManageDocuments: true, canManageMedia: true });
+    // The Project Manager prepares units on their own projects; this is not one of them.
     await refused(getUnitPublishing(pm, unitId), "NOT_FOUND");
-    expect(publishingCapabilities(pm)).toMatchObject({ canSubmit: true, canManageDocuments: true, canPublish: false, canRequestRevision: false });
+    expect(publishingCapabilities(pm)).toMatchObject({ canManageDocuments: true, canArchive: false });
   });
 
   it("gives Sales and Finance the page and the published history, and nothing to change", async () => {
     const { unitId, image } = await readyUnit("602");
-    const published = await publishUnit(manager, unitId, {});
+    const ids = (await versions(unitId)).map((row) => row.id).reverse();
     for (const reader of [sales, finance]) {
       const publishing = await getUnitPublishing(reader, unitId);
-      expect(publishing.capabilities).toMatchObject({ canSubmit: false, canPublish: false, canManageDocuments: false, canManageMedia: false, canViewHistory: true });
-      expect((await listUnitPublications(reader, unitId)).map((row) => row.id)).toEqual([published.publicationId]);
+      expect(publishing.capabilities).toEqual({ canArchive: false, canRestore: false, canManageDocuments: false, canManageMedia: false, canViewHistory: true });
+      expect((await listUnitPublications(reader, unitId)).map((row) => row.id)).toEqual(ids);
       await refused(addUnitMedia(reader, unitId, { documentId: image, category: "OTHER", caption: null }), "FORBIDDEN");
-      await refused(submitUnitForPublishing(reader, unitId, { expectedVersion: await version(unitId) }), "FORBIDDEN");
+      await refused(archiveUnit(reader, unitId, { expectedVersion: await version(unitId) }), "FORBIDDEN");
     }
   });
 
   it("finds nothing for a reader outside the project or the company, whatever id they hold", async () => {
     const { unitId } = await readyUnit("603");
-    const request = await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
+    const publication = (await versions(unitId))[0]!;
     for (const outsider of [engineer, ownerB]) {
       await refused(getUnitPublishing(outsider, unitId), "NOT_FOUND");
-      await refused(publishUnit(outsider, unitId, {}), outsider === ownerB ? "NOT_FOUND" : "NOT_FOUND");
+      await refused(archiveUnit(outsider, unitId, { expectedVersion: await version(unitId) }), "NOT_FOUND");
       await refused(listUnitFiles(outsider, unitId), "NOT_FOUND");
+      await refused(getUnitPublication(outsider, unitId, publication.id), "NOT_FOUND");
     }
-    await refused(getUnitPublication(architect, unitId, request.requestId), "NOT_FOUND");
+    await refused(getUnitPublication(architect, unitId, "unit_publication_elsewhere"), "NOT_FOUND");
     await refused(getUnitDetail(architect, unitId, SITE), "NOT_FOUND");
   });
 
-  it("shows the unit's history and filters the unit list by publication", async () => {
+  it("shows the unit's history and filters the unit list by Published or Archived, ignoring old filters", async () => {
     const { unitId } = await readyUnit("604");
-    await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
-    await publishUnit(manager, unitId, {});
+    const archivedId = await newUnit("605");
+    await archiveUnit(owner, archivedId, { expectedVersion: await version(archivedId) });
     const actions = (await listUnitActivity(sales, unitId)).items.map((item) => item.action);
-    expect(actions).toEqual(expect.arrayContaining(["UNIT_CREATED", "UNIT_SALES_PLAN_UPLOADED", "UNIT_MEDIA_ADDED", "UNIT_SUBMITTED_FOR_PUBLISHING", "UNIT_PUBLISHED"]));
-    const list = await listProjectUnits(architect, MARINA, parseUnitListQuery({ publicationStatus: "PUBLISHED", q: T }));
-    expect(list.items.map((item) => item.id)).toEqual([unitId]);
-    expect(list.items[0].publication).toEqual({ status: "PUBLISHED", versionNumber: 1, hasUnpublishedChanges: false });
+    expect(actions).toEqual(expect.arrayContaining(["UNIT_CREATED", "UNIT_SALES_PLAN_UPLOADED", "UNIT_MEDIA_ADDED", "UNIT_PUBLISHED"]));
+    expect(actions).not.toContain("UNIT_SUBMITTED_FOR_PUBLISHING");
+
+    const published = await listProjectUnits(architect, MARINA, parseUnitListQuery({ publicationStatus: "PUBLISHED", q: T }));
+    expect(published.items.map((item) => item.id)).toEqual([unitId]);
+    expect(published.items[0].publication).toEqual({ status: "PUBLISHED", versionNumber: 3 });
+    expect((await listProjectUnits(architect, MARINA, parseUnitListQuery({ publicationStatus: "ARCHIVED", q: T }))).items.map((item) => item.id)).toEqual([archivedId]);
+    // An old link's retired filters are ignored, not refused.
+    for (const old of [{ unpublishedChanges: "true" }, { publicationStatus: "DRAFT" }, { publicationStatus: "READY_FOR_PUBLISHING" }]) {
+      const query = parseUnitListQuery({ ...old, q: T });
+      expect(query).not.toHaveProperty("unpublishedChanges");
+      expect((await listProjectUnits(architect, MARINA, query)).items.map((item) => item.id).sort()).toEqual([unitId, archivedId].sort());
+    }
   });
 });
 
 /* The Approvals Center ------------------------------------------------------------ */
 
-describe("the Approvals Center (§21, §47; PRD #41)", () => {
-  it("puts a submitted unit in the publisher's inbox and publishes it from there", async () => {
-    const { unitId } = await readyUnit("701");
-    await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
-    const waiting = await listApprovals(manager, approvalQuerySchema.parse({ tab: "waiting", provider: "projects", limit: 100 }));
-    const item = waiting.items.find((entry) => entry.sourceId === unitId);
-    expect(item).toMatchObject({ providerKey: "projects", canApprove: true, canReturn: true, canReject: false, href: `/projects/${MARINA}/units/${unitId}/publishing` });
-    expect((await listApprovals(architect, approvalQuerySchema.parse({ tab: "waiting", limit: 100 }))).items.some((entry) => entry.sourceId === unitId)).toBe(false);
-
-    const result = await decideApproval(manager, "projects", item!.approvalId, "APPROVE", { note: null });
-    expect(result.outcome).toBe("APPROVED");
-    expect((await getUnitPublishing(architect, unitId)).status).toBe("PUBLISHED");
-  });
-
-  it("returns a unit for revision from the Center with the reviewer's reason", async () => {
-    const { unitId } = await readyUnit("702");
-    await submitUnitForPublishing(architect, unitId, { expectedVersion: await version(unitId) });
-    const request = await prisma.unitPublicationApproval.findFirstOrThrow({ where: { recordId: unitId, status: "PENDING" } });
-    await decideApproval(manager, "projects", request.id, "RETURN", { note: "Add the terrace area." });
-    expect(await getUnitPublishing(architect, unitId)).toMatchObject({ status: "REVISION_REQUIRED", revisionReason: "Add the terrace area." });
+describe("the Approvals Center has no unit publishing (2026-11)", () => {
+  it("offers no publishing source and refuses its old key", async () => {
+    const unitId = await newUnit("701");
+    const waiting = await listApprovals(manager, approvalQuerySchema.parse({ tab: "waiting", limit: 100 }));
+    expect(waiting.items.some((entry) => entry.sourceId === unitId || entry.providerKey === "projects")).toBe(false);
+    await refused(decideApproval(manager, "projects", "unit_publication_approval_old", "APPROVE", { note: null }), "NOT_FOUND");
   });
 });

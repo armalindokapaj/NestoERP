@@ -61,8 +61,6 @@ const ERROR_SENTENCES = [
   "lib/modules/project-3d/processing/glb.validate.ts",
   "lib/modules/project-planning/planning.schema.ts",
   "lib/modules/project-structure/structure.schema.ts",
-  "lib/modules/project-structure/unit-publishing.schema.ts",
-  "lib/modules/project-structure/unit-publishing.service.ts",
   "lib/modules/sales/units/unit-sales.schema.ts",
   "lib/modules/shared/fields.ts",
   "lib/modules/tasks/task.schema.ts",

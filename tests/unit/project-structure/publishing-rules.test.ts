@@ -6,10 +6,14 @@ import { canMove } from "@/lib/core/state/machine";
 import { STATE_MACHINES } from "@/lib/core/state/registry";
 import { buildSnapshot, evaluateReadiness, hasUnpublishedChanges, isPdf, isUnitImage, publishFingerprint, unitDisplay, type LiveUnitFacts, type ReadinessInput } from "@/lib/modules/project-structure/unit-publishing.rules";
 import { unitPublicationMachine } from "@/lib/modules/project-structure/unit-publication.machine";
-import { addMediaSchema, publishSchema, revisionSchema, unpublishSchema, updateMediaSchema } from "@/lib/modules/project-structure/unit-publishing.schema";
+import { addMediaSchema, updateMediaSchema, versionedActionSchema } from "@/lib/modules/project-structure/unit-publishing.schema";
+import { PERMISSIONS } from "@/config/permissions";
 
 /**
- * Publishing rules, without a database (E-05D §11, §13-§17, §19, §27-§30, §73).
+ * Publishing rules, without a database (E-05D §11, §13-§17, §19, §27-§30, §73;
+ * units publish on create, 2026-11). The checklist is information only, the
+ * fingerprint decides when a change writes a version, and the machine has
+ * archive and restore and nothing else.
  */
 
 const areas = { internalArea: "92.40", grossArea: null, saleableArea: "113.00", outdoorArea: null, balconyArea: null, terraceArea: null, gardenArea: null, commonAreaAllocation: null };
@@ -53,7 +57,7 @@ function facts(patch: Partial<LiveUnitFacts> = {}): LiveUnitFacts {
   };
 }
 
-describe("readiness (§16, §17, §45, §80)", () => {
+describe("readiness (§16, §45, §80): information only", () => {
   it("is ready when everything required is there", () => {
     const readiness = evaluateReadiness(input());
     expect(readiness).toMatchObject({ ready: true, missing: [] });
@@ -133,31 +137,24 @@ describe("snapshots and unpublished changes (§24, §27-§30, §73)", () => {
   });
 });
 
-describe("the publication machine (§13, §14, §21-§32)", () => {
-  it("is registered, and moves only the way the PRD draws it", () => {
+describe("the publication machine (§13, §32): archive is the only way out of use", () => {
+  it("is registered, archives a unit in use and restores it Published — nothing else", () => {
     expect(STATE_MACHINES).toContain(unitPublicationMachine);
-    expect(canMove(unitPublicationMachine, "DRAFT", "READY_FOR_PUBLISHING")).toBe(true);
-    expect(canMove(unitPublicationMachine, "READY_FOR_PUBLISHING", "PUBLISHED")).toBe(true);
-    expect(canMove(unitPublicationMachine, "PUBLISHED", "REVISION_REQUIRED")).toBe(true);
-    expect(canMove(unitPublicationMachine, "REVISION_REQUIRED", "READY_FOR_PUBLISHING")).toBe(true);
-    expect(canMove(unitPublicationMachine, "PUBLISHED", "READY_FOR_PUBLISHING")).toBe(true);
-    expect(canMove(unitPublicationMachine, "PUBLISHED", "PUBLISHED")).toBe(true);
-    expect(canMove(unitPublicationMachine, "PUBLISHED", "ARCHIVED")).toBe(true);
-    expect(canMove(unitPublicationMachine, "ARCHIVED", "READY_FOR_PUBLISHING")).toBe(false);
-    expect(canMove(unitPublicationMachine, "DRAFT", "REVISION_REQUIRED")).toBe(false);
-    const byAction = Object.fromEntries(unitPublicationMachine.transitions.map((transition) => [transition.action, transition]));
-    expect(byAction.request_revision.requiresReason).toBe(true);
-    expect(byAction.unpublish.requiresReason).toBe(true);
-    expect(byAction.publish.permission).toBe("project.unit.publish");
+    expect(unitPublicationMachine.transitions.map((transition) => transition.action).sort()).toEqual(["archive", "restore"]);
+    for (const state of ["PUBLISHED", "DRAFT", "READY_FOR_PUBLISHING", "REVISION_REQUIRED"] as const) expect(canMove(unitPublicationMachine, state, "ARCHIVED"), state).toBe(true);
+    expect(canMove(unitPublicationMachine, "ARCHIVED", "PUBLISHED")).toBe(true);
+    for (const state of ["DRAFT", "READY_FOR_PUBLISHING", "REVISION_REQUIRED"] as const) expect(canMove(unitPublicationMachine, "ARCHIVED", state), state).toBe(false);
+    expect(canMove(unitPublicationMachine, "DRAFT", "PUBLISHED")).toBe(false);
+    expect(canMove(unitPublicationMachine, "PUBLISHED", "READY_FOR_PUBLISHING")).toBe(false);
+    expect(canMove(unitPublicationMachine, "PUBLISHED", "REVISION_REQUIRED")).toBe(false);
+    for (const transition of unitPublicationMachine.transitions) expect(transition.permission).toBe("project.unit.archive");
   });
 });
 
-describe("validation (§67, §110)", () => {
-  it("requires a reason, and a version where the action changes a published unit", () => {
-    expect(revisionSchema.safeParse({ reason: "   " }).success).toBe(false);
-    expect(revisionSchema.parse({ reason: " Fix the plan " }).reason).toBe("Fix the plan");
-    expect(unpublishSchema.safeParse({ reason: "Withdrawn" }).success).toBe(false);
-    expect(publishSchema.parse({})).toEqual({});
+describe("validation (§110)", () => {
+  it("asks archive and restore for the version the person saw, and checks media edits", () => {
+    expect(versionedActionSchema.safeParse({}).success).toBe(false);
+    expect(versionedActionSchema.parse({ expectedVersion: 3 })).toEqual({ expectedVersion: 3 });
     expect(addMediaSchema.parse({ documentId: "doc_1" })).toEqual({ documentId: "doc_1", category: "OTHER", caption: null });
     expect(updateMediaSchema.safeParse({ isPrimary: false }).success).toBe(false);
   });
@@ -167,17 +164,21 @@ describe("default role policy (§19, §120)", () => {
   const holders = (permission: string, position: PositionLevel = "MEMBER") => ROLE_KEYS.filter((role) => (permissionsForRole(role, position) as readonly string[]).includes(permission)).sort();
 
   // The CEO runs the company's units end to end (user, 2026-09-29).
-  it("lets the Architect, the Project Manager, the CEO and the Owner prepare and submit units", () => {
-    for (const permission of ["project.unit.documents.manage", "project.unit.media.manage", "project.unit.submit_for_publish"]) {
+  it("lets the Architect, the Project Manager, the CEO and the Owner manage a unit's documents and media", () => {
+    for (const permission of ["project.unit.documents.manage", "project.unit.media.manage"]) {
       expect(holders(permission), permission).toEqual(["ARCHITECT", "CEO", "OWNER", "PROJECT_MANAGER"]);
     }
   });
 
-  it("keeps publishing, revision, unpublishing and archiving with Architecture's managers, the CEO and the Owner (E-06 §6.3)", () => {
-    for (const permission of ["project.unit.publish", "project.unit.revision_request", "project.unit.unpublish", "project.unit.archive"]) {
-      expect(holders(permission), permission).toEqual(["CEO", "OWNER"]);
-      expect(holders(permission, "COMPANY_MANAGER"), permission).toEqual(["ARCHITECT", "CEO", "OWNER"]);
-      expect(holders(permission, "GROUP_HEAD"), permission).toEqual(["ARCHITECT", "CEO", "OWNER"]);
+  it("keeps archiving with Architecture's managers, the CEO and the Owner (E-06 §6.3)", () => {
+    expect(holders("project.unit.archive")).toEqual(["CEO", "OWNER"]);
+    expect(holders("project.unit.archive", "COMPANY_MANAGER")).toEqual(["ARCHITECT", "CEO", "OWNER"]);
+    expect(holders("project.unit.archive", "GROUP_HEAD")).toEqual(["ARCHITECT", "CEO", "OWNER"]);
+  });
+
+  it("has no grant to submit, publish, send back or unpublish a unit: publishing follows every change (2026-11)", () => {
+    for (const retired of ["project.unit.submit_for_publish", "project.unit.publish", "project.unit.revision_request", "project.unit.unpublish"]) {
+      expect(PERMISSIONS as readonly string[], retired).not.toContain(retired);
     }
   });
 

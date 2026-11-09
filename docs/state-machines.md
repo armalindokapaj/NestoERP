@@ -96,7 +96,7 @@ the permission off. A transition that does not declare it refuses a step.
 
 ## What is declared
 
-Forty-eight machines over 253 transitions: HSE and QA/QC, where this began,
+Forty-eight machines over 249 transitions: HSE and QA/QC, where this began,
 the six domains PRD #49 §292 ranks highest risk that own a lifecycle of
 their own — Documents, Finance, Procurement, Inventory, Legal and
 Engineering — Projects, whose status E-05A made a lifecycle of its own, a
@@ -297,12 +297,13 @@ Terminal: none
 
 | Action | From | To | Permission | Reason | Freezes |
 |---|---|---|---|---|---|
-| `submit` | `DRAFT`, `REVISION_REQUIRED` | `READY_FOR_PUBLISHING` | `project.unit.submit_for_publish` | — | — |
-| `publish` | `DRAFT`, `READY_FOR_PUBLISHING`, `REVISION_REQUIRED`, `PUBLISHED` | `PUBLISHED` | `project.unit.publish` | — | the published version: its snapshot, Sales Plan version and primary image |
-| `request_revision` | `READY_FOR_PUBLISHING`, `PUBLISHED` | `REVISION_REQUIRED` | `project.unit.revision_request` | required | — |
-| `unpublish` | `PUBLISHED` | `READY_FOR_PUBLISHING` | `project.unit.unpublish` | required | — |
 | `archive` | `DRAFT`, `READY_FOR_PUBLISHING`, `PUBLISHED`, `REVISION_REQUIRED` | `ARCHIVED` | `project.unit.archive` | — | — |
-| `restore` | `ARCHIVED` | `DRAFT` or `PUBLISHED` or `REVISION_REQUIRED` | `project.unit.archive` | — | — |
+| `restore` | `ARCHIVED` | `PUBLISHED` | `project.unit.archive` | — | — |
+
+A unit is created `PUBLISHED` and every change to it is published as its next
+version without moving its state (units publish on create, 2026-11;
+`docs/unit-publishing.md`). `DRAFT`, `READY_FOR_PUBLISHING` and
+`REVISION_REQUIRED` are no longer written; archive still accepts them.
 
 ### Sales
 

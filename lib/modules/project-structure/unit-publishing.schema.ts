@@ -1,21 +1,18 @@
 import { z } from "zod";
 
 import { idSchema } from "./structure.schema";
-import { CAPTION_MAX, REVISION_REASON_MAX, UNIT_DOCUMENT_CATEGORIES, UNIT_MEDIA_CATEGORIES } from "./unit-publishing.types";
+import { CAPTION_MAX, UNIT_DOCUMENT_CATEGORIES, UNIT_MEDIA_CATEGORIES } from "./unit-publishing.types";
 
 /**
  * Publishing and file validation (E-05D §65-§70, §110). Ids are shapes only:
  * whether a document is this unit's or its project's is the service's question.
+ * Archive and restore carry the version the person saw; nothing else about a
+ * unit's publication is asked for (units publish on create, 2026-11).
  */
 
 const expectedVersion = z.number().int().min(1);
-const reason = z.string().trim().min(1, "Give a reason.").max(REVISION_REASON_MAX, `Keep the reason under ${REVISION_REASON_MAX.toLocaleString("en")} characters.`);
-const note = z.string().trim().max(REVISION_REASON_MAX).optional().nullable();
 
 export const versionedActionSchema = z.object({ expectedVersion });
-export const publishSchema = z.object({ expectedVersion: expectedVersion.optional(), note });
-export const revisionSchema = z.object({ reason, expectedVersion: expectedVersion.optional() });
-export const unpublishSchema = z.object({ reason, expectedVersion });
 
 export const attachDocumentSchema = z.object({ documentId: idSchema, category: z.enum(UNIT_DOCUMENT_CATEGORIES) });
 export const salesPlanSchema = z.object({ documentId: idSchema });
