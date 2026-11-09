@@ -24,11 +24,16 @@ import { pageWindow } from "@/lib/modules/shared/list-query";
 
 /**
  * The unit table (E-05B §46, §109; columns as the user set them, 2026-11): Unit
- * (the building's code and the unit's, "T-501"), Type, Floor, Orientation,
- * Bedrooms, Gross area and Total price — the asking price. Where a unit stands
+ * (the building's code and the unit's, "T-501"), Type, Floor, Bedrooms, Gross
+ * area and Total price — the asking price. Where a unit stands
  * commercially is the row's colour: green for sale, orange reserved, red sold;
  * Not for sale and On hold stay plain. The colour is also said in words to a
  * screen reader. The whole row opens the unit; the menu at its end does not.
+ *
+ * The table fits its column without scrolling sideways down to the narrowest
+ * desktop window (1024px, beside the structure tree, which narrows there): the
+ * cells are padded 12px a side and the menu column 8px; the type and an
+ * Inactive badge may wrap, while the code, floor, area and price stay on one line.
  */
 
 /**
@@ -41,6 +46,9 @@ const ROW_TINT: Partial<Record<UnitDTO["commercialStatus"], string>> = {
   RESERVED: "bg-warning/20 hover:bg-warning/30",
   SOLD: "bg-danger/20 hover:bg-danger/30",
 };
+
+/** Narrower cell padding than the table's default, so the seven columns fit beside the structure tree. */
+const FIT = "[&_td]:px-3 [&_th]:px-3 [&_td:last-child]:px-2 [&_th:last-child]:px-2";
 
 /** A click on the row opens the unit, unless it was on something of its own: the code link, the menu, a selection of text. */
 function opensRow(event: React.MouseEvent): boolean {
@@ -160,17 +168,16 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
       <div className="hidden md:block">
-        <Table label={t("unitTable.units")} data-testid="unit-table">
+        <Table label={t("unitTable.units")} data-testid="unit-table" className={FIT}>
           <TableHead>
             <tr>
               <TableHeaderCell>{t("unitTable.unit")}</TableHeaderCell>
               <TableHeaderCell>{t("unitTable.type")}</TableHeaderCell>
               <TableHeaderCell>{t("unitTable.floor")}</TableHeaderCell>
-              <TableHeaderCell>{t("unitTable.orientation")}</TableHeaderCell>
               <TableHeaderCell className="text-right">{t("unitTable.bedrooms")}</TableHeaderCell>
               <TableHeaderCell className="text-right">{t("unitTable.gross")}</TableHeaderCell>
               <TableHeaderCell className="text-right">{t("unitTable.totalPrice")}</TableHeaderCell>
-              <TableHeaderCell className="w-12">
+              <TableHeaderCell className="w-px">
                 <span className="sr-only">{t("unitTable.actions")}</span>
               </TableHeaderCell>
             </tr>
@@ -188,8 +195,8 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
                   if (opensRow(event)) nav.push(href(unit));
                 }}
               >
-                <TableCell className="whitespace-nowrap">
-                  <Link href={href(unit)} className="font-medium text-fg hover:text-accent-strong">
+                <TableCell>
+                  <Link href={href(unit)} className="whitespace-nowrap font-medium text-fg hover:text-accent-strong">
                     {label(unit)}
                   </Link>
                   <StatusWords unit={unit} />
@@ -197,7 +204,6 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
                 </TableCell>
                 <TableCell>{unitTypeName(unit.unitType.name, locale)}</TableCell>
                 <TableCell className="whitespace-nowrap">{floorName(unit.floor.name, locale)}</TableCell>
-                <TableCell className="text-fg-muted">{unit.orientation ? t(`orientation.${unit.orientation}`) : "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{countText(unit.bedrooms)}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.grossArea, locale)}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums" data-testid="unit-price">{price(unit)}</TableCell>
@@ -215,7 +221,6 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
         {list.items.map((unit, index) => {
           const more = [
             unit.areas.grossArea !== null ? t("unitTable.grossSuffix", { area: areaText(unit.areas.grossArea, locale) }) : null,
-            unit.orientation ? t(`orientation.${unit.orientation}`) : null,
             unit.askingPrice ? price(unit) : null,
           ].filter(Boolean);
           return (

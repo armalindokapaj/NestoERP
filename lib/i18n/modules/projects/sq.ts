@@ -957,7 +957,6 @@ export const projectsSq: typeof projectsEn = {
     unit: "Njësia",
     type: "Lloji",
     floor: "Kati",
-    orientation: "Orientimi",
     bedrooms: "Dhoma gjumi",
     gross: "Bruto",
     totalPrice: "Çmimi total",

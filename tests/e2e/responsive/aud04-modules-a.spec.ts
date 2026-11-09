@@ -188,7 +188,7 @@ test.describe("projects (D-01-*)", () => {
     await expectNoPageOverflow(page, "planning milestones");
   });
 
-  test("MW-05 a unit card carries orientation, position, internal area and rooms (D-01-07)", async ({ page }, testInfo) => {
+  test("MW-05 a unit card carries its gross area and price (D-01-07)", async ({ page }, testInfo) => {
     test.skip(outsideProjects(testInfo, PHONE), "phone cards only");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a/units" });
     const card = mainRegion(page).getByTestId("unit-card").first();

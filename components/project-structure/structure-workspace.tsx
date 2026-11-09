@@ -513,8 +513,9 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
 
   /* Layout --------------------------------------------------------------------- */
 
+  // The tree gives up 2rem on the narrowest desktop windows so the unit table beside it fits without scrolling sideways.
   return (
-    <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+    <div className="grid gap-5 lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)]">
       {structure.buildings.length ? (
         <>
           {/* Desktop: the tree (§31, §32). */}

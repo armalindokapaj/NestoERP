@@ -976,7 +976,6 @@ export const projectsEn = {
     unit: "Unit",
     type: "Type",
     floor: "Floor",
-    orientation: "Orientation",
     bedrooms: "Bedrooms",
     gross: "Gross",
     totalPrice: "Total price",
