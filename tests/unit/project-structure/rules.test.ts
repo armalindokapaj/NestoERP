@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
 import { ROLE_KEYS, type RoleKey } from "@/config/roles";
-import { attributesFor, defaultFloorName, findCodeConflicts, floorKeyOf, floorRank, generateUnitCodes, levelTypeForNumber, placeFloors, planFloorRange, structureKey, suggestCopiedCode, unitWarnings } from "@/lib/modules/project-structure/structure.rules";
+import { attributesFor, defaultFloorName, findCodeConflicts, floorKeyOf, floorRank, generateUnitCodes, levelTypeForNumber, placeFloors, planFloorRange, structureKey, suggestCopiedCode, unitWarnings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
 import { bulkFloorsSchema, createFloorSchema, createUnitSchema, parseUnitListQuery, updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
 import type { FloorLevelType } from "@/lib/modules/project-structure/structure.types";
 
@@ -129,11 +129,33 @@ describe("fields by type (§22, §71, §74)", () => {
 
   it("warns, never refuses: bedrooms on parking, a saleable area below the internal one", () => {
     expect(unitWarnings("PARKING", { bedrooms: 2 })).toEqual(["A parking unit does not usually have bedrooms."]);
-    expect(unitWarnings("PARKING", { bedrooms: 0, rooms: null })).toEqual([]);
-    expect(unitWarnings("RESIDENTIAL", { rooms: 3, bedrooms: 2, bathrooms: 1 })).toEqual([]);
+    expect(unitWarnings("PARKING", { bedrooms: 0, storage: null })).toEqual([]);
+    expect(unitWarnings("PARKING", { storage: 1 })).toEqual(["A parking unit does not usually have storage."]);
+    expect(unitWarnings("RESIDENTIAL", { bedrooms: 2, bathrooms: 1, storage: 1 })).toEqual([]);
     expect(unitWarnings("RESIDENTIAL", { internalArea: "92.40", saleableArea: "90.00" })).toEqual(["The saleable area is smaller than the internal area."]);
     expect(unitWarnings("RESIDENTIAL", { internalArea: "92.40", saleableArea: "113.00" })).toEqual([]);
     expect(unitWarnings("RESIDENTIAL", { internalArea: "92.40", saleableArea: null })).toEqual([]);
+  });
+});
+
+describe("worked-out areas (2026-11)", () => {
+  const none = { internalArea: null, balconyArea: null, terraceArea: null, commonAreaAllocation: null, grossArea: null };
+
+  it("adds internal, balcony and terrace into the net area, and the common allocation into the gross area, to the cent", () => {
+    expect(workedOutAreas("RESIDENTIAL", { ...none, internalArea: "52.68", balconyArea: "12.04", commonAreaAllocation: "15.94" })).toEqual({ netArea: "64.72", grossArea: "80.66" });
+    expect(workedOutAreas("RESIDENTIAL", { ...none, internalArea: "0.1", balconyArea: "0.2", terraceArea: "0.05" })).toEqual({ netArea: "0.35", grossArea: "0.35" });
+    expect(workedOutAreas("COMMERCIAL", { ...none, internalArea: "9999999999.99", commonAreaAllocation: "0.01" })).toEqual({ netArea: "9999999999.99", grossArea: "10000000000.00" });
+  });
+
+  it("leaves a sum of nothing empty, not zero, and ignores a gross area typed for anything but land", () => {
+    expect(workedOutAreas("RESIDENTIAL", none)).toEqual({ netArea: null, grossArea: null });
+    expect(workedOutAreas("RESIDENTIAL", { ...none, grossArea: "120.00" })).toEqual({ netArea: null, grossArea: null });
+    expect(workedOutAreas("PARKING", { ...none, commonAreaAllocation: "2.50" })).toEqual({ netArea: null, grossArea: "2.50" });
+    expect(workedOutAreas("RESIDENTIAL", { ...none, internalArea: "0" })).toEqual({ netArea: "0.00", grossArea: "0.00" });
+  });
+
+  it("keeps land's typed gross area: a plot has no internal area to add up", () => {
+    expect(workedOutAreas("LAND", { ...none, grossArea: "450.00" })).toEqual({ netArea: null, grossArea: "450.00" });
   });
 });
 
@@ -141,8 +163,12 @@ describe("validation (§72, §73, §124-§126)", () => {
   const base = { unitCode: "A-901", unitTypeId: "utype_apartment" };
 
   it("keeps areas as exact strings and blanks as null", () => {
-    const parsed = createUnitSchema.parse({ ...base, internalArea: "92.40", saleableArea: 113, grossArea: "", balconyArea: " 12.5 ", bedrooms: "", rooms: "3" });
-    expect(parsed).toMatchObject({ internalArea: "92.40", saleableArea: "113", grossArea: null, balconyArea: "12.5", terraceArea: null, bedrooms: null, rooms: 3, name: null, position: null, orientation: null, attributes: null });
+    const parsed = createUnitSchema.parse({ ...base, internalArea: "92.40", saleableArea: 113, grossArea: "", balconyArea: " 12.5 ", bedrooms: "", storage: "1", name: "Apartment 901", position: "CORNER", rooms: 3 });
+    expect(parsed).toMatchObject({ internalArea: "92.40", saleableArea: "113", grossArea: null, balconyArea: "12.5", terraceArea: null, bedrooms: null, storage: 1, orientation: null, attributes: null });
+    // A unit has no name, position or room count any more (2026-11): sent, they are dropped.
+    expect(parsed).not.toHaveProperty("name");
+    expect(parsed).not.toHaveProperty("position");
+    expect(parsed).not.toHaveProperty("rooms");
     expect(typeof parsed.internalArea).toBe("string");
   });
 
@@ -153,6 +179,10 @@ describe("validation (§72, §73, §124-§126)", () => {
     expect(createUnitSchema.safeParse({ ...base, saleableArea: "12345678901" }).success).toBe(false);
     expect(createUnitSchema.safeParse({ ...base, bedrooms: 2.5 }).success).toBe(false);
     expect(createUnitSchema.safeParse({ ...base, bedrooms: -1 }).success).toBe(false);
+    expect(createUnitSchema.safeParse({ ...base, bedrooms: 4 }).success).toBe(false);
+    expect(createUnitSchema.safeParse({ ...base, bathrooms: 0 }).success).toBe(false);
+    expect(createUnitSchema.safeParse({ ...base, storage: 2 }).success).toBe(false);
+    expect(createUnitSchema.safeParse({ ...base, bedrooms: "3", bathrooms: "1", storage: "0" }).success).toBe(true);
     expect(createUnitSchema.safeParse({ ...base, unitCode: "   " }).success).toBe(false);
     expect(createUnitSchema.safeParse({ ...base, unitTypeId: "" }).success).toBe(false);
   });
@@ -188,7 +218,6 @@ describe("validation (§72, §73, §124-§126)", () => {
       buildingId: undefined,
       unitTypeId: undefined,
       orientation: undefined,
-      position: undefined,
       bedrooms: undefined,
       bathrooms: 1,
       internalAreaMin: undefined,

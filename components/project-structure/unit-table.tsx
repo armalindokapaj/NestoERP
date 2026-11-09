@@ -136,11 +136,10 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
               ) : null}
               <TableHeaderCell>{t("unitTable.publication")}</TableHeaderCell>
               <TableHeaderCell>{t("unitTable.sales")}</TableHeaderCell>
-              <TableHeaderCell>{t("unitTable.position")}</TableHeaderCell>
               <TableHeaderCell>{t("unitTable.orientation")}</TableHeaderCell>
               <TableHeaderCell className="text-right">{t("unitTable.internal")}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t("unitTable.net")}</TableHeaderCell>
               <TableHeaderCell className="text-right">{t("unitTable.saleable")}</TableHeaderCell>
-              <TableHeaderCell className="text-right">{t("unitTable.rooms")}</TableHeaderCell>
               <TableHeaderCell className="text-right">{t("unitTable.bedrooms")}</TableHeaderCell>
               <TableHeaderCell className="w-12">
                 <span className="sr-only">{t("unitTable.actions")}</span>
@@ -154,7 +153,6 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                   <Link href={href(unit)} className="font-medium text-fg hover:text-accent-strong">
                     {unit.unitCode}
                   </Link>
-                  {unit.name ? <span className="block text-meta text-fg-subtle">{unit.name}</span> : null}
                   {unit.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
                 </TableCell>
                 <TableCell>{unitTypeName(unit.unitType.name, locale)}</TableCell>
@@ -170,11 +168,10 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                 <TableCell>
                   <CommercialStatusBadge status={unit.commercialStatus} />
                 </TableCell>
-                <TableCell className="text-fg-muted">{unit.position ? t(`position.${unit.position}`) : "—"}</TableCell>
                 <TableCell className="text-fg-muted">{unit.orientation ? t(`orientation.${unit.orientation}`) : "—"}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.internalArea, locale)}</TableCell>
+                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.netArea, locale)}</TableCell>
                 <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.saleableArea, locale)}</TableCell>
-                <TableCell className="text-right tabular-nums">{countText(unit.rooms)}</TableCell>
                 <TableCell className="text-right tabular-nums">{countText(unit.bedrooms)}</TableCell>
                 <TableCell className="text-right">
                   <RowMenu unit={unit} href={href(unit)} index={index} count={list.items.length} actions={actions} />
@@ -190,9 +187,8 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
         {list.items.map((unit, index) => {
           const more = [
             unit.orientation ? t(`orientation.${unit.orientation}`) : null,
-            unit.position ? t(`position.${unit.position}`) : null,
             unit.areas.internalArea !== null ? t("unitTable.internalSuffix", { area: areaText(unit.areas.internalArea, locale) }) : null,
-            unit.rooms !== null ? t("unitTable.roomsSuffix", { count: countText(unit.rooms) }) : null,
+            unit.areas.netArea !== null ? t("unitTable.netSuffix", { area: areaText(unit.areas.netArea, locale) }) : null,
           ].filter(Boolean);
           return (
             <MobileRecordCard

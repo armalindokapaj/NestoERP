@@ -15,12 +15,12 @@ import type { Readiness, ReadinessItem, ReadinessVariant, UnitDisplay, UnitSnaps
 const ALL_AREAS = AREA_FIELDS;
 
 const DISPLAY: Record<UnitTypeCategory, UnitDisplay> = {
-  RESIDENTIAL: { counts: ["rooms", "bedrooms", "bathrooms"], areas: ALL_AREAS, orientation: true, position: true },
-  COMMERCIAL: { counts: ["rooms", "bathrooms"], areas: ["internalArea", "grossArea", "saleableArea", "outdoorArea", "commonAreaAllocation"], orientation: true, position: true },
-  PARKING: { counts: [], areas: ["internalArea", "grossArea", "saleableArea"], orientation: false, position: true },
-  STORAGE: { counts: [], areas: ["internalArea", "grossArea", "saleableArea"], orientation: false, position: true },
-  LAND: { counts: [], areas: ["grossArea", "saleableArea", "outdoorArea", "gardenArea"], orientation: true, position: true },
-  OTHER: { counts: ["rooms", "bedrooms", "bathrooms"], areas: ALL_AREAS, orientation: true, position: true },
+  RESIDENTIAL: { counts: ["bedrooms", "bathrooms", "storage"], areas: ALL_AREAS, orientation: true },
+  COMMERCIAL: { counts: ["bathrooms"], areas: ["internalArea", "netArea", "commonAreaAllocation", "grossArea", "saleableArea", "outdoorArea"], orientation: true },
+  PARKING: { counts: [], areas: ["internalArea", "netArea", "grossArea", "saleableArea"], orientation: false },
+  STORAGE: { counts: [], areas: ["internalArea", "netArea", "grossArea", "saleableArea"], orientation: false },
+  LAND: { counts: [], areas: ["grossArea", "saleableArea", "outdoorArea", "gardenArea"], orientation: true },
+  OTHER: { counts: ["bedrooms", "bathrooms", "storage"], areas: ALL_AREAS, orientation: true },
 };
 
 export function unitDisplay(category: UnitTypeCategory): UnitDisplay {
@@ -136,6 +136,7 @@ export type LiveUnitFacts = {
   rooms: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
+  storage: number | null;
   attributes: UnitAttributes;
   description: string | null;
   salesPlan: UnitSnapshot["salesPlan"];
@@ -159,6 +160,7 @@ export function buildSnapshot(facts: LiveUnitFacts): UnitSnapshot {
     rooms: facts.rooms,
     bedrooms: facts.bedrooms,
     bathrooms: facts.bathrooms,
+    storage: facts.storage,
     attributes: sortedAttributes(facts.attributes),
     description: facts.description,
     salesPlan: facts.salesPlan,
@@ -176,6 +178,10 @@ function sortedAttributes(attributes: UnitAttributes): UnitAttributes {
  * are left out: renaming Block A changes no unit's approved facts, while moving a
  * unit to another floor, changing its type or uploading a new Sales Plan version
  * does. So does a new primary image, or a new version of it.
+ *
+ * A version written before the net area and the storage count existed
+ * (2026-11) has neither; missing reads as empty, so it differs from a unit that
+ * has them and equals one that does not.
  */
 export function publishFingerprint(snapshot: UnitSnapshot): string {
   return JSON.stringify([
@@ -190,6 +196,7 @@ export function publishFingerprint(snapshot: UnitSnapshot): string {
     snapshot.rooms,
     snapshot.bedrooms,
     snapshot.bathrooms,
+    snapshot.storage ?? null,
     Object.entries(sortedAttributes(snapshot.attributes)),
     snapshot.description,
     snapshot.salesPlan?.documentVersionId ?? null,

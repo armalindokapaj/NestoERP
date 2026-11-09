@@ -14,21 +14,23 @@ import { useToast } from "@/components/ui/toast";
 import { Textarea } from "@/components/ui/textarea";
 import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "@/components/project-planning/use-values-editor";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
-import { attributesFor, expectsCount, unitWarningFindings } from "@/lib/modules/project-structure/structure.rules";
+import { attributesFor, expectsCount, grossAreaIsTyped, unitWarningFindings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
 import type { Translate } from "@/lib/i18n/translator";
+import { parseOptionalDecimal } from "@/lib/forms/decimal";
+import { numberText as localisedNumber } from "@/lib/i18n/format";
 import {
-  AREA_FIELDS,
   AREA_LABELS,
+  COUNT_CHOICES,
   COUNT_FIELDS,
+  ENTERED_AREA_FIELDS,
   UNIT_ATTRIBUTES,
   UNIT_ORIENTATIONS,
-  UNIT_POSITIONS,
   type AreaField,
   type CountField,
+  type EnteredAreaField,
   type UnitAttributes,
   type UnitDTO,
   type UnitOrientation,
-  type UnitPosition,
   type UnitTypeOption,
 } from "@/lib/modules/project-structure/structure.types";
 import { cn } from "@/lib/utils/cn";
@@ -43,30 +45,55 @@ import { FormSelect } from "@/components/ui/form-select";
  * for a parking space — and anything unusual is a warning beside the save
  * button, never a refusal (§74). Saving sends the version the form loaded, so
  * a unit somebody else changed in the meantime is not silently overwritten.
+ *
+ * A unit is its code, not a name (2026-11). The counts are picked from short
+ * lists, and the net and gross areas are sums shown as they will be saved:
+ * the server works them out again on every save.
  */
 
 export type TechnicalValues = {
   unitTypeId: string;
-  position: UnitPosition | "";
   orientation: UnitOrientation | "";
-  areas: Record<AreaField, string>;
+  areas: Record<EnteredAreaField, string>;
   counts: Record<CountField, string>;
   attributes: UnitAttributes;
   description: string;
 };
 
-const PRIMARY_AREAS: AreaField[] = ["internalArea", "grossArea", "saleableArea", "outdoorArea"];
+/** The areas in the order the sums read: internal + balcony + terrace = net; net + common = gross. */
+const MAIN_AREAS: AreaField[] = ["internalArea", "balconyArea", "terraceArea", "netArea", "commonAreaAllocation", "grossArea", "saleableArea", "outdoorArea"];
+const MORE_AREAS: EnteredAreaField[] = ["gardenArea"];
 
 export function emptyTechnical(unitTypeId = ""): TechnicalValues {
   return {
     unitTypeId,
-    position: "",
     orientation: "",
-    areas: Object.fromEntries(AREA_FIELDS.map((field) => [field, ""])) as Record<AreaField, string>,
-    counts: { rooms: "", bedrooms: "", bathrooms: "" },
+    areas: Object.fromEntries(ENTERED_AREA_FIELDS.map((field) => [field, ""])) as Record<EnteredAreaField, string>,
+    counts: { bedrooms: "", bathrooms: "", storage: "" },
     attributes: {},
     description: "",
   };
+}
+
+/**
+ * The net and gross areas the typed areas make, for the form to show. `null`
+ * while a part cannot be read — the field's own error says why.
+ */
+function shownAreas(values: TechnicalValues, category: UnitTypeOption["category"]): { netArea: string | null; grossArea: string | null } {
+  const read = {} as Record<EnteredAreaField, string | null>;
+  for (const field of ENTERED_AREA_FIELDS) {
+    const parsed = parseOptionalDecimal(values.areas[field], areaRule(AREA_LABELS[field]));
+    if (!parsed.ok) return { netArea: null, grossArea: null };
+    read[field] = parsed.value;
+  }
+  return workedOutAreas(category, read);
+}
+
+/** A count's choices, plus a saved value outside them so the select still shows what the unit has. */
+function choicesFor(field: CountField, current: string): number[] {
+  const choices = [...COUNT_CHOICES[field]];
+  const saved = current === "" ? null : Number(current);
+  return saved === null || choices.includes(saved) ? choices : [...choices, saved].sort((a, b) => a - b);
 }
 
 export function technicalBody(values: TechnicalValues) {
@@ -81,13 +108,13 @@ export function technicalBody(values: TechnicalValues) {
   };
   return {
     unitTypeId: values.unitTypeId,
-    position: values.position || null,
     orientation: values.orientation || null,
     // Canonical decimals by the shared locale rule; unreadable text goes as typed for the server to refuse (FV-06).
-    ...Object.fromEntries(AREA_FIELDS.map((field) => [field, decimalPayload(values.areas[field], areaRule(AREA_LABELS[field]))])),
-    rooms: count(values.counts.rooms),
+    // The gross area goes too, and counts only for land; the server adds up everyone else's.
+    ...Object.fromEntries(ENTERED_AREA_FIELDS.map((field) => [field, decimalPayload(values.areas[field], areaRule(AREA_LABELS[field]))])),
     bedrooms: count(values.counts.bedrooms),
     bathrooms: count(values.counts.bathrooms),
+    storage: count(values.counts.storage),
     attributes: Object.keys(values.attributes).length ? attributesPayload(values.attributes) : null,
     description: values.description.trim() || null,
   };
@@ -107,9 +134,9 @@ function attributesPayload(attributes: UnitAttributes): UnitAttributes {
  * sent (AUD-09 §3, FV-04): `1,234` is refused with both readings offered, the
  * same sentence finance gives.
  */
-export function technicalProblems(values: TechnicalValues, areaLabel: (field: (typeof AREA_FIELDS)[number]) => string = (field) => AREA_LABELS[field]): Record<string, string> {
+export function technicalProblems(values: TechnicalValues, areaLabel: (field: AreaField) => string = (field) => AREA_LABELS[field]): Record<string, string> {
   const found: Record<string, string> = {};
-  for (const field of AREA_FIELDS) {
+  for (const field of ENTERED_AREA_FIELDS) {
     const problem = decimalProblem(values.areas[field], areaRule(areaLabel(field)));
     if (problem) found[field] = problem;
   }
@@ -120,7 +147,7 @@ export function warningsFor(values: TechnicalValues, types: UnitTypeOption[], t:
   const type = types.find((candidate) => candidate.id === values.unitTypeId);
   if (!type) return [];
   const count = (value: string) => (value.trim() === "" ? null : Number(value));
-  const findings = unitWarningFindings(type.category, { rooms: count(values.counts.rooms), bedrooms: count(values.counts.bedrooms), bathrooms: count(values.counts.bathrooms), internalArea: values.areas.internalArea || null, saleableArea: values.areas.saleableArea || null });
+  const findings = unitWarningFindings(type.category, { bedrooms: count(values.counts.bedrooms), bathrooms: count(values.counts.bathrooms), storage: count(values.counts.storage), internalArea: values.areas.internalArea || null, saleableArea: values.areas.saleableArea || null });
   return findings.map((finding) => (finding.kind === "count" ? t(`unitWarnings.${finding.field}`, { category: t(`unitCategory.${type.category}`).toLowerCase() }) : t("unitWarnings.saleableBelowInternal")));
 }
 
@@ -135,12 +162,14 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
   const set = (patch: Partial<TechnicalValues>) => onChange({ ...values, ...patch });
   // A count the type does not expect stays reachable, and shows whenever it already holds a value.
   const counts = COUNT_FIELDS.filter((field) => expectsCount(category, field) || values.counts[field] !== "" || more);
-  const extraAreas = AREA_FIELDS.filter((field) => !PRIMARY_AREAS.includes(field));
+  const areaFields: AreaField[] = [...MAIN_AREAS, ...(more ? MORE_AREAS : MORE_AREAS.filter((field) => values.areas[field] !== ""))];
+  const worked = shownAreas(values, category);
   const attributes = attributesFor(category);
+  const workedOut = (field: AreaField): field is "netArea" | "grossArea" => field === "netArea" || (field === "grossArea" && !grossAreaIsTyped(category));
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t("unitDialog.type")} htmlFor={`${idPrefix}-type`} error={errors.unitTypeId} required>
           <FormSelect id={`${idPrefix}-type`} className={selectClass} value={values.unitTypeId} onChange={(event) => set({ unitTypeId: event.target.value })} aria-invalid={Boolean(errors.unitTypeId)}>
             <option value="">{t("unitDialog.chooseType")}</option>
@@ -148,16 +177,6 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
               <option key={option.id} value={option.id}>
                 {unitTypeName(option.name, locale)}
                 {option.isActive ? "" : t("unitDialog.retiredSuffix")}
-              </option>
-            ))}
-          </FormSelect>
-        </Field>
-        <Field label={t("unitDialog.position")} htmlFor={`${idPrefix}-position`} error={errors.position}>
-          <FormSelect id={`${idPrefix}-position`} className={selectClass} value={values.position} onChange={(event) => set({ position: event.target.value as UnitPosition | "" })}>
-            <option value="">{t("unitDialog.notSet")}</option>
-            {UNIT_POSITIONS.map((position) => (
-              <option key={position} value={position}>
-                {t(`position.${position}`)}
               </option>
             ))}
           </FormSelect>
@@ -177,11 +196,25 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
       <fieldset>
         <legend className="mb-2 text-meta font-semibold text-fg">{t("unitDialog.areas")}</legend>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[...PRIMARY_AREAS, ...(more ? extraAreas : extraAreas.filter((field) => values.areas[field] !== ""))].map((field) => (
-            <Field key={field} label={t(`area.${field}`)} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
-              <Input id={`${idPrefix}-${field}`} inputMode="decimal" value={values.areas[field]} onChange={(event) => set({ areas: { ...values.areas, [field]: numberText(event.target.value) } })} aria-invalid={Boolean(errors[field])} />
-            </Field>
-          ))}
+          {areaFields.map((field) =>
+            workedOut(field) ? (
+              // A sum, never typed: shown as it will be saved, and worked out again by the server.
+              <Field key={field} label={t(`area.${field}`)} htmlFor={`${idPrefix}-${field}`} error={errors[field]} hint={t(field === "netArea" ? "unitDialog.netAreaHint" : "unitDialog.grossAreaHint")}>
+                <Input
+                  id={`${idPrefix}-${field}`}
+                  value={worked[field] === null ? "" : localisedNumber(Number(worked[field]), { minimumFractionDigits: 2, maximumFractionDigits: 2 }, locale, "en")}
+                  readOnly
+                  aria-readonly="true"
+                  className="bg-surface-muted text-fg-muted"
+                  data-testid={`${idPrefix}-${field}-sum`}
+                />
+              </Field>
+            ) : (
+              <Field key={field} label={t(`area.${field}`)} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
+                <Input id={`${idPrefix}-${field}`} inputMode="decimal" value={values.areas[field as EnteredAreaField]} onChange={(event) => set({ areas: { ...values.areas, [field]: numberText(event.target.value) } })} aria-invalid={Boolean(errors[field])} />
+              </Field>
+            ),
+          )}
         </div>
       </fieldset>
 
@@ -189,7 +222,14 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
         <div className="grid grid-cols-3 gap-3">
           {counts.map((field) => (
             <Field key={field} label={t(`count.${field}`)} htmlFor={`${idPrefix}-${field}`} error={errors[field]}>
-              <Input id={`${idPrefix}-${field}`} inputMode="numeric" value={values.counts[field]} onChange={(event) => set({ counts: { ...values.counts, [field]: event.target.value.replace(/\D/g, "") } })} aria-invalid={Boolean(errors[field])} />
+              <FormSelect id={`${idPrefix}-${field}`} className={selectClass} value={values.counts[field]} onChange={(event) => set({ counts: { ...values.counts, [field]: event.target.value } })} aria-invalid={Boolean(errors[field])}>
+                <option value="">{t("unitDialog.notSet")}</option>
+                {choicesFor(field, values.counts[field]).map((choice) => (
+                  <option key={choice} value={String(choice)}>
+                    {choice}
+                  </option>
+                ))}
+              </FormSelect>
             </Field>
           ))}
         </div>
@@ -251,10 +291,9 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
 export function technicalFromUnit(unit: UnitDTO): TechnicalValues {
   return {
     unitTypeId: unit.unitType.id,
-    position: unit.position ?? "",
     orientation: unit.orientation ?? "",
-    areas: Object.fromEntries(AREA_FIELDS.map((field) => [field, unit.areas[field] ?? ""])) as Record<AreaField, string>,
-    counts: { rooms: unit.rooms === null ? "" : String(unit.rooms), bedrooms: unit.bedrooms === null ? "" : String(unit.bedrooms), bathrooms: unit.bathrooms === null ? "" : String(unit.bathrooms) },
+    areas: Object.fromEntries(ENTERED_AREA_FIELDS.map((field) => [field, unit.areas[field] ?? ""])) as Record<EnteredAreaField, string>,
+    counts: Object.fromEntries(COUNT_FIELDS.map((field) => [field, unit[field] === null ? "" : String(unit[field])])) as Record<CountField, string>,
     attributes: { ...unit.attributes },
     description: unit.description ?? "",
   };
@@ -310,7 +349,6 @@ function UnitForm({
   const t = useTranslations("projects");
   const locale = useLocale();
   const [code, setCode] = React.useState(unit?.unitCode ?? "");
-  const [name, setName] = React.useState(unit?.name ?? "");
   const [active, setActive] = React.useState(unit?.isActive ?? true);
   const [technical, setTechnical] = React.useState<TechnicalValues>(() => (unit ? technicalFromUnit(unit) : emptyTechnical(types.find((type) => type.isActive)?.id ?? "")));
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -321,7 +359,7 @@ function UnitForm({
   // (E-05D §53, AUD-03 §3): the unit registers with the tab's coordinator.
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
   const editor = useValuesEditor(
-    { code, name, active, technical },
+    { code, active, technical },
     { module: "units", saveKind: unit ? "save" : "create", label: unit ? t("unitDialog.editorLabel", { code: unit.unitCode }) : t("unitDialog.newLabel", { floor: floor.name }), save: () => persist.current() },
   );
 
@@ -337,7 +375,7 @@ function UnitForm({
     setPending(true);
     setErrors({});
     setFormError(null);
-    const body = { unitCode: code, name: name || null, ...technicalBody(technical) };
+    const body = { unitCode: code, ...technicalBody(technical) };
     try {
       if (unit) {
         await editor.track(() => structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, isActive: active, expectedVersion: unit.version } }));
@@ -372,9 +410,6 @@ function UnitForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("unitDialog.code")} htmlFor="unit-code" error={errors.unitCode} required hint={unit ? t("unitDialog.codeHintEdit") : t("unitDialog.codeHintNew")}>
             <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
-          </Field>
-          <Field label={t("unitDialog.name")} htmlFor="unit-name" error={errors.name}>
-            <Input id="unit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder={t("unitDialog.namePlaceholder")} />
           </Field>
         </div>
         <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />

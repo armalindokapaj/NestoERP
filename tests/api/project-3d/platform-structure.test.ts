@@ -56,11 +56,14 @@ describe("Platform 3D canonical Project structure", () => {
     const floors = await createPlatformProjectStructure(admin, projectId!, { action: "floor.bulk", buildingId, from: -1, to: 2, dryRun: false, reason: "Create test levels" });
     expect(floors.ids).toHaveLength(4);
     const ground = (await getPlatformProjectStructure(admin, projectId!)).buildings[0]!.floors.find((floor) => floor.number === 0)!;
-    const unitPreview = await createPlatformProjectStructure(admin, projectId!, { action: "unit.bulk", floorId: ground.id, prefix: "A-", start: 101, end: 103, padding: 3, suffix: "", dryRun: true, unitTypeId: unitTypeId!, internalArea: "82.50", saleableArea: "91.00", rooms: 4, bedrooms: 2, bathrooms: 2, description: null, reason: "Preview test units" });
+    const unitPreview = await createPlatformProjectStructure(admin, projectId!, { action: "unit.bulk", floorId: ground.id, prefix: "A-", start: 101, end: 103, padding: 3, suffix: "", dryRun: true, unitTypeId: unitTypeId!, internalArea: "82.50", saleableArea: "91.00", bedrooms: 2, bathrooms: 2, description: null, reason: "Preview test units" });
     expect(unitPreview).toMatchObject({ ids: [], preview: { count: 3 } });
     expect(await prisma.projectUnit.count({ where: { projectId: projectId! } })).toBe(0);
-    const units = await createPlatformProjectStructure(admin, projectId!, { action: "unit.bulk", floorId: ground.id, prefix: "A-", start: 101, end: 103, padding: 3, suffix: "", dryRun: false, unitTypeId: unitTypeId!, internalArea: "82.50", saleableArea: "91.00", rooms: 4, bedrooms: 2, bathrooms: 2, description: null, reason: "Create test units" });
+    const units = await createPlatformProjectStructure(admin, projectId!, { action: "unit.bulk", floorId: ground.id, prefix: "A-", start: 101, end: 103, padding: 3, suffix: "", dryRun: false, unitTypeId: unitTypeId!, internalArea: "82.50", saleableArea: "91.00", bedrooms: 2, bathrooms: 2, description: null, reason: "Create test units" });
     expect(units.ids).toHaveLength(3);
+    // The tool types the internal area only; the net and gross areas are its sums (2026-11).
+    const sums = await prisma.projectUnit.findFirstOrThrow({ where: { id: units.ids[0]! }, select: { netArea: true, grossArea: true } });
+    expect([sums.netArea?.toFixed(2), sums.grossArea?.toFixed(2)]).toEqual(["82.50", "82.50"]);
 
     const structure = await getPlatformProjectStructure(admin, projectId!);
     expect(structure.buildings).toHaveLength(1);
@@ -83,7 +86,7 @@ describe("Platform 3D canonical Project structure", () => {
 
   it("rejects normalized collisions and protects non-empty parents", async () => {
     const ground = (await getPlatformProjectStructure(admin, projectId!)).buildings[0]!.floors.find((floor) => floor.number === 0)!;
-    await expect(createPlatformProjectStructure(admin, projectId!, { action: "unit.create", floorId: ground.id, unitCode: "a-101", name: null, unitTypeId: unitTypeId!, internalArea: null, saleableArea: null, rooms: null, bedrooms: null, bathrooms: null, description: null, reason: "Collision check" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(createPlatformProjectStructure(admin, projectId!, { action: "unit.create", floorId: ground.id, unitCode: "a-101", unitTypeId: unitTypeId!, internalArea: null, saleableArea: null, bedrooms: null, bathrooms: null, description: null, reason: "Collision check" })).rejects.toMatchObject({ code: "CONFLICT" });
     await expect(deletePlatformProjectStructure(admin, projectId!, "building", buildingId, "Protect child records")).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
@@ -92,7 +95,7 @@ describe("Platform 3D canonical Project structure", () => {
     const source = structure.buildings[0]!.floors.find((floor) => floor.number === 0)!;
     const target = structure.buildings[0]!.floors.find((floor) => floor.number === 1)!;
     const unit = source.units[0]!;
-    await updatePlatformProjectStructure(admin, projectId!, unit.id, { kind: "unit", floorId: target.id, unitCode: unit.unitCode, name: unit.name, unitTypeId: unit.unitTypeId, internalArea: unit.internalArea, saleableArea: unit.saleableArea, rooms: unit.rooms, bedrooms: unit.bedrooms, bathrooms: unit.bathrooms, description: unit.description, isActive: unit.isActive, expectedVersion: unit.version, reason: "Move unit to next floor" });
+    await updatePlatformProjectStructure(admin, projectId!, unit.id, { kind: "unit", floorId: target.id, unitCode: unit.unitCode, unitTypeId: unit.unitTypeId, internalArea: unit.internalArea, saleableArea: unit.saleableArea, bedrooms: unit.bedrooms, bathrooms: unit.bathrooms, description: unit.description, isActive: unit.isActive, expectedVersion: unit.version, reason: "Move unit to next floor" });
     const moved = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unit.id } });
     expect(moved.id).toBe(unit.id);
     expect(moved.floorId).toBe(target.id);

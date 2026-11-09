@@ -86,16 +86,14 @@ async function fullUnit(code = "A-101") {
     floorId,
     createUnitSchema.parse({
       unitCode: code,
-      name: "Corner apartment",
       unitTypeId: apartment,
-      position: "CORNER",
       orientation: "S",
       internalArea: "84.50",
       saleableArea: "92.25",
       balconyArea: "7.10",
-      rooms: 4,
       bedrooms: 2,
       bathrooms: 2,
+      storage: 1,
       description: "Two balconies",
     }),
   );
@@ -110,14 +108,14 @@ describe("unit edits keep what they do not send (FV-05)", () => {
     expect(saved.status).toBe(200);
     // Before AUD-09 each absent area, count and note became null.
     const row = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unit.id } });
-    expect(row).toMatchObject({ name: "Corner apartment", position: "CORNER", orientation: "S", rooms: 4, bedrooms: 2, bathrooms: 2, description: "Two balconies" });
-    expect([row.internalArea?.toFixed(2), row.saleableArea?.toFixed(2), row.balconyArea?.toFixed(2)]).toEqual(["84.50", "92.25", "7.10"]);
+    expect(row).toMatchObject({ orientation: "S", bedrooms: 2, bathrooms: 2, storage: 1, description: "Two balconies" });
+    expect([row.internalArea?.toFixed(2), row.saleableArea?.toFixed(2), row.balconyArea?.toFixed(2), row.netArea?.toFixed(2), row.grossArea?.toFixed(2)]).toEqual(["84.50", "92.25", "7.10", "91.60", "91.60"]);
 
     // `null` and `""` clear, on purpose; zero is zero, not empty.
-    expect((await patch(unit.id, { unitCode: "A-101", unitTypeId: apartment, isActive: true, expectedVersion: unit.version + 1, balconyArea: "", bathrooms: 0, description: null })).status).toBe(200);
+    expect((await patch(unit.id, { unitCode: "A-101", unitTypeId: apartment, isActive: true, expectedVersion: unit.version + 1, balconyArea: "", storage: 0, description: null })).status).toBe(200);
     const cleared = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unit.id } });
-    expect(cleared).toMatchObject({ balconyArea: null, bathrooms: 0, description: null, bedrooms: 2 });
-    expect(cleared.internalArea?.toFixed(2)).toBe("84.50");
+    expect(cleared).toMatchObject({ balconyArea: null, storage: 0, description: null, bedrooms: 2 });
+    expect([cleared.internalArea?.toFixed(2), cleared.netArea?.toFixed(2), cleared.grossArea?.toFixed(2)]).toEqual(["84.50", "84.50", "84.50"]);
   });
 
   it("refuses malformed numbers on their field instead of clearing them (FV-06)", async () => {
@@ -126,9 +124,12 @@ describe("unit edits keep what they do not send (FV-05)", () => {
     const base = { unitCode: "A-102", unitTypeId: apartment, isActive: true, expectedVersion: unit.version };
     for (const [body, field] of [
       // What the editor now sends for text that is not a number (it used to send NaN, i.e. null).
-      [{ rooms: "abc" }, "rooms"],
+      [{ bedrooms: "abc" }, "bedrooms"],
       [{ bedrooms: 1.5 }, "bedrooms"],
+      [{ bedrooms: 4 }, "bedrooms"],
       [{ bathrooms: -1 }, "bathrooms"],
+      [{ bathrooms: 0 }, "bathrooms"],
+      [{ storage: 2 }, "storage"],
       [{ internalArea: "84.505" }, "internalArea"],
       [{ internalArea: "1,234" }, "internalArea"],
       [{ saleableArea: "-3" }, "saleableArea"],
@@ -138,7 +139,7 @@ describe("unit edits keep what they do not send (FV-05)", () => {
       expect(refused.body.error.details, JSON.stringify(body)).toHaveProperty(field);
     }
     const row = await prisma.projectUnit.findUniqueOrThrow({ where: { id: unit.id } });
-    expect(row).toMatchObject({ version: unit.version, rooms: 4, bedrooms: 2, bathrooms: 2 });
+    expect(row).toMatchObject({ version: unit.version, bedrooms: 2, bathrooms: 2, storage: 1 });
     expect(row.internalArea?.toFixed(2)).toBe("84.50");
 
     // A forged unit type from another company is refused on its field.

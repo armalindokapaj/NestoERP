@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { UNIT_TYPE_CATEGORIES, UNIT_TYPE_CODE_MAX, UNIT_TYPE_NAME_MAX } from "@/config/unit-types";
-import { FLOOR_LEVEL_TYPES, MAX_BULK_FLOORS, MAX_BULK_UNITS, UNIT_ORIENTATIONS, UNIT_POSITIONS, UNIT_SORTS, UNIT_PAGE_SIZE } from "./structure.types";
+import { COUNT_CHOICES, type CountField, FLOOR_LEVEL_TYPES, MAX_BULK_FLOORS, MAX_BULK_UNITS, UNIT_ORIENTATIONS, UNIT_SORTS, UNIT_PAGE_SIZE } from "./structure.types";
 
 /**
  * Structure validation (E-05B §72, §124-§126). Ids are shapes only: whether a
@@ -16,7 +16,6 @@ export const idSchema = z.string().regex(ID, "Unknown record.");
 export const NAME_MAX = 120;
 export const CODE_MAX = 40;
 export const UNIT_CODE_MAX = 80;
-export const UNIT_NAME_MAX = 160;
 export const TEXT_MAX = 1_000;
 
 const optionalText = (max: number) =>
@@ -46,11 +45,14 @@ const metres = (message: string) =>
     z.string().regex(/^-?\d{1,8}(\.\d{1,2})?$/, message).nullable(),
   );
 
-const count = (label: string) =>
-  z.preprocess(
+/** A count chosen from its short list (2026-11): bedrooms 0-3, bathrooms 1-3, storage 0-1. */
+const choice = (field: CountField, message: string) => {
+  const choices = COUNT_CHOICES[field];
+  return z.preprocess(
     (value) => (typeof value === "string" ? (value.trim() === "" ? null : Number(value)) : blankToNull(value)),
-    z.number({ error: `${label} must be a whole number.` }).int(`${label} must be a whole number.`).min(0, `${label} cannot be negative.`).max(10_000, `${label} is too large.`).nullable(),
+    z.number({ error: message }).int(message).refine((value) => choices.includes(value), message).nullable(),
   );
+};
 
 const expectedVersion = z.number().int().min(1);
 const dryRun = z.boolean().optional().default(false);
@@ -132,29 +134,32 @@ const attributes = z
   .transform((value) => value ?? null);
 
 const unitCode = z.string().trim().min(1, "Give the unit a code.").max(UNIT_CODE_MAX, `Keep the code under ${UNIT_CODE_MAX} characters.`);
-const unitName = optionalText(UNIT_NAME_MAX);
 
-/** Everything technical about a unit except its code and name (§17, §28). */
+/**
+ * Everything technical about a unit except its code (§17, §28). A unit has no
+ * name, position or room count any more (2026-11); a request that still sends
+ * them has them ignored. The net area is never sent, and the gross area counts
+ * only for land: the server works both out from the areas they add up from.
+ */
 const technicalFields = {
   unitTypeId: idSchema,
-  position: z.enum(UNIT_POSITIONS).optional().nullable().transform((value) => value ?? null),
   orientation: z.enum(UNIT_ORIENTATIONS).optional().nullable().transform((value) => value ?? null),
   internalArea: area,
+  balconyArea: area,
+  terraceArea: area,
+  commonAreaAllocation: area,
   grossArea: area,
   saleableArea: area,
   outdoorArea: area,
-  balconyArea: area,
-  terraceArea: area,
   gardenArea: area,
-  commonAreaAllocation: area,
-  rooms: count("Rooms"),
-  bedrooms: count("Bedrooms"),
-  bathrooms: count("Bathrooms"),
+  bedrooms: choice("bedrooms", "Choose 0 to 3 bedrooms."),
+  bathrooms: choice("bathrooms", "Choose 1 to 3 bathrooms."),
+  storage: choice("storage", "Choose 0 or 1 storage room."),
   attributes,
   description: optionalText(TEXT_MAX),
 };
 
-export const createUnitSchema = z.object({ unitCode, name: unitName, ...technicalFields });
+export const createUnitSchema = z.object({ unitCode, ...technicalFields });
 /**
  * A unit edit (AUD-09 §4, FV-05): the code, the type, whether it is active and
  * the version are always sent; every other technical field may be left out
@@ -166,15 +171,15 @@ const keptTechnical = Object.fromEntries(
   Object.entries(technicalFields).map(([key, schema]) => [key, key === "unitTypeId" ? schema : (schema as z.ZodTypeAny).optional()]),
 ) as { [K in keyof typeof technicalFields]: K extends "unitTypeId" ? (typeof technicalFields)[K] : z.ZodOptional<(typeof technicalFields)[K]> };
 
-export const updateUnitSchema = z.object({ unitCode, name: unitName.optional(), ...keptTechnical, isActive: z.boolean(), expectedVersion });
+export const updateUnitSchema = z.object({ unitCode, ...keptTechnical, isActive: z.boolean(), expectedVersion });
 export const bulkUnitsSchema = z.object({
-  units: z.array(z.object({ unitCode, name: unitName })).min(1, "Add at least one unit.").max(MAX_BULK_UNITS, `Create at most ${MAX_BULK_UNITS} units at once.`),
+  units: z.array(z.object({ unitCode })).min(1, "Add at least one unit.").max(MAX_BULK_UNITS, `Create at most ${MAX_BULK_UNITS} units at once.`),
   defaults: z.object(technicalFields),
   dryRun,
 });
 export const copyUnitsSchema = z.object({
   sourceFloorId: idSchema,
-  units: z.array(z.object({ sourceUnitId: idSchema, unitCode, name: unitName })).min(1, "Choose at least one unit to copy.").max(MAX_BULK_UNITS, `Copy at most ${MAX_BULK_UNITS} units at once.`),
+  units: z.array(z.object({ sourceUnitId: idSchema, unitCode })).min(1, "Choose at least one unit to copy.").max(MAX_BULK_UNITS, `Copy at most ${MAX_BULK_UNITS} units at once.`),
   dryRun,
 });
 export const moveUnitSchema = z.object({ floorId: idSchema, expectedVersion });
@@ -197,7 +202,6 @@ export const unitListQuerySchema = z.object({
   floorId: optionalId,
   unitTypeId: optionalId,
   orientation: z.enum(UNIT_ORIENTATIONS).optional().catch(undefined),
-  position: z.enum(UNIT_POSITIONS).optional().catch(undefined),
   bedrooms: optionalCount,
   bathrooms: optionalCount,
   internalAreaMin: optionalArea,

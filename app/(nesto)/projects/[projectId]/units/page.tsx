@@ -53,7 +53,6 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
     q: query.q ?? "",
     unitTypeId: query.unitTypeId ?? "",
     orientation: query.orientation ?? "",
-    position: query.position ?? "",
     bedrooms: query.bedrooms === undefined ? "" : String(query.bedrooms),
     bathrooms: query.bathrooms === undefined ? "" : String(query.bathrooms),
     internalAreaMin: query.internalAreaMin ?? "",

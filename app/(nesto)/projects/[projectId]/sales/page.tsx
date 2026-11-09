@@ -52,7 +52,6 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
     floorId: query.floorId ?? "",
     unitTypeId: query.unitTypeId ?? "",
     orientation: query.orientation ?? "",
-    position: query.position ?? "",
     bedrooms: query.bedrooms === undefined ? "" : String(query.bedrooms),
     bathrooms: query.bathrooms === undefined ? "" : String(query.bathrooms),
     areaMin: query.areaMin ?? "",

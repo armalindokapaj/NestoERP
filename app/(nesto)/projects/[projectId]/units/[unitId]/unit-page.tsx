@@ -111,7 +111,6 @@ export async function UnitShell({ page, active, children }: { page: Page; active
         }
         meta={[
           { label: t("unitPage.location"), value: <span data-testid="unit-location">{`${unit.building.name} · ${floorName(unit.floor.name, locale)}`}</span> },
-          ...(unit.name ? [{ label: t("unitPage.name"), value: unit.name }] : []),
           ...(lastChange
             ? [{ label: t("unitPage.lastEditedBy"), value: <span data-testid="unit-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatRelativeTime(lastChange.at, locale)}</span> }]
             : []),

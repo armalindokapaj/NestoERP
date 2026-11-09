@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/i18n/format";
-import { ORIENTATION_LABELS, POSITION_LABELS, UNIT_ORIENTATIONS, UNIT_POSITIONS, type UnitOrientation } from "@/lib/modules/project-structure/structure.types";
+import { COUNT_CHOICES, ORIENTATION_LABELS, UNIT_ORIENTATIONS, type UnitOrientation } from "@/lib/modules/project-structure/structure.types";
 import type { InventorySort } from "@/lib/modules/sales/units/unit-sales.schema";
 import { UNIT_COMMERCIAL_STATUS_LABELS, type InventoryDTO, type InventoryRowDTO, type UnitCommercialStatus } from "@/lib/modules/sales/units/unit-sales.types";
 import { cn } from "@/lib/utils/cn";
@@ -39,7 +39,6 @@ export type InventoryFilters = {
   floorId: string;
   unitTypeId: string;
   orientation: string;
-  position: string;
   bedrooms: string;
   bathrooms: string;
   areaMin: string;
@@ -51,9 +50,9 @@ export type InventoryFilters = {
   sort: InventorySort;
 };
 
-export const EMPTY_INVENTORY_FILTERS: InventoryFilters = { q: "", commercialStatus: "", buildingId: "", floorId: "", unitTypeId: "", orientation: "", position: "", bedrooms: "", bathrooms: "", areaMin: "", areaMax: "", priceMin: "", priceMax: "", pricePerSqmMin: "", pricePerSqmMax: "", sort: "structure" };
+export const EMPTY_INVENTORY_FILTERS: InventoryFilters = { q: "", commercialStatus: "", buildingId: "", floorId: "", unitTypeId: "", orientation: "", bedrooms: "", bathrooms: "", areaMin: "", areaMax: "", priceMin: "", priceMax: "", pricePerSqmMin: "", pricePerSqmMax: "", sort: "structure" };
 
-const PANEL_KEYS = ["buildingId", "floorId", "unitTypeId", "orientation", "position", "bedrooms", "bathrooms", "areaMin", "areaMax", "priceMin", "priceMax", "pricePerSqmMin", "pricePerSqmMax"] as const;
+const PANEL_KEYS = ["buildingId", "floorId", "unitTypeId", "orientation", "bedrooms", "bathrooms", "areaMin", "areaMax", "priceMin", "priceMax", "pricePerSqmMin", "pricePerSqmMax"] as const;
 const QUICK: Array<UnitCommercialStatus | ""> = ["", "FOR_SALE", "ON_HOLD", "RESERVED", "SOLD", "NOT_FOR_SALE"];
 const SORT_LABELS: Record<InventorySort, string> = {
   structure: "Building and floor",
@@ -214,10 +213,9 @@ export function SalesInventory({
           <FilterSelect label={t("inventory.building")} value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
           <FilterSelect label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floorName(floor.name, locale) }))} />
           <FilterSelect label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
-          <FilterSelect label={t("inventory.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />
-          <FilterSelect label={t("inventory.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={[0, 1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} />
+          <FilterSelect label={t("inventory.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={COUNT_CHOICES.bedrooms.map((value) => ({ value: String(value), label: String(value) }))} />
+          <FilterSelect label={t("inventory.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={COUNT_CHOICES.bathrooms.map((value) => ({ value: String(value), label: String(value) }))} />
           <FilterSelect label={t("inventory.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: salesLabel(t, "orientation", value, ORIENTATION_LABELS[value]) }))} />
-          <FilterSelect label={t("inventory.position")} value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: salesLabel(t, "position", value, POSITION_LABELS[value]) }))} />
           <RangeFilter label={t("inventory.saleableArea")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
           <RangeFilter label={t("inventory.askingPrice")} min={filters.priceMin} max={filters.priceMax} onChange={(priceMin, priceMax) => setFilter({ priceMin, priceMax })} />
           <RangeFilter label={t("inventory.pricePerSqm")} min={filters.pricePerSqmMin} max={filters.pricePerSqmMax} onChange={(pricePerSqmMin, pricePerSqmMax) => setFilter({ pricePerSqmMin, pricePerSqmMax })} />

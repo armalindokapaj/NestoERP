@@ -59,16 +59,15 @@ export default async function PublicationDetailPage({ params }: Params) {
           columns={3}
           items={[
             { label: t("unitPage.unitCode"), value: snapshot.unitCode },
-            { label: t("unitPage.name"), value: dash(snapshot.name) },
             { label: t("unitPage.type"), value: `${unitTypeName(snapshot.unitType.name, locale)} · ${t(`unitCategory.${snapshot.unitType.category}`)}` },
             { label: t("unitPage.building"), value: snapshot.building.name },
             { label: t("unitPage.floor"), value: `${floorName(snapshot.floor.name, locale)} · ${t(`floorLevel.${snapshot.floor.levelType}`)}` },
-            { label: t("unitPage.position"), value: snapshot.position ? t(`position.${snapshot.position}`) : "—" },
             { label: t("unitPage.orientation"), value: snapshot.orientation ? t(`orientation.${snapshot.orientation}`) : "—" },
-            { label: t("count.rooms"), value: dash(snapshot.rooms) },
             { label: t("count.bedrooms"), value: dash(snapshot.bedrooms) },
             { label: t("count.bathrooms"), value: dash(snapshot.bathrooms) },
-            ...AREA_FIELDS.filter((field) => snapshot.areas[field] !== null).map((field) => ({ label: t(`area.${field}`), value: <span className="tabular-nums">{Number(snapshot.areas[field]).toFixed(2)} m²</span> })),
+            { label: t("count.storage"), value: dash(snapshot.storage ?? null) },
+            // A version written before an area existed (the net area, 2026-11) has no value for it, not a null.
+            ...AREA_FIELDS.filter((field) => snapshot.areas[field] != null).map((field) => ({ label: t(`area.${field}`), value: <span className="tabular-nums">{Number(snapshot.areas[field]).toFixed(2)} m²</span> })),
             ...(Object.keys(snapshot.attributes) as UnitAttributeKey[]).map((key) => {
               const value = snapshot.attributes[key];
               return { label: key in UNIT_ATTRIBUTES ? t(`attribute.${key}`) : key, value: typeof value === "boolean" ? (value ? t("unitPage.yes") : t("unitPage.no")) : dash(value) };

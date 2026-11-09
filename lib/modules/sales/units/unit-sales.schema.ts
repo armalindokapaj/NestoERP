@@ -112,7 +112,6 @@ export const inventoryQuerySchema = z.object({
   bedrooms: optionalCount,
   bathrooms: optionalCount,
   orientation: z.enum(["N", "NE", "E", "SE", "S", "SW", "W", "NW", "MULTI", "UNKNOWN"]).optional().catch(undefined),
-  position: z.enum(["FRONT", "REAR", "CORNER", "INTERNAL", "LEFT", "RIGHT", "CENTER", "OTHER"]).optional().catch(undefined),
   priceMin: optionalAmount,
   priceMax: optionalAmount,
   pricePerSqmMin: optionalAmount,

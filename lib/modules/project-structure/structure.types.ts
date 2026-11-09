@@ -48,25 +48,44 @@ export const POSITION_LABELS: Record<UnitPosition, string> = {
   OTHER: "Other",
 };
 
-/** The canonical area fields, square metres (E-05B §23). Never one generic `sqm`. */
-export const AREA_FIELDS = ["internalArea", "grossArea", "saleableArea", "outdoorArea", "balconyArea", "terraceArea", "gardenArea", "commonAreaAllocation"] as const;
+/**
+ * The canonical area fields, square metres (E-05B §23). Never one generic `sqm`.
+ * In the order the sums read (2026-11): internal + balcony + terrace is the net
+ * area, and net + the common area allocation is the gross area.
+ */
+export const AREA_FIELDS = ["internalArea", "balconyArea", "terraceArea", "netArea", "commonAreaAllocation", "grossArea", "saleableArea", "outdoorArea", "gardenArea"] as const;
 export type AreaField = (typeof AREA_FIELDS)[number];
+
+/** The areas worked out on the server and never typed: the net area always, the gross area except for land. */
+export const NET_AREA_PARTS = ["internalArea", "balconyArea", "terraceArea"] as const satisfies readonly AreaField[];
+
+/** The areas a request may carry. The gross area is typed only for land; for every other unit it is the sum. */
+export const ENTERED_AREA_FIELDS = AREA_FIELDS.filter((field): field is Exclude<AreaField, "netArea"> => field !== "netArea");
+export type EnteredAreaField = (typeof ENTERED_AREA_FIELDS)[number];
 
 export const AREA_LABELS: Record<AreaField, string> = {
   internalArea: "Internal area",
+  balconyArea: "Balcony area",
+  terraceArea: "Terrace area",
+  netArea: "Net area",
+  commonAreaAllocation: "Common area allocation",
   grossArea: "Gross area",
   saleableArea: "Saleable area",
   outdoorArea: "Outdoor area",
-  balconyArea: "Balcony area",
-  terraceArea: "Terrace area",
   gardenArea: "Garden area",
-  commonAreaAllocation: "Common area allocation",
 };
 
-export const COUNT_FIELDS = ["rooms", "bedrooms", "bathrooms"] as const;
+/**
+ * The counts a unit carries, each chosen from a short list (2026-11): an
+ * apartment has 0-3 bedrooms (0 is a studio), 1-3 bathrooms, and a storage
+ * room or not. Rooms are no longer counted.
+ */
+export const COUNT_FIELDS = ["bedrooms", "bathrooms", "storage"] as const;
 export type CountField = (typeof COUNT_FIELDS)[number];
 
-export const COUNT_LABELS: Record<CountField, string> = { rooms: "Rooms", bedrooms: "Bedrooms", bathrooms: "Bathrooms" };
+export const COUNT_LABELS: Record<CountField, string> = { bedrooms: "Bedrooms", bathrooms: "Bathrooms", storage: "Storage" };
+
+export const COUNT_CHOICES: Record<CountField, readonly number[]> = { bedrooms: [0, 1, 2, 3], bathrooms: [1, 2, 3], storage: [0, 1] };
 
 /**
  * The type-specific details with no column of their own (E-05B §22, §71). A
@@ -158,16 +177,14 @@ export type UnitDTO = {
   id: string;
   projectId: string;
   unitCode: string;
-  name: string | null;
   unitType: UnitTypeOption;
   building: { id: string; name: string; code: string | null };
   floor: { id: string; name: string; number: number | null; levelType: FloorLevelType };
-  position: UnitPosition | null;
   orientation: UnitOrientation | null;
   areas: Record<AreaField, string | null>;
-  rooms: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
+  storage: number | null;
   attributes: UnitAttributes;
   description: string | null;
   sortOrder: number;

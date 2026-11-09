@@ -181,14 +181,12 @@ async function bulkUnits(floorId: string, codes: string[], defaults: Record<stri
 
 const editable = (row: UnitDTO) => ({
   unitCode: row.unitCode,
-  name: row.name,
   unitTypeId: row.unitType.id,
-  position: row.position,
   orientation: row.orientation,
   ...row.areas,
-  rooms: row.rooms,
   bedrooms: row.bedrooms,
   bathrooms: row.bathrooms,
+  storage: row.storage,
   attributes: row.attributes,
   description: row.description,
   isActive: row.isActive,
@@ -540,7 +538,7 @@ describe("units (§16-§30, §52, §55, §56, §83, §148)", () => {
   it("creates a unit with exact areas and updates it with the version it read", async () => {
     const id = await building(`${T} Tower`);
     const ninth = await floor(id, 9);
-    const created = await unit(ninth, "A-901", { name: "Apartment 901", position: "CORNER", orientation: "NE", internalArea: "92.40", saleableArea: 113, balconyArea: "12", rooms: 3, bedrooms: 2, bathrooms: 2, description: "Corner flat" });
+    const created = await unit(ninth, "A-901", { orientation: "NE", internalArea: "92.40", saleableArea: 113, balconyArea: "12", bedrooms: 2, bathrooms: 2, storage: 1, description: "Corner flat" });
     expect(created).toMatchObject({ version: 1, warnings: [] });
 
     const detail = await getUnitDetail(pm, created.id, SITE);
@@ -549,32 +547,57 @@ describe("units (§16-§30, §52, §55, §56, §83, §148)", () => {
       projectId: SITE,
       project: { id: SITE },
       unitCode: "A-901",
-      name: "Apartment 901",
       unitType: { id: types.APARTMENT, code: "APARTMENT", category: "RESIDENTIAL" },
       building: { id, name: `${T} Tower` },
       floor: { id: ninth, number: 9, levelType: "STANDARD" },
-      position: "CORNER",
       orientation: "NE",
-      rooms: 3,
       bedrooms: 2,
       bathrooms: 2,
+      storage: 1,
       attributes: {},
       sortOrder: 1,
       version: 1,
       capabilities: { canUpdateUnit: true, canDeleteUnit: true, canMoveUnit: true },
     });
-    expect(detail.areas).toEqual({ internalArea: "92.40", grossArea: null, saleableArea: "113.00", outdoorArea: null, balconyArea: "12.00", terraceArea: null, gardenArea: null, commonAreaAllocation: null });
+    // The net area is internal + balcony + terrace; the gross area adds the common allocation (none here).
+    expect(detail.areas).toEqual({ internalArea: "92.40", balconyArea: "12.00", terraceArea: null, netArea: "104.40", commonAreaAllocation: null, grossArea: "104.40", saleableArea: "113.00", outdoorArea: null, gardenArea: null });
     const [event] = await audits(created.id, "PROJECT_UNIT_CREATED");
     expect(event.afterJson).toMatchObject({ unitCode: "A-901", internalArea: "92.40", saleableArea: "113.00", floorId: ninth });
 
-    expect(await edit(created.id, { name: "Apartment 901 (combined)", saleableArea: "120.5", bedrooms: 3, orientation: "E" })).toEqual({ version: 2, warnings: [] });
+    expect(await edit(created.id, { saleableArea: "120.5", bedrooms: 3, orientation: "E" })).toEqual({ version: 2, warnings: [] });
     const after = await getUnitDetail(pm, created.id, SITE);
-    expect(after).toMatchObject({ id: created.id, name: "Apartment 901 (combined)", bedrooms: 3, orientation: "E", version: 2, areas: { saleableArea: "120.50", internalArea: "92.40" } });
-    await refused(updateUnit(pm, created.id, updateUnitSchema.parse({ ...editable(detail), name: "Lost edit" })), "CONFLICT", "STRUCTURE_STALE");
+    expect(after).toMatchObject({ id: created.id, bedrooms: 3, orientation: "E", version: 2, areas: { saleableArea: "120.50", internalArea: "92.40" } });
+    await refused(updateUnit(pm, created.id, updateUnitSchema.parse({ ...editable(detail), description: "Lost edit" })), "CONFLICT", "STRUCTURE_STALE");
 
     const [updated] = await audits(created.id, "PROJECT_UNIT_UPDATED");
     expect(updated.changesJson).toMatchObject({ saleableArea: { before: "113.00", after: "120.50" }, bedrooms: { before: 2, after: 3 } });
     expect((await audits(created.id, "UNIT_CODE_CHANGED")).length).toBe(0);
+  });
+
+  it("works out the net and gross areas on every save, and keeps the counts to their short lists (2026-11)", async () => {
+    const tenth = await floor(await building(`${T} Tower`), 10);
+    // A gross area sent for an apartment is not the gross area: the sum is.
+    const flat = await unit(tenth, "A-1001", { internalArea: "52.68", balconyArea: "12.04", terraceArea: "3.10", commonAreaAllocation: "15.94", grossArea: "999" });
+    expect((await getUnitDetail(pm, flat.id, SITE)).areas).toMatchObject({ netArea: "67.82", grossArea: "83.76" });
+    // An edit that changes one part moves both sums; an area left out keeps its value.
+    await edit(flat.id, { terraceArea: null });
+    expect((await getUnitDetail(pm, flat.id, SITE)).areas).toMatchObject({ terraceArea: null, netArea: "64.72", commonAreaAllocation: "15.94", grossArea: "80.66" });
+    await edit(flat.id, { internalArea: null, balconyArea: null, commonAreaAllocation: null });
+    expect((await getUnitDetail(pm, flat.id, SITE)).areas).toMatchObject({ netArea: null, grossArea: null });
+
+    // Land has no internal area to add up: its gross area is the plot, as typed.
+    const plot = await unit(tenth, "L-1", { unitTypeId: types.LAND, grossArea: "450", gardenArea: "380" });
+    expect((await getUnitDetail(pm, plot.id, SITE)).areas).toMatchObject({ netArea: null, grossArea: "450.00", gardenArea: "380.00" });
+
+    // Bedrooms 0-3, bathrooms 1-3, storage 0-1; nothing chosen is fine.
+    expect(createUnitSchema.safeParse({ unitCode: "X", unitTypeId: types.APARTMENT, bedrooms: 0, bathrooms: 1, storage: 0 }).success).toBe(true);
+    expect(createUnitSchema.safeParse({ unitCode: "X", unitTypeId: types.APARTMENT, bedrooms: null, bathrooms: null, storage: null }).success).toBe(true);
+    for (const wrong of [{ bedrooms: 4 }, { bathrooms: 0 }, { bathrooms: 4 }, { storage: 2 }, { bedrooms: -1 }, { bedrooms: 1.5 }]) {
+      expect(createUnitSchema.safeParse({ unitCode: "X", unitTypeId: types.APARTMENT, ...wrong }).success, JSON.stringify(wrong)).toBe(false);
+    }
+    // A name, a position or a room count is no longer kept, whatever is sent.
+    const sent = await unit(tenth, "A-1002", { name: "Apartment 1002", position: "CORNER", rooms: 3, storage: 1 });
+    expect(await prisma.projectUnit.findUniqueOrThrow({ where: { id: sent.id }, select: { name: true, position: true, rooms: true, storage: true } })).toEqual({ name: null, position: null, rooms: null, storage: 1 });
   });
 
   it("keeps a unit code unique on its project whatever its case, and free on another project", async () => {
@@ -664,8 +687,8 @@ describe("units (§16-§30, §52, §55, §56, §83, §148)", () => {
     await refused(bulkUnits(first, ["L-103"], { unitTypeId: loft.id }), "VALIDATION_ERROR");
 
     // Saving the unit's other details does not strip the type it has.
-    expect(await edit(id, { name: "Loft 101" })).toMatchObject({ version: 2 });
-    expect(await getUnitDetail(pm, id)).toMatchObject({ name: "Loft 101", unitType: { id: loft.id, isActive: false } });
+    expect(await edit(id, { description: "Loft 101" })).toMatchObject({ version: 2 });
+    expect(await getUnitDetail(pm, id)).toMatchObject({ description: "Loft 101", unitType: { id: loft.id, isActive: false } });
     // Once changed away, it cannot be chosen back.
     await edit(id, { unitTypeId: types.APARTMENT });
     await refused(edit(id, { unitTypeId: loft.id }), "VALIDATION_ERROR");
@@ -784,11 +807,11 @@ describe("bulk units and copying a floor (§41-§45, §77, §96, §98, §149)", 
     const tower = await building(`${T} Tower`);
     const eighth = await floor(tower, 8);
     const ninth = await floor(tower, 9);
-    await unit(eighth, "A-801", { name: "Apartment 801", orientation: "NE", position: "CORNER", internalArea: "92.40", saleableArea: "113.00", rooms: 3, bedrooms: 2, bathrooms: 2 });
-    await unit(eighth, "A-802", { name: "Shop 802", unitTypeId: types.SHOP, internalArea: "60", attributes: { frontage: "7.80" } });
+    await unit(eighth, "A-801", { orientation: "NE", internalArea: "92.40", balconyArea: "12.00", commonAreaAllocation: "8.60", saleableArea: "113.00", bedrooms: 2, bathrooms: 2, storage: 1 });
+    await unit(eighth, "A-802", { unitTypeId: types.SHOP, internalArea: "60", attributes: { frontage: "7.80" } });
 
     const sources = (await units(pm, SITE, { floorId: eighth })).items;
-    const plan = sources.map((source) => ({ sourceUnitId: source.id, unitCode: suggestCopiedCode(source.unitCode, 8, 9), name: source.name }));
+    const plan = sources.map((source) => ({ sourceUnitId: source.id, unitCode: suggestCopiedCode(source.unitCode, 8, 9) }));
     expect(plan.map((entry) => entry.unitCode)).toEqual(["A-901", "A-902"]);
 
     expect((await copyUnits(pm, ninth, copyUnitsSchema.parse({ sourceFloorId: eighth, units: plan, dryRun: true }))).conflicts).toEqual([]);
@@ -802,7 +825,7 @@ describe("bulk units and copying a floor (§41-§45, §77, §96, §98, §149)", 
     copies.forEach((copy, index) => {
       const source = sources[index]!;
       expect(copy.unitCode).toBe(plan[index]!.unitCode);
-      expect(copy).toMatchObject({ name: source.name, unitType: source.unitType, orientation: source.orientation, position: source.position, areas: source.areas, rooms: source.rooms, bedrooms: source.bedrooms, bathrooms: source.bathrooms, attributes: source.attributes });
+      expect(copy).toMatchObject({ unitType: source.unitType, orientation: source.orientation, areas: source.areas, bedrooms: source.bedrooms, bathrooms: source.bathrooms, storage: source.storage, attributes: source.attributes });
     });
     // The originals stay where they were, as they were.
     expect((await units(pm, SITE, { floorId: eighth })).items.map((row) => [row.id, row.unitCode, row.version])).toEqual(sources.map((row) => [row.id, row.unitCode, 1]));
@@ -903,11 +926,10 @@ describe("reading the structure (§46-§50, §65, §66, §82, §88-§90, §107-�
     expect(await total({ saleableAreaMin: "100", saleableAreaMax: "120" })).toBe(24);
     expect(await total({ internalAreaMin: "100" })).toBe(24);
     expect(await total({ saleableAreaMax: "12.50" })).toBe(24);
-    // Search looks at the code, the name and the type's name, whatever the case.
+    // Search looks at the code and the type's name, whatever the case; a unit has no name (2026-11).
     expect(await codes({ q: "a-10" })).toEqual(["A-101", "A-102", "A-103", "A-104"]);
     expect(await total({ q: "shop" })).toBe(6);
     expect(await total({ q: "PARKING" })).toBe(18);
-    expect(await total({ q: "Apartment 80" })).toBe(12);
     // Nothing of another company answers a filter or a search.
     expect(await total({ floorId: S.floors.munichGround })).toBe(0);
     expect(await total({ buildingId: S.buildings.munich })).toBe(0);

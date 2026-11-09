@@ -6,7 +6,7 @@ import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
-import { floorKeyOf, floorRank, generateUnitCodes, planFloorRange, structureKey } from "@/lib/modules/project-structure/structure.rules";
+import { floorKeyOf, floorRank, generateUnitCodes, planFloorRange, structureKey, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
 import { deleteOwnPublications, publishLiveUnits, type PublishActor } from "@/lib/modules/project-structure/unit-publishing.state";
 import { project3DAuditMetadata } from "./project-3d.audit";
 import { assertProject3DPlatformPermission } from "./project-3d.permissions";
@@ -75,7 +75,7 @@ export async function getPlatformProjectStructure(context: PlatformContext, proj
             id: true, buildingId: true, number: true, name: true, levelType: true, elevation: true, description: true, isActive: true, version: true, sortOrder: true,
             units: {
               orderBy: [{ sortOrder: "asc" }, { unitCode: "asc" }],
-              select: { id: true, floorId: true, unitCode: true, name: true, unitTypeId: true, internalArea: true, saleableArea: true, rooms: true, bedrooms: true, bathrooms: true, description: true, isActive: true, version: true, publicationStatus: true, commercialProfile: { select: { status: true } }, _count: { select: { threeDMeshBindings: true } } },
+              select: { id: true, floorId: true, unitCode: true, unitTypeId: true, internalArea: true, saleableArea: true, bedrooms: true, bathrooms: true, description: true, isActive: true, version: true, publicationStatus: true, commercialProfile: { select: { status: true } }, _count: { select: { threeDMeshBindings: true } } },
             },
           },
         },
@@ -117,8 +117,10 @@ export async function createPlatformProjectStructure(context: PlatformContext, p
       }
 
       const floor = assertFound(await tx.projectFloor.findFirst({ where: { id: input.floorId, projectId, companyId: project.companyId }, select: { id: true, name: true } }));
-      const type = assertFound(await tx.projectUnitType.findFirst({ where: { id: input.unitTypeId, companyId: project.companyId, isActive: true }, select: { id: true } }));
-      const units = input.action === "unit.create" ? [{ unitCode: input.unitCode, name: input.name }] : generateUnitCodes({ prefix: input.prefix, start: input.start, end: input.end, padding: input.padding, suffix: input.suffix }).map((unitCode) => ({ unitCode, name: null }));
+      const type = assertFound(await tx.projectUnitType.findFirst({ where: { id: input.unitTypeId, companyId: project.companyId, isActive: true }, select: { id: true, category: true } }));
+      const units = input.action === "unit.create" ? [{ unitCode: input.unitCode }] : generateUnitCodes({ prefix: input.prefix, start: input.start, end: input.end, padding: input.padding, suffix: input.suffix }).map((unitCode) => ({ unitCode }));
+      // The net and gross areas are sums of the areas typed, here only the internal one (2026-11).
+      const worked = workedOutAreas(type.category, { internalArea: input.internalArea, balconyArea: null, terraceArea: null, commonAreaAllocation: null, grossArea: null });
       const keys = units.map((unit) => structureKey(unit.unitCode));
       if (new Set(keys).size !== keys.length) throw new AccessError("CONFLICT", "The unit range contains duplicate codes.", { code: "UNIT_CODE_COLLISION" });
       const collisions = await tx.projectUnit.count({ where: { projectId, unitCodeKey: { in: keys } } });
@@ -126,7 +128,7 @@ export async function createPlatformProjectStructure(context: PlatformContext, p
       if (input.action === "unit.bulk" && input.dryRun) return { action: input.action, ids: [], preview: { count: units.length, labels: units.map((unit) => unit.unitCode) } };
       const last = await tx.projectUnit.aggregate({ where: { floorId: floor.id }, _max: { sortOrder: true } });
       const publishedAt = new Date();
-      const rows = await tx.projectUnit.createManyAndReturn({ data: units.map((unit, index) => ({ companyId: project.companyId, projectId, floorId: floor.id, unitCode: unit.unitCode, unitCodeKey: structureKey(unit.unitCode), name: unit.name, unitTypeId: type.id, internalArea: decimal(input.internalArea), saleableArea: decimal(input.saleableArea), rooms: input.rooms, bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, sortOrder: (last._max.sortOrder ?? 0) + index + 1, createdBy: context.userId, publicationStatus: "PUBLISHED" as const, publicationStatusChangedAt: publishedAt })), select: { id: true } });
+      const rows = await tx.projectUnit.createManyAndReturn({ data: units.map((unit, index) => ({ companyId: project.companyId, projectId, floorId: floor.id, unitCode: unit.unitCode, unitCodeKey: structureKey(unit.unitCode), unitTypeId: type.id, internalArea: decimal(input.internalArea), netArea: decimal(worked.netArea), grossArea: decimal(worked.grossArea), saleableArea: decimal(input.saleableArea), bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, sortOrder: (last._max.sortOrder ?? 0) + index + 1, createdBy: context.userId, publicationStatus: "PUBLISHED" as const, publicationStatusChangedAt: publishedAt })), select: { id: true } });
       await audit(context, assignedCompany(project).parentGroupId, tx, projectId, { type: "ProjectFloor", id: floor.id, label: floor.name }, input.action, null, { floorId: floor.id, count: rows.length }, input.reason);
       await publishLiveUnits(tx, publisher(context, assignedCompany(project).parentGroupId), project.companyId, rows.map((row) => row.id));
       return { action: input.action, ids: rows.map((row) => row.id) };
@@ -159,10 +161,13 @@ export async function updatePlatformProjectStructure(context: PlatformContext, p
         return { version: row.version + 1 };
       }
       const row = assertFound(await tx.projectUnit.findFirst({ where: { id: recordId, projectId, companyId: project.companyId } }));
-      const [floor, type] = await Promise.all([tx.projectFloor.findFirst({ where: { id: input.floorId, projectId, companyId: project.companyId }, select: { id: true } }), tx.projectUnitType.findFirst({ where: { id: input.unitTypeId, companyId: project.companyId, isActive: true }, select: { id: true } })]);
+      const [floor, type] = await Promise.all([tx.projectFloor.findFirst({ where: { id: input.floorId, projectId, companyId: project.companyId }, select: { id: true } }), tx.projectUnitType.findFirst({ where: { id: input.unitTypeId, companyId: project.companyId, isActive: true }, select: { id: true, category: true } })]);
       const targetFloor = assertFound(floor);
       const unitType = assertFound(type);
-      const changed = await tx.projectUnit.updateMany({ where: { id: row.id, version: input.expectedVersion }, data: { floorId: targetFloor.id, unitCode: input.unitCode, unitCodeKey: structureKey(input.unitCode), name: input.name, unitTypeId: unitType.id, internalArea: decimal(input.internalArea), saleableArea: decimal(input.saleableArea), rooms: input.rooms, bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, isActive: input.isActive, updatedBy: context.userId, version: { increment: 1 } } });
+      // The tool edits the internal area only; the unit's other areas still count in its sums (2026-11).
+      const typed = (value: Prisma.Decimal | null) => value?.toFixed(2) ?? null;
+      const worked = workedOutAreas(unitType.category, { internalArea: input.internalArea, balconyArea: typed(row.balconyArea), terraceArea: typed(row.terraceArea), commonAreaAllocation: typed(row.commonAreaAllocation), grossArea: typed(row.grossArea) });
+      const changed = await tx.projectUnit.updateMany({ where: { id: row.id, version: input.expectedVersion }, data: { floorId: targetFloor.id, unitCode: input.unitCode, unitCodeKey: structureKey(input.unitCode), unitTypeId: unitType.id, internalArea: decimal(input.internalArea), netArea: decimal(worked.netArea), grossArea: decimal(worked.grossArea), saleableArea: decimal(input.saleableArea), bedrooms: input.bedrooms, bathrooms: input.bathrooms, description: input.description, isActive: input.isActive, updatedBy: context.userId, version: { increment: 1 } } });
       if (!changed.count) throw new AccessError("CONFLICT", "The unit changed while you were editing it.", { code: "STRUCTURE_STALE" });
       await audit(context, assignedCompany(project).parentGroupId, tx, projectId, { type: "ProjectUnit", id: row.id, label: input.unitCode }, "unit.update", { unitId: row.id, floorId: row.floorId, unitCode: row.unitCode, isActive: row.isActive, version: row.version }, { unitId: row.id, floorId: targetFloor.id, unitCode: input.unitCode, isActive: input.isActive, version: row.version + 1 }, input.reason);
       await publishLiveUnits(tx, publisher(context, assignedCompany(project).parentGroupId), project.companyId, [row.id]);

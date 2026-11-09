@@ -13,10 +13,10 @@ import { recordActivity } from "@/lib/modules/shared/activity";
 import { assertSameSet, uniqueTarget } from "./structure.buildings";
 import { conflictMessage, findReadableFloor } from "./structure.floors";
 import { MODULE, UNIT_ENTITY } from "./structure.permissions";
-import { attributesFor, findCodeConflicts, structureKey, unitWarnings } from "./structure.rules";
+import { attributesFor, findCodeConflicts, structureKey, unitWarnings, workedOutAreas } from "./structure.rules";
 import type { BulkUnitsInput, CopyUnitsInput, CreateUnitInput, TechnicalInput, UpdateUnitInput } from "./structure.schema";
 import { fail, findReadableUnit } from "./structure.service";
-import { AREA_FIELDS, type AreaField, type BatchPreview, type UnitAttributes } from "./structure.types";
+import { AREA_FIELDS, type AreaField, type BatchPreview, ENTERED_AREA_FIELDS, type EnteredAreaField, type UnitAttributes } from "./structure.types";
 import { deleteOwnPublications, publishLiveUnits } from "./unit-publishing.state";
 
 /**
@@ -64,16 +64,22 @@ function keptAttributes(category: UnitTypeCategory, attributes: TechnicalInput["
   return Object.keys(kept).length ? (kept as Prisma.InputJsonValue) : Prisma.DbNull;
 }
 
+/**
+ * The columns a unit's technical input writes. The net area, and the gross area
+ * of anything but land, are worked out here from the areas they add up from —
+ * whatever the request said (2026-11).
+ */
 function technicalData(input: TechnicalInput, type: ChosenType) {
-  const areas = Object.fromEntries(AREA_FIELDS.map((field) => [field, input[field] === null ? null : new Prisma.Decimal(input[field]!)])) as Record<AreaField, Prisma.Decimal | null>;
+  const typed = Object.fromEntries(ENTERED_AREA_FIELDS.map((field) => [field, input[field] ?? null])) as Record<EnteredAreaField, string | null>;
+  const all: Record<AreaField, string | null> = { ...typed, ...workedOutAreas(type.category, typed) };
+  const areas = Object.fromEntries(AREA_FIELDS.map((field) => [field, all[field] === null ? null : new Prisma.Decimal(all[field]!)])) as Record<AreaField, Prisma.Decimal | null>;
   return {
     unitTypeId: type.id,
-    position: input.position,
     orientation: input.orientation,
     ...areas,
-    rooms: input.rooms,
     bedrooms: input.bedrooms,
     bathrooms: input.bathrooms,
+    storage: input.storage,
     attributes: keptAttributes(type.category, input.attributes),
     description: input.description,
   };
@@ -105,7 +111,6 @@ export async function createUnit(context: UserContext, floorId: string, input: C
         floorId: floor.id,
         unitCode: input.unitCode,
         unitCodeKey,
-        name: input.name,
         ...data,
         sortOrder: (last._max.sortOrder ?? 0) + 1,
         createdBy: context.userId,
@@ -122,7 +127,7 @@ export async function createUnit(context: UserContext, floorId: string, input: C
         actionKey: AuditAction.PROJECT_UNIT_CREATED,
         entity: { type: UNIT_ENTITY, id: unit.id, label: input.unitCode },
         projectId: floor.projectId,
-        after: snapshot({ floorId: floor.id, unitCode: input.unitCode, name: input.name, ...data, attributes: data.attributes === Prisma.DbNull ? null : data.attributes }),
+        after: snapshot({ floorId: floor.id, unitCode: input.unitCode, ...data, attributes: data.attributes === Prisma.DbNull ? null : data.attributes }),
       },
       { tx },
     );
@@ -144,7 +149,7 @@ async function writeBatch(
   tx: Tx,
   context: UserContext,
   floor: Awaited<ReturnType<typeof findReadableFloor>>,
-  rows: Array<Record<string, unknown> & { unitCode: string; name: string | null }>,
+  rows: Array<Record<string, unknown> & { unitCode: string }>,
   audit: { batchId: string; unitTypeId: string | null; sourceFloorId?: string },
 ): Promise<string[]> {
   await lockFloor(tx, floor.id);
@@ -216,7 +221,7 @@ export async function bulkCreateUnits(context: UserContext, floorId: string, inp
   const data = technicalData(input.defaults, type);
   const batchId = randomUUID();
   return runInTransaction("structure.units.bulk", async (tx) => {
-    const created = await writeBatch(tx, context, floor, input.units.map((unit) => ({ ...data, unitCode: unit.unitCode, name: unit.name })), { batchId, unitTypeId: type.id });
+    const created = await writeBatch(tx, context, floor, input.units.map((unit) => ({ ...data, unitCode: unit.unitCode })), { batchId, unitTypeId: type.id });
     return { count: created.length, conflicts: [], created, warnings };
   }).catch((error: unknown) => {
     if (uniqueTarget(error)) throw fail("UNITS_CONFLICT", "Another change took one of these codes a moment ago. Refresh the preview and try again.", "CONFLICT", { conflicts: [] });
@@ -224,8 +229,8 @@ export async function bulkCreateUnits(context: UserContext, floorId: string, inp
   });
 }
 
-/** What a copy takes from its original: the layout, never the identity, the code or the name. */
-const COPIED_FIELDS = ["unitTypeId", "position", "orientation", ...AREA_FIELDS, "rooms", "bedrooms", "bathrooms", "description"] as const;
+/** What a copy takes from its original: the layout, never the identity or the code. */
+const COPIED_FIELDS = ["unitTypeId", "orientation", ...AREA_FIELDS, "bedrooms", "bathrooms", "storage", "description"] as const;
 
 /**
  * Copy a floor's units to another floor (§98). The copies are new units with
@@ -241,7 +246,7 @@ export async function copyUnits(context: UserContext, floorId: string, input: Co
 
   const originals = await prisma.projectUnit.findMany({
     where: { companyId: context.companyId, floorId: source.id, id: { in: input.units.map((unit) => unit.sourceUnitId) } },
-    select: { id: true, unitCode: true, unitTypeId: true, position: true, orientation: true, internalArea: true, grossArea: true, saleableArea: true, outdoorArea: true, balconyArea: true, terraceArea: true, gardenArea: true, commonAreaAllocation: true, rooms: true, bedrooms: true, bathrooms: true, attributes: true, description: true, unitType: { select: { name: true, isActive: true } } },
+    select: { id: true, unitCode: true, unitTypeId: true, orientation: true, internalArea: true, balconyArea: true, terraceArea: true, netArea: true, commonAreaAllocation: true, grossArea: true, saleableArea: true, outdoorArea: true, gardenArea: true, bedrooms: true, bathrooms: true, storage: true, attributes: true, description: true, unitType: { select: { name: true, isActive: true } } },
   });
   const byId = new Map(originals.map((unit) => [unit.id, unit]));
   if (byId.size !== new Set(input.units.map((unit) => unit.sourceUnitId)).size) throw fail("COPY_SOURCE_CHANGED", "Some of those units are no longer on that floor. Refresh and try again.", "CONFLICT");
@@ -258,7 +263,7 @@ export async function copyUnits(context: UserContext, floorId: string, input: Co
     const rows = input.units.map((unit) => {
       const original = byId.get(unit.sourceUnitId)!;
       const technical = Object.fromEntries(COPIED_FIELDS.map((field) => [field, original[field]]));
-      return { ...technical, attributes: original.attributes ?? Prisma.DbNull, unitCode: unit.unitCode, name: unit.name };
+      return { ...technical, attributes: original.attributes ?? Prisma.DbNull, unitCode: unit.unitCode };
     });
     const created = await writeBatch(tx, context, floor, rows, { batchId, unitTypeId: null, sourceFloorId: source.id });
     return { count: created.length, conflicts: [], created };
@@ -278,13 +283,11 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
   const keep = <T,>(value: T | undefined, saved: T): T => (value === undefined ? saved : value);
   const values = {
     ...sent,
-    name: keep(sent.name, unit.name),
-    position: keep(sent.position, unit.position),
     orientation: keep(sent.orientation, unit.orientation),
-    ...(Object.fromEntries(AREA_FIELDS.map((field) => [field, keep(sent[field], unit[field] === null ? null : unit[field]!.toFixed(2))])) as Record<AreaField, string | null>),
-    rooms: keep(sent.rooms, unit.rooms),
+    ...(Object.fromEntries(ENTERED_AREA_FIELDS.map((field) => [field, keep(sent[field], unit[field] === null ? null : unit[field]!.toFixed(2))])) as Record<EnteredAreaField, string | null>),
     bedrooms: keep(sent.bedrooms, unit.bedrooms),
     bathrooms: keep(sent.bathrooms, unit.bathrooms),
+    storage: keep(sent.storage, unit.storage),
     attributes: keep(sent.attributes, (unit.attributes ?? null) as TechnicalInput["attributes"]),
     description: keep(sent.description, unit.description),
   };
@@ -304,21 +307,20 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
         data: {
           unitCode: values.unitCode,
           unitCodeKey,
-          name: values.name,
           unitTypeId: data.unitTypeId,
-          position: data.position,
           orientation: data.orientation,
           internalArea: data.internalArea,
+          balconyArea: data.balconyArea,
+          terraceArea: data.terraceArea,
+          netArea: data.netArea,
+          commonAreaAllocation: data.commonAreaAllocation,
           grossArea: data.grossArea,
           saleableArea: data.saleableArea,
           outdoorArea: data.outdoorArea,
-          balconyArea: data.balconyArea,
-          terraceArea: data.terraceArea,
           gardenArea: data.gardenArea,
-          commonAreaAllocation: data.commonAreaAllocation,
-          rooms: data.rooms,
           bedrooms: data.bedrooms,
           bathrooms: data.bathrooms,
+          storage: data.storage,
           attributes: data.attributes,
           description: data.description,
           isActive: values.isActive,
@@ -330,19 +332,17 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
 
       const before = snapshot({
         unitCode: unit.unitCode,
-        name: unit.name,
         unitTypeId: unit.unitType.id,
-        position: unit.position,
         orientation: unit.orientation,
         ...Object.fromEntries(AREA_FIELDS.map((field) => [field, unit[field]])),
-        rooms: unit.rooms,
         bedrooms: unit.bedrooms,
         bathrooms: unit.bathrooms,
+        storage: unit.storage,
         attributes: unit.attributes,
         description: unit.description,
         isActive: unit.isActive,
       });
-      const after = snapshot({ unitCode: values.unitCode, name: values.name, ...data, attributes: data.attributes === Prisma.DbNull ? null : data.attributes, isActive: values.isActive });
+      const after = snapshot({ unitCode: values.unitCode, ...data, attributes: data.attributes === Prisma.DbNull ? null : data.attributes, isActive: values.isActive });
       await recordUserAction(context, { actionKey: AuditAction.PROJECT_UNIT_UPDATED, entity: { type: UNIT_ENTITY, id: unit.id, label: values.unitCode }, projectId: unit.projectId, before, after }, { tx });
       // The unit's own history shows its edits (E-05D §48); what it publishes goes out as its next version at once.
       await recordActivity(tx, context, {
@@ -399,7 +399,7 @@ export async function deleteUnit(context: UserContext, unitId: string): Promise<
     await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_DELETED", message: `removed unit ${unit.unitCode}`, metadata: { projectId: unit.projectId, floorId: unit.floorId } });
     await recordUserAction(
       context,
-      { actionKey: AuditAction.PROJECT_UNIT_DELETED, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, before: { floorId: unit.floorId, unitCode: unit.unitCode, name: unit.name, unitTypeId: unit.unitType.id } },
+      { actionKey: AuditAction.PROJECT_UNIT_DELETED, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, before: { floorId: unit.floorId, unitCode: unit.unitCode, unitTypeId: unit.unitType.id } },
       { tx },
     );
   });

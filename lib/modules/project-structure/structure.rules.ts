@@ -1,7 +1,7 @@
 import type { UnitTypeCategory } from "@/config/unit-types";
 import type { Locale } from "@/lib/i18n/config";
 import { stockFloorName } from "@/lib/i18n/stock-names";
-import { type FloorLevelType, type UnitAttributeKey, UNIT_ATTRIBUTES } from "./structure.types";
+import { type CountField, type FloorLevelType, NET_AREA_PARTS, type UnitAttributeKey, UNIT_ATTRIBUTES } from "./structure.types";
 
 /**
  * The rules the browser previews and the server enforces (E-05B §12-§15, §41-§44,
@@ -155,17 +155,55 @@ export function suggestCopiedCode(code: string, sourceNumber: number | null, tar
 /* Fields by type ------------------------------------------------------------ */
 
 /** Which counts a category is expected to carry (§22, §74). Everything else stays available. */
-const EXPECTED_COUNTS: Record<UnitTypeCategory, ReadonlyArray<"rooms" | "bedrooms" | "bathrooms">> = {
-  RESIDENTIAL: ["rooms", "bedrooms", "bathrooms"],
-  COMMERCIAL: ["rooms", "bathrooms"],
+const EXPECTED_COUNTS: Record<UnitTypeCategory, ReadonlyArray<CountField>> = {
+  RESIDENTIAL: ["bedrooms", "bathrooms", "storage"],
+  COMMERCIAL: ["bathrooms"],
   PARKING: [],
   STORAGE: [],
   LAND: [],
-  OTHER: ["rooms", "bedrooms", "bathrooms"],
+  OTHER: ["bedrooms", "bathrooms", "storage"],
 };
 
-export function expectsCount(category: UnitTypeCategory, field: "rooms" | "bedrooms" | "bathrooms"): boolean {
+export function expectsCount(category: UnitTypeCategory, field: CountField): boolean {
   return EXPECTED_COUNTS[category].includes(field);
+}
+
+/* Worked-out areas (2026-11) ------------------------------------------------- */
+
+/** Land has no internal area to add up: its gross area is the plot, typed as it is. */
+export function grossAreaIsTyped(category: UnitTypeCategory): boolean {
+  return category === "LAND";
+}
+
+/** Exact cents of a canonical area ("52.68"); areas are never added as floats (§23). */
+function areaCents(value: string): number {
+  const [whole, fraction = ""] = value.split(".");
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+}
+
+function areaFromCents(cents: number): string {
+  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+}
+
+/** The sum of the areas given; `null` when none is — nothing typed is not zero. */
+function sumAreas(values: Array<string | null | undefined>): string | null {
+  const given = values.filter((value): value is string => typeof value === "string" && value !== "");
+  return given.length ? areaFromCents(given.reduce((total, value) => total + areaCents(value), 0)) : null;
+}
+
+/**
+ * The net and gross areas a unit's typed areas make (2026-11): net = internal +
+ * balcony + terrace, gross = net + common area allocation. The server writes
+ * them on every save and the form shows them as they will be saved, so the two
+ * never disagree. Land keeps the gross area it was given. Areas are canonical
+ * strings with at most two decimals, as the schema leaves them.
+ */
+export function workedOutAreas(
+  category: UnitTypeCategory,
+  areas: { internalArea: string | null; balconyArea: string | null; terraceArea: string | null; commonAreaAllocation: string | null; grossArea: string | null },
+): { netArea: string | null; grossArea: string | null } {
+  const netArea = sumAreas(NET_AREA_PARTS.map((field) => areas[field]));
+  return { netArea, grossArea: grossAreaIsTyped(category) ? areas.grossArea : sumAreas([netArea, areas.commonAreaAllocation]) };
 }
 
 export function attributesFor(category: UnitTypeCategory): UnitAttributeKey[] {
@@ -177,14 +215,14 @@ export function attributesFor(category: UnitTypeCategory): UnitAttributeKey[] {
  * mistake, but a project may have a reason, so the unit still saves. Findings,
  * so a page can put them in its reader's words.
  */
-export type UnitWarning = { kind: "count"; field: "bedrooms" | "bathrooms" | "rooms" } | { kind: "saleableBelowInternal" };
+export type UnitWarning = { kind: "count"; field: CountField } | { kind: "saleableBelowInternal" };
 
 export function unitWarningFindings(
   category: UnitTypeCategory,
-  values: { rooms?: number | null; bedrooms?: number | null; bathrooms?: number | null; internalArea?: string | number | null; saleableArea?: string | number | null },
+  values: { bedrooms?: number | null; bathrooms?: number | null; storage?: number | null; internalArea?: string | number | null; saleableArea?: string | number | null },
 ): UnitWarning[] {
   const findings: UnitWarning[] = [];
-  for (const field of ["bedrooms", "bathrooms", "rooms"] as const) {
+  for (const field of ["bedrooms", "bathrooms", "storage"] as const) {
     const value = values[field];
     if (value !== null && value !== undefined && value > 0 && !expectsCount(category, field)) findings.push({ kind: "count", field });
   }

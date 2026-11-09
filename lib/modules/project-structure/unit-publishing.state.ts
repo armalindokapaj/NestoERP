@@ -44,6 +44,7 @@ export const PUBLISH_STATE_SELECT = {
   position: true,
   orientation: true,
   internalArea: true,
+  netArea: true,
   grossArea: true,
   saleableArea: true,
   outdoorArea: true,
@@ -54,6 +55,7 @@ export const PUBLISH_STATE_SELECT = {
   rooms: true,
   bedrooms: true,
   bathrooms: true,
+  storage: true,
   attributes: true,
   description: true,
   isActive: true,
@@ -124,6 +126,7 @@ function toState(row: PublishStateRow, unavailable: number, versionNumbers: Map<
     rooms: row.rooms,
     bedrooms: row.bedrooms,
     bathrooms: row.bathrooms,
+    storage: row.storage,
     attributes: attributesOf(row.attributes),
     description: row.description,
     // Only a version that is really there is what would be published.

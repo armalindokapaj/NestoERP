@@ -61,7 +61,6 @@ export async function listSalesInventory(context: UserContext, projectId: string
   if (query.floorId) filters.push(Prisma.sql`u."floorId" = ${query.floorId}`);
   if (query.unitTypeId) filters.push(Prisma.sql`u."unitTypeId" = ${query.unitTypeId}`);
   if (query.orientation) filters.push(Prisma.sql`u."orientation" = ${query.orientation}::"UnitOrientation"`);
-  if (query.position) filters.push(Prisma.sql`u."position" = ${query.position}::"UnitPosition"`);
   if (query.bedrooms !== undefined) filters.push(Prisma.sql`u."bedrooms" = ${query.bedrooms}`);
   if (query.bathrooms !== undefined) filters.push(Prisma.sql`u."bathrooms" = ${query.bathrooms}`);
   if (query.areaMin) filters.push(Prisma.sql`u."saleableArea" >= ${new Prisma.Decimal(query.areaMin)}`);

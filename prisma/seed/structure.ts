@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { defaultUnitTypeRows } from "../../config/unit-types";
-import { floorKeyOf, structureKey } from "../../lib/modules/project-structure/structure.rules";
+import { floorKeyOf, structureKey, workedOutAreas } from "../../lib/modules/project-structure/structure.rules";
 import { clearUnitPublishing } from "./unit-publishing";
 import { clearUnitFinance } from "./unit-finance";
 import { clearUnitSales } from "./unit-sales";
@@ -35,12 +35,16 @@ export const STRUCTURE_SEED = {
   units: { a101: "unit_riverside_a_101", a104: "unit_riverside_a_104", b101: "unit_riverside_b_101", aParking1: "unit_riverside_a_p01", munichOffice1: "unit_munich_of001" },
 } as const;
 
-/** The four apartments of a typical floor: a corner, the front, the rear and the other corner. */
+/**
+ * The four apartments of a typical floor, two corners, the front and the rear.
+ * Their net and gross areas are the sums (2026-11): 92.40 + 12.00 = 104.40 net,
+ * + 8.60 common = 113.00 gross — the saleable area.
+ */
 const TYPICAL = [
-  { slot: 1, position: "CORNER", orientation: "NE", bedrooms: 2, bathrooms: 2, rooms: 3, internal: "92.40", gross: "104.10", balcony: "12.00", common: "8.60", saleable: "113.00" },
-  { slot: 2, position: "FRONT", orientation: "E", bedrooms: 1, bathrooms: 1, rooms: 2, internal: "64.20", gross: "72.80", balcony: "8.50", common: "5.80", saleable: "78.50" },
-  { slot: 3, position: "REAR", orientation: "W", bedrooms: 1, bathrooms: 1, rooms: 2, internal: "61.80", gross: "70.10", balcony: "8.00", common: "5.60", saleable: "75.40" },
-  { slot: 4, position: "CORNER", orientation: "SW", bedrooms: 3, bathrooms: 2, rooms: 4, internal: "118.60", gross: "132.90", balcony: "14.50", common: "9.20", saleable: "142.30" },
+  { slot: 1, orientation: "NE", bedrooms: 2, bathrooms: 2, storage: 1, internal: "92.40", balcony: "12.00", common: "8.60", saleable: "113.00" },
+  { slot: 2, orientation: "E", bedrooms: 1, bathrooms: 1, storage: 0, internal: "64.20", balcony: "8.50", common: "5.80", saleable: "78.50" },
+  { slot: 3, orientation: "W", bedrooms: 1, bathrooms: 1, storage: 0, internal: "61.80", balcony: "8.00", common: "5.60", saleable: "75.40" },
+  { slot: 4, orientation: "SW", bedrooms: 3, bathrooms: 2, storage: 1, internal: "118.60", balcony: "14.50", common: "9.20", saleable: "142.30" },
 ] as const;
 
 const dec = (value: string | null) => (value === null ? null : new Prisma.Decimal(value));
@@ -85,9 +89,15 @@ export async function seedStructureRecords(prisma: PrismaClient, members: SeedMe
   type UnitSeed = Omit<Prisma.ProjectUnitCreateManyInput, "companyId" | "projectId" | "floorId" | "unitCodeKey" | "sortOrder" | "createdBy">;
   const unitsOn = async (companyId: string, projectId: string, floorId: string, rows: UnitSeed[], createdBy: string) => {
     units += rows.length;
+    // The sums the unit form shows and the service writes. No land is seeded, so every gross area is a sum.
+    const text = (value: unknown) => (value === null || value === undefined ? null : String(value));
+    const sums = (row: UnitSeed) => {
+      const worked = workedOutAreas("OTHER", { internalArea: text(row.internalArea), balconyArea: text(row.balconyArea), terraceArea: text(row.terraceArea), commonAreaAllocation: text(row.commonAreaAllocation), grossArea: null });
+      return { netArea: dec(worked.netArea), grossArea: dec(worked.grossArea) };
+    };
     // Published from the start, as every unit is since units publish on create (2026-11); the publishing seed writes their versions.
     await prisma.projectUnit.createMany({
-      data: rows.map((row, index) => ({ ...row, companyId, projectId, floorId, unitCodeKey: structureKey(row.unitCode), sortOrder: index + 1, createdBy, publicationStatus: "PUBLISHED" as const, publicationStatusChangedAt: new Date() })),
+      data: rows.map((row, index) => ({ ...row, ...sums(row), companyId, projectId, floorId, unitCodeKey: structureKey(row.unitCode), sortOrder: index + 1, createdBy, publicationStatus: "PUBLISHED" as const, publicationStatusChangedAt: new Date() })),
     });
   };
 
@@ -108,13 +118,12 @@ export async function seedStructureRecords(prisma: PrismaClient, members: SeedMe
         ...[1, 2, 3, 4, 5, 6].map((n) => ({
           ...(block === "A" && n === 1 ? { id: STRUCTURE_SEED.units.aParking1 } : {}),
           unitCode: `P-${block}0${n}`,
-          name: `Parking ${block}0${n}`,
           unitTypeId: typesA.get("PARKING")!,
           internalArea: dec("12.50"),
           saleableArea: dec("12.50"),
           attributes: { covered: true, evReady: n <= 2 },
         })),
-        ...[1, 2].map((n) => ({ unitCode: `S-${block}0${n}`, name: `Storage ${block}0${n}`, unitTypeId: typesA.get("STORAGE")!, internalArea: dec("6.00"), saleableArea: dec("6.00") })),
+        ...[1, 2].map((n) => ({ unitCode: `S-${block}0${n}`, unitTypeId: typesA.get("STORAGE")!, internalArea: dec("6.00"), saleableArea: dec("6.00") })),
       ],
       actor,
     );
@@ -126,12 +135,11 @@ export async function seedStructureRecords(prisma: PrismaClient, members: SeedMe
       ground.id,
       [1, 2].map((n) => ({
         unitCode: `SH-${block}0${n}`,
-        name: `Shop ${block}0${n}`,
         unitTypeId: typesA.get("SHOP")!,
-        position: "FRONT" as const,
         orientation: "S" as const,
         internalArea: dec(n === 1 ? "84.00" : "71.50"),
-        grossArea: dec(n === 1 ? "92.00" : "78.00"),
+        // 84.00 + 8.00 = 92.00 gross; 71.50 + 6.50 = 78.00.
+        commonAreaAllocation: dec(n === 1 ? "8.00" : "6.50"),
         saleableArea: dec(n === 1 ? "92.00" : "78.00"),
         bathrooms: 1,
         attributes: { frontage: n === 1 ? "9.40" : "7.80", ceilingHeight: "4.20" },
@@ -151,19 +159,16 @@ export async function seedStructureRecords(prisma: PrismaClient, members: SeedMe
           return {
             ...(seededId ? { id: seededId } : {}),
             unitCode: code,
-            name: `Apartment ${level}0${plan.slot}`,
             unitTypeId: typesA.get("APARTMENT")!,
-            position: plan.position,
             orientation: plan.orientation,
             internalArea: dec(plan.internal),
-            grossArea: dec(plan.gross),
             balconyArea: dec(plan.balcony),
             outdoorArea: dec(plan.balcony),
             commonAreaAllocation: dec(plan.common),
             saleableArea: dec(plan.saleable),
-            rooms: plan.rooms,
             bedrooms: plan.bedrooms,
             bathrooms: plan.bathrooms,
+            storage: plan.storage,
           };
         }),
         actor,
@@ -184,11 +189,9 @@ export async function seedStructureRecords(prisma: PrismaClient, members: SeedMe
     [1, 2, 3].map((n) => ({
       ...(n === 1 ? { id: STRUCTURE_SEED.units.munichOffice1 } : {}),
       unitCode: `OF-00${n}`,
-      name: `Office 00${n}`,
       unitTypeId: typesB.get("OFFICE")!,
       internalArea: dec("148.00"),
       saleableArea: dec("160.00"),
-      rooms: 4,
       bathrooms: 1,
     })),
     actorB,

@@ -16,7 +16,7 @@ import { PERMISSIONS } from "@/config/permissions";
  * archive and restore and nothing else.
  */
 
-const areas = { internalArea: "92.40", grossArea: null, saleableArea: "113.00", outdoorArea: null, balconyArea: null, terraceArea: null, gardenArea: null, commonAreaAllocation: null };
+const areas = { internalArea: "92.40", balconyArea: null, terraceArea: null, netArea: "92.40", commonAreaAllocation: null, grossArea: null, saleableArea: "113.00", outdoorArea: null, gardenArea: null };
 
 function input(patch: Partial<ReadinessInput> = {}): ReadinessInput {
   return {
@@ -46,9 +46,10 @@ function facts(patch: Partial<LiveUnitFacts> = {}): LiveUnitFacts {
     position: "CORNER",
     orientation: "SW",
     areas,
-    rooms: 3,
+    rooms: null,
     bedrooms: 2,
     bathrooms: 2,
+    storage: 1,
     attributes: {},
     description: null,
     salesPlan: { documentId: "doc_plan", documentVersionId: "ver_1", versionNumber: 1, fileName: "Plan.pdf" },
@@ -96,9 +97,9 @@ describe("readiness (§16, §45, §80): information only", () => {
 });
 
 describe("display by kind of unit (§11)", () => {
-  it("shows an apartment's rooms and orientation, a parking space's areas and position only", () => {
-    expect(unitDisplay("RESIDENTIAL")).toMatchObject({ counts: ["rooms", "bedrooms", "bathrooms"], orientation: true });
-    expect(unitDisplay("PARKING")).toMatchObject({ counts: [], orientation: false, position: true, areas: ["internalArea", "grossArea", "saleableArea"] });
+  it("shows an apartment's bedrooms, bathrooms, storage and orientation, and a parking space's areas only", () => {
+    expect(unitDisplay("RESIDENTIAL")).toMatchObject({ counts: ["bedrooms", "bathrooms", "storage"], orientation: true });
+    expect(unitDisplay("PARKING")).toMatchObject({ counts: [], orientation: false, areas: ["internalArea", "netArea", "grossArea", "saleableArea"] });
     expect(unitDisplay("COMMERCIAL").counts).not.toContain("bedrooms");
   });
 });
@@ -106,7 +107,7 @@ describe("display by kind of unit (§11)", () => {
 describe("snapshots and unpublished changes (§24, §27-§30, §73)", () => {
   it("keeps only publish-relevant data, with the exact file versions", () => {
     const snapshot = buildSnapshot(facts({ attributes: { frontage: "9.40", covered: undefined } as never }));
-    expect(Object.keys(snapshot).sort()).toEqual(["areas", "attributes", "bathrooms", "bedrooms", "building", "description", "floor", "name", "orientation", "position", "primaryImage", "rooms", "salesPlan", "unitCode", "unitType"]);
+    expect(Object.keys(snapshot).sort()).toEqual(["areas", "attributes", "bathrooms", "bedrooms", "building", "description", "floor", "name", "orientation", "position", "primaryImage", "rooms", "salesPlan", "storage", "unitCode", "unitType"]);
     expect(snapshot.attributes).toEqual({ frontage: "9.40" });
     expect(snapshot.salesPlan?.documentVersionId).toBe("ver_1");
   });
@@ -122,6 +123,20 @@ describe("snapshots and unpublished changes (§24, §27-§30, §73)", () => {
     expect(hasUnpublishedChanges(facts({ building: { id: "bld_a", name: "North Block", code: "N" } }), published)).toBe(false);
     // A never-published unit has nothing to differ from.
     expect(hasUnpublishedChanges(facts(), null)).toBe(false);
+  });
+
+  it("sees a version from before the net area and storage existed as differing only where the unit has them (2026-11)", () => {
+    // A version written before: no storage key, no net area key.
+    const old = (snapshot: ReturnType<typeof buildSnapshot>) => {
+      const copy = JSON.parse(JSON.stringify(snapshot)) as Record<string, unknown> & { areas: Record<string, unknown> };
+      delete copy.storage;
+      delete copy.areas.netArea;
+      return copy as unknown as ReturnType<typeof buildSnapshot>;
+    };
+    const none = facts({ storage: null, areas: { ...areas, netArea: null } });
+    expect(hasUnpublishedChanges(none, old(buildSnapshot(none)))).toBe(false);
+    expect(hasUnpublishedChanges(facts(), old(buildSnapshot(facts())))).toBe(true);
+    expect(hasUnpublishedChanges(facts({ storage: 0 }), buildSnapshot(facts()))).toBe(true);
   });
 
   it("compares areas as numbers, so 113 and 113.00 are the same", () => {

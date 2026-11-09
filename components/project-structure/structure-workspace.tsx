@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
 import {
+  COUNT_CHOICES,
   UNIT_ORIENTATIONS,
-  UNIT_POSITIONS,
   UNIT_SORTS,
   type BuildingNodeDTO,
   type FloorNodeDTO,
@@ -59,7 +59,7 @@ type DialogState =
   | { kind: "delete"; target: { type: "building"; building: BuildingNodeDTO } | { type: "floor"; floor: FloorNodeDTO } | { type: "unit"; unit: UnitDTO } }
   | null;
 
-const FILTER_KEYS = ["unitTypeId", "orientation", "position", "bedrooms", "bathrooms", "internalAreaMin", "internalAreaMax", "saleableAreaMin", "saleableAreaMax"] as const;
+const FILTER_KEYS = ["unitTypeId", "orientation", "bedrooms", "bathrooms", "internalAreaMin", "internalAreaMax", "saleableAreaMin", "saleableAreaMax"] as const;
 
 function queryString(selection: Selection, filters: UnitFilters, page: number): string {
   const params = new URLSearchParams();
@@ -481,9 +481,8 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
             <FilterSelect label={t("workspace.type")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={structure.unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
             <FilterSelect label={t("workspace.publication")} value={filters.publication} onChange={(publication) => setFilter({ publication })} options={UNIT_PUBLICATION_FILTER_STATUSES.map((value) => ({ value, label: t(`publication.${value}`) }))} />
             <FilterSelect label={t("workspace.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: t(`orientation.${value}`) }))} />
-            <FilterSelect label={t("workspace.position")} value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: t(`position.${value}`) }))} />
-            <FilterSelect label={t("workspace.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />
-            <FilterSelect label={t("workspace.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={[0, 1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} />
+            <FilterSelect label={t("workspace.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={COUNT_CHOICES.bedrooms.map((value) => ({ value: String(value), label: String(value) }))} />
+            <FilterSelect label={t("workspace.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={COUNT_CHOICES.bathrooms.map((value) => ({ value: String(value), label: String(value) }))} />
             <RangeFilter label={t("workspace.internalArea")} min={filters.internalAreaMin} max={filters.internalAreaMax} onChange={(internalAreaMin, internalAreaMax) => setFilter({ internalAreaMin, internalAreaMax })} />
             <RangeFilter label={t("workspace.saleableArea")} min={filters.saleableAreaMin} max={filters.saleableAreaMax} onChange={(saleableAreaMin, saleableAreaMax) => setFilter({ saleableAreaMin, saleableAreaMax })} />
           </div>

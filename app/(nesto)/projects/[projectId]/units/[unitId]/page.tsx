@@ -80,7 +80,6 @@ export default async function UnitOverviewPage({ params }: Params) {
                 { label: t("unitPage.type"), value: `${unitTypeName(unit.unitType.name, locale)} · ${t(`unitCategory.${unit.unitType.category}`)}` },
                 { label: t("unitPage.building"), value: unit.building.code ? `${unit.building.name} (${unit.building.code})` : unit.building.name },
                 { label: t("unitPage.floor"), value: `${floorName(unit.floor.name, locale)} · ${t(`floorLevel.${unit.floor.levelType}`)}` },
-                ...(display.position || unit.position ? [{ label: t("unitPage.position"), value: unit.position ? t(`position.${unit.position}`) : "—" }] : []),
                 ...(display.orientation || unit.orientation ? [{ label: t("unitPage.orientation"), value: unit.orientation ? t(`orientation.${unit.orientation}`) : "—" }] : []),
                 ...counts.map((field) => ({ label: t(`count.${field}`), value: dash(unit[field]) })),
                 ...attributes.map((key) => {

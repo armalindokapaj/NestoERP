@@ -9,7 +9,6 @@ export type UnitFilters = {
   q: string;
   unitTypeId: string;
   orientation: string;
-  position: string;
   bedrooms: string;
   bathrooms: string;
   internalAreaMin: string;
@@ -21,4 +20,4 @@ export type UnitFilters = {
   sort: UnitSort;
 };
 
-export const EMPTY_FILTERS: UnitFilters = { q: "", unitTypeId: "", orientation: "", position: "", bedrooms: "", bathrooms: "", internalAreaMin: "", internalAreaMax: "", saleableAreaMin: "", saleableAreaMax: "", publication: "", sort: "structure" };
+export const EMPTY_FILTERS: UnitFilters = { q: "", unitTypeId: "", orientation: "", bedrooms: "", bathrooms: "", internalAreaMin: "", internalAreaMax: "", saleableAreaMin: "", saleableAreaMax: "", publication: "", sort: "structure" };

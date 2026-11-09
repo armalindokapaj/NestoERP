@@ -90,7 +90,7 @@ export type Readiness = {
  * still shown when it holds a value: hiding data somebody entered is worse than
  * an unusual row.
  */
-export type UnitDisplay = { counts: readonly CountField[]; areas: readonly AreaField[]; orientation: boolean; position: boolean };
+export type UnitDisplay = { counts: readonly CountField[]; areas: readonly AreaField[]; orientation: boolean };
 
 /* Snapshot (§24, §73) --------------------------------------------------------- */
 
@@ -106,6 +106,8 @@ export type UnitSnapshot = {
   rooms: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
+  /** Since 2026-11; a version written before has none (nor an `areas.netArea`). */
+  storage?: number | null;
   attributes: UnitAttributes;
   description: string | null;
   salesPlan: { documentId: string; documentVersionId: string; versionNumber: number | null; fileName: string | null } | null;

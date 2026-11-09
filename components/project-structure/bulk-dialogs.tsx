@@ -572,7 +572,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
 
 /* Copy a floor ---------------------------------------------------------------- */
 
-type CopyRow = { sourceUnitId: string; sourceCode: string; typeName: string; include: boolean; unitCode: string; name: string };
+type CopyRow = { sourceUnitId: string; sourceCode: string; typeName: string; include: boolean; unitCode: string };
 
 export function CopyFloorDialog({ open, onOpenChange, projectId, floor, buildings, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; projectId: string; floor: FloorNodeDTO; buildings: BuildingNodeDTO[]; onCreated: () => void }) {
   return (
@@ -618,7 +618,6 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
             typeName: unitTypeName(unit.unitType.name, locale),
             include: unit.unitType.isActive,
             unitCode: suggestCopiedCode(unit.unitCode, source?.number ?? null, floor.number),
-            name: unit.name ? suggestCopiedCode(unit.name, source?.number ?? null, floor.number) : "",
           });
         }
         if (page * result.pageSize >= result.total || page >= 5) break;
@@ -633,7 +632,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
   }
 
   const chosen = rows.filter((row) => row.include);
-  const body = (dryRun: boolean) => ({ sourceFloorId: sourceId, units: chosen.map((row) => ({ sourceUnitId: row.sourceUnitId, unitCode: row.unitCode, name: row.name || null })), dryRun });
+  const body = (dryRun: boolean) => ({ sourceFloorId: sourceId, units: chosen.map((row) => ({ sourceUnitId: row.sourceUnitId, unitCode: row.unitCode })), dryRun });
 
   async function check() {
     const result = await structureApi<BatchPreview>(`/api/project-floors/${floor.id}/units/copy`, { body: body(true) });
