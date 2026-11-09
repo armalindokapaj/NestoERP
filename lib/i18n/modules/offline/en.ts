@@ -217,6 +217,8 @@ export const offlineEn = {
   },
   available: {
     label: "Available Offline",
+    menuOn: "Make available offline",
+    menuOff: "Remove offline copy",
     hint: "Keep this project's tasks, units, diary and selected documents on this device.",
     unavailableBrowser: "Offline storage is not available in this browser.",
     confirmTitle: "Make “{name}” available offline?",

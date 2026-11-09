@@ -76,9 +76,11 @@ export type WhatIsThisProps = {
   /** The canonical page for the action or topic the tip explains. */
   link?: { label: string; href: string };
   className?: string;
+  /** "popover": the panel opens over the page, below the trigger's end, for a row that cannot grow (a tab row). */
+  placement?: "inline" | "popover";
 };
 
-export function WhatIsThis({ id, version = 1, label, title, children, link, className }: WhatIsThisProps) {
+export function WhatIsThis({ id, version = 1, label, title, children, link, className, placement = "inline" }: WhatIsThisProps) {
   const t = useCommonTranslations();
   const panelId = React.useId();
   const [open, setOpen] = React.useState(false);
@@ -94,7 +96,7 @@ export function WhatIsThis({ id, version = 1, label, title, children, link, clas
   if (dismissed) return null;
 
   return (
-    <div className={cn("text-table", className)} data-testid={`help-${id}`}>
+    <div className={cn("text-table", placement === "popover" && "relative", className)} data-testid={`help-${id}`}>
       <button
         ref={triggerRef}
         type="button"
@@ -111,7 +113,10 @@ export function WhatIsThis({ id, version = 1, label, title, children, link, clas
         role="region"
         aria-label={title}
         hidden={!open}
-        className="mt-2 max-w-prose rounded-lg border border-line bg-surface-muted p-3 text-fg-muted"
+        className={cn(
+          "rounded-lg border border-line p-3 text-fg-muted",
+          placement === "popover" ? "absolute right-0 top-full z-50 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-surface shadow-lg" : "mt-2 max-w-prose bg-surface-muted",
+        )}
       >
         <div className="flex items-start justify-between gap-3">
           <p className="font-semibold text-fg">{title}</p>

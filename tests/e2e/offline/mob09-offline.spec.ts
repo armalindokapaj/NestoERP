@@ -76,13 +76,19 @@ async function shellReady(page: Page) {
 
 async function takeProjectOffline(page: Page) {
   await page.goto(`/projects/${SITE}`);
-  await page.getByTestId("available-offline-switch").click();
+  // "Available offline" is in the project's actions menu, at the end of the tab row.
+  await page.getByRole("button", { name: "More project actions" }).click();
+  await page.getByTestId("available-offline-item").click();
   await expect(page.getByTestId("available-offline-dialog")).toBeVisible();
   // A project with documents asks which to keep; these fixtures have none.
   const choice = page.getByTestId("doc-mode-none");
   if (await choice.count()) await choice.check();
   await page.getByTestId("available-offline-download").click();
+  await expect(page.getByTestId("available-offline-dialog")).toBeHidden({ timeout: 30_000 });
+  // The open menu follows the download live: it reads "Available offline" once it is done.
+  await page.getByRole("button", { name: "More project actions" }).click();
   await expect(page.getByTestId("available-offline-status")).toContainText(/available offline/i, { timeout: 30_000 });
+  await page.keyboard.press("Escape");
 }
 
 async function goOffline(context: BrowserContext, page: Page, path: string) {

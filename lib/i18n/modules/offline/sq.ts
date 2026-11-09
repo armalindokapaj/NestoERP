@@ -218,6 +218,8 @@ export const offlineSq: typeof offlineEn = {
   },
   available: {
     label: "E disponueshme pa lidhje",
+    menuOn: "Bëje të disponueshëm pa lidhje",
+    menuOff: "Hiq kopjen pa lidhje",
     hint: "Mbaj detyrat, njësitë, ditarin dhe dokumentet e zgjedhura të këtij projekti në këtë pajisje.",
     unavailableBrowser: "Ruajtja pa lidhje nuk është e disponueshme në këtë shfletues.",
     confirmTitle: "Ta bëni “{name}” të disponueshëm pa lidhje?",

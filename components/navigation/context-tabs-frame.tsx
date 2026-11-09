@@ -13,7 +13,16 @@ import { cn } from "@/lib/utils/cn";
  * (`--nesto-shell-tab-row-h`; UI-02 §7). Where the tabs outgrow the row it
  * scrolls sideways, and version 2 marks the edge they continue past (§24).
  */
-export function ContextTabsFrame({ label, children, className, testId }: { label: string; children: React.ReactNode; className?: string; testId?: string }) {
+export function ContextTabsFrame({ label, children, className, testId, trailing }: { label: string; children: React.ReactNode; className?: string; testId?: string; trailing?: React.ReactNode }) {
+  const scroller = (
+    // Phones may scroll the tabs sideways; desktop tab sets are kept short enough not to (§20).
+    <div className={cn("overflow-x-auto overscroll-x-contain", trailing ? "min-w-0 flex-1" : null)} data-tab-scroller>
+      <nav aria-label={label} data-testid={testId} className="flex h-(--nesto-shell-tab-row-h) min-w-max items-stretch gap-1 border-b border-line">
+        {children}
+      </nav>
+      <ContextTabsOverflow />
+    </div>
+  );
   return (
     <div
       data-context-tabs
@@ -22,13 +31,17 @@ export function ContextTabsFrame({ label, children, className, testId }: { label
         className,
       )}
     >
-      {/* Phones may scroll the tabs sideways; desktop tab sets are kept short enough not to (§20). */}
-      <div className="overflow-x-auto overscroll-x-contain" data-tab-scroller>
-        <nav aria-label={label} data-testid={testId} className="flex h-(--nesto-shell-tab-row-h) min-w-max items-stretch gap-1 border-b border-line">
-          {children}
-        </nav>
-        <ContextTabsOverflow />
-      </div>
+      {trailing ? (
+        // A page's own controls at the row's end: outside the scroller, so they stay in view while the tabs scroll, on the same hairline.
+        <div className="flex items-stretch">
+          {scroller}
+          <div className="flex h-(--nesto-shell-tab-row-h) shrink-0 items-center gap-1 border-b border-line pl-2" data-context-tabs-trailing>
+            {trailing}
+          </div>
+        </div>
+      ) : (
+        scroller
+      )}
     </div>
   );
 }

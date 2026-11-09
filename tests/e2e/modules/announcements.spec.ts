@@ -148,10 +148,14 @@ test("a favorite shows on the dashboard and in the palette, and disappears with 
   try {
     await signIn(page, "ENGINEER_C", { to: "/projects/project_c" });
     // Leave only once the star is saved: the click is optimistic.
+    // The star is in the project's actions menu, at the end of the tab row.
     const saved = page.waitForResponse((response) => response.url().endsWith("/api/favorites") && response.request().method() === "POST");
-    await mainRegion(page).getByTestId("favorite-button").click();
+    await mainRegion(page).getByRole("button", { name: "More project actions" }).click();
+    await page.getByTestId("favorite-menu-item").click();
     expect((await saved).ok()).toBe(true);
-    await expect(mainRegion(page).getByTestId("favorite-button")).toHaveAttribute("aria-pressed", "true");
+    await mainRegion(page).getByRole("button", { name: "More project actions" }).click();
+    await expect(page.getByTestId("favorite-menu-item")).toHaveText("Remove from favorites");
+    await page.keyboard.press("Escape");
 
     await page.goto("/dashboard");
     const widget = mainRegion(page).getByRole("region", { name: "Favorites" });

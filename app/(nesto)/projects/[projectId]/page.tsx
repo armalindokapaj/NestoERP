@@ -4,23 +4,19 @@ import { Suspense, type ReactNode } from "react";
 import Link from "@/components/navigation/nav-link";
 import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "lucide-react";
 
-import { AvailableOffline } from "@/components/offline/available-offline";
 import { ProjectMobileOverview, type ProjectQuickAction } from "@/components/projects/mobile/project-mobile-overview";
 import { PersonLink } from "@/components/people/person-link";
-import { RecordFavorite } from "@/components/productivity/record-favorite";
-import { ProjectActions } from "@/components/projects/project-actions";
+import { RecordOpened } from "@/components/productivity/record-favorite";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionBoundary } from "@/components/modules/page-section";
 import { PageSections } from "@/components/layout/page-sections";
 import { PageSection, PageSectionLinks } from "@/components/ui/page-sections";
 import { ListSectionSkeleton } from "@/components/modules/section-skeletons";
-import { WhatIsThis } from "@/components/help/what-is-this";
 import { formatDate, numberText } from "@/lib/i18n/format";
 import { getProject3DAvailability } from "@/lib/modules/project-3d/project-3d.viewer";
 import { listProjectMedia } from "@/lib/modules/project-media/project-media.service";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
-import { statusMovesFrom } from "@/lib/modules/projects/project.machine";
 import * as projects from "@/lib/modules/projects/project.service";
 import { projectMobileSummary, projectMyWork, projectUpcoming, type ProjectUpcomingItem, type ProjectWorkItem } from "@/lib/modules/projects/project-workspace.service";
 import type { ProjectActivityDTO } from "@/lib/modules/projects/project.types";
@@ -116,22 +112,10 @@ export default async function ProjectOverviewPage({ params }: Params) {
     <div className="space-y-7">
       {/* The top of the page, under the project's name. The name itself sits at the foot of the hero (and is another element on a phone), so the anchor is here. */}
       <PageSection id="overview" label={project.name} order={0} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex-1" />
-        <div className="flex items-center gap-2"><RecordFavorite context={context} entityType="project" entityId={project.id} /><ProjectActions projectId={project.id} projectName={project.name} companyName={project.company.name} statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []} archived={archived} canUpdate={actions.canUpdate} canArchive={actions.canArchive} canRestore={actions.canRestore} canManageMedia={actions.canManageMedia} canManageTeam={actions.canManageMembers} /></div>
-      </div>
-
-
-      {/* Take the project to the site without a signal (MOB-09 §7). */}
-      {!archived ? <AvailableOffline projectId={project.id} projectName={project.name} /> : null}
+      {/* The star, "Available offline", the project's actions and "What is this?" sit at the end of the tab row (project-tabs.tsx). */}
+      <RecordOpened context={context} entityType="project" entityId={project.id} />
 
       {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />{t("overview.archivedNotice")}</p> : null}
-
-      {/* How a project's records hang together is the relationship question of first use (AUD-05 §7, UX-13, UX-15). */}
-      <WhatIsThis id="projects.detail.relationships" title={t("overview.relationshipsTitle")}>
-        <p>{t("overview.relationshipsBody1", { company: project.company.name })}</p>
-        <p>{t("overview.relationshipsBody2")}</p>
-      </WhatIsThis>
 
       <h1 className="text-2xl font-semibold tracking-[-0.02em] text-fg sm:hidden">{project.name}</h1>
 

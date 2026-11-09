@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { CloudDownload, Loader2 } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { downloadProject, prepareProject, removeProjectDownload, UnsyncedWorkError, type DownloadProgress, type PreparedProject } from "@/lib/offline/projects";
 import { offlineRuntime } from "@/lib/offline/runtime";
 
@@ -18,12 +16,14 @@ import { useOffline } from "./use-offline";
 type Phase = "idle" | "preparing" | "confirm" | "downloading" | "removing";
 
 /**
- * "Available Offline" on a project (MOB-09 §7-§14). Turning it on works out
- * what it would take and asks before anything large moves: the project's data,
- * and which documents to keep. Turning it off removes the download, and refuses
- * while the person still has unsynced work on the project (§94).
+ * "Available Offline" on a project (MOB-09 §7-§14), as state a menu item drives.
+ * Turning it on works out what it would take and asks before anything large
+ * moves: the project's data, and which documents to keep. Turning it off removes
+ * the download, and refuses while the person still has unsynced work on the
+ * project (§94). `dialogs` must stay mounted beside the menu — a menu closes as
+ * its item is chosen, and the questions outlive it.
  */
-export function AvailableOffline({ projectId, projectName }: { projectId: string; projectName: string }) {
+export function useAvailableOffline(projectId: string, projectName: string) {
   const t = useTranslations("offline");
   const state = useOffline();
   const project = state.projects.find((entry) => entry.projectId === projectId);
@@ -36,14 +36,16 @@ export function AvailableOffline({ projectId, projectName }: { projectId: string
   const [blocked, setBlocked] = React.useState<number | null>(null);
   const [freeBytes, setFreeBytes] = React.useState<number | null>(null);
 
-  if (!state.ready && !state.unsupported) return null;
-  if (state.unsupported) return <p className="text-micro text-fg-muted" data-testid="available-offline-unavailable">{t("available.unavailableBrowser")}</p>;
-
   const on = Boolean(project) && !project?.revoked && project?.status !== "FAILED";
   const working = phase === "preparing" || phase === "downloading" || project?.status === "DOWNLOADING" || project?.status === "PREPARING";
+  const status = [
+    project ? t(`storage.status.${project.status}` as never) : null,
+    phase === "downloading" && progress?.phase === "documents" ? t("available.downloadingDocs", { done: progress.done, total: progress.total }) : null,
+  ].filter(Boolean).join(" · ");
 
   const begin = async () => {
     setError(null);
+    setBlocked(null);
     setPhase("preparing");
     try {
       const next = await prepareProject(projectId);
@@ -90,35 +92,8 @@ export function AvailableOffline({ projectId, projectName }: { projectId: string
     ? (mode === "all" ? prepared.estimate.documents.filter((doc) => doc.available) : mode === "selected" ? prepared.estimate.documents.filter((doc) => chosen.has(doc.documentId)) : []).reduce((sum, doc) => sum + doc.sizeBytes, 0)
     : 0;
 
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3" data-testid="available-offline">
-      <div className="flex min-w-0 items-start gap-3">
-        <CloudDownload className="mt-0.5 size-5 shrink-0 text-fg-muted" aria-hidden />
-        <div className="min-w-0">
-          <p className="font-medium" id={`available-offline-${projectId}`}>{t("available.label")}</p>
-          <p className="text-micro text-fg-muted" data-testid="available-offline-status">
-            {project ? t(`storage.status.${project.status}` as never) : t("available.hint")}
-            {phase === "downloading" && progress?.phase === "documents" ? ` · ${t("available.downloadingDocs", { done: progress.done, total: progress.total })}` : ""}
-          </p>
-          {error ? <p role="alert" className="text-micro text-danger-strong">{error}</p> : null}
-          {blocked !== null ? <p role="alert" className="text-micro text-warning-strong" data-testid="available-offline-blocked">{t("available.turnOffBlocked", { count: blocked })}</p> : null}
-        </div>
-      </div>
-      {working ? (
-        <Loader2 className="size-5 animate-spin text-fg-muted" aria-label={t("available.downloading")} />
-      ) : (
-        <Switch
-          checked={on}
-          aria-labelledby={`available-offline-${projectId}`}
-          data-testid="available-offline-switch"
-          onCheckedChange={(checked) => {
-            setBlocked(null);
-            if (checked) void begin();
-            else setPhase("removing");
-          }}
-        />
-      )}
-
+  const dialogs = (
+    <>
       <Dialog open={phase === "confirm"} onOpenChange={(open) => !open && setPhase("idle")}>
         <DialogContent className="max-w-md" presentation="sheet-phone" data-testid="available-offline-dialog">
           <DialogTitle>{t("available.confirmTitle", { name: projectName })}</DialogTitle>
@@ -167,6 +142,30 @@ export function AvailableOffline({ projectId, projectName }: { projectId: string
       </Dialog>
 
       <ConfirmDialog open={phase === "removing"} onOpenChange={(open) => !open && setPhase("idle")} title={t("available.turnOffTitle")} description={t("available.turnOffBody")} confirmLabel={t("available.remove")} onConfirm={() => void turnOff()} />
-    </div>
+    </>
   );
+
+  return {
+    /** Nothing to offer until the device's offline store has answered. */
+    shown: state.ready || state.unsupported,
+    unsupported: state.unsupported,
+    on,
+    working,
+    /** The download's state in words ("Available offline", "Downloading 3 of 10 documents"), or empty. */
+    status,
+    /** A failure to say once, then clear. */
+    error,
+    /** Unsynced changes that stop the download being removed. */
+    blocked,
+    clearMessages: () => {
+      setError(null);
+      setBlocked(null);
+    },
+    turnOn: () => void begin(),
+    askTurnOff: () => {
+      setBlocked(null);
+      setPhase("removing");
+    },
+    dialogs,
+  };
 }

@@ -65,11 +65,12 @@ test("stars a project and opens it from the dashboard", async ({ page }) => {
     // The star is optimistic: `aria-pressed` flips before the POST lands, so
     // navigating on that alone aborts the request and the dashboard has
     // nothing to show. Wait for the write, not for the paint.
+    // The star is in the project's actions menu, at the end of the tab row.
+    await page.getByRole("button", { name: "More project actions" }).first().click();
     await Promise.all([
       page.waitForResponse((response) => response.url().includes("/api/favorites") && response.request().method() === "POST"),
-      page.getByTestId("favorite-button").first().click(),
+      page.getByTestId("favorite-menu-item").click(),
     ]);
-    await expect(page.getByTestId("favorite-button").first()).toHaveAttribute("aria-pressed", "true");
     await page.goto("/dashboard");
     await page.getByRole("region", { name: "Favorites" }).getByRole("link", { name: /Logistics Hub/ }).click();
     await expect(page).toHaveURL(/\/projects\/project_c$/);

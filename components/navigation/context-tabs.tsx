@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { ChevronDown } from "lucide-react";
 import { usePathname } from "next/navigation";
 
@@ -30,8 +31,9 @@ function activeFor(tabs: ContextTab[], pathname: string, rootKey?: string) {
  * tabs always shown; the rest fold into More, which carries the active tab's
  * name while one of them is open. The active tab follows the URL, so back,
  * forward, refresh and deep links all land on the right one (§35, §36).
+ * `trailing` is a page's own controls at the end of the row.
  */
-export function ContextTabs({ label, tabs, primary, rootKey }: { label: string; tabs: ContextTab[]; primary?: string[]; rootKey?: string }) {
+export function ContextTabs({ label, tabs, primary, rootKey, trailing }: { label: string; tabs: ContextTab[]; primary?: string[]; rootKey?: string; trailing?: React.ReactNode }) {
   const t = useTranslations("ui");
   const pathname = usePathname();
   if (tabs.length <= 1) return null;
@@ -41,7 +43,7 @@ export function ContextTabs({ label, tabs, primary, rootKey }: { label: string; 
   const activeInMore = more.find((tab) => tab.key === active);
 
   return (
-    <ContextTabsFrame label={label}>
+    <ContextTabsFrame label={label} trailing={trailing}>
       {shown.map((tab) => (
         <Link
           navSource="tab"

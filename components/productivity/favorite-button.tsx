@@ -16,6 +16,24 @@ import { useCommonTranslations } from "@/components/i18n/common-text";
  * confirmation; the server decides whether the record may be starred.
  */
 export function FavoriteButton({ entityType, entityId, initial, compact = false }: { entityType: NavigableType; entityId: string; initial: boolean; compact?: boolean }) {
+  const t = useCommonTranslations();
+  const { favorite, pending, toggle } = useFavorite(entityType, entityId, initial);
+
+  const label = favorite ? t("favorite.favorited") : t("favorite.favorite");
+  return (
+    <Button type="button" variant={compact ? "ghost" : "secondary"} size={compact ? "icon-sm" : "sm"} onClick={() => void toggle()} disabled={pending} aria-pressed={favorite} aria-label={favorite ? t("favorite.remove") : t("favorite.add")} title={favorite ? t("favorite.remove") : t("favorite.add")} data-testid="favorite-button">
+      <Star aria-hidden="true" className={cn("transition-colors", favorite ? "fill-warning text-warning" : "text-fg-subtle")} />
+      {compact ? null : <span>{label}</span>}
+    </Button>
+  );
+}
+
+/**
+ * A record's star as state: optimistic, put back with a message if the server
+ * refuses, and kept in step with the same star in another tab. The button above
+ * and a record's actions menu both use it.
+ */
+export function useFavorite(entityType: NavigableType, entityId: string, initial: boolean) {
   const toast = useToast();
   const t = useCommonTranslations();
   const [favorite, setFavorite] = React.useState(initial);
@@ -43,11 +61,5 @@ export function FavoriteButton({ entityType, entityId, initial, compact = false 
     }
   }
 
-  const label = favorite ? t("favorite.favorited") : t("favorite.favorite");
-  return (
-    <Button type="button" variant={compact ? "ghost" : "secondary"} size={compact ? "icon-sm" : "sm"} onClick={() => void toggle()} disabled={pending} aria-pressed={favorite} aria-label={favorite ? t("favorite.remove") : t("favorite.add")} title={favorite ? t("favorite.remove") : t("favorite.add")} data-testid="favorite-button">
-      <Star aria-hidden="true" className={cn("transition-colors", favorite ? "fill-warning text-warning" : "text-fg-subtle")} />
-      {compact ? null : <span>{label}</span>}
-    </Button>
-  );
+  return { favorite, pending, toggle };
 }

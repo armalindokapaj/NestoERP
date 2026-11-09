@@ -294,7 +294,6 @@ export const AuditAction = {
   PROJECT_UNIT_MEDIA_CHANGED: "PROJECT_UNIT_MEDIA_CHANGED",
   PROJECT_UNIT_PUBLICATION_STATUS_CHANGED: "PROJECT_UNIT_PUBLICATION_STATUS_CHANGED",
   PROJECT_UNIT_PUBLISHED: "PROJECT_UNIT_PUBLISHED",
-  PROJECT_UNIT_UNPUBLISHED: "PROJECT_UNIT_UNPUBLISHED",
   PROJECT_UNIT_ARCHIVED: "PROJECT_UNIT_ARCHIVED",
   /** Selling the unit (E-05E §54). */
   UNIT_COMMERCIAL_STATUS_CHANGED: "UNIT_COMMERCIAL_STATUS_CHANGED",
@@ -845,7 +844,6 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PROJECT_UNIT_MEDIA_CHANGED, moduleKey: "projects", category: "DOCUMENT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["change", "mediaId", "documentId", "category", "caption", "isPrimary", "order"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_PUBLICATION_STATUS_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["publicationStatus", "revisionReason"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_PUBLISHED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus", "versionNumber", "publicationId", "salesPlanDocumentVersionId", "primaryMediaDocumentVersionId"], required: true },
-  { actionKey: AuditAction.PROJECT_UNIT_UNPUBLISHED, moduleKey: "projects", category: "PROJECT", severity: "CRITICAL", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus", "versionNumber", "reason"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_ARCHIVED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["publicationStatus"], required: true },
   { actionKey: AuditAction.UNIT_COMMERCIAL_STATUS_CHANGED, moduleKey: "sales", category: "SALES", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["status", "holdReason", "holdUntil"], required: true },
   { actionKey: AuditAction.UNIT_PRICE_CHANGED, moduleKey: "sales", category: "SALES", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["askingPrice", "currency", "priceBasis", "reason"], required: true },

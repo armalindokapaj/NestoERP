@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { usePathname } from "next/navigation";
 
 import { ContextTabs, type ContextTab } from "@/components/navigation/context-tabs";
@@ -22,7 +23,7 @@ const PRIMARY: ProjectTabKey[] = ["overview", "planning", "units", "sales", "tas
  * (§10, §28). A page deeper inside (a unit) names its own longer trail, which
  * takes over the bar while it is open.
  */
-export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity }: { projectId: string; crumbs: Crumb[]; tabs: ProjectNavTab[]; sectionsLabel: string; identity: ProjectIdentity }) {
+export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity, overviewTrailing }: { projectId: string; crumbs: Crumb[]; tabs: ProjectNavTab[]; sectionsLabel: string; identity: ProjectIdentity; overviewTrailing?: React.ReactNode }) {
   const pathname = usePathname();
   const base = `/projects/${projectId}`;
   const segment = pathname === base ? null : pathname.slice(base.length + 1).split("/")[0];
@@ -46,7 +47,8 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
         </div>
         <ProjectStatusBadge status={identity.status} />
       </div>
-      <ContextTabs label={sectionsLabel} tabs={tabs} primary={PRIMARY} rootKey="overview" />
+      {/* The Overview's own controls end the row on the Overview only; every other section keeps the row to its tabs. */}
+      <ContextTabs label={sectionsLabel} tabs={tabs} primary={PRIMARY} rootKey="overview" trailing={segment === null ? overviewTrailing : undefined} />
     </>
   );
 }
