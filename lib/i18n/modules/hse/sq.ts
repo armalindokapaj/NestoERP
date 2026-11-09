@@ -121,7 +121,7 @@ export const hseSq: typeof hseEn = {
       CONDITIONAL: "Me kusht",
     },
     inspectionStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       SCHEDULED: "Planifikuar",
       IN_PROGRESS: "Në proces",
       PENDING_APPROVAL: "Në pritje të miratimit",
@@ -143,7 +143,7 @@ export const hseSq: typeof hseEn = {
       GENERAL: "E përgjithshme",
     },
     permitStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       PENDING_APPROVAL: "Në pritje të miratimit",
       APPROVED: "Miratuar",
       ACTIVE: "Aktiv",
@@ -181,7 +181,7 @@ export const hseSq: typeof hseEn = {
       NUMBER: "Numër",
     },
     riskAssessmentStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       PENDING_APPROVAL: "Në pritje të miratimit",
       APPROVED: "Miratuar",
       ARCHIVED: "Arkivuar",
@@ -207,7 +207,7 @@ export const hseSq: typeof hseEn = {
       ARCHIVED: "Arkivuar",
     },
     toolboxStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       COMPLETED: "Përfunduar",
       CANCELLED: "Anuluar",
     },
@@ -663,6 +663,8 @@ export const hseSq: typeof hseEn = {
   format: {
     was: "ishte {status}",
     expiredAgo: "Skadoi {time} më parë",
+    hoursShort: "{count} orë",
+    daysShort: "{count} ditë",
     expiresIn: "Skadon për {hours} orë",
     daysLeft: "{days} ditë të mbetura",
     riskMatrix: "Matrica e rrezikut",

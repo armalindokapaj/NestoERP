@@ -8,7 +8,7 @@ export const dailyLogsSq: typeof dailyLogsEn = {
     reports: "Raportet e ditarëve të kantierit",
   },
   labels: {
-    status: { DRAFT: "Draft", SUBMITTED: "Dorëzuar", REVIEWED: "Shqyrtuar", LOCKED: "Kyçur", CORRECTION_REQUIRED: "Kërkon korrigjim", VOID: "I anuluar" },
+    status: { DRAFT: "Skicë", SUBMITTED: "Dorëzuar", REVIEWED: "Shqyrtuar", LOCKED: "Kyçur", CORRECTION_REQUIRED: "Kërkon korrigjim", VOID: "I anuluar" },
     weather: { CLEAR: "Kthjellët", PARTLY_CLOUDY: "Pjesërisht me re", CLOUDY: "Me re", RAIN: "Shi", HEAVY_RAIN: "Shi i dendur", SNOW: "Borë", WINDY: "Erë", FOG: "Mjegull", EXTREME_HEAT: "Nxehtësi ekstreme", EXTREME_COLD: "Të ftohtë ekstrem", OTHER: "Tjetër" },
     site: { DRY: "Thatë", WET: "Lagësht", MUDDY: "Me baltë", FLOODED: "I përmbytur", RESTRICTED_ACCESS: "Qasje e kufizuar", HIGH_WIND: "Erë e fortë", DUSTY: "Me pluhur", OTHER: "Tjetër" },
     equipment: { AVAILABLE: "E disponueshme", IN_USE: "Në përdorim", IDLE: "Joaktive", OUT_OF_SERVICE: "Jashtë shërbimit", BREAKDOWN: "Me defekt", OTHER: "Tjetër" },
@@ -338,5 +338,20 @@ export const dailyLogsSq: typeof dailyLogsEn = {
     people_other: "{count} persona {basis}",
     addCount: "Shto {count}",
     editor: "Fuqia punëtore nga skuadrat",
+  },
+  historySteps: {
+    DAILY_LOG_CREATED: "Filloi",
+    DAILY_LOG_SUBMITTED: "Dorëzuar",
+    DAILY_LOG_RETURNED: "Kthyer për korrigjim",
+    DAILY_LOG_REVIEWED: "Shqyrtuar",
+    DAILY_LOG_LOCKED: "Kyçur",
+    DAILY_LOG_VOIDED: "Anuluar",
+    DAILY_LOG_CORRECTION_ADDED: "U shtua korrigjim zyrtar",
+    DAILY_LOG_MAJOR_DELAY: "U regjistrua vonesë e madhe",
+  },
+  hiddenRecords: {
+    incident: "U regjistrua një incident HSE",
+    hse: "Regjistrim HSE",
+    qaqc: "Regjistrim QA/QC",
   },
 };

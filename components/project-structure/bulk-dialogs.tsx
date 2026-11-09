@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import type { Locale } from "@/lib/i18n/config";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +86,8 @@ export function BulkFloorsDialog({ open, onOpenChange, buildings, initialBuildin
 type RangeRow = FloorDraft & { proposed: string; include: boolean; match: ExistingFloorMatch | null; rename: boolean; reactivate: boolean };
 type RangeEntry = FloorDraft & { existing?: { floorId: string; expectedVersion: number; reactivate: boolean } };
 
-const differs = (row: RangeRow) => row.match !== null && row.proposed.trim() !== row.match.name;
+/** An existing floor whose name is not the range's — "Floor 5" is the same name as "Kati 5" (lib/i18n/stock-names.ts). */
+const differs = (row: RangeRow, locale: Locale) => row.match !== null && row.proposed.trim() !== floorName(row.match.name, locale);
 
 /** What a row asks the server for: a new floor, a change to an existing one, or nothing (an existing floor kept, a new one left out). */
 function entryOf(row: RangeRow): RangeEntry | null {
@@ -119,6 +122,7 @@ function AttentionBadge({ reason }: { reason: FloorBatchConflict["reason"] | und
 function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreated, onDone }: { buildings: BuildingNodeDTO[]; initialBuildingId: string; canUpdateFloors: boolean; onCreated: (buildingId: string) => void; onDone: () => void }) {
   const t = useTranslations("projects");
   const toast = useToast();
+  const locale = useLocale();
   const [step, setStep] = React.useState(0);
   const [buildingId, setBuildingId] = React.useState(initialBuildingId);
   const [from, setFrom] = React.useState("0");
@@ -141,7 +145,7 @@ function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreat
     if (end < start) return setError(t("bulk.lastBelowFirst"));
     if (end - start + 1 > MAX_BULK_FLOORS) return setError(t("bulk.atMostFloors", { max: MAX_BULK_FLOORS }));
     if (start < -50 || end > 500) return setError(t("bulk.floorRange"));
-    const list = planFloorRange(start, end);
+    const list = planFloorRange(start, end, locale);
     setPending(true);
     setError(null);
     try {
@@ -216,7 +220,7 @@ function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreat
     });
   };
   /** Keep every existing floor's name, or take the range's name for each that differs. */
-  const renameAll = (rename: boolean) => setRows((current) => current.map((row) => (differs(row) ? { ...row, rename, name: row.proposed } : row)));
+  const renameAll = (rename: boolean) => setRows((current) => current.map((row) => (differs(row, locale) ? { ...row, rename, name: row.proposed } : row)));
   const back = () => {
     setError(null);
     setStep(0);
@@ -225,7 +229,7 @@ function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreat
   const newRows = rows.filter((row) => !row.match);
   const created = newRows.filter((row) => row.include).length;
   const existingRows = rows.filter((row) => row.match);
-  const different = existingRows.filter(differs).length;
+  const different = existingRows.filter((row) => differs(row, locale)).length;
   const updates = rows.filter((row) => row.match && entryOf(row)).length;
   const issues = Object.keys(attention).length;
   const large = created > CONFIRM_FLOORS_ABOVE;
@@ -325,9 +329,9 @@ function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreat
                 );
               }
               const match = row.match;
-              const choose = canUpdateFloors && differs(row);
+              const choose = canUpdateFloors && differs(row, locale);
               const caption = [
-                choose ? (row.rename ? t("bulk.nowNamed", { name: match.name }) : t("bulk.rangeName", { name: row.proposed })) : null,
+                choose ? (row.rename ? t("bulk.nowNamed", { name: floorName(match.name, locale) }) : t("bulk.rangeName", { name: row.proposed })) : null,
                 t("counts.units", { count: match.unitCount }),
                 match.isActive ? null : t("bulk.inactive"),
               ]
@@ -342,7 +346,7 @@ function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreat
                     {row.rename ? (
                       <Input aria-label={t("bulk.nameOf", { number })} className="h-9" value={row.name} onChange={(event) => edit(index, { name: event.target.value })} maxLength={120} />
                     ) : (
-                      <p className="truncate text-table font-medium text-fg">{match.name}</p>
+                      <p className="truncate text-table font-medium text-fg">{floorName(match.name, locale)}</p>
                     )}
                     <p className="truncate text-meta text-fg-muted">{caption}</p>
                   </div>
@@ -400,6 +404,7 @@ export function BulkUnitsDialog({ open, onOpenChange, floor, buildingName, types
 
 function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floor: FloorNodeDTO; buildingName: string; types: UnitTypeOption[]; onCreated: () => void; onDone: () => void }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   const toast = useToast();
   const base = floor.number !== null && floor.number > 0 ? floor.number * 100 : 1;
   const [step, setStep] = React.useState(0);
@@ -413,7 +418,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const editor = useValuesEditor({ prefix, start, end, padding, suffix, technical }, { module: "units", saveKind: "none", workflow: t("bulk.createUnits"), label: t("bulk.newUnitsOn", { floor: floor.name }) });
+  const editor = useValuesEditor({ prefix, start, end, padding, suffix, technical }, { module: "units", saveKind: "none", workflow: t("bulk.createUnits"), label: t("bulk.newUnitsOn", { floor: floorName(floor.name, locale) }) });
 
   const pattern = { prefix, start: Number(start), end: Number(end), padding: Number(padding) || 0, suffix };
   const valid = Number.isInteger(pattern.start) && Number.isInteger(pattern.end) && pattern.start >= 0 && pattern.end >= pattern.start && pattern.end - pattern.start < MAX_BULK_UNITS && pattern.padding >= 0 && pattern.padding <= 8;
@@ -456,7 +461,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
       const checked = await preview();
       if (checked.conflicts.length) return setError(t("bulk.codesClash"));
       const result = await editor.track(() => structureApi<{ count: number }>(`/api/project-floors/${floor.id}/units/bulk`, { body: { units: codes.map((unitCode) => ({ unitCode })), defaults: technicalBody(technical) } }));
-      toast({ title: t("bulk.unitsAdded", { units: t("counts.units", { count: result.count }), floor: floor.name }) });
+      toast({ title: t("bulk.unitsAdded", { units: t("counts.units", { count: result.count }), floor: floorName(floor.name, locale) }) });
       onCreated();
       onDone();
     } catch (failure) {
@@ -472,7 +477,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
     <>
       <DialogTitle>{t("bulk.bulkAddUnits")}</DialogTitle>
       <DialogDescription>
-        {t("bulk.bulkBody", { building: buildingName, floor: floor.name })}
+        {t("bulk.bulkBody", { building: buildingName, floor: floorName(floor.name, locale) })}
       </DialogDescription>
       <Steps steps={[t("bulk.stepCodes"), t("bulk.stepShared"), t("bulk.stepPreview")]} current={step} />
       <FormError message={error} />
@@ -524,7 +529,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
       ) : step === 1 ? (
         <div className="mt-4 space-y-4">
           <TechnicalFields idPrefix="bulk" values={technical} onChange={setTechnical} types={types} errors={errors} />
-          <Warnings items={warningsFor(technical, types)} />
+          <Warnings items={warningsFor(technical, types, t)} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setStep(0)} disabled={pending}>
               {t("bulk.back")}
@@ -537,7 +542,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
       ) : (
         <div className="mt-4 space-y-4">
           <p className="text-table text-fg-muted">
-            {t("counts.units", { count: codes.length })} {t("bulk.ofType")} <span className="font-medium text-fg">{types.find((type) => type.id === technical.unitTypeId)?.name}</span>
+            {t("counts.units", { count: codes.length })} {t("bulk.ofType")} <span className="font-medium text-fg">{unitTypeName(types.find((type) => type.id === technical.unitTypeId)?.name ?? "", locale)}</span>
             {conflicts.length ? <span className="text-danger-strong">{t("bulk.codesUsed", { count: conflicts.length })}</span> : t("bulk.noClashes")}
           </p>
           <ul className="grid max-h-[40dvh] grid-cols-2 gap-1.5 overflow-y-auto sm:grid-cols-4" data-testid="bulk-unit-preview">
@@ -581,6 +586,7 @@ export function CopyFloorDialog({ open, onOpenChange, projectId, floor, building
 
 function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { projectId: string; floor: FloorNodeDTO; buildings: BuildingNodeDTO[]; onCreated: () => void; onDone: () => void }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   const toast = useToast();
   const sources = buildings.flatMap((building) => building.floors.filter((candidate) => candidate.id !== floor.id && candidate.unitCount > 0).map((candidate) => ({ ...candidate, buildingName: building.name })));
   const [sourceId, setSourceId] = React.useState("");
@@ -591,7 +597,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
   // The rows a chosen floor loads are its suggestion; what counts as input is
   // the choice of floor and any row changed from what was suggested.
   const [suggested, setSuggested] = React.useState<CopyRow[]>([]);
-  const editor = useValuesEditor({ sourceId, edits: rows.filter((row, index) => JSON.stringify(row) !== JSON.stringify(suggested[index])) }, { module: "units", saveKind: "none", workflow: t("bulk.copyUnits"), label: t("bulk.copyingTo", { floor: floor.name }) });
+  const editor = useValuesEditor({ sourceId, edits: rows.filter((row, index) => JSON.stringify(row) !== JSON.stringify(suggested[index])) }, { module: "units", saveKind: "none", workflow: t("bulk.copyUnits"), label: t("bulk.copyingTo", { floor: floorName(floor.name, locale) }) });
 
   async function load(id: string) {
     setSourceId(id);
@@ -609,7 +615,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
           loaded.push({
             sourceUnitId: unit.id,
             sourceCode: unit.unitCode,
-            typeName: unit.unitType.name,
+            typeName: unitTypeName(unit.unitType.name, locale),
             include: unit.unitType.isActive,
             unitCode: suggestCopiedCode(unit.unitCode, source?.number ?? null, floor.number),
             name: unit.name ? suggestCopiedCode(unit.name, source?.number ?? null, floor.number) : "",
@@ -645,7 +651,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
       const checked = await check();
       if (checked.conflicts.length) return setError(t("bulk.copyClash"));
       const result = await editor.track(() => structureApi<{ count: number }>(`/api/project-floors/${floor.id}/units/copy`, { body: body(false) }));
-      toast({ title: t("bulk.copied", { units: t("bulk.newUnits", { count: result.count }), floor: floor.name }) });
+      toast({ title: t("bulk.copied", { units: t("bulk.newUnits", { count: result.count }), floor: floorName(floor.name, locale) }) });
       onCreated();
       onDone();
     } catch (failure) {
@@ -662,7 +668,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
 
   return (
     <>
-      <DialogTitle>{t("bulk.copyTitle", { floor: floor.name })}</DialogTitle>
+      <DialogTitle>{t("bulk.copyTitle", { floor: floorName(floor.name, locale) })}</DialogTitle>
       <DialogDescription>{t("bulk.copyBody")}</DialogDescription>
       <div className="mt-4 space-y-4">
         <FormError message={error} />
@@ -675,7 +681,7 @@ function CopyFloorBody({ projectId, floor, buildings, onCreated, onDone }: { pro
                 <optgroup key={building.id} label={building.name}>
                   {own.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
-                      {candidate.name} · {t("counts.units", { count: candidate.unitCount })}
+                      {floorName(candidate.name, locale)} · {t("counts.units", { count: candidate.unitCount })}
                     </option>
                   ))}
                 </optgroup>

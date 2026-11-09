@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import Link from "@/components/navigation/nav-link";
 import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 
@@ -79,7 +80,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
 
   const panelCount = PANEL_KEYS.filter((key) => filters[key]).length;
   const active = panelCount + (filters.q.trim() ? 1 : 0) + (filters.financialStatus ? 1 : 0);
-  const floors = buildings.find((building) => building.id === filters.buildingId)?.floors ?? buildings.flatMap((building) => building.floors.map((floor) => ({ ...floor, name: `${building.name} · ${floor.name}` })));
+  const floors = buildings.find((building) => building.id === filters.buildingId)?.floors ?? buildings.flatMap((building) => building.floors.map((floor) => ({ ...floor, name: `${building.name} · ${floorName(floor.name, locale)}` })));
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setFilters((current) => (current.q === search ? current : { ...current, q: search })), 300);
@@ -206,8 +207,8 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
       {panelOpen ? (
         <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-4" data-testid="finance-filters">
           <FilterSelect idKey="building" label={t("inventory.building")} value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
-          <FilterSelect idKey="floor" label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floor.name }))} />
-          <FilterSelect idKey="unit-type" label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
+          <FilterSelect idKey="floor" label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floorName(floor.name, locale) }))} />
+          <FilterSelect idKey="unit-type" label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
           <FilterSelect idKey="contract-status" label={t("inventory.contractStatus")} value={filters.contractStatus} onChange={(contractStatus) => setFilter({ contractStatus })} options={CONTRACT_STATUSES.map((status) => ({ value: status, label: unitContractStatusText(t, status) }))} />
           <FilterSelect idKey="overdue" label={t("inventory.overdue")} value={filters.overdue} onChange={(overdue) => setFilter({ overdue })} options={[{ value: "1", label: t("inventory.onlyOverdue") }]} />
           <FilterSelect idKey="currency" label={t("inventory.currency")} value={filters.currency} onChange={(currency) => setFilter({ currency })} options={["EUR", "ALL", "USD", "GBP"].map((code) => ({ value: code, label: code }))} />
@@ -263,7 +264,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                         {row.unitCode}
                       </Link>
                       <span className="block text-meta text-fg-subtle">
-                        {row.building} · {row.floor}
+                        {row.building} · {floorName(row.floor, locale)}
                       </span>
                     </TableCell>
                     {list.canSeeClients ? <TableCell className="max-w-[10rem] truncate">{row.client ? <Link href={`/clients/${row.client.id}`} className="hover:underline">{row.client.name}</Link> : "—"}</TableCell> : null}
@@ -312,7 +313,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                     <span className="ml-auto text-body font-medium tabular-nums text-fg">{amountLabel(row.outstandingAmount, row.currency, locale)}</span>
                   </span>
                   <span className="mt-0.5 block text-meta text-fg-subtle">
-                    {row.building} · {row.floor}
+                    {row.building} · {floorName(row.floor, locale)}
                     {row.contract ? ` · ${row.contract.number} · ${unitContractStatusText(t, row.contract.status)}` : ""}
                   </span>
                   {row.contract ? (

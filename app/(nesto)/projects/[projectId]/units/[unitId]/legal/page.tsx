@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations } from "@/lib/i18n/server";
+import { localizeMessage } from "@/lib/i18n/errors";
+import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 
 import { UnitLegalPanel } from "@/components/contracts/unit-contract/unit-legal-panel";
@@ -25,7 +26,10 @@ export default async function UnitLegalPage({ params, searchParams }: Params) {
   const page = await loadUnitPage(projectId, unitId);
   const t = await getTranslations("projects");
   if (!legalCapabilities(page.context).canView) redirect("/access-denied");
-  const legal = await getUnitLegal(page.context, page.unit.id);
+  const found = await getUnitLegal(page.context, page.unit.id);
+  // Why a contract cannot be asked for yet is the service's English; the reader gets it in their language.
+  const locale = await getLocale();
+  const legal = { ...found, requestBlocked: found.requestBlocked && localizeMessage(found.requestBlocked, locale), createBlocked: found.createBlocked && localizeMessage(found.createBlocked, locale) };
   const documents = legal.contract ? (
     <section className="nesto-card p-5" data-testid="contract-documents">
       <RecordDocuments

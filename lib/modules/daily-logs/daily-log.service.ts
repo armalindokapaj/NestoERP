@@ -471,7 +471,7 @@ export async function getDailyLog(context: UserContext, dailyLogId: string): Pro
   const canCreateTask = editable && can(context, "daily_log.edit") && canAccessModule(context, "tasks") && can(context, "task.create");
   const submitter = row.submittedByMemberId === context.membershipId;
 
-  const HISTORY: Record<string, { label: string; tone: DailyLogHistoryEntry["tone"] }> = {
+  const HISTORY: Record<DailyLogHistoryEntry["step"], { label: string; tone: DailyLogHistoryEntry["tone"] }> = {
     DAILY_LOG_CREATED: { label: "Started", tone: "neutral" },
     DAILY_LOG_SUBMITTED: { label: "Submitted", tone: "info" },
     DAILY_LOG_RETURNED: { label: "Returned for correction", tone: "warning" },
@@ -482,9 +482,10 @@ export async function getDailyLog(context: UserContext, dailyLogId: string): Pro
     DAILY_LOG_MAJOR_DELAY: { label: "Major delay recorded", tone: "warning" },
   };
   const history: DailyLogHistoryEntry[] = activities
-    .filter((entry) => HISTORY[entry.action])
+    .filter((entry): entry is typeof entry & { action: DailyLogHistoryEntry["step"] } => Object.hasOwn(HISTORY, entry.action))
     .map((entry) => ({
       id: entry.id,
+      step: entry.action,
       action: HISTORY[entry.action].label,
       actorName: person(entry.actorMemberId)?.name ?? null,
       actorMemberId: person(entry.actorMemberId) ? entry.actorMemberId : null,

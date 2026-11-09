@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { projectTypeName } from "@/lib/i18n/stock-names";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
@@ -29,6 +30,9 @@ import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal"
 export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) {
   const toast = useToast();
   const t = useTranslations("projects");
+  const locale = useLocale();
+  /** A stock type ("Residential") in the reader's language (lib/i18n/stock-names.ts); a rename starts from it. */
+  const shown = React.useCallback((name: string) => projectTypeName(name, locale), [locale]);
   const [types, setTypes] = React.useState(initial);
   const [newName, setNewName] = React.useState("");
   const [addError, setAddError] = React.useState<string | null>(null);
@@ -42,14 +46,15 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
   // (AUD-03 §3): leaving asks, and Save and continue runs the same add or
   // rename as the buttons.
   const adding = useUnsavedEditor({ module: "projects", saveKind: "create", label: t("types.newLabel"), save: () => add() });
-  const renaming = useUnsavedEditor({ module: "projects", saveKind: "save", label: () => t("types.nameOf", { name: types.find((type) => type.id === editing?.id)?.name ?? t("types.fallbackName") }), save: () => rename() });
+  const renaming = useUnsavedEditor({ module: "projects", saveKind: "save", label: () => { const current = types.find((type) => type.id === editing?.id); return t("types.nameOf", { name: current ? shown(current.name) : t("types.fallbackName") }); }, save: () => rename() });
   const setAddingDirty = adding.setDirty;
   const setRenamingDirty = renaming.setDirty;
   React.useEffect(() => setAddingDirty(newName !== ""), [newName, setAddingDirty]);
   React.useEffect(() => {
-    const original = editing ? types.find((type) => type.id === editing.id)?.name : undefined;
+    const found = editing ? types.find((type) => type.id === editing.id) : undefined;
+    const original = found ? shown(found.name) : undefined;
     setRenamingDirty(editing !== null && editing.name !== original);
-  }, [editing, types, setRenamingDirty]);
+  }, [editing, types, setRenamingDirty, shown]);
 
   async function add(): Promise<SaveOutcome> {
     const name = newName.trim();
@@ -82,7 +87,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
     if (!editing) return COMMITTED;
     const name = editing.name.trim();
     const current = types.find((type) => type.id === editing.id);
-    if (!current || name === current.name) {
+    if (!current || name === current.name || name === shown(current.name)) {
       renaming.setDirty(false);
       setEditing(null);
       return COMMITTED;
@@ -113,7 +118,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
     setPending(type.id);
     try {
       replace(await announcementApi<ProjectTypeDTO>(`/api/projects/types/${type.id}`, { method: "PATCH", body: { isActive } }));
-      toast({ title: isActive ? t("types.reactivated", { name: type.name }) : t("types.retiredToast", { name: type.name }) });
+      toast({ title: isActive ? t("types.reactivated", { name: shown(type.name) }) : t("types.retiredToast", { name: shown(type.name) }) });
     } catch (error) {
       toast({ title: failureMessage(error, t("types.changeFailed")), tone: "danger" });
     } finally {
@@ -214,10 +219,10 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
               return (
                 <li key={type.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3" data-testid="project-type" data-type-name={type.name}>
                   <div className="flex shrink-0 items-center">
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.moveUp", { name: type.name })} disabled={index === 0 || pending !== null} onClick={() => void move(index, -1)}>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.moveUp", { name: shown(type.name) })} disabled={index === 0 || pending !== null} onClick={() => void move(index, -1)}>
                       <ArrowUp />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.moveDown", { name: type.name })} disabled={index === types.length - 1 || pending !== null} onClick={() => void move(index, 1)}>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.moveDown", { name: shown(type.name) })} disabled={index === types.length - 1 || pending !== null} onClick={() => void move(index, 1)}>
                       <ArrowDown />
                     </Button>
                   </div>
@@ -234,7 +239,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                         value={editing.name}
                         onChange={(event) => setEditing({ ...editing, name: event.target.value, error: null })}
                         maxLength={PROJECT_TYPE_NAME_MAX}
-                        aria-label={t("types.newNameFor", { name: type.name })}
+                        aria-label={t("types.newNameFor", { name: shown(type.name) })}
                         aria-invalid={Boolean(editing.error)}
                         autoFocus
                         className="sm:max-w-xs"
@@ -256,7 +261,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
                   ) : (
                     <div className="min-w-0 flex-1">
                       <p className={cn("flex min-w-0 items-center gap-2 text-body font-medium", type.isActive ? "text-fg" : "text-fg-muted")}>
-                        <span className="truncate">{type.name}</span>
+                        <span className="truncate">{shown(type.name)}</span>
                         {type.isActive ? null : <Badge>{t("types.retired")}</Badge>}
                       </p>
                       <p className="text-meta text-fg-subtle">
@@ -267,16 +272,16 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
 
                   {isEditing ? null : (
                     <div className="ml-auto flex shrink-0 items-center gap-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => startRename({ id: type.id, name: type.name, error: null })} disabled={pending !== null}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => startRename({ id: type.id, name: shown(type.name), error: null })} disabled={pending !== null}>
                         <Pencil aria-hidden="true" />
-                        {t("types.rename")}<span className="sr-only"> {type.name}</span>
+                        {t("types.rename")}<span className="sr-only"> {shown(type.name)}</span>
                       </Button>
                       <Button type="button" variant="ghost" size="sm" onClick={() => void setActive(type, !type.isActive)} disabled={pending !== null}>
                         {busy ? t("types.saving") : type.isActive ? t("types.retire") : t("types.useAgain")}
-                        <span className="sr-only"> {type.name}</span>
+                        <span className="sr-only"> {shown(type.name)}</span>
                       </Button>
                       {type.projectCount === 0 ? (
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.delete", { name: type.name })} onClick={(event) => {
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={t("types.delete", { name: shown(type.name) })} onClick={(event) => {
                           refocus.current = planFocusAfterRemoval(event.currentTarget);
                           setDeleteTarget(type);
                         }} disabled={pending !== null}>
@@ -295,7 +300,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={deleteTarget ? t("types.deleteTitle", { name: deleteTarget.name }) : t("types.deleteFallback")}
+        title={deleteTarget ? t("types.deleteTitle", { name: shown(deleteTarget.name) }) : t("types.deleteFallback")}
         description={t("types.deleteBody")}
         confirmLabel={t("types.deleteConfirm")}
         pending={deleteTarget !== null && pending === deleteTarget.id}

@@ -2,7 +2,7 @@ import type { commonEn } from "./en";
 
 export const commonSq: typeof commonEn = {
   status: {
-    DRAFT: "Draft",
+    DRAFT: "Skicë",
     ARCHIVED: "Arkivuar",
     INACTIVE: "Joaktiv",
     LOST: "Humbur",
@@ -520,7 +520,7 @@ export const commonSq: typeof commonEn = {
     contracts: {
       overview: "Përmbledhje",
       all: "Të gjitha kontratat",
-      drafts: "Draftet",
+      drafts: "Skicat",
       review: "Në shqyrtim",
       requests: "Kërkesat për njësi",
       active: "Aktive",

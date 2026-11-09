@@ -51,7 +51,7 @@ export const documentsSq: typeof documentsEn = {
       OTHER: "Po përpunohet",
     },
     reviewState: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       IN_REVIEW: "Në rishikim",
       APPROVED: "Miratuar",
       REJECTED: "Refuzuar",

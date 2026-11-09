@@ -5,7 +5,7 @@ import type { TableSortConfig } from "@/components/data/sort-header";
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/i18n/format";
-import type { MovementDTO } from "@/lib/modules/inventory/inventory.types";
+import type { MovementDTO, MovementSourceKind } from "@/lib/modules/inventory/inventory.types";
 import { movementTypeLabels } from "@/lib/modules/inventory/inventory.status";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { inventoryLabel } from "./inventory-labels";
@@ -21,6 +21,15 @@ import { formatSigned } from "./inventory-format";
  * the reader may open it — otherwise it names the document without linking to
  * a page that would refuse them (PRD #20 §179).
  */
+
+/** Each document a movement comes from, by the dictionary's word for it. */
+const SOURCE_WORDS = {
+  inventory_receipt: "stockReceipt",
+  stock_issue: "stockIssue",
+  stock_return: "stockReturn",
+  stock_transfer: "stockTransfer",
+  stock_adjustment: "stockAdjustment",
+} as const satisfies Record<MovementSourceKind, string>;
 export async function MovementTable({
   movements,
   showItem = true,
@@ -129,12 +138,13 @@ export async function MovementTable({
       hideBelow: "md",
       render: (row) => {
         if (!row.source) return <span className="text-fg-subtle">—</span>;
+        const label = t(`meta.${SOURCE_WORDS[row.source.kind]}`);
         return row.source.href ? (
           <Link href={row.source.href} className="text-accent-strong hover:underline">
-            {row.source.label}
+            {label}
           </Link>
         ) : (
-          <span>{row.source.label}</span>
+          <span>{label}</span>
         );
       },
     },

@@ -29,6 +29,7 @@ import { prisma } from "@/lib/database/prisma";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
 import { orDash } from "@/lib/utils/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { projectTypeName } from "@/lib/i18n/stock-names";
 import { localizeActivity } from "@/lib/i18n/system";
 import { loadProject, } from "./project-context";
 
@@ -151,7 +152,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65"><span>{project.code}</span><span aria-hidden="true">·</span><span>{t(`status.${project.status}`)}</span></div>
             <h1 id="project-title" className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.025em] sm:text-4xl ds2:text-page">{project.name}</h1>
             <p className="mt-2 text-sm font-medium text-white/70">{project.company.name}</p>
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{project.projectType.name}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{projectTypeName(project.projectType.name, locale)}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
             <div className="mt-4 h-1.5 max-w-md">
               <Suspense fallback={null}>
                 <ProgressBar progress={progress} />
@@ -171,7 +172,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
             <Summary label={t("overview.projectManager")} value={project.projectManager ? <span className="flex flex-wrap items-center gap-2"><PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />{!project.projectManager.membershipActive ? <Badge tone="warning">{t("overview.inactive")}</Badge> : null}</span> : t("overview.unassigned")} />
             <Summary label={t("overview.expectedCompletion")} value={project.schedule.endDate ? formatDate(project.schedule.endDate, locale) : t("overview.notSet")} />
             <Summary label={t("overview.location")} value={orDash([project.location.city, project.location.country].filter(Boolean).join(", "))} />
-            <Summary label={t("overview.projectType")} value={project.projectType?.name ?? t("overview.notSet")} />
+            <Summary label={t("overview.projectType")} value={project.projectType ? projectTypeName(project.projectType.name, locale) : t("overview.notSet")} />
             <Summary label={t("overview.totalArea")} value={project.builtArea === null ? t("overview.notSet") : `${numberText(project.builtArea, undefined, locale, "en-US")} m²`} />
             <Summary label={t("overview.progress")} value={<Suspense fallback={<Skeleton className="h-4 w-12" />}><ProgressValue progress={progress} /></Suspense>} />
             {lastChange ? <Summary label={t("overview.lastEditedBy")} value={<span data-testid="project-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatDate(lastChange.at, locale)}</span>} /> : null}

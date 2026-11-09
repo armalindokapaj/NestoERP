@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-
 
 import { selectClass } from "@/components/forms/record-form";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { areaText, numberText } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,7 +109,7 @@ export function SalesInventory({
 
   const panelCount = PANEL_KEYS.filter((key) => filters[key]).length;
   const active = panelCount + (filters.q.trim() ? 1 : 0) + (filters.commercialStatus ? 1 : 0);
-  const floors = buildings.find((building) => building.id === filters.buildingId)?.floors ?? buildings.flatMap((building) => building.floors.map((floor) => ({ ...floor, name: `${building.name} · ${floor.name}` })));
+  const floors = buildings.find((building) => building.id === filters.buildingId)?.floors ?? buildings.flatMap((building) => building.floors.map((floor) => ({ ...floor, name: `${building.name} · ${floorName(floor.name, locale)}` })));
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setFilters((current) => (current.q === search ? current : { ...current, q: search })), 300);
@@ -211,8 +212,8 @@ export function SalesInventory({
       {panelOpen ? (
         <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="sales-filters">
           <FilterSelect label={t("inventory.building")} value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
-          <FilterSelect label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floor.name }))} />
-          <FilterSelect label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
+          <FilterSelect label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floorName(floor.name, locale) }))} />
+          <FilterSelect label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
           <FilterSelect label={t("inventory.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))} />
           <FilterSelect label={t("inventory.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={[0, 1, 2, 3, 4].map((value) => ({ value: String(value), label: String(value) }))} />
           <FilterSelect label={t("inventory.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: salesLabel(t, "orientation", value, ORIENTATION_LABELS[value]) }))} />
@@ -261,11 +262,11 @@ export function SalesInventory({
                       <Link href={href(row)} className="font-medium text-fg hover:text-accent-strong">
                         {row.unitCode}
                       </Link>
-                      <span className="block text-meta text-fg-subtle">{row.unitType}</span>
+                      <span className="block text-meta text-fg-subtle">{unitTypeName(row.unitType, locale)}</span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {row.building}
-                      <span className="block text-meta text-fg-subtle">{row.floor}</span>
+                      <span className="block text-meta text-fg-subtle">{floorName(row.floor, locale)}</span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(row.saleableArea, locale)}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.bedrooms ?? "—"}</TableCell>
@@ -294,7 +295,7 @@ export function SalesInventory({
                     <span className="ml-auto text-body font-medium tabular-nums text-fg">{moneyLabel(row.askingPrice, row.currency, locale)}</span>
                   </span>
                   <span className="mt-0.5 block text-meta text-fg-subtle">
-                    {row.building} · {row.floor} · {areaText(row.saleableArea, locale)}
+                    {row.building} · {floorName(row.floor, locale)} · {areaText(row.saleableArea, locale)}
                     {row.pricePerSqm !== null ? ` · ${perSqmLabel(row.pricePerSqm, row.currency, locale)}` : null}
                   </span>
                   {row.client || row.reservationExpiresAt ? (

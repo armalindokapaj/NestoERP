@@ -10,7 +10,7 @@ import { moduleLink, toItemRef, toLocationRef, toMemberRef, toWarehouseRef } fro
 import { quantityString } from "../inventory.quantity";
 import { buildBalanceScopeWhere, buildMovementScopeWhere } from "../inventory.scope";
 import type { BalanceListQuery, MovementListQuery } from "../inventory.schema";
-import type { MovementDTO, StockRowDTO } from "../inventory.types";
+import type { MovementDTO, MovementSourceKind, StockRowDTO } from "../inventory.types";
 import { BALANCE_SELECT, toStockRow } from "../items/item.service";
 
 /** A list read: its count and its page from one read-only snapshot (AUD-08 §4, DT-06). */
@@ -186,7 +186,7 @@ async function loadMembers(ids: string[]) {
 }
 
 /** Where a movement came from, and whether the reader may open it (§179). */
-const SOURCE_ROUTES: Record<string, { label: string; href: (id: string) => string; permission: Parameters<typeof can>[1] }> = {
+const SOURCE_ROUTES: Record<MovementSourceKind, { label: string; href: (id: string) => string; permission: Parameters<typeof can>[1] }> = {
   inventory_receipt: {
     label: "Stock receipt",
     href: (id) => `/inventory/receipts/${id}`,
@@ -219,7 +219,8 @@ function toDTO(
   row: Row,
   members: Map<string, ReturnType<typeof toMemberRef>>,
 ): MovementDTO {
-  const route = SOURCE_ROUTES[row.sourceEntityType];
+  const kind = Object.hasOwn(SOURCE_ROUTES, row.sourceEntityType) ? (row.sourceEntityType as MovementSourceKind) : null;
+  const route = kind ? SOURCE_ROUTES[kind] : null;
 
   return {
     id: row.id,
@@ -233,14 +234,13 @@ function toDTO(
     unit: row.unit,
     occurredAt: row.occurredAt.toISOString(),
     postedBy: members.get(row.postedByMemberId) ?? null,
-    source: route
-      ? moduleLink(
-          row.sourceEntityId,
-          route.label,
-          route.href(row.sourceEntityId),
-          can(context, route.permission),
-        )
-      : null,
+    source:
+      kind && route
+        ? {
+            ...moduleLink(row.sourceEntityId, route.label, route.href(row.sourceEntityId), can(context, route.permission)),
+            kind,
+          }
+        : null,
     isReversal: row.reversalOfMovementId !== null,
     reversedByMovementId: row.reversals[0]?.id ?? null,
     notes: row.notes,

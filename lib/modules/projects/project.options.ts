@@ -23,9 +23,14 @@ import { buildTeamScopeWhere } from "@/lib/modules/team/team.scope";
  * when the editor could not choose them today: a select that silently loses
  * its value would unlink them on the next save.
  */
+/** How a manager's line names the role and a kept former manager: English unless a page passes its reader's words. */
+export type ManagerWords = { role: (name: string) => string; inactive: string };
+const ENGLISH_WORDS: ManagerWords = { role: (name) => name, inactive: "inactive, current manager" };
+
 export async function projectFormOptions(
   context: UserContext,
   current: { clientId?: string | null; managerMemberId?: string | null } = {},
+  words: ManagerWords = ENGLISH_WORDS,
 ) {
   const mayAssignManager = can(context, "project.manager.assign");
 
@@ -76,8 +81,8 @@ export async function projectFormOptions(
       value: member.id,
       label:
         member.status === "ACTIVE"
-          ? `${member.user.firstName} ${member.user.lastName} — ${member.role.name}`
-          : `${member.user.firstName} ${member.user.lastName} — inactive, current manager`,
+          ? `${member.user.firstName} ${member.user.lastName} — ${words.role(member.role.name)}`
+          : `${member.user.firstName} ${member.user.lastName} — ${words.inactive}`,
     })),
   };
 }

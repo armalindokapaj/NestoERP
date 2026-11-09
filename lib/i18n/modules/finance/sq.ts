@@ -369,7 +369,7 @@ export const financeSq: typeof financeEn = {
     OTHER: "Tjetër",
   },
   unitContractStatus: {
-    DRAFT: "Draft",
+    DRAFT: "Skicë",
     IN_REVIEW: "Në shqyrtim",
     PENDING_APPROVAL: "Në pritje të miratimit",
     APPROVED: "Gati për nënshkrim",
@@ -383,7 +383,7 @@ export const financeSq: typeof financeEn = {
     ARCHIVED: "Arkivuar",
   },
   scheduleStatus: {
-    DRAFT: "Draft",
+    DRAFT: "Skicë",
     ACTIVE: "Aktiv",
     SUPERSEDED: "Zëvendësuar",
     COMPLETED: "Përfunduar",
@@ -614,7 +614,7 @@ export const financeSq: typeof financeEn = {
     byCompany: "Financa sipas kompanisë",
   },
   recordStatus: {
-    DRAFT: "Draft",
+    DRAFT: "Skicë",
     PENDING_APPROVAL: "Në pritje të miratimit",
     APPROVED: "Miratuar",
     SENT: "Dërguar",

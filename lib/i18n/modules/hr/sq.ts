@@ -6,7 +6,7 @@ export const hrSq: typeof hrEn = {
     employmentType: { FULL_TIME: "Kohë e plotë", PART_TIME: "Kohë e pjesshme", CONTRACTOR: "Kontraktor", INTERN: "Praktikant", TEMPORARY: "I përkohshëm", OTHER: "Tjetër" },
     progressStatus: { NOT_STARTED: "Pa filluar", IN_PROGRESS: "Në proces", COMPLETED: "Përfunduar", NOT_REQUIRED: "Nuk kërkohet" },
     leaveType: { ANNUAL: "Leje vjetore", SICK: "Leje mjekësore", UNPAID: "Leje pa pagesë", PARENTAL: "Leje prindërore", OTHER: "Tjetër" },
-    leaveStatus: { DRAFT: "Draft", PENDING: "Në pritje", APPROVED: "Miratuar", REJECTED: "Refuzuar", CANCELLED: "Anuluar" },
+    leaveStatus: { DRAFT: "Skicë", PENDING: "Në pritje", APPROVED: "Miratuar", REJECTED: "Refuzuar", CANCELLED: "Anuluar" },
     attendanceStatus: { PRESENT: "I pranishëm", ABSENT: "Mungon", ON_LEAVE: "Me leje", REMOTE: "Në distancë", HOLIDAY: "Festë", OFF: "Pushim" },
     attendanceSource: { MANUAL: "Regjistruar nga BNj", SELF: "Regjistruar vetë", IMPORT: "Importuar", SYSTEM: "Nga leja e miratuar", SITE: "Regjistruar në kantier" },
     accountStatus: { HAS_ACCOUNT: "Ka llogari NESTO", NO_ACCOUNT: "Pa llogari NESTO", ACCOUNT_SUSPENDED: "Llogari e pezulluar" },

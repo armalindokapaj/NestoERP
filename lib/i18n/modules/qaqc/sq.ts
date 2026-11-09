@@ -58,7 +58,7 @@ export const qaqcSq: typeof qaqcEn = {
       BOOLEAN: "Po / jo",
     },
     inspectionStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       IN_PROGRESS: "Në proces",
       PENDING_APPROVAL: "Në pritje të miratimit",
       APPROVED: "Miratuar",
@@ -78,7 +78,7 @@ export const qaqcSq: typeof qaqcEn = {
       REOPENED: "I rihapur",
     },
     ncrStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       OPEN: "E hapur",
       IN_PROGRESS: "Në proces",
       PENDING_VERIFICATION: "Në pritje të verifikimit",

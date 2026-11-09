@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { Locale } from "@/lib/i18n/config";
 import { numberText } from "@/lib/i18n/format";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { FileText, ImageIcon } from "lucide-react";
@@ -76,9 +77,9 @@ export default async function UnitOverviewPage({ params }: Params) {
             <DetailGrid
               className="mt-4"
               items={[
-                { label: t("unitPage.type"), value: `${unit.unitType.name} · ${t(`unitCategory.${unit.unitType.category}`)}` },
+                { label: t("unitPage.type"), value: `${unitTypeName(unit.unitType.name, locale)} · ${t(`unitCategory.${unit.unitType.category}`)}` },
                 { label: t("unitPage.building"), value: unit.building.code ? `${unit.building.name} (${unit.building.code})` : unit.building.name },
-                { label: t("unitPage.floor"), value: `${unit.floor.name} · ${t(`floorLevel.${unit.floor.levelType}`)}` },
+                { label: t("unitPage.floor"), value: `${floorName(unit.floor.name, locale)} · ${t(`floorLevel.${unit.floor.levelType}`)}` },
                 ...(display.position || unit.position ? [{ label: t("unitPage.position"), value: unit.position ? t(`position.${unit.position}`) : "—" }] : []),
                 ...(display.orientation || unit.orientation ? [{ label: t("unitPage.orientation"), value: unit.orientation ? t(`orientation.${unit.orientation}`) : "—" }] : []),
                 ...counts.map((field) => ({ label: t(`count.${field}`), value: dash(unit[field]) })),

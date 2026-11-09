@@ -31,7 +31,7 @@ export const engineeringSq: typeof engineeringEn = {
       OTHER: "Tjetër",
     },
     reviewStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       SUBMITTED: "Dorëzuar",
       UNDER_REVIEW: "Në rishikim",
       APPROVED: "Miratuar",
@@ -50,7 +50,7 @@ export const engineeringSq: typeof engineeringEn = {
       REJECTED: "Refuzuar",
     },
     rfiStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       OPEN: "Hapur",
       ANSWERED: "Përgjigjur",
       CLARIFICATION_REQUIRED: "Kërkohet sqarim",
@@ -88,7 +88,7 @@ export const engineeringSq: typeof engineeringEn = {
       AS_BUILT: "Siç u ndërtua",
       OTHER: "Tjetër",
     },
-    transmittalStatus: { DRAFT: "Draft", ISSUED: "Lëshuar", VOID: "Anuluar" },
+    transmittalStatus: { DRAFT: "Skicë", ISSUED: "Lëshuar", VOID: "Anuluar" },
     sharing: {
       INTERNAL_ONLY: "Vetëm i brendshëm",
       EXTERNAL_SHAREABLE: "I ndashëm më vonë",

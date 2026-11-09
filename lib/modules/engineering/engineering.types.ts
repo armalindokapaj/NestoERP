@@ -470,6 +470,7 @@ export type EngineeringOverviewDTO = {
     complianceAlerts: number;
     overdueReviews: number;
   };
-  attention: Array<{ id: string; kind: "rfi" | "submittal" | "document"; label: string; detail: string; href: string; tone: "danger" | "warning" | "neutral" }>;
+  /** `detail` is the English line; `reason` and `days` say it for a page in its reader's words. */
+  attention: Array<{ id: string; kind: "rfi" | "submittal" | "document"; label: string; detail: string; reason: "answerLate" | "reviewLate" | "revisionRequired"; days: number; href: string; tone: "danger" | "warning" | "neutral" }>;
   recentDecisions: Array<{ id: string; label: string; decision: ReviewDecision; at: string; href: string }>;
 };

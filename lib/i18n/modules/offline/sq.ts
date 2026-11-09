@@ -124,7 +124,7 @@ export const offlineSq: typeof offlineEn = {
     synced: "Sinkronizuar",
     attention: "Ky ditar kërkon vëmendjen tuaj: {message}",
     review: "Shqyrto",
-    status: { DRAFT: "Draft", SUBMITTED: "Dorëzuar", REVIEWED: "Shqyrtuar", LOCKED: "Kyçur", CORRECTION_REQUIRED: "Kërkohet korrigjim", VOID: "Anuluar" },
+    status: { DRAFT: "Skicë", SUBMITTED: "Dorëzuar", REVIEWED: "Shqyrtuar", LOCKED: "Kyçur", CORRECTION_REQUIRED: "Kërkohet korrigjim", VOID: "Anuluar" },
   },
   hse: {
     title: "Raport SMM",

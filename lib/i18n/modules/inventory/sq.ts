@@ -8,6 +8,7 @@ export const inventorySq: typeof inventoryEn = {
     inventoryReports: "Raportet e inventarit",
     receipts: "Pranimet",
     receipt: "Pranim",
+    stockReceipt: "Pranim në stok",
     newReceipt: "Pranim i ri",
     editReceipt: "Ndrysho pranimin",
     issues: "Daljet",
@@ -49,7 +50,7 @@ export const inventorySq: typeof inventoryEn = {
     warehouseSections: "Seksionet e magazinës",
   },
   labels: {
-    transactionStatus: { DRAFT: "Draft", POSTED: "Regjistruar", CANCELLED: "Anuluar", REVERSED: "Stornuar" },
+    transactionStatus: { DRAFT: "Skicë", POSTED: "Regjistruar", CANCELLED: "Anuluar", REVERSED: "Stornuar" },
     itemStatus: { ACTIVE: "Aktiv", INACTIVE: "Joaktiv", ARCHIVED: "Arkivuar" },
     itemCategory: {
       MATERIAL: "Material",

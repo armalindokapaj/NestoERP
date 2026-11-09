@@ -30,7 +30,7 @@ export const salesSq: typeof salesEn = {
       LOST: "E humbur",
     },
     proposalStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       PENDING_APPROVAL: "Në pritje të miratimit",
       APPROVED: "E miratuar",
       REJECTED: "E refuzuar",

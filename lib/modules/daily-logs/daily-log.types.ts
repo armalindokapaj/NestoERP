@@ -266,7 +266,10 @@ export type EvidenceDTO = {
 
 export type CorrectionDTO = { id: string; reason: string; correctionSummary: string; createdBy: DailyLogPerson | null; createdAt: string };
 
-export type DailyLogHistoryEntry = { id: string; action: string; actorName: string | null; actorMemberId: string | null; occurredAt: string; note: string | null; tone: "neutral" | "info" | "success" | "warning" | "danger" };
+/** The steps a log's history shows (daily-log.service.ts); `action` is the English, `step` the code a page words. */
+export const DAILY_LOG_HISTORY_STEPS = ["DAILY_LOG_CREATED", "DAILY_LOG_SUBMITTED", "DAILY_LOG_RETURNED", "DAILY_LOG_REVIEWED", "DAILY_LOG_LOCKED", "DAILY_LOG_VOIDED", "DAILY_LOG_CORRECTION_ADDED", "DAILY_LOG_MAJOR_DELAY"] as const;
+export type DailyLogHistoryStep = (typeof DAILY_LOG_HISTORY_STEPS)[number];
+export type DailyLogHistoryEntry = { id: string; step: DailyLogHistoryStep; action: string; actorName: string | null; actorMemberId: string | null; occurredAt: string; note: string | null; tone: "neutral" | "info" | "success" | "warning" | "danger" };
 
 export type DailyLogCounts = {
   workforce: number;

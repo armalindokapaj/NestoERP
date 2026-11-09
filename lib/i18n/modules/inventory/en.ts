@@ -6,6 +6,7 @@ export const inventoryEn = {
     inventoryReports: "Inventory reports",
     receipts: "Receipts",
     receipt: "Receipt",
+    stockReceipt: "Stock receipt",
     newReceipt: "New receipt",
     editReceipt: "Edit receipt",
     issues: "Issues",

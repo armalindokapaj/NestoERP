@@ -386,7 +386,7 @@ export const adminPlatformSq: typeof adminPlatformEn = {
       anyModelState: "Çdo gjendje modeli",
       modelStates: { READY: "Gati", PROCESSING: "Në përpunim", NEEDS_MODEL: "Kërkon model", FAILED: "Dështuar" },
       anyPublication: "Çdo publikim",
-      publications: { PUBLISHED: "Publikuar", DRAFT: "Draft" },
+      publications: { PUBLISHED: "Publikuar", DRAFT: "Skicë" },
       anyEntitlement: "Çdo e drejtë",
       entitlements: { ACTIVE: "Aktive", SUSPENDED: "E pezulluar", INACTIVE: "Joaktive", EXPIRED: "E skaduar" },
       filter: "Filtro",

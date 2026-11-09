@@ -28,6 +28,9 @@ export type ProjectRef = { id: string; code: string; name: string };
 export type WarehouseRef = { id: string; code: string; name: string; type: WarehouseType };
 export type LocationRef = { id: string; code: string; name: string | null; warehouseId: string };
 export type ItemRef = { id: string; sku: string; name: string; baseUnit: string };
+/** The documents a stock movement comes from (movement.service.ts). */
+export type MovementSourceKind = "inventory_receipt" | "stock_issue" | "stock_return" | "stock_transfer" | "stock_adjustment";
+
 export type ModuleLinkRef = { id: string; label: string; href: string | null };
 
 /* -------------------------------------------------------------------------- */
@@ -148,8 +151,8 @@ export type MovementDTO = {
   unit: string;
   occurredAt: string;
   postedBy: MemberRef | null;
-  /** Where this came from, and whether the reader may open it (PRD #20 §179). */
-  source: ModuleLinkRef | null;
+  /** Where this came from, and whether the reader may open it (PRD #20 §179). `kind` names the document for a page to word. */
+  source: (ModuleLinkRef & { kind: MovementSourceKind }) | null;
   isReversal: boolean;
   reversedByMovementId: string | null;
   notes: string | null;

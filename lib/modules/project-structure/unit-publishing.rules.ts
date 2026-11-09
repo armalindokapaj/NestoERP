@@ -1,6 +1,6 @@
 import type { UnitTypeCategory } from "@/config/unit-types";
 import { AREA_FIELDS, AREA_LABELS, type AreaField, type UnitAttributes, type UnitOrientation, type UnitPosition } from "./structure.types";
-import type { Readiness, ReadinessItem, UnitDisplay, UnitSnapshot } from "./unit-publishing.types";
+import type { Readiness, ReadinessItem, ReadinessVariant, UnitDisplay, UnitSnapshot } from "./unit-publishing.types";
 
 /**
  * The publishing rules the unit page previews and the server enforces (E-05D
@@ -76,14 +76,15 @@ export type ReadinessInput = {
 export function evaluateReadiness(input: ReadinessInput): Readiness {
   const category = input.unitType?.category ?? "OTHER";
   const items: ReadinessItem[] = [];
-  const add = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string, required = true) => items.push({ key, label, ok, required, hint: ok ? null : hint });
+  const add = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string, required = true, words: { variant?: ReadinessVariant; count?: number } = {}) => items.push({ key, label, ok, required, hint: ok ? null : hint, ...words });
   // Needed for a complete listing, but a unit may be published without them.
-  const recommend = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string) => add(key, label, ok, hint, false);
+  const recommend = (key: ReadinessItem["key"], label: string, ok: boolean, hint: string, words: { variant?: ReadinessVariant; count?: number } = {}) => add(key, label, ok, hint, false, words);
+  const areaWords: ReadinessVariant = PRIMARY_AREAS[category].length === 1 ? "saleable" : PRIMARY_AREAS[category].length === 3 ? "anyArea" : "saleableOrGross";
 
   add("unitCode", "Unit code", input.unitCode.trim().length > 0, "Give the unit a code.");
   add("unitType", "Unit type", input.unitType !== null, "Choose the unit type.");
   add("location", "Building and floor", input.building !== null && input.floor !== null, "Place the unit on a floor.");
-  recommend("primaryArea", primaryAreaLabel(category), PRIMARY_AREAS[category].some((field) => input.areas[field] !== null), `Enter the ${primaryAreaLabel(category).toLowerCase()}.`);
+  recommend("primaryArea", primaryAreaLabel(category), PRIMARY_AREAS[category].some((field) => input.areas[field] !== null), `Enter the ${primaryAreaLabel(category).toLowerCase()}.`, { variant: areaWords });
   if (category === "RESIDENTIAL") {
     add("bedrooms", "Bedrooms", input.bedrooms !== null, "Enter the number of bedrooms (0 for a studio).");
     add("bathrooms", "Bathrooms", input.bathrooms !== null, "Enter the number of bathrooms.");
@@ -94,12 +95,14 @@ export function evaluateReadiness(input: ReadinessInput): Readiness {
     "Sales Plan",
     input.salesPlan?.available === true,
     input.salesPlan ? "The Sales Plan is still being checked, or is not an available PDF." : "Upload the Sales Plan PDF.",
+    { variant: input.salesPlan ? "checking" : "missing" },
   );
   recommend(
     "primaryImage",
     "Primary image",
     input.primaryImage?.available === true,
     input.primaryImage ? "The primary image is still being checked or is no longer available." : "Add an image and mark it primary.",
+    { variant: input.primaryImage ? "checking" : "missing" },
   );
   add("active", "Unit is active", input.isActive, "Reactivate the unit.");
   add(
@@ -107,6 +110,8 @@ export function evaluateReadiness(input: ReadinessInput): Readiness {
     "Attached files available",
     input.unavailableReferences === 0,
     input.unavailableReferences === 1 ? "One attached file is archived or unavailable. Remove it from the unit." : `${input.unavailableReferences} attached files are archived or unavailable. Remove them from the unit.`,
+    true,
+    { count: input.unavailableReferences },
   );
 
   const requiredItems = items.filter((item) => item.required);

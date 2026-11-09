@@ -96,7 +96,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
             <Figure label={t("reports.averageOnSite")} value={totals.averageWorkforce} />
             <Figure label={t("reports.activities")} value={totals.activities} />
             <Figure label={t("reports.deliveries")} value={totals.deliveries} />
-            <Figure label={t("reports.delays")} value={`${totals.delays} · ${formatDuration(totals.delayMinutes)}`} />
+            <Figure label={t("reports.delays")} value={`${totals.delays} · ${formatDuration(totals.delayMinutes, locale)}`} />
             <Figure label={t("reports.photos")} value={totals.photos} />
           </dl>
         </section>
@@ -128,7 +128,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
                 <li key={row.category} className="flex justify-between py-2 text-table">
                   <span className="text-fg">{dailyLogsLabel(t, "delayCategory", row.category, DELAY_CATEGORY_LABELS[row.category])}</span>
                   <span className="tabular-nums text-fg-muted">
-                    {row.count} · {formatDuration(row.minutes)}
+                    {row.count} · {formatDuration(row.minutes, locale)}
                   </span>
                 </li>
               ))}
@@ -178,7 +178,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
                   <td className={cn("px-3 py-2 text-right tabular-nums", row.missing ? "text-warning-strong" : "text-fg-muted")}>{row.missing}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{row.workforce}</td>
                   <td className="px-5 py-2 text-right tabular-nums">
-                    {row.delays} · {formatDuration(row.delayMinutes)}
+                    {row.delays} · {formatDuration(row.delayMinutes, locale)}
                   </td>
                 </tr>
               ))}

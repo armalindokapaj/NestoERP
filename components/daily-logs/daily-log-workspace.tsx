@@ -81,6 +81,9 @@ import { FormSelect } from "@/components/ui/form-select";
  * appear beside it rather than inside it.
  */
 
+/** What a reader without the module is told a day holds (daily-log.service.ts §69), by the dictionary's word for it. */
+const HIDDEN_RECORD: Record<string, "incident" | "hse" | "qaqc"> = { "HSE incident recorded": "incident", "HSE record": "hse", "QA/QC record": "qaqc" };
+
 type Rail = "overview" | SectionKey | "qaqc" | "evidence" | "tasks" | "history";
 
 const SECTION_ICON: Record<SectionKey, typeof Users> = {
@@ -137,6 +140,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
   const toast = useToast();
   const t = useDailyLogsTranslations();
   const statusText = useStatusText();
+  const tc = useCommonTranslations();
   const L = (group: Parameters<typeof dailyLogsLabel>[1], value: string, fallback: string) => dailyLogsLabel(t, group, value, fallback);
   const sectionLabel = (key: SectionKey) => L("section", key, SECTION_LABELS[key]);
   const failed = (error: unknown, label?: string) => failureMessage(error, label ? t("common.failed", { label }) : t("common.somethingWrong"));
@@ -414,7 +418,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
     delays: log.delays.length ? (
       <ul className="divide-y divide-line">
         {log.delays.map((entry) => (
-          <EntryLine key={entry.id} testId="delay-entry" primary={entry.title} secondary={joined(L("delayCategory", entry.category, DELAY_CATEGORY_LABELS[entry.category]), entry.impact && t("workspace.line.impact", { impact: L("delayImpact", entry.impact, DELAY_IMPACT_LABELS[entry.impact]) }), entry.startedAt && `${entry.startedAt}–${entry.endedAt ?? "…"}`, entry.responsiblePartyText, entry.task ? t("workspace.line.task", { label: entry.task.label }) : null)} meta={entry.durationMinutes ? formatDuration(entry.durationMinutes) : undefined} onEdit={caps.sections.delays ? () => void openEntry("delays", entry.id) : undefined} />
+          <EntryLine key={entry.id} testId="delay-entry" primary={entry.title} secondary={joined(L("delayCategory", entry.category, DELAY_CATEGORY_LABELS[entry.category]), entry.impact && t("workspace.line.impact", { impact: L("delayImpact", entry.impact, DELAY_IMPACT_LABELS[entry.impact]) }), entry.startedAt && `${entry.startedAt}–${entry.endedAt ?? "…"}`, entry.responsiblePartyText, entry.task ? t("workspace.line.task", { label: entry.task.label }) : null)} meta={entry.durationMinutes ? formatDuration(entry.durationMinutes, locale) : undefined} onEdit={caps.sections.delays ? () => void openEntry("delays", entry.id) : undefined} />
         ))}
       </ul>
     ) : empty(t("workspace.empty.delays")),
@@ -698,9 +702,9 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
                           {record.label}
                         </Link>
                       ) : (
-                        <span className="text-fg-muted">{record.label}</span>
+                        <span className="text-fg-muted">{HIDDEN_RECORD[record.label] ? t(`hiddenRecords.${HIDDEN_RECORD[record.label]}`) : record.label}</span>
                       )}
-                      {record.detail ? <span className="ml-2 text-meta text-fg-muted">{record.detail}</span> : null}
+                      {record.detail ? <span className="ml-2 text-meta text-fg-muted">{recordTypeName(tc, record.recordType, record.detail)}</span> : null}
                     </span>
                     {(record.domain === "hse" ? caps.sections.hse : caps.sections.qaqc) ? (
                       <Button type="button" variant="ghost" size="icon-sm" aria-label={t("workspace.removeLink", { label: record.label })} onClick={(event) => { const refocus = planFocusAfterRemoval(event.currentTarget); void run(t("workspace.actions.unlinking"), () => dailyLogApi(`${base}/record-links/${record.linkId}`, { method: "DELETE" })).then((done) => done && refocus()); }}>
@@ -786,7 +790,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
               <ol className="space-y-2">
                 {log.history.map((entry) => (
                   <li key={entry.id} className="text-table">
-                    <span className="font-medium text-fg">{entry.action}</span>
+                    <span className="font-medium text-fg">{t(`historySteps.${entry.step}`)}</span>
                     <span className="text-fg-muted"> · {joinedNodes(entry.actorName && <PersonLink memberId={entry.actorMemberId} name={entry.actorName} />, new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone }).format(new Date(entry.occurredAt)), dateLabel(entry.occurredAt.slice(0, 10), locale))}</span>
                     {entry.note ? <span className="block text-fg-muted">“{entry.note}”</span> : null}
                   </li>

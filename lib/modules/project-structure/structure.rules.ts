@@ -1,4 +1,6 @@
 import type { UnitTypeCategory } from "@/config/unit-types";
+import type { Locale } from "@/lib/i18n/config";
+import { stockFloorName } from "@/lib/i18n/stock-names";
 import { type FloorLevelType, type UnitAttributeKey, UNIT_ATTRIBUTES } from "./structure.types";
 
 /**
@@ -23,23 +25,24 @@ export function levelTypeForNumber(number: number): FloorLevelType {
   return "STANDARD";
 }
 
-/** The name a floor gets unless somebody types another: -1 → Basement 1, 0 → Ground Floor (§12, §38). */
-export function defaultFloorName(levelType: FloorLevelType, number: number | null): string {
+/**
+ * The name a floor gets unless somebody types another: -1 → Basement 1, 0 →
+ * Ground Floor (§12, §38). In the language of whoever creates it — an Albanian
+ * reader is offered "Bodrumi 1", "Kati përdhe" — and either language's name is
+ * shown to each reader in their own (lib/i18n/stock-names.ts).
+ */
+export function defaultFloorName(levelType: FloorLevelType, number: number | null, locale: Locale = "en"): string {
   switch (levelType) {
     case "BASEMENT":
-      return number === null ? "Basement" : `Basement ${Math.abs(number)}`;
-    case "GROUND":
-      return "Ground Floor";
-    case "STANDARD":
-      return number === null ? "Floor" : `Floor ${number}`;
+      return stockFloorName("BASEMENT", number === null ? null : Math.abs(number), locale);
     case "MEZZANINE":
-      return number === null || number === 0 ? "Mezzanine" : `Mezzanine ${number}`;
+      return stockFloorName("MEZZANINE", number === 0 ? null : number, locale);
+    case "GROUND":
     case "TECHNICAL":
-      return "Technical Floor";
     case "ROOF":
-      return "Roof";
-    case "OTHER":
-      return number === null ? "Level" : `Level ${number}`;
+      return stockFloorName(levelType, null, locale);
+    default:
+      return stockFloorName(levelType, number, locale);
   }
 }
 
@@ -93,12 +96,12 @@ export function placeFloors<E extends Placed, A extends Placed>(existing: E[], a
 
 export type FloorDraft = { number: number | null; name: string; levelType: FloorLevelType };
 
-/** From -2 to 12 → Basement 2 … Floor 12 (§37, §38). */
-export function planFloorRange(from: number, to: number): FloorDraft[] {
+/** From -2 to 12 → Basement 2 … Floor 12 (§37, §38), named in `locale`. */
+export function planFloorRange(from: number, to: number, locale: Locale = "en"): FloorDraft[] {
   const drafts: FloorDraft[] = [];
   for (let number = from; number <= to; number += 1) {
     const levelType = levelTypeForNumber(number);
-    drafts.push({ number, levelType, name: defaultFloorName(levelType, number) });
+    drafts.push({ number, levelType, name: defaultFloorName(levelType, number, locale) });
   }
   return drafts;
 }
@@ -171,22 +174,30 @@ export function attributesFor(category: UnitTypeCategory): UnitAttributeKey[] {
 
 /**
  * Warnings, never refusals (§74): bedrooms on a parking space are probably a
- * mistake, but a project may have a reason, so the unit still saves.
+ * mistake, but a project may have a reason, so the unit still saves. Findings,
+ * so a page can put them in its reader's words.
  */
-export function unitWarnings(
+export type UnitWarning = { kind: "count"; field: "bedrooms" | "bathrooms" | "rooms" } | { kind: "saleableBelowInternal" };
+
+export function unitWarningFindings(
   category: UnitTypeCategory,
   values: { rooms?: number | null; bedrooms?: number | null; bathrooms?: number | null; internalArea?: string | number | null; saleableArea?: string | number | null },
-): string[] {
-  const warnings: string[] = [];
-  const typeWord = category.toLowerCase();
+): UnitWarning[] {
+  const findings: UnitWarning[] = [];
   for (const field of ["bedrooms", "bathrooms", "rooms"] as const) {
     const value = values[field];
-    if (value !== null && value !== undefined && value > 0 && !expectsCount(category, field)) {
-      warnings.push(`A ${typeWord} unit does not usually have ${field}.`);
-    }
+    if (value !== null && value !== undefined && value > 0 && !expectsCount(category, field)) findings.push({ kind: "count", field });
   }
   const internal = values.internalArea === null || values.internalArea === undefined || values.internalArea === "" ? null : Number(values.internalArea);
   const saleable = values.saleableArea === null || values.saleableArea === undefined || values.saleableArea === "" ? null : Number(values.saleableArea);
-  if (internal !== null && saleable !== null && saleable < internal) warnings.push("The saleable area is smaller than the internal area.");
-  return warnings;
+  if (internal !== null && saleable !== null && saleable < internal) findings.push({ kind: "saleableBelowInternal" });
+  return findings;
+}
+
+/** The same findings in English, as the API answers them. */
+export function unitWarnings(category: UnitTypeCategory, values: Parameters<typeof unitWarningFindings>[1]): string[] {
+  const typeWord = category.toLowerCase();
+  return unitWarningFindings(category, values).map((finding) =>
+    finding.kind === "count" ? `A ${typeWord} unit does not usually have ${finding.field}.` : "The saleable area is smaller than the internal area.",
+  );
 }

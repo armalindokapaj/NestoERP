@@ -59,7 +59,13 @@ export const MAX_UNIT_MEDIA = 60;
 export type ReadinessKey = "unitCode" | "unitType" | "location" | "primaryArea" | "bedrooms" | "bathrooms" | "orientation" | "salesPlan" | "primaryImage" | "active" | "references";
 
 /** `required: false` items are needed but do not block submitting or publishing. */
-export type ReadinessItem = { key: ReadinessKey; label: string; ok: boolean; required: boolean; hint: string | null };
+/**
+ * One line of the checklist. `label` and `hint` are English, as an error names
+ * them (§81); `variant` and `count` say which of a line's wordings applies, so a
+ * page can put it in its reader's language.
+ */
+export type ReadinessItem = { key: ReadinessKey; label: string; ok: boolean; required: boolean; hint: string | null; variant?: ReadinessVariant; count?: number };
+export type ReadinessVariant = "saleable" | "anyArea" | "saleableOrGross" | "missing" | "checking";
 
 export type Readiness = {
   ready: boolean;

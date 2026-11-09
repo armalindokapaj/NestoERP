@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import { redirect } from "next/navigation";
 
 import { ProjectForm } from "@/components/projects/project-form";
@@ -31,6 +32,7 @@ export default async function EditProjectPage({ params }: Params) {
   const { projectId } = await params;
   const { context, project } = await loadProject(projectId);
   const t = await getTranslations("projects");
+  const roleWords = await getTranslations("roles");
 
   if (!can(context, "project.update")) redirect("/access-denied");
   if (project.archivedAt !== null || project.status === "ARCHIVED") {
@@ -38,10 +40,14 @@ export default async function EditProjectPage({ params }: Params) {
   }
 
   const [options, covers, projectTypes] = await Promise.all([
-    projectFormOptions(context, {
-      clientId: project.client?.id ?? null,
-      managerMemberId: project.projectManager?.memberId ?? null,
-    }),
+    projectFormOptions(
+      context,
+      {
+        clientId: project.client?.id ?? null,
+        managerMemberId: project.projectManager?.memberId ?? null,
+      },
+      { role: (name) => adminRoleName(roleWords, name), inactive: t("form.managerInactive") },
+    ),
     coverCandidates(context, project.id),
     // A retired type stays offered to the project that has it (E-05A §62).
     projectTypeChoices(context, project.projectType?.id ?? null),

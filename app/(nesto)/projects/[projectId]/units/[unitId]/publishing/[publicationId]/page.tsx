@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { formatDateTime } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -59,9 +60,9 @@ export default async function PublicationDetailPage({ params }: Params) {
           items={[
             { label: t("unitPage.unitCode"), value: snapshot.unitCode },
             { label: t("unitPage.name"), value: dash(snapshot.name) },
-            { label: t("unitPage.type"), value: `${snapshot.unitType.name} · ${t(`unitCategory.${snapshot.unitType.category}`)}` },
+            { label: t("unitPage.type"), value: `${unitTypeName(snapshot.unitType.name, locale)} · ${t(`unitCategory.${snapshot.unitType.category}`)}` },
             { label: t("unitPage.building"), value: snapshot.building.name },
-            { label: t("unitPage.floor"), value: `${snapshot.floor.name} · ${t(`floorLevel.${snapshot.floor.levelType}`)}` },
+            { label: t("unitPage.floor"), value: `${floorName(snapshot.floor.name, locale)} · ${t(`floorLevel.${snapshot.floor.levelType}`)}` },
             { label: t("unitPage.position"), value: snapshot.position ? t(`position.${snapshot.position}`) : "—" },
             { label: t("unitPage.orientation"), value: snapshot.orientation ? t(`orientation.${snapshot.orientation}`) : "—" },
             { label: t("count.rooms"), value: dash(snapshot.rooms) },

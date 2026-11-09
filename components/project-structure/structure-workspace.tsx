@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -100,6 +101,7 @@ function reorder<T extends { id: string }>(items: T[], id: string, offset: -1 | 
 export function StructureWorkspace({ initial, initialSelection, initialFilters, initialPage, initialUnits }: { initial: ProjectStructureDTO; initialSelection: Selection; initialFilters: UnitFilters; initialPage: number; initialUnits: UnitListDTO | null }) {
   const toast = useToast();
   const t = useTranslations("projects");
+  const locale = useLocale();
   const [structure, setStructure] = React.useState(initial);
   const [selection, setSelection] = React.useState<Selection>(initialSelection);
   const [filters, setFilters] = React.useState<UnitFilters>(initialFilters);
@@ -215,7 +217,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
   async function confirmDelete() {
     if (dialog?.kind !== "delete") return;
     const target = dialog.target;
-    const [url, label] = target.type === "building" ? [`/api/project-buildings/${target.building.id}`, target.building.name] : target.type === "floor" ? [`/api/project-floors/${target.floor.id}`, target.floor.name] : [`/api/project-units/${target.unit.id}`, target.unit.unitCode];
+    const [url, label] = target.type === "building" ? [`/api/project-buildings/${target.building.id}`, target.building.name] : target.type === "floor" ? [`/api/project-floors/${target.floor.id}`, floorName(target.floor.name, locale)] : [`/api/project-units/${target.unit.id}`, target.unit.unitCode];
     setPending(true);
     try {
       await structureApi(url, { method: "DELETE" });
@@ -311,7 +313,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="icon" aria-label={t("workspace.moreActionsFor", { name: target.name })}>
+          <Button variant="secondary" size="icon" aria-label={t("workspace.moreActionsFor", { name: floorName(target.name, locale) })}>
             <MoreHorizontal />
           </Button>
         </DropdownMenuTrigger>
@@ -357,7 +359,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
 
   /* Header for the choice ------------------------------------------------------ */
 
-  const title = floor && building ? `${floor.name} — ${building.name}` : building ? building.name : structure.buildings.length ? t("workspace.allUnits") : t("workspace.units");
+  const title = floor && building ? `${floorName(floor.name, locale)} — ${building.name}` : building ? building.name : structure.buildings.length ? t("workspace.allUnits") : t("workspace.units");
   const meta = floor
     ? [t("counts.units", { count: floor.unitCount }), t(`floorLevel.${floor.levelType}`), floor.elevation !== null ? `+${floor.elevation} m` : null, floor.isActive ? null : t("workspace.inactive")].filter(Boolean).join(" · ")
     : building
@@ -477,7 +479,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
 
         {filtersOpen ? (
           <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="unit-filters">
-            <FilterSelect label={t("workspace.type")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={structure.unitTypes.map((type) => ({ value: type.id, label: type.name }))} />
+            <FilterSelect label={t("workspace.type")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={structure.unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
             <FilterSelect label={t("workspace.publication")} value={filters.publication} onChange={(publication) => setFilter({ publication })} options={[...UNIT_PUBLICATION_STATUSES.map((value) => ({ value, label: t(`publication.${value}`) })), { value: "CHANGES", label: t("workspace.unpublishedChanges") }]} />
             <FilterSelect label={t("workspace.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: t(`orientation.${value}`) }))} />
             <FilterSelect label={t("workspace.position")} value={filters.position} onChange={(position) => setFilter({ position })} options={UNIT_POSITIONS.map((value) => ({ value, label: t(`position.${value}`) }))} />
@@ -577,7 +579,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
                                 onClick={() => choose({ buildingId: candidate.id, floorId: level.id })}
                                 data-testid="tree-floor"
                               >
-                                <span className={cn("truncate", !level.isActive && "line-through decoration-fg-subtle/60")}>{level.name}</span>
+                                <span className={cn("truncate", !level.isActive && "line-through decoration-fg-subtle/60")}>{floorName(level.name, locale)}</span>
                                 <span className="tabular-nums text-fg-subtle">{level.unitCount}</span>
                               </button>
                             </li>
@@ -615,7 +617,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
                 <option value="">{t("workspace.allFloors")}</option>
                 {building?.floors.map((level) => (
                   <option key={level.id} value={level.id}>
-                    {level.name} · {level.unitCount}
+                    {floorName(level.name, locale)} · {level.unitCount}
                   </option>
                 ))}
               </FormSelect>
@@ -679,7 +681,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
           }}
         />
       ) : null}
-      {dialog?.kind === "moveFloor" ? <MoveFloorDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} buildings={structure.buildings} onMoved={() => { void reloadAll(); choose({ buildingId: null, floorId: null }); toast({ title: t("workspace.floorMoved", { name: dialog.floor.name }) }); }} /> : null}
+      {dialog?.kind === "moveFloor" ? <MoveFloorDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} buildings={structure.buildings} onMoved={() => { void reloadAll(); choose({ buildingId: null, floorId: null }); toast({ title: t("workspace.floorMoved", { name: floorName(dialog.floor.name, locale) }) }); }} /> : null}
       {dialog?.kind === "unit" ? <UnitDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} unit={dialog.unit} types={structure.unitTypes} onSaved={() => void reloadAll()} /> : null}
       {dialog?.kind === "bulkUnits" ? <BulkUnitsDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} buildingName={dialog.buildingName} types={structure.unitTypes} onCreated={() => void reloadAll()} /> : null}
       {dialog?.kind === "copy" ? <CopyFloorDialog open onOpenChange={(open) => !open && setDialog(null)} projectId={projectId} floor={dialog.floor} buildings={structure.buildings} onCreated={() => void reloadAll()} /> : null}
@@ -698,7 +700,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
       <ConfirmDialog
         open={dialog?.kind === "delete"}
         onOpenChange={(open) => !open && setDialog(null)}
-        title={dialog?.kind === "delete" ? t("workspace.deleteTitle", { name: dialog.target.type === "building" ? dialog.target.building.name : dialog.target.type === "floor" ? dialog.target.floor.name : dialog.target.unit.unitCode }) : t("workspace.deleteFallback")}
+        title={dialog?.kind === "delete" ? t("workspace.deleteTitle", { name: dialog.target.type === "building" ? dialog.target.building.name : dialog.target.type === "floor" ? floorName(dialog.target.floor.name, locale) : dialog.target.unit.unitCode }) : t("workspace.deleteFallback")}
         description={
           dialog?.kind === "delete" && dialog.target.type === "building"
             ? t("workspace.deleteBuildingBody")

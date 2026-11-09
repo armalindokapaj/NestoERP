@@ -266,7 +266,6 @@ describe("Albanian", () => {
     // A release stage, used as a name.
     "status.BETA",
     // Words Albanian spells as English does.
-    "status.DRAFT",
     "status.INFO",
     "status.NORMAL",
     "recordTypes.incident",

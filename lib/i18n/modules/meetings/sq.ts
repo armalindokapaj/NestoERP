@@ -20,7 +20,7 @@ export const meetingsSq: typeof meetingsEn = {
       OTHER: "Tjetër",
     },
     status: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       SCHEDULED: "Planifikuar",
       IN_PROGRESS: "Në proces",
       COMPLETED: "Përfunduar",
@@ -518,7 +518,7 @@ export const meetingsSq: typeof meetingsEn = {
   minutes: {
     title: "Procesverbali",
     final: "Përfundimtar",
-    draft: "Draft",
+    draft: "Skicë",
     finalizedAt: "Përfunduar më {when}",
     by: " nga ",
     hintCompleted: "Regjistrimi zyrtar i takimit. Bëjeni përfundimtar kur të jetë i plotë.",

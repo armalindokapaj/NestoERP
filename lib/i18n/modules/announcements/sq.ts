@@ -3,7 +3,7 @@ import type { announcementsEn } from "./en";
 export const announcementsSq: typeof announcementsEn = {
   labels: {
     priority: { NORMAL: "Normal", IMPORTANT: "I rëndësishëm", CRITICAL: "Kritik" },
-    status: { DRAFT: "Draft", SCHEDULED: "I planifikuar", PUBLISHED: "I publikuar", EXPIRED: "I skaduar", ARCHIVED: "I arkivuar" },
+    status: { DRAFT: "Skicë", SCHEDULED: "I planifikuar", PUBLISHED: "I publikuar", EXPIRED: "I skaduar", ARCHIVED: "I arkivuar" },
     audience: { GROUP: "Grupi", COMPANY: "Kompania", DEPARTMENT: "Departamenti", PROJECT: "Projekti", SELECTED_MEMBERS: "Anëtarë të zgjedhur" },
     tab: { for_me: "Për mua", pinned: "Të fiksuara", unread: "Të palexuara", acknowledge: "Për t'u konfirmuar", history: "Historiku", manage: "Menaxho" },
   },

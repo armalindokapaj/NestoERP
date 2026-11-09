@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import type { Locale } from "@/lib/i18n/config";
+import { floorName } from "@/lib/i18n/stock-names";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -126,10 +128,11 @@ const NUMBERED: FloorLevelType[] = ["BASEMENT", "GROUND", "STANDARD"];
 
 export function FloorDialog({ open, onOpenChange, building, floor, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; building: BuildingNodeDTO; floor?: FloorNodeDTO; onSaved: (id: string) => void }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>{floor ? t("structureDialogs.editNamed", { name: floor.name }) : t("structureDialogs.addFloorTo", { name: building.name })}</DialogTitle>
+        <DialogTitle>{floor ? t("structureDialogs.editNamed", { name: floorName(floor.name, locale) }) : t("structureDialogs.addFloorTo", { name: building.name })}</DialogTitle>
         <DialogDescription>{t("structureDialogs.floorBody")}</DialogDescription>
         <FloorForm building={building} floor={floor} onSaved={onSaved} onDone={() => onOpenChange(false)} />
       </DialogContent>
@@ -137,17 +140,19 @@ export function FloorDialog({ open, onOpenChange, building, floor, onSaved }: { 
   );
 }
 
-function initialFloor(building: BuildingNodeDTO, floor?: FloorNodeDTO) {
+/** A floor named by the application is offered in the reader's language (lib/i18n/stock-names.ts). */
+function initialFloor(building: BuildingNodeDTO, locale: Locale, floor?: FloorNodeDTO) {
   if (floor) {
-    return { levelType: floor.levelType, number: floor.number === null ? "" : String(floor.number), name: floor.name, nameTouched: true, elevation: floor.elevation ?? "", description: floor.description ?? "", active: floor.isActive };
+    return { levelType: floor.levelType, number: floor.number === null ? "" : String(floor.number), name: floorName(floor.name, locale), nameTouched: true, elevation: floor.elevation ?? "", description: floor.description ?? "", active: floor.isActive };
   }
   const next = building.floors.reduce((max, candidate) => (candidate.number !== null && candidate.levelType === "STANDARD" ? Math.max(max, candidate.number) : max), 0) + 1;
-  return { levelType: "STANDARD" as FloorLevelType, number: String(next), name: defaultFloorName("STANDARD", next), nameTouched: false, elevation: "", description: "", active: true };
+  return { levelType: "STANDARD" as FloorLevelType, number: String(next), name: defaultFloorName("STANDARD", next, locale), nameTouched: false, elevation: "", description: "", active: true };
 }
 
 function FloorForm({ building, floor, onSaved, onDone }: { building: BuildingNodeDTO; floor?: FloorNodeDTO; onSaved: (id: string) => void; onDone: () => void }) {
   const t = useTranslations("projects");
-  const [initial] = React.useState(() => initialFloor(building, floor));
+  const locale = useLocale();
+  const [initial] = React.useState(() => initialFloor(building, locale, floor));
   const [levelType, setLevelType] = React.useState<FloorLevelType>(initial.levelType);
   const [number, setNumber] = React.useState(initial.number);
   const [name, setName] = React.useState(initial.name);
@@ -161,14 +166,14 @@ function FloorForm({ building, floor, onSaved, onDone }: { building: BuildingNod
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
   const editor = useValuesEditor(
     { levelType, number, name, elevation, description, active },
-    { module: "units", saveKind: floor ? "save" : "create", label: floor ? t("structureDialogs.floorLabel", { name: floor.name }) : t("structureDialogs.newFloorIn", { name: building.name }), save: () => persist.current() },
+    { module: "units", saveKind: floor ? "save" : "create", label: floor ? t("structureDialogs.floorLabel", { name: floorName(floor.name, locale) }) : t("structureDialogs.newFloorIn", { name: building.name }), save: () => persist.current() },
   );
 
   // The name follows the level and number until somebody types their own (§12).
   function suggest(nextType: FloorLevelType, nextNumber: string) {
     if (nameTouched) return;
     const parsed = nextNumber.trim() === "" ? null : Number(nextNumber);
-    setName(defaultFloorName(nextType, Number.isInteger(parsed) ? parsed : null));
+    setName(defaultFloorName(nextType, Number.isInteger(parsed) ? parsed : null, locale));
   }
 
   persist.current = async () => {
@@ -280,10 +285,11 @@ function FloorForm({ building, floor, onSaved, onDone }: { building: BuildingNod
 /** An explicit action with its consequence spelled out — never an inline edit (§53). */
 export function MoveFloorDialog({ open, onOpenChange, floor, buildings, onMoved }: { open: boolean; onOpenChange: (open: boolean) => void; floor: FloorNodeDTO; buildings: BuildingNodeDTO[]; onMoved: () => void }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>{t("structureDialogs.moveFloorTitle", { name: floor.name })}</DialogTitle>
+        <DialogTitle>{t("structureDialogs.moveFloorTitle", { name: floorName(floor.name, locale) })}</DialogTitle>
         <DialogDescription>
           {floor.unitCount ? t("structureDialogs.unitsMove", { count: floor.unitCount }) : t("structureDialogs.noUnits")}{t("structureDialogs.moveFloorBody")}
         </DialogDescription>
@@ -366,6 +372,7 @@ type MoveTargets = Array<{ id: string; name: string; floors: Array<{ id: string;
 
 function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit; buildings: MoveTargets; onMoved: (floorId: string) => void; onDone: () => void }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   const [buildingId, setBuildingId] = React.useState(unit.buildingId);
   const [floorId, setFloorId] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -415,7 +422,7 @@ function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit;
             <option value="">{t("structureDialogs.chooseFloorOption")}</option>
             {floors.map((floor) => (
               <option key={floor.id} value={floor.id} disabled={floor.id === unit.floorId}>
-                {floor.name}
+                {floorName(floor.name, locale)}
                 {floor.id === unit.floorId ? t("structureDialogs.currentSuffix") : ""}
               </option>
             ))}

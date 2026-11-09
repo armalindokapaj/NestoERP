@@ -337,4 +337,20 @@ export const dailyLogsEn = {
     addCount: "Add {count}",
     editor: "Workforce from crews",
   },
+  /** A log's history, step by step (daily-log.service.ts). */
+  historySteps: {
+    DAILY_LOG_CREATED: "Started",
+    DAILY_LOG_SUBMITTED: "Submitted",
+    DAILY_LOG_RETURNED: "Returned for correction",
+    DAILY_LOG_REVIEWED: "Reviewed",
+    DAILY_LOG_LOCKED: "Locked",
+    DAILY_LOG_VOIDED: "Voided",
+    DAILY_LOG_CORRECTION_ADDED: "Official correction added",
+    DAILY_LOG_MAJOR_DELAY: "Major delay recorded",
+  },
+  hiddenRecords: {
+    incident: "HSE incident recorded",
+    hse: "HSE record",
+    qaqc: "QA/QC record",
+  },
 };

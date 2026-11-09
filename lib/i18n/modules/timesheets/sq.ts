@@ -9,7 +9,7 @@ export const timesheetsSq: typeof timesheetsEn = {
     timesheet: "Fleta e orëve",
   },
   labels: {
-    status: { DRAFT: "Draft", SUBMITTED: "Dorëzuar", APPROVED: "Miratuar", RETURNED: "Kthyer", REJECTED: "Refuzuar", CANCELLED: "Anuluar", NOT_STARTED: "Pa nisur" },
+    status: { DRAFT: "Skicë", SUBMITTED: "Dorëzuar", APPROVED: "Miratuar", RETURNED: "Kthyer", REJECTED: "Refuzuar", CANCELLED: "Anuluar", NOT_STARTED: "Pa nisur" },
     workType: { PROJECT_WORK: "Punë në projekt", INTERNAL: "E brendshme", ADMIN: "Administrative", TRAINING: "Trajnim", TRAVEL: "Udhëtim", SUPPORT: "Mbështetje", OTHER: "Tjetër" },
     weekday: { "1": "E hënë", "2": "E martë", "3": "E mërkurë", "4": "E enjte", "5": "E premte", "6": "E shtunë", "7": "E diel" },
   },

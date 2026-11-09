@@ -81,7 +81,7 @@ export async function PermitClock({ hoursRemaining }: { hoursRemaining: number }
     const hours = Math.abs(hoursRemaining);
     return (
       <span className="text-danger-strong">
-        {t("format.expiredAgo", { time: hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d` })}
+        {t("format.expiredAgo", { time: hours < 24 ? t("format.hoursShort", { count: hours }) : t("format.daysShort", { count: Math.floor(hours / 24) }) })}
       </span>
     );
   }

@@ -4,7 +4,8 @@ import { CircleAlert, CircleCheck, CircleX } from "lucide-react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 
 import { Badge } from "@/components/ui/badge";
-import { type Readiness, type UnitPublicationStatus } from "@/lib/modules/project-structure/unit-publishing.types";
+import type { Translate } from "@/lib/i18n/translator";
+import { type Readiness, type ReadinessItem, type UnitPublicationStatus } from "@/lib/modules/project-structure/unit-publishing.types";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -40,6 +41,26 @@ export function UnpublishedChangesBadge() {
   );
 }
 
+/** A checklist line in the reader's words: the server's English is what an error names, the line's key and variant say which words. */
+function readinessText(t: Translate<"projects">, item: ReadinessItem): { label: string; hint: string | null } {
+  if (item.key === "primaryArea") {
+    const variant = item.variant === "anyArea" || item.variant === "saleableOrGross" ? item.variant : "saleable";
+    return { label: t(`readinessItems.primaryArea.${variant}`), hint: item.hint === null ? null : t(`readinessHints.primaryArea.${variant}`) };
+  }
+  const label = t(`readinessItems.${item.key}`);
+  if (item.hint === null) return { label, hint: null };
+  switch (item.key) {
+    case "salesPlan":
+      return { label, hint: t(item.variant === "checking" ? "readinessHints.salesPlanChecking" : "readinessHints.salesPlanMissing") };
+    case "primaryImage":
+      return { label, hint: t(item.variant === "checking" ? "readinessHints.primaryImageChecking" : "readinessHints.primaryImageMissing") };
+    case "references":
+      return { label, hint: t("readinessHints.references", { count: item.count ?? 1 }) };
+    default:
+      return { label, hint: t(`readinessHints.${item.key}`) };
+  }
+}
+
 /** The checklist a unit has to satisfy before it is submitted or published (§45). */
 export function ReadinessPanel({ readiness, className }: { readiness: Readiness; className?: string }) {
   const t = useTranslations("projects");
@@ -52,7 +73,9 @@ export function ReadinessPanel({ readiness, className }: { readiness: Readiness;
         {t("publishing.readinessCount", { complete: readiness.complete, required: readiness.required })}
       </p>
       <ul className="mt-3 space-y-2">
-        {readiness.items.map((item) => (
+        {readiness.items.map((item) => {
+          const text = readinessText(t, item);
+          return (
           <li key={item.key} className="flex items-start gap-2 text-table" data-ok={item.ok}>
             {item.ok ? (
               <CircleCheck className="mt-0.5 size-4 shrink-0 text-success-strong" aria-hidden="true" />
@@ -62,13 +85,14 @@ export function ReadinessPanel({ readiness, className }: { readiness: Readiness;
               <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning-strong" aria-hidden="true" />
             )}
             <span className="min-w-0">
-              <span className={item.ok ? "text-fg" : "font-medium text-fg"}>{item.label}</span>
+              <span className={item.ok ? "text-fg" : "font-medium text-fg"}>{text.label}</span>
               {!item.required ? <span className="ml-1.5 text-meta text-fg-muted">{t("publishing.neededNotBlocking")}</span> : null}
               <span className="sr-only">{item.ok ? t("publishing.complete") : t("publishing.missing")}</span>
-              {item.hint ? <span className="block text-meta text-fg-muted">{item.hint}</span> : null}
+              {text.hint ? <span className="block text-meta text-fg-muted">{text.hint}</span> : null}
             </span>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

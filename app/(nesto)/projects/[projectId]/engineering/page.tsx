@@ -67,7 +67,7 @@ export default async function ProjectEngineeringOverviewPage({ params }: Params)
                     <Link href={item.href} className="text-table font-medium text-fg hover:underline">
                       {item.label}
                     </Link>
-                    <p className="text-meta text-fg-muted">{item.detail}</p>
+                    <p className="text-meta text-fg-muted">{item.reason === "revisionRequired" ? t("engineering.lateRevisionRequired") : t(item.reason === "answerLate" ? "engineering.answerLate" : "engineering.reviewLate", { count: item.days })}</p>
                   </div>
                 </li>
               ))}

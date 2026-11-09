@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
+import { adminRoleName } from "@/components/platform/admin-roles";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
 import { Building2, ChevronRight } from "lucide-react";
@@ -67,7 +68,8 @@ export default async function NewProjectPage({ searchParams }: Props) {
   }
 
   const context = await contextForCompany(session, chosen.id, "project.create");
-  const [options, projectTypes] = await Promise.all([projectFormOptions(context), projectTypeChoices(context)]);
+  const roleWords = await getTranslations("roles");
+  const [options, projectTypes] = await Promise.all([projectFormOptions(context, {}, { role: (name) => adminRoleName(roleWords, name), inactive: t("form.managerInactive") }), projectTypeChoices(context)]);
 
   async function action(formData: FormData) {
     "use server";

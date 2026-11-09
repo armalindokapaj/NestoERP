@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { formatRelativeTime } from "@/lib/i18n/format";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { RecordFavorite } from "@/components/productivity/record-favorite";
 import Link from "@/components/navigation/nav-link";
@@ -95,11 +96,11 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           { label: project.company.name, href: `/projects?company=${encodeURIComponent(project.company.id)}` },
           { label: project.name, href: `/projects/${project.id}` },
           { label: unit.building.name, href: `${units}?building=${unit.building.id}` },
-          { label: unit.floor.name, href: `${units}?floor=${unit.floor.id}` },
+          { label: floorName(unit.floor.name, locale), href: `${units}?floor=${unit.floor.id}` },
           active === "overview" ? { label: unit.unitCode } : { label: unit.unitCode, href: base },
         ]}
         title={unit.unitCode}
-        subtitle={unit.unitType.name}
+        subtitle={unitTypeName(unit.unitType.name, locale)}
         badges={
           <>
             <PublicationBadge status={publishing.status} versionNumber={publishing.currentPublication?.versionNumber} />
@@ -111,7 +112,7 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           </>
         }
         meta={[
-          { label: t("unitPage.location"), value: <span data-testid="unit-location">{`${unit.building.name} · ${unit.floor.name}`}</span> },
+          { label: t("unitPage.location"), value: <span data-testid="unit-location">{`${unit.building.name} · ${floorName(unit.floor.name, locale)}`}</span> },
           ...(unit.name ? [{ label: t("unitPage.name"), value: unit.name }] : []),
           ...(lastChange
             ? [{ label: t("unitPage.lastEditedBy"), value: <span data-testid="unit-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatRelativeTime(lastChange.at, locale)}</span> }]

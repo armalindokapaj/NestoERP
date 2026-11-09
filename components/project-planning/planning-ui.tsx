@@ -5,7 +5,6 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";
-import { shortVariance } from "@/lib/modules/project-planning/planning.dates";
 import { type MilestoneStatus, type PlanningPerson } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 
@@ -78,6 +77,7 @@ export function useVarianceLabel(): (days: number | null) => string {
 
 export function Variance({ days, short = false, className }: { days: number | null; short?: boolean; className?: string }) {
   const variance = useVarianceLabel();
+  const t = useTranslations("projects");
   if (days === null) return <span className={cn("text-fg-subtle", className)}>—</span>;
   const tone = days > 0 ? "text-danger-strong" : days < 0 ? "text-success-strong" : "text-fg-muted";
   return (
@@ -85,7 +85,7 @@ export function Variance({ days, short = false, className }: { days: number | nu
     <span className={cn("tabular-nums", tone, className)} data-testid="milestone-variance">
       {short ? (
         <>
-          <span aria-hidden="true">{shortVariance(days)}</span>
+          <span aria-hidden="true">{t("planningUi.shortDays", { sign: days > 0 ? "+" : days < 0 ? "-" : "", count: Math.abs(days) })}</span>
           <span className="sr-only">{variance(days)}</span>
         </>
       ) : (

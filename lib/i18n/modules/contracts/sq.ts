@@ -8,7 +8,7 @@ export const contractsSq: typeof contractsEn = {
     unitContractRequests: "Kërkesat për kontrata njësish",
     contractApprovals: "Miratimet e kontratave",
     legalReports: "Raportet ligjore",
-    drafts: "Draftet",
+    drafts: "Skicat",
     review: "Në shqyrtim",
     activeContracts: "Kontratat aktive",
     archived: "Të arkivuara",
@@ -53,7 +53,7 @@ export const contractsSq: typeof contractsEn = {
       OTHER: "Tjetër",
     },
     contractStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       IN_REVIEW: "Në shqyrtim",
       PENDING_APPROVAL: "Në pritje të miratimit",
       APPROVED: "E miratuar",
@@ -73,7 +73,7 @@ export const contractsSq: typeof contractsEn = {
       EVERGREEN: "E pacaktuar në kohë",
     },
     amendmentStatus: {
-      DRAFT: "Draft",
+      DRAFT: "Skicë",
       PENDING_APPROVAL: "Në pritje të miratimit",
       APPROVED: "E miratuar",
       REJECTED: "E refuzuar",

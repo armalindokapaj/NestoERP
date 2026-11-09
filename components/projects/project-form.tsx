@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { projectTypeName } from "@/lib/i18n/stock-names";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 
@@ -125,6 +126,7 @@ export function ProjectForm({
 }) {
   const router = useRouter();
   const t = useTranslations("projects");
+  const locale = useLocale();
   const formRef = React.useRef<HTMLFormElement>(null);
   const save = useEditorSave({ formRef, action, module: "projects", saveKind: mode === "create" ? "create" : "save" });
   const { pending, fieldErrors } = save;
@@ -222,7 +224,7 @@ export function ProjectForm({
             {mode === "create" ? <option value="">{t("form.chooseType")}</option> : !initial.projectTypeId ? <option value="">{t("form.notSet")}</option> : null}
             {projectTypes.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {projectTypeName(option.label, locale)}
               </option>
             ))}
           </FormSelect>

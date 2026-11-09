@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { ChevronDown } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -13,7 +14,8 @@ import { useToast } from "@/components/ui/toast";
 import { Textarea } from "@/components/ui/textarea";
 import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "@/components/project-planning/use-values-editor";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
-import { attributesFor, expectsCount, unitWarnings } from "@/lib/modules/project-structure/structure.rules";
+import { attributesFor, expectsCount, unitWarningFindings } from "@/lib/modules/project-structure/structure.rules";
+import type { Translate } from "@/lib/i18n/translator";
 import {
   AREA_FIELDS,
   AREA_LABELS,
@@ -114,17 +116,19 @@ export function technicalProblems(values: TechnicalValues, areaLabel: (field: (t
   return found;
 }
 
-export function warningsFor(values: TechnicalValues, types: UnitTypeOption[]): string[] {
+export function warningsFor(values: TechnicalValues, types: UnitTypeOption[], t: Translate<"projects">): string[] {
   const type = types.find((candidate) => candidate.id === values.unitTypeId);
   if (!type) return [];
   const count = (value: string) => (value.trim() === "" ? null : Number(value));
-  return unitWarnings(type.category, { rooms: count(values.counts.rooms), bedrooms: count(values.counts.bedrooms), bathrooms: count(values.counts.bathrooms), internalArea: values.areas.internalArea || null, saleableArea: values.areas.saleableArea || null });
+  const findings = unitWarningFindings(type.category, { rooms: count(values.counts.rooms), bedrooms: count(values.counts.bedrooms), bathrooms: count(values.counts.bathrooms), internalArea: values.areas.internalArea || null, saleableArea: values.areas.saleableArea || null });
+  return findings.map((finding) => (finding.kind === "count" ? t(`unitWarnings.${finding.field}`, { category: t(`unitCategory.${type.category}`).toLowerCase() }) : t("unitWarnings.saleableBelowInternal")));
 }
 
 /** The technical half of the form, shared by a single unit and a batch's defaults (§42). */
 export function TechnicalFields({ idPrefix, values, onChange, types, errors, currentTypeId }: { idPrefix: string; values: TechnicalValues; onChange: (values: TechnicalValues) => void; types: UnitTypeOption[]; errors: Record<string, string>; currentTypeId?: string }) {
   const [more, setMore] = React.useState(false);
   const t = useTranslations("projects");
+  const locale = useLocale();
   const type = types.find((candidate) => candidate.id === values.unitTypeId);
   const category = type?.category ?? "OTHER";
   const offered = types.filter((candidate) => candidate.isActive || candidate.id === currentTypeId);
@@ -142,7 +146,7 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
             <option value="">{t("unitDialog.chooseType")}</option>
             {offered.map((option) => (
               <option key={option.id} value={option.id}>
-                {option.name}
+                {unitTypeName(option.name, locale)}
                 {option.isActive ? "" : t("unitDialog.retiredSuffix")}
               </option>
             ))}
@@ -272,6 +276,7 @@ export function UnitDialog({
   onSaved: (id: string) => void;
 }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   // Closing with unsaved input asks through the shared prompt (AUD-03 §5):
   // the X, Escape, the backdrop and Cancel all arrive here as a guarded close.
   return (
@@ -279,7 +284,7 @@ export function UnitDialog({
       <DialogContent className="max-w-2xl">
         <DialogTitle>{unit ? t("unitDialog.editTitle", { code: unit.unitCode }) : t("unitDialog.addTitle")}</DialogTitle>
         <DialogDescription>
-          {floor.buildingName} · {floor.name}
+          {floor.buildingName} · {floorName(floor.name, locale)}
         </DialogDescription>
         {/* Mounted per opening: each opening starts from the unit as loaded. */}
         <UnitForm floor={floor} unit={unit} types={types} onSaved={onSaved} onDone={() => onOpenChange(false)} />
@@ -303,6 +308,7 @@ function UnitForm({
 }) {
   const toast = useToast();
   const t = useTranslations("projects");
+  const locale = useLocale();
   const [code, setCode] = React.useState(unit?.unitCode ?? "");
   const [name, setName] = React.useState(unit?.name ?? "");
   const [active, setActive] = React.useState(unit?.isActive ?? true);
@@ -339,7 +345,7 @@ function UnitForm({
         onSaved(unit.id);
       } else {
         const created = await editor.track(() => structureApi<{ id: string }>(`/api/project-floors/${floor.id}/units`, { body }));
-        toast({ title: t("unitDialog.added", { code, floor: floor.name }) });
+        toast({ title: t("unitDialog.added", { code, floor: floorName(floor.name, locale) }) });
         onSaved(created.id);
       }
       onDone();
@@ -379,7 +385,7 @@ function UnitForm({
           </label>
         ) : null}
       </fieldset>
-      <Warnings items={warningsFor(technical, types)} />
+      <Warnings items={warningsFor(technical, types, t)} />
       <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="secondary" disabled={pending}>

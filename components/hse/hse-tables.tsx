@@ -659,7 +659,7 @@ export async function ActionTable({
         row.dueDate ? (
           <span className={row.overdue ? "text-danger-strong" : undefined}>
             {formatDate(row.dueDate, locale)}
-            {row.daysOverdue > 0 ? ` · ${row.daysOverdue}d` : ""}
+            {row.daysOverdue > 0 ? ` · ${t("format.daysShort", { count: row.daysOverdue })}` : ""}
           </span>
         ) : (
           <span className="text-fg-subtle">—</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
@@ -156,11 +157,11 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
                   {unit.name ? <span className="block text-meta text-fg-subtle">{unit.name}</span> : null}
                   {unit.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
                 </TableCell>
-                <TableCell>{unit.unitType.name}</TableCell>
+                <TableCell>{unitTypeName(unit.unitType.name, locale)}</TableCell>
                 {showLocation ? (
                   <>
                     <TableCell className="whitespace-nowrap">{unit.building.name}</TableCell>
-                    <TableCell className="whitespace-nowrap">{unit.floor.name}</TableCell>
+                    <TableCell className="whitespace-nowrap">{floorName(unit.floor.name, locale)}</TableCell>
                   </>
                 ) : null}
                 <TableCell className="whitespace-nowrap">
@@ -202,7 +203,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
               title={
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-body font-semibold text-fg">{unit.unitCode}</span>
-                  <span className="text-table font-normal text-fg-muted">{unit.unitType.name}</span>
+                  <span className="text-table font-normal text-fg-muted">{unitTypeName(unit.unitType.name, locale)}</span>
                   <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
                   {unit.commercialStatus === "NOT_FOR_SALE" ? null : <CommercialStatusBadge status={unit.commercialStatus} />}
                   {unit.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
@@ -210,7 +211,7 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
               }
               subtitle={
                 <span className="text-meta text-fg-subtle">
-                  {showLocation ? `${unit.building.name} · ${unit.floor.name} · ` : ""}
+                  {showLocation ? `${unit.building.name} · ${floorName(unit.floor.name, locale)} · ` : ""}
                   {t("unitTable.saleableSuffix", { area: areaText(unit.areas.saleableArea, locale) })}
                   {unit.bedrooms !== null ? t("unitTable.bed", { count: unit.bedrooms }) : ""}
                 </span>

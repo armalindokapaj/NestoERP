@@ -58,12 +58,14 @@ export function previousWorkingDay(today: string, workingDays: readonly number[]
   return null;
 }
 
-export function formatDuration(minutes: number): string {
-  if (minutes <= 0) return "0m";
+/** 90 → "1h 30m"; in Albanian "1 orë 30 min". */
+export function formatDuration(minutes: number, locale: Locale = "en"): string {
+  const [h, m] = locale === "sq" ? [" orë", " min"] : ["h", "m"];
+  if (minutes <= 0) return `0${m}`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  if (hours === 0) return `${rest}m`;
-  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
+  if (hours === 0) return `${rest}${m}`;
+  return rest === 0 ? `${hours}${h}` : `${hours}${h} ${rest}${m}`;
 }
 
 export { addLocalDays, daysBetween, isLocalDate, localDate };

@@ -668,6 +668,8 @@ export const hseEn = {
   format: {
     was: "was {status}",
     expiredAgo: "Expired {time} ago",
+    hoursShort: "{count}h",
+    daysShort: "{count}d",
     expiresIn: "Expires in {hours}h",
     daysLeft: "{days} days left",
     riskMatrix: "Risk matrix",
