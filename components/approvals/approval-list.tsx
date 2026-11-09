@@ -136,7 +136,7 @@ function GroupRow({ item, tab, density }: { item: UnifiedApprovalItem; tab: Appr
                 companyId={company.id}
                 companyName={company.name}
                 href={item.href}
-                className="relative z-10 font-medium text-fg-muted underline-offset-4 hover:text-fg hover:underline"
+                className="tap-target relative z-10 font-medium text-fg-muted underline-offset-4 hover:text-fg hover:underline"
               >
                 {t("list.openRecord")}
               </CompanyRecordLink>

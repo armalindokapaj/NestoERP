@@ -32,7 +32,7 @@ export function GroupRecordLink({ company, href, children }: { company: CompanyR
       companyId={company.id}
       companyName={company.name}
       href={href}
-      className="font-medium text-fg transition-colors hover:text-accent focus-visible:text-accent"
+      className="tap-target font-medium text-fg transition-colors hover:text-accent focus-visible:text-accent"
     >
       {children}
     </CompanyRecordLink>

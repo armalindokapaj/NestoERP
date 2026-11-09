@@ -185,7 +185,7 @@ async function Cashflow({ cash, base, primary }: { cash: Domains["cash"]; base: 
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-card font-semibold text-fg">{t("overview.cashThisMonth")}</h2>
-        <Link href="/finance/reports?report=cashflow" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
+        <Link href="/finance/reports?report=cashflow" className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong">
           {t("overview.cashflow")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
@@ -205,7 +205,7 @@ async function ProjectBudgets({ budgets, primary }: { budgets: ReturnType<typeof
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-card font-semibold text-fg">{t("overview.projectBudgets")}</h2>
-        <Link href="/finance/reports?report=budget-vs-actual" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong">
+        <Link href="/finance/reports?report=budget-vs-actual" className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong">
           {t("overview.budgetVsActual")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
         </Link>
@@ -215,8 +215,8 @@ async function ProjectBudgets({ budgets, primary }: { budgets: ReturnType<typeof
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {rows.slice(0, 6).map((row) => (
-            <li key={row.projectId} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-              <Link href={`/projects/${row.projectId}/finance`} className="min-w-0 truncate text-table text-fg transition-colors hover:text-accent">
+            <li key={row.projectId} className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
+              <Link href={`/projects/${row.projectId}/finance`} className="tap-row min-w-0 truncate text-table text-fg transition-colors hover:text-accent">
                 {row.name}
               </Link>
               <BudgetRiskBadge risk={row.risk} utilizationPercent={row.utilizationPercent} />
@@ -279,9 +279,9 @@ function Row({
 
 function Count({ label, value, href }: { label: string; value: number; href: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+    <div className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
       <dt className="min-w-0">
-        <Link href={href} className="text-table text-fg transition-colors hover:text-accent">
+        <Link href={href} className="tap-row text-table text-fg transition-colors hover:text-accent">
           {label}
         </Link>
       </dt>

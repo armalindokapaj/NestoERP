@@ -161,15 +161,16 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
       return (
         <ul className="divide-y divide-line">
           {payload.items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+            // Under touch the row is its link's target (tap-row): the row, not the truncating link, frames the overlay.
+            <li key={item.id} className={cn("flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0", (item.person || item.href) && "relative")}>
               <div className="min-w-0">
                 {item.person ? (
-                  <PersonLink {...item.person} name={item.title} detail={item.subtitle ? rowText(t, item.subtitle) : undefined} className="block truncate text-table" />
+                  <PersonLink {...item.person} name={item.title} detail={item.subtitle ? rowText(t, item.subtitle) : undefined} rowTarget className="block truncate text-table" />
                 ) : item.href ? (
                   <RowLink
                     href={item.href}
                     companyId={item.companyId}
-                    className="relative block truncate text-table font-medium text-fg transition-colors hover:text-accent touch:after:absolute touch:after:inset-x-0 touch:after:-inset-y-3 touch:after:content-['']"
+                    className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent"
                   >
                     {rowText(t, item.title)}
                   </RowLink>
@@ -195,15 +196,15 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
     case "progress": {
       const max = Math.max(...payload.items.map((item) => item.value), 1);
       return (
-        <ul className="space-y-2.5">
+        <ul className="space-y-2.5 [--tap-row-bleed:0.3125rem]">
           {payload.items.map((item) => (
-            <li key={item.label}>
+            <li key={item.label} className={item.href ? "relative" : undefined}>
               <div className="flex items-baseline justify-between gap-3">
                 {item.href ? (
                   <RowLink
                     href={item.href}
                     companyId={item.companyId}
-                    className="relative truncate text-table text-fg-muted transition-colors hover:text-accent touch:after:absolute touch:after:inset-x-0 touch:after:-inset-y-2 touch:after:content-['']"
+                    className="tap-row truncate text-table text-fg-muted transition-colors hover:text-accent"
                   >
                     {item.status ? <StatusBadge status={item.status} /> : rowText(t, item.label)}
                   </RowLink>

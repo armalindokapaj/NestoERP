@@ -60,7 +60,9 @@ export type MobileRecordProps = {
 
 function FactList({ facts, className }: { facts: RecordFact[]; className?: string }) {
   return (
-    <dl className={cn("space-y-1 [&_a]:relative [&_a]:z-10 [&_button]:relative [&_button]:z-10", className)}>
+    // A link in a value is at least 24×24 to a finger (tap-target), and the lines are far enough apart
+    // under touch that two such links never overlap (WCAG 2.5.8).
+    <dl className={cn("space-y-1 touch:space-y-2 [&_a]:relative [&_a]:z-10 [&_button]:relative [&_button]:z-10 [&_a]:tap-target", className)}>
       {facts.map((fact) => (
         <div key={fact.key} data-col-id={fact.colId} className="flex items-baseline gap-2 text-table">
           <dt className="shrink-0 text-fg-subtle">{fact.label}</dt>

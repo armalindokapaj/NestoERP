@@ -169,6 +169,67 @@
 }
 
 /*
+ * Hit areas for small text targets under `touch:` (WCAG 2.2 SC 2.5.8; the
+ * phone and tablet audit, item 4a). Each grows the target with an invisible
+ * `::after`, so nothing on screen moves and a desktop mouse keeps today's
+ * targets. They own the element's `::after`: never combine them with `after:`
+ * classes.
+ *
+ * - `tap-target`: at least 24×24, centred on the element — a link in a line of
+ *   metadata, a person's name, "Open record". A target already that big gains
+ *   nothing, and the small growth cannot reach a neighbouring line's target.
+ * - `tap-target-lg`: at least 44×44 — a standalone link with nothing pressable
+ *   just above or below it: "View all", a pager's Previous / Next.
+ *
+ *   Both make the element `relative` under touch, so it frames its own
+ *   `::after`. An element that clips (`truncate`, `line-clamp`) clips that too:
+ *   a truncated link in a list uses `tap-row`.
+ *
+ * - `tap-row`: a list row's own link covers the row. Its `::after` fills the
+ *   nearest positioned ancestor — the row, which must be `relative` — plus
+ *   `--tap-row-bleed` above and below, half the gap between rows, so that
+ *   neighbouring rows meet without overlapping. The row frames it, so a link
+ *   that truncates does not clip it. Anything else pressable in the row sits
+ *   above it with `z-10` (and `relative` unless it is a flex item).
+ */
+@utility tap-target {
+  @variant touch {
+    position: relative;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset-block: min(0px, calc(50% - 0.75rem));
+      inset-inline: min(0px, calc(50% - 0.75rem));
+    }
+  }
+}
+
+@utility tap-target-lg {
+  @variant touch {
+    position: relative;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset-block: min(0px, calc(50% - var(--nesto-touch-target-min) / 2));
+      inset-inline: min(0px, calc(50% - var(--nesto-touch-target-min) / 2));
+    }
+  }
+}
+
+@utility tap-row {
+  @variant touch {
+    &::after {
+      content: "";
+      position: absolute;
+      inset-inline: 0;
+      inset-block: calc(-1 * var(--tap-row-bleed, 0px));
+    }
+  }
+}
+
+/*
  * Version 2 of the design system (UI-02 §33). `ds2:` applies only inside
  * <html data-ds="2">, which the root layout renders for version 2 and never
  * for version 1 — so a `ds2:` class cannot change today's look. Most of the

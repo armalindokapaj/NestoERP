@@ -185,7 +185,8 @@ export default async function PeoplePage({ searchParams }: Props) {
           <div className="flex items-end gap-2">
             {directory.canIncludeInactive ? (
               <label className="flex h-10 items-center gap-2 whitespace-nowrap text-meta text-fg-muted">
-                <input type="checkbox" name="status" value="all" defaultChecked={query.status === "all"} className="size-4" />
+                {/* A native box keeps its desktop look; to a finger it is 24px, the WCAG 2.5.8 minimum, and its label is the rest of the target. */}
+                <input type="checkbox" name="status" value="all" defaultChecked={query.status === "all"} className="size-4 touch:size-6" />
                 {t("directory.includeFormer")}
               </label>
             ) : null}
@@ -202,7 +203,7 @@ export default async function PeoplePage({ searchParams }: Props) {
           {filtered ? (
             <>
               {" · "}
-              <Link href="/people" className="text-accent-strong hover:underline">
+              <Link href="/people" className="tap-target text-accent-strong hover:underline">
                 {t("directory.clear")}
               </Link>
             </>
@@ -237,7 +238,7 @@ export default async function PeoplePage({ searchParams }: Props) {
         {directory.pagination.totalPages > 1 ? (
           <nav aria-label={t("directory.pages")} className="flex items-center justify-between gap-2 text-table">
             {directory.pagination.page > 1 ? (
-              <Link href={pageHref(directory.pagination.page - 1)} className="text-accent-strong hover:underline">
+              <Link href={pageHref(directory.pagination.page - 1)} className="tap-target-lg text-accent-strong hover:underline">
                 {t("directory.previous")}
               </Link>
             ) : (
@@ -247,7 +248,7 @@ export default async function PeoplePage({ searchParams }: Props) {
               {t("directory.page", { page: directory.pagination.page, total: directory.pagination.totalPages })}
             </span>
             {directory.pagination.page < directory.pagination.totalPages ? (
-              <Link href={pageHref(directory.pagination.page + 1)} className="text-accent-strong hover:underline">
+              <Link href={pageHref(directory.pagination.page + 1)} className="tap-target-lg text-accent-strong hover:underline">
                 {t("directory.next")}
               </Link>
             ) : (
@@ -263,25 +264,27 @@ export default async function PeoplePage({ searchParams }: Props) {
 function PersonCard({ person, t }: { person: PersonCardDTO; t: Translate<"people"> }) {
   const status = WORK_STATUS[person.status];
   return (
-    <li className="nesto-card flex gap-3 p-4" data-testid="person-card">
+    // Under touch the card is the name's target (tap-row); the address and number stay their own links above it.
+    <li className="nesto-card relative flex gap-3 p-4" data-testid="person-card">
       <Avatar firstName={person.initials.firstName} lastName={person.initials.lastName} src={person.photoUrl} size="lg" />
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <Link href={`/people/${person.personId}`} className="truncate text-card font-semibold text-fg hover:text-accent-strong hover:underline">
+          <Link href={`/people/${person.personId}`} className="tap-row truncate text-card font-semibold text-fg hover:text-accent-strong hover:underline">
             {person.name}
           </Link>
           {person.status !== "ACTIVE" ? <Badge tone={status.tone}>{peopleLabel(t, "workStatus", person.status, status.label)}</Badge> : null}
         </div>
         {person.jobTitle ? <p className="truncate text-table text-fg">{person.jobTitle}</p> : null}
         <p className="truncate text-meta text-fg-muted">{[person.employingCompany?.name, person.department?.name].filter(Boolean).join(" · ") || "—"}</p>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-meta">
+        {/* A line apart under touch, so the two links' grown targets meet without overlapping. */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-meta touch:gap-y-2">
           {person.workEmail ? (
-            <a href={`mailto:${person.workEmail}`} className="truncate text-accent-strong hover:underline">
+            <a href={`mailto:${person.workEmail}`} className="z-10 truncate text-accent-strong hover:underline touch:-my-1 touch:py-1">
               {person.workEmail}
             </a>
           ) : null}
           {person.workPhone ? (
-            <a href={`tel:${person.workPhone}`} className="text-accent-strong hover:underline">
+            <a href={`tel:${person.workPhone}`} className="tap-target z-10 text-accent-strong hover:underline">
               {person.workPhone}
               {person.workPhoneExtension ? t("directory.ext", { ext: person.workPhoneExtension }) : ""}
             </a>

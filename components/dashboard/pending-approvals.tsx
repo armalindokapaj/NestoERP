@@ -28,7 +28,8 @@ const card = "nesto-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px
 
 function ShowAll({ href, label }: { href: string; label: string }) {
   return (
-    <Link navSource="dashboard" href={href} className="mt-0.5 inline-flex items-center gap-1 text-micro font-medium text-fg-muted underline-offset-2 transition-colors hover:text-fg hover:underline" data-testid="show-all-approvals">
+    // 44px tall to a finger (AUD-04 MW-19); a mouse keeps the small link.
+    <Link navSource="dashboard" href={href} className="mt-0.5 inline-flex items-center gap-1 text-micro font-medium text-fg-muted underline-offset-2 transition-colors hover:text-fg hover:underline touch:min-h-11" data-testid="show-all-approvals">
       {label}
       <ArrowRight aria-hidden="true" className="size-3" />
     </Link>
@@ -69,7 +70,8 @@ export async function PendingApprovalsList({ context, definition }: { context: U
         <FittedRows className="mt-1" always={items.length >= LIST_LIMIT || Boolean(incomplete)} more={<ShowAll href={href} label={t("showAllApprovals")} />}>
           {items.map((item) => (
             <li key={item.id} className="w-full min-w-0">
-              <Link navSource="dashboard" href={item.href} className="group block truncate py-0.5 text-table leading-[1.125rem] text-fg">
+              {/* A row is 44px to a finger (AUD-04 MW-19): on a phone the list grows; where the card's height is held, fewer rows fit. */}
+              <Link navSource="dashboard" href={item.href} className="group block truncate py-0.5 text-table leading-[1.125rem] text-fg touch:py-3.25">
                 <span className="font-medium underline-offset-2 group-hover:underline">{item.title}</span>
                 {item.subtitle ? <span className="text-fg-subtle"> · {item.subtitle}</span> : null}
               </Link>

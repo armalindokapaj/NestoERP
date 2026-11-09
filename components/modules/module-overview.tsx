@@ -76,7 +76,7 @@ export async function ModuleOverview({
                 <h2 className="text-card font-semibold text-fg">{supportShellText(t, section.plural)}</h2>
                 <Link
                   href={sectionRoute(moduleKey, section.section)}
-                  className="text-table font-medium text-accent-strong"
+                  className="tap-target-lg text-table font-medium text-accent-strong"
                 >
                   {t("viewAll")}
                 </Link>
@@ -85,12 +85,13 @@ export async function ModuleOverview({
                 {rows.map((row) => (
                   <li
                     key={row.id}
-                    className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
+                    className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0"
                   >
                     <div className="min-w-0">
+                      {/* Under touch the whole row is the link's target (tap-row). */}
                       <Link
                         href={`${sectionRoute(moduleKey, section.section)}/${row.id}`}
-                        className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                        className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent"
                       >
                         {row.primary}
                       </Link>

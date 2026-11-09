@@ -100,7 +100,7 @@ export default async function TeamOverviewPage() {
                   <h2 className="text-card font-semibold text-fg">{t("overview.byDepartment")}</h2>
                   <Link
                     href="/team/departments"
-                    className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+                    className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
                   >
                     {t("overview.departments")}
                     <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -115,11 +115,12 @@ export default async function TeamOverviewPage() {
                     {distribution.map((entry) => (
                       <li
                         key={entry.id}
-                        className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
+                        className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0"
                       >
+                        {/* Under touch the whole row is the link's target (tap-row). */}
                         <Link
                           href={`/team/people?departmentId=${entry.id}`}
-                          className="min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
+                          className="tap-row min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
                         >
                           {entry.name}
                         </Link>
@@ -176,9 +177,10 @@ function Row({
   tone?: "danger";
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+    <div className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
       <dt className="min-w-0">
-        <Link href={href} className="text-table text-fg transition-colors hover:text-accent">
+        {/* Under touch the whole row is the link's target (tap-row). */}
+        <Link href={href} className="tap-row text-table text-fg transition-colors hover:text-accent">
           {label}
         </Link>
       </dt>

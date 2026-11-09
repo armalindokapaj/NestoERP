@@ -169,7 +169,7 @@ function AttentionPanel({
         {href ? (
           <Link
             href={href}
-            className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+            className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
           >
             {viewAllLabel}
             <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -180,23 +180,23 @@ function AttentionPanel({
       {rows.length === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">{emptyLabel}</p>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-4 space-y-3 [--tap-row-bleed:0.375rem]">
           {rows.map((row) => (
-            <li key={row.id} className="min-w-0">
+            <li key={row.id} className="relative min-w-0">
               {row.company ? (
                 // A record is one company's: from the Group workspace it opens inside that company (§31).
                 <CompanyRecordLink
                   companyId={row.company.id}
                   companyName={row.company.name}
                   href={row.href}
-                  className="block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
+                  className="tap-row block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
                 >
                   {row.title}
                 </CompanyRecordLink>
               ) : (
                 <Link
                   href={row.href}
-                  className="block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
+                  className="tap-row block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
                 >
                   {row.title}
                 </Link>

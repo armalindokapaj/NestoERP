@@ -118,7 +118,8 @@ export default async function DocumentsOverviewPage() {
   );
 }
 
-const LINK_CLASS = "block truncate text-table font-medium text-fg transition-colors hover:text-accent";
+/** Under touch the whole row is the link's target (`tap-row`): the row is `relative`. */
+const LINK_CLASS = "tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent";
 
 async function DocumentPanel({
   t,
@@ -146,7 +147,7 @@ async function DocumentPanel({
         <h2 className="text-card font-semibold text-fg">{title}</h2>
         <Link
           href={href}
-          className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+          className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
         >
           {t("overview.allDocuments")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -159,7 +160,7 @@ async function DocumentPanel({
           {rows.map((document) => (
             <li
               key={document.id}
-              className="flex items-center justify-between gap-3 py-2.5 first:pt-0"
+              className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0"
             >
               <div className="min-w-0">
                 {/* A row of the Group workspace names its company, and opening it

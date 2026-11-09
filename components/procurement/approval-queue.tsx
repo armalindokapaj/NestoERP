@@ -88,7 +88,7 @@ export function ProcurementApprovalQueue({
                 <Badge tone="neutral">
                   {approval.recordType === "PURCHASE_REQUEST" ? t("approvals.request") : t("approvals.order")}
                 </Badge>
-                <Link href={href(approval)} className="text-table font-medium text-accent-strong">
+                <Link href={href(approval)} className="tap-target-lg text-table font-medium text-accent-strong">
                   {approval.recordReference}
                 </Link>
                 {approval.status !== "PENDING" ? (

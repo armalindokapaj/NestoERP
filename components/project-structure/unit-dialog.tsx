@@ -276,7 +276,7 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
         </div>
       ) : null}
 
-      <button type="button" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong" onClick={() => setMore((open) => !open)} aria-expanded={more}>
+      <button type="button" className="tap-target inline-flex items-center gap-1 text-table font-medium text-accent-strong" onClick={() => setMore((open) => !open)} aria-expanded={more}>
         <ChevronDown className={cn("size-4 transition-transform", more && "rotate-180")} aria-hidden="true" />
         {more ? t("unitDialog.fewer") : t("unitDialog.more")}
       </button>

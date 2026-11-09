@@ -59,12 +59,13 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
           body
         )}
         <details className="mt-3 border-t border-line pt-2">
-          <summary className="cursor-pointer text-meta font-medium text-accent-strong">{t("viewByCompany")}</summary>
-          <ul className="mt-2 space-y-1">
+          <summary className="tap-target cursor-pointer text-meta font-medium text-accent-strong">{t("viewByCompany")}</summary>
+          {/* Under touch each company's row is its link's target (tap-row), the rows far enough apart to be 24px each. */}
+          <ul className="mt-2 space-y-1 touch:space-y-2 [--tap-row-bleed:0.25rem]">
             {breakdown.map((row) => (
-              <li key={row.companyId} className="flex items-baseline justify-between gap-3 text-meta">
+              <li key={row.companyId} className="relative flex items-baseline justify-between gap-3 text-meta">
                 {href ? (
-                  <CompanyRecordLink companyId={row.companyId} companyName={row.company} href={href} className="truncate text-fg-muted transition-colors hover:text-accent">
+                  <CompanyRecordLink companyId={row.companyId} companyName={row.company} href={href} className="tap-row truncate text-fg-muted transition-colors hover:text-accent">
                     {row.company}
                   </CompanyRecordLink>
                 ) : (

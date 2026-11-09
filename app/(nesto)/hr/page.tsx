@@ -142,7 +142,7 @@ export default async function HrOverviewPage() {
                 <h2 className="text-card font-semibold text-fg">{t("overview.myLeave")}</h2>
                 <Link
                   href="/hr/leave?mine=1"
-                  className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+                  className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
                 >
                   {t("overview.allMine")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -150,10 +150,10 @@ export default async function HrOverviewPage() {
               </div>
               <ul className="mt-4 divide-y divide-line">
                 {myLeave.data.map((request) => (
-                  <li key={request.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+                  <li key={request.id} className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
                     <Link
                       href={`/hr/leave/${request.id}`}
-                      className="min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
+                      className="tap-row min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
                     >
                       {formatDate(request.startDate, locale)} — {formatDate(request.endDate, locale)}
                     </Link>
@@ -170,7 +170,7 @@ export default async function HrOverviewPage() {
                 <h2 className="text-card font-semibold text-fg">{t("overview.headcountByType")}</h2>
                 <Link
                   href="/hr/reports?report=headcount"
-                  className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+                  className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
                 >
                   {t("overview.headcount")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -230,10 +230,10 @@ async function AttentionPanel({
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {rows.map((row) => (
-            <li key={row.employeeId} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+            <li key={row.employeeId} className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
               <Link
                 href={`/hr/employees/${row.employeeId}`}
-                className="min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
+                className="tap-row min-w-0 truncate text-table text-fg transition-colors hover:text-accent"
               >
                 {row.fullName}
               </Link>

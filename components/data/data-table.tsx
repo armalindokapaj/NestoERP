@@ -243,7 +243,7 @@ export function DataTable<T>({
                     {column === primary && rowHref ? (
                       <Link
                         href={rowHref(record)}
-                        className="font-medium text-fg transition-colors hover:text-accent focus-visible:text-accent"
+                        className="tap-target font-medium text-fg transition-colors hover:text-accent focus-visible:text-accent"
                       >
                         {column.render(record)}
                       </Link>

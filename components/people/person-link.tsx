@@ -62,10 +62,16 @@ export type PersonLinkProps = PersonRef & {
   restricted?: boolean | "hidden";
   /** Opens a section of the profile, e.g. `workforce` from a crew list. */
   tab?: string;
+  /**
+   * The name is a list row's own link: under touch the whole row is its target
+   * (`tap-row`), and the row must be `relative`. Otherwise the name alone grows
+   * to at least 24×24 (`tap-target`).
+   */
+  rowTarget?: boolean;
   className?: string;
 };
 
-export function PersonLink({ name, photoUrl, variant = "name", detail, restricted, tab, className, ...ref }: PersonLinkProps) {
+export function PersonLink({ name, photoUrl, variant = "name", detail, restricted, tab, rowTarget = false, className, ...ref }: PersonLinkProps) {
   if (restricted === "hidden") return <span className={cn("text-fg-muted", className)}><PersonLinkText k="restricted" /></span>;
   const named = name?.trim() || null;
   const label = named ?? "Unknown";
@@ -83,8 +89,9 @@ export function PersonLink({ name, photoUrl, variant = "name", detail, restricte
   );
   const layout = cn(variant === "name" ? "inline" : "inline-flex min-w-0 items-center gap-2", variant === "compact" && "text-meta", className);
 
+  // A name is often a line of metadata: under touch it is at least 24×24 without moving anything (WCAG 2.5.8).
   return href ? (
-    <Link href={href} title={title} className={cn(layout, "font-medium text-fg hover:text-accent-strong hover:underline")} data-person-link="">
+    <Link href={href} title={title} className={cn(layout, rowTarget ? "tap-row" : "tap-target", "font-medium text-fg hover:text-accent-strong hover:underline")} data-person-link="">
       {body}
     </Link>
   ) : (

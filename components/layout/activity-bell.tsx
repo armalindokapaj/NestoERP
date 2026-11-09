@@ -154,14 +154,14 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
         <span className="relative">
           <Bell aria-hidden="true" className={inBar ? "size-[22px]" : "size-[18px]"} strokeWidth={1.6} />
           {total > 0 && inBar ? (
-            <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute -right-2 -top-1.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 ds2:text-micro ring-2 ring-surface", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
+            <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute -right-2 -top-1.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ds2:text-micro ring-2 ring-surface", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
               {total > 99 ? "99+" : total}
             </span>
           ) : null}
         </span>
         {inBar ? <span className="max-w-full truncate tracking-tight">{t("barLabel")}</span> : null}
         {total > 0 && !inBar ? (
-          <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 ds2:text-micro ring-2 ring-canvas", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
+          <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ds2:text-micro ring-2 ring-canvas", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
             {total > 99 ? "99+" : total}
           </span>
         ) : null}

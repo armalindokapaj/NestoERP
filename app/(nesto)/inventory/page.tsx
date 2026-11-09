@@ -151,7 +151,7 @@ async function AttentionPanel({
         <h2 className="text-card font-semibold text-fg">{title}</h2>
         <Link
           href={href}
-          className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+          className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
         >
           {t("overview.viewAll")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -161,12 +161,12 @@ async function AttentionPanel({
       {rows.length === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">{emptyLabel}</p>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-4 space-y-3 [--tap-row-bleed:0.375rem]">
           {rows.map((row) => (
-            <li key={row.id} className="min-w-0">
+            <li key={row.id} className="relative min-w-0">
               <Link
                 href={row.href}
-                className="block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
+                className="tap-row block text-table font-medium text-fg transition-colors hover:text-accent max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate"
               >
                 {row.title}
               </Link>

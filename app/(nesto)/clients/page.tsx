@@ -132,7 +132,7 @@ async function ClientPanel({
         <h2 className="text-card font-semibold text-fg">{title}</h2>
         <Link
           href={href}
-          className="inline-flex items-center gap-1 text-table font-medium text-accent-strong"
+          className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
         >
           {t("overview.allClients")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -143,11 +143,11 @@ async function ClientPanel({
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {clients.map((client) => (
-            <li key={client.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+            <li key={client.id} className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
               <div className="min-w-0">
                 <Link
                   href={`/clients/${client.id}`}
-                  className="block truncate text-table font-medium text-fg transition-colors hover:text-accent"
+                  className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent"
                 >
                   {client.name}
                 </Link>

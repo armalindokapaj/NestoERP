@@ -250,6 +250,20 @@
 }
 
 /*
+ * A phone reads nothing under 12px (the phone and tablet audit, item 4b). Below
+ * md the two steps under the metadata step — micro (11px: eyebrows, badges,
+ * table headings, metadata) and the ruler's tick (10px) — take its 12px, and
+ * keep their own line-height ratios. Version 2's micro is 12px already; from md
+ * up nothing changes.
+ */
+@media (max-width: 767.98px) {
+  :root {
+    --nesto-text-micro: 0.75rem;
+    --nesto-text-tick: 0.75rem;
+  }
+}
+
+/*
  * Responsive tokens (MOB-01 §8). Semantic names that components spend, so a
  * page never restates a padding or a control height. They answer to the
  * viewport here, in CSS, so the right value is already in the server-rendered

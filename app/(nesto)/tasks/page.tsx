@@ -133,14 +133,14 @@ async function PriorityWork({ priority: pending }: { priority: ReturnType<typeof
       ) : (
         <ul className="mt-4 divide-y divide-line">
           {priority.map((task) => (
-            <li key={task.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+            <li key={task.id} className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
               <div className="min-w-0">
                 {task.company ? (
-                  <CompanyRecordLink companyId={task.company.id} companyName={task.company.name} href={`/tasks/${task.id}`} className="block truncate text-table font-medium text-fg transition-colors hover:text-accent">
+                  <CompanyRecordLink companyId={task.company.id} companyName={task.company.name} href={`/tasks/${task.id}`} className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent">
                     {task.title}
                   </CompanyRecordLink>
                 ) : (
-                  <Link href={`/tasks/${task.id}`} className="block truncate text-table font-medium text-fg transition-colors hover:text-accent">
+                  <Link href={`/tasks/${task.id}`} className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent">
                     {task.title}
                   </Link>
                 )}
