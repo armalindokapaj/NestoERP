@@ -48,7 +48,7 @@ describe("contrast arithmetic", () => {
 
   it("resolves light-dark() pairs and var() references per scheme", () => {
     expect(resolveToken(tokens, "surface", "light")).toEqual(parseColor("#ffffff"));
-    expect(resolveToken(tokens, "surface", "dark")).toEqual(parseColor("#131315"));
+    expect(resolveToken(tokens, "surface", "dark")).toEqual(parseColor("#12151a"));
     // primary-fg is var(--nesto-white) in light.
     expect(resolveToken(tokens, "primary-fg", "light")).toEqual(parseColor("#ffffff"));
   });

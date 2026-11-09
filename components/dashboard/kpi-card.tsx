@@ -39,7 +39,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
       </div>
 
       {/* Version 2: the 30/36 dashboard metric (UI-02 §6.2). */}
-      <p className="mt-3 font-serif font-normal text-display tabular-nums text-fg md:mt-4 ds2:text-metric ds2:font-semibold">{kpi.value}</p>
+      <p className="mt-3 font-display text-display tabular-nums text-fg md:mt-4 ds2:text-metric ds2:font-semibold">{kpi.value}</p>
       {/* An incomplete figure says so in its hint, never passing for a whole count (AUD-10 §4, CW-03). */}
       {kpi.hint ? <p className={cn("mt-1 text-meta", kpi.incomplete ? "text-warning-strong" : "text-fg-subtle")} data-testid={kpi.incomplete ? "kpi-incomplete" : undefined}>{rowText(t, kpi.hint)}</p> : null}
     </>

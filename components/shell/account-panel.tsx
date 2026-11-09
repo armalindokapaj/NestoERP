@@ -211,7 +211,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
           data-testid="account-trigger"
           className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full transition-colors hover:bg-hover data-[state=open]:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Avatar firstName={model.user.firstName} lastName={model.user.lastName} src={model.user.avatarUrl} size="md" className="size-8 border-transparent bg-accent font-serif font-normal text-accent-fg" />
+          <Avatar firstName={model.user.firstName} lastName={model.user.lastName} src={model.user.avatarUrl} size="md" className="size-8 border-transparent bg-accent font-display text-accent-fg" />
         </button>
       </PopoverTrigger>
       {/* Its top edge on the breadcrumb bar's top line, like every panel opened from the top bar. */}

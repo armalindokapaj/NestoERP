@@ -6,8 +6,9 @@
  * px shadows or one-off durations (§86: "Avoid random CSS values inside
  * individual pages").
  *
- * The palette is narrow and near-neutral: white surfaces, a barely-warm
- * canvas, graphite text and a single gold accent (§2.2, §5).
+ * The palette is narrow and near-neutral: white surfaces on cool paper, ink
+ * text and rules, and a single gold accent (§2.2, §5; the cool neutrals, the
+ * ink and the status hues are docs/ui/UI-03-vertical-look.md).
  *
  * Both colour schemes are declared together with light-dark(), one line per
  * token, so a value cannot drift between them and there is no second palette
@@ -21,15 +22,15 @@
 
   /* ---- White and surfaces (§5) --------------------------------------- */
   /*
-   * Cards, the sidebar and menus are plain white. The canvas carries a single
-   * point of warmth so white reads as white against it rather than as glare.
+   * Cards, the sidebar and menus are plain white. The canvas is cool paper,
+   * a step off white, so white reads as white against it rather than as glare.
    */
   --nesto-white: #ffffff;
-  --nesto-canvas: light-dark(#f5f3ee, #0a0a0b);
-  --nesto-surface: light-dark(var(--nesto-white), #131315);
-  --nesto-surface-muted: light-dark(#f0ede6, #19191c);
-  --nesto-sidebar: light-dark(var(--nesto-white), #0f0f11);
-  --nesto-row-hover: light-dark(#faf8f3, #1a1a1d);
+  --nesto-canvas: light-dark(#f5f6f7, #0b0d10);
+  --nesto-surface: light-dark(var(--nesto-white), #12151a);
+  --nesto-surface-muted: light-dark(#eef0f2, #171b21);
+  --nesto-sidebar: light-dark(var(--nesto-white), #0f1216);
+  --nesto-row-hover: light-dark(#f8f9fa, #181c22);
 
   /* ---- Text (§5) ----------------------------------------------------- */
   /*
@@ -37,34 +38,34 @@
    * tuned to clear WCAG AA on every ground above in both schemes, because §56
    * makes AA a requirement and 11px metadata is normal-size text.
    */
-  --nesto-fg: light-dark(#16140f, #ede9e1);
-  --nesto-fg-muted: light-dark(#57514a, #aaa398);
+  --nesto-fg: light-dark(#0f141a, #eceef1);
+  --nesto-fg-muted: light-dark(#3a424c, #a9b0ba);
   /* AUD-11 AV-10: nudged from #6a6f78 / #868b94 so metadata clears 4.5:1 on
      the accent-soft (active row) and hover grounds too. */
-  --nesto-fg-subtle: light-dark(#655e53, #8f897e);
+  --nesto-fg-subtle: light-dark(#59616c, #8b939e);
 
   /* ---- Lines (§5) ---------------------------------------------------- */
-  --nesto-border: light-dark(#e6e1d6, #26241f);
-  --nesto-border-strong: light-dark(#d6cfbf, #3a352b);
+  --nesto-border: light-dark(#dfe2e5, #232830);
+  --nesto-border-strong: light-dark(#c8ccd1, #363d47);
   /*
    * The boundary of a control whose outline is what identifies it: text
    * inputs, selects, checkboxes and a switch's off track (AUD-11 §6, AV-10).
    * At least 3:1 against every ground a control sits on; the two lines above
    * stay the quiet dividers they are.
    */
-  --nesto-control-border: light-dark(#857c6c, #77705f);
+  --nesto-control-border: light-dark(#757d87, #6f7884);
 
   /* ---- Accent (§5) --------------------------------------------------- */
   /* Exactly one primary accent is in use at a time. */
-  --nesto-primary: light-dark(#16140f, #c9a961);
-  --nesto-primary-fg: light-dark(var(--nesto-white), #0a0a0b);
-  --nesto-primary-hover: light-dark(#2c2820, #d6b873);
+  --nesto-primary: light-dark(#0f141a, #c9a961);
+  --nesto-primary-fg: light-dark(var(--nesto-white), #0b0d10);
+  --nesto-primary-hover: light-dark(#252c35, #d6b873);
   --nesto-accent: light-dark(#8f6c2c, #c9a961);
-  --nesto-accent-fg: light-dark(var(--nesto-white), #0a0a0b);
+  --nesto-accent-fg: light-dark(var(--nesto-white), #0b0d10);
   /* The accent as text on its own ground (§56). */
   --nesto-accent-strong: light-dark(#7a5c22, #d9bc7c);
-  --nesto-accent-soft: light-dark(#f6efdf, #211c12);
-  --nesto-hover: light-dark(#f2efe8, #212024);
+  --nesto-accent-soft: light-dark(#f6efdf, #221d13);
+  --nesto-hover: light-dark(#eceef1, #1f242b);
   /*
    * Two names version 2 of the design system gives a value of its own
    * (UI-02 §6.1, styles/tokens-v2.css): the ground of a control while it is
@@ -92,15 +93,15 @@
    * In dark mode that makes those surfaces the one sheet of paper in the
    * product, which is the same role they play in reverse in light mode.
    */
-  --nesto-graphite: light-dark(#16140f, #ede9e1);
-  --nesto-graphite-fg: light-dark(var(--nesto-white), #0a0a0b);
+  --nesto-graphite: light-dark(#0f141a, #eceef1);
+  --nesto-graphite-fg: light-dark(var(--nesto-white), #0b0d10);
 
   /*
    * The phone's My Day card (Premium Mobile §5.2): dark in both schemes, which
    * graphite is not (it flips to ivory in dark). The gold reads on both grounds.
    */
-  --nesto-hero: light-dark(#16140f, #15130e);
-  --nesto-hero-fg: light-dark(#f5f3ee, #ede9e1);
+  --nesto-hero: light-dark(#0f141a, #12151a);
+  --nesto-hero-fg: light-dark(#f5f6f7, #eceef1);
   --nesto-hero-accent: #c9a961;
 
   /* ---- Status (§6) --------------------------------------------------- */
@@ -110,22 +111,22 @@
    * `-strong` variant is the same hue pushed until it clears AA as text on the
    * grounds above, and is what badges and figures use (§56).
    */
-  --nesto-success: light-dark(#1f9d68, #46b98a);
-  --nesto-success-strong: light-dark(#187b51, #5ecb9c);
-  --nesto-success-soft: light-dark(#e9f5ef, #14241d);
+  --nesto-success: light-dark(#1e6a4e, #46b98a);
+  --nesto-success-strong: light-dark(#1a5c44, #5ecb9c);
+  --nesto-success-soft: light-dark(#e6f1ec, #14241d);
   /* AUD-11 AV-10: the light fill from #c58a25, which was 2.98:1 on white. */
-  --nesto-warning: light-dark(#b8631d, #e3934a);
-  --nesto-warning-strong: light-dark(#94480f, #eda66a);
-  --nesto-warning-soft: light-dark(#fbeee3, #2a1c10);
+  --nesto-warning: light-dark(#b06f12, #e3934a);
+  --nesto-warning-strong: light-dark(#85500a, #eda66a);
+  --nesto-warning-soft: light-dark(#f8efe0, #2a1c10);
   /* AUD-11 AV-10: the light fill from #d9534f, which carried white text at 3.96:1. */
-  --nesto-danger: light-dark(#cc4540, #e8756f);
+  --nesto-danger: light-dark(#b0251f, #e8756f);
   /* Text on a solid danger fill: white on light, near-black on the lighter dark-scheme red. */
-  --nesto-danger-fg: light-dark(var(--nesto-white), #0a0a0b);
-  --nesto-danger-strong: light-dark(#c4302b, #f28f89);
-  --nesto-danger-soft: light-dark(#fbedec, #2c1817);
-  --nesto-info: light-dark(#3d6aa8, #7ea2de);
-  --nesto-info-strong: light-dark(#335a90, #9bb8e8);
-  --nesto-info-soft: light-dark(#ebf1f9, #141c2a);
+  --nesto-danger-fg: light-dark(var(--nesto-white), #0b0d10);
+  --nesto-danger-strong: light-dark(#a3221c, #f28f89);
+  --nesto-danger-soft: light-dark(#f9eae8, #2c1817);
+  --nesto-info: light-dark(#2d5a8a, #7ea2de);
+  --nesto-info-strong: light-dark(#274f7a, #9bb8e8);
+  --nesto-info-soft: light-dark(#e8eef5, #141c2a);
 
   /* ---- Calendar categories (PRD #39 §18) ----------------------------- */
   /*
@@ -154,20 +155,28 @@
    * fixed and only the colour switches. Dark grounds need a deeper shadow to
    * register at all.
    */
-  --nesto-shadow-card-color: light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0.32));
-  --nesto-shadow-menu-color: light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.48));
-  --nesto-shadow-dialog-color: light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.58));
-  --nesto-shadow-card: 0 2px 8px var(--nesto-shadow-card-color);
-  --nesto-shadow-menu: 0 8px 24px var(--nesto-shadow-menu-color);
-  --nesto-shadow-dialog: 0 12px 40px var(--nesto-shadow-dialog-color);
+  /*
+   * A lift, not a glow: the shadow is pulled in under the surface (a negative
+   * spread) and falls straight down, so a card stands off the paper without a
+   * halo round it. A menu and a dialog add a hairline of ink at the edge.
+   */
+  --nesto-shadow-card-color: light-dark(rgb(15 20 26 / 0.2), rgb(0 0 0 / 0.5));
+  --nesto-shadow-menu-color: light-dark(rgb(15 20 26 / 0.36), rgb(0 0 0 / 0.6));
+  --nesto-shadow-dialog-color: light-dark(rgb(15 20 26 / 0.48), rgb(0 0 0 / 0.7));
+  --nesto-shadow-edge-color: light-dark(rgb(15 20 26 / 0.08), rgb(255 255 255 / 0.08));
+  --nesto-shadow-card: 0 14px 30px -22px var(--nesto-shadow-card-color);
+  --nesto-shadow-menu: 0 0 0 1px var(--nesto-shadow-edge-color), 0 20px 40px -18px var(--nesto-shadow-menu-color);
+  --nesto-shadow-dialog: 0 0 0 1px var(--nesto-shadow-edge-color), 0 50px 120px -40px var(--nesto-shadow-dialog-color), 0 20px 40px -24px var(--nesto-shadow-menu-color);
 
   /* ---- Motion (§52, §53) --------------------------------------------- */
   --nesto-motion-fast: 150ms;
   --nesto-motion: 180ms;
   --nesto-motion-slow: 220ms;
   /* The public site's one entrance movement (§81). */
-  --nesto-motion-rise: 600ms;
-  --nesto-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --nesto-motion-rise: 900ms;
+  --nesto-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* The long settle of an entrance or a sliding indicator. */
+  --nesto-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* ---- Shell dimensions (§11, §15, §37, §50) ------------------------- */
   --nesto-sidebar-width: 240px;
@@ -244,7 +253,7 @@
   --nesto-radius-sm: 6px;
   --nesto-radius-md: 8px; /* buttons, inputs */
   --nesto-radius-lg: 10px; /* small cards */
-  --nesto-radius-xl: 12px; /* dashboard cards */
+  --nesto-radius-xl: 10px; /* dashboard cards */
   --nesto-radius-2xl: 14px; /* dialogs */
   --nesto-radius-3xl: 16px; /* large feature cards */
 }
@@ -305,7 +314,7 @@
   --nesto-radius-control: 8px;
   /* A button is a pill today and 8px in version 2 (UI-02 §6.3). */
   --nesto-radius-button: 9999px;
-  --nesto-radius-card: 12px;
+  --nesto-radius-card: 10px;
   --nesto-radius-sheet: 16px;
   /*
    * Two names only version 2 spends (styles/tokens-v2.css): the corners of a
@@ -314,7 +323,7 @@
    * content, which today is none: the row's height holds the text (UI-02
    * §6.3, §6.4).
    */
-  --nesto-radius-overlay: 12px;
+  --nesto-radius-overlay: 14px;
   --nesto-space-cell-y: 0px;
 
   --nesto-content-max-width: 1600px;

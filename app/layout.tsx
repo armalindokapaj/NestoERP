@@ -7,7 +7,7 @@ import { ScrollToTop } from "@/components/navigation/scroll-to-top";
 import { SectionReturnWatch } from "@/components/navigation/section-return-watch";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
-import { geistMono, instrumentSerif, manrope } from "@/lib/fonts";
+import { archivo, newsreader, plexMono, plexSans } from "@/lib/fonts";
 import { getDesignState } from "@/lib/layout/design-server";
 import { densityAttribute, designAttribute, rulerAttribute } from "@/lib/layout/design-state";
 import {
@@ -95,7 +95,7 @@ export default async function RootLayout({
       data-ruler={rulerAttribute(design.ruler, design.rulerDisabled, design.version)}
     >
       <body
-        className={`${manrope.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
+        className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} ${archivo.variable} antialiased`}
       >
         <I18nProvider locale={locale} messages={messages[locale]}>
           <SessionLifecycle />

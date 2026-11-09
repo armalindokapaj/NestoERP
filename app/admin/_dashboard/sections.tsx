@@ -44,12 +44,12 @@ export async function DashboardHeader({ context, actions }: { context: PlatformC
   const quick = QUICK_CREATE.filter((item) => context.permissions.includes(item.permission));
   return (
     <>
-      <div className="border-b border-accent/25 pb-6 max-md:border-0 max-md:pb-1 max-md:pt-1">
+      <div className="border-b border-fg pb-6 max-md:border-0 max-md:pb-1 max-md:pt-1">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="nesto-eyebrow text-accent-strong">{today}</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="font-serif text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] ds2:text-page ds2:font-semibold ds2:leading-(--nesto-leading-page)">{ta("dashboard.lead")} <em className="italic text-accent-strong ds2:not-italic">{ta("dashboard.accent")}</em><PageSection id="overview" label={`${ta("dashboard.lead")} ${ta("dashboard.accent")}`} order={0} /></h1>
+              <h1 className="font-display text-[2.875rem] leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] ds2:text-page ds2:font-semibold ds2:leading-(--nesto-leading-page)">{ta("dashboard.lead")} <em className="font-serif font-light italic tracking-normal text-accent-strong ds2:not-italic">{ta("dashboard.accent")}</em><PageSection id="overview" label={`${ta("dashboard.lead")} ${ta("dashboard.accent")}`} order={0} /></h1>
               <Badge tone="neutral" className="max-md:hidden">{ta("shell.platformAdmin")}</Badge>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -102,7 +102,7 @@ function Metric({ label, value, detail, href, icon: Icon, tone }: { label: strin
         <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9"><Icon className="size-4" strokeWidth={1.6} /></span>
         <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">{label}</p>
       </div>
-      <p className="mt-3 font-serif text-display font-normal tabular-nums text-fg md:mt-4 ds2:text-metric ds2:font-semibold">{value}</p>
+      <p className="mt-3 font-display text-display tabular-nums text-fg md:mt-4 ds2:text-metric ds2:font-semibold">{value}</p>
       <p className={cn("mt-1 text-meta", tone === "attention" ? "text-warning-strong" : "text-fg-subtle")}>{detail}</p>
     </Link>
   );
@@ -310,19 +310,19 @@ export async function UsageSection({ context }: { context: PlatformContext }) {
       <div className="mt-4 grid gap-5 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-line">
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.storage")}</p>
-          <p className="mt-1 font-serif text-[1.625rem] font-normal leading-tight text-fg tabular-nums ds2:font-semibold">{storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}</p>
+          <p className="mt-1 font-display text-[1.625rem] leading-tight text-fg tabular-nums ds2:font-semibold">{storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}</p>
           {share !== null ? <p className={cn("text-meta", shareTone)}>{t("dashboard.quotaShare", { percent: Math.round(share * 100) })}</p> : <p className="text-meta text-fg-subtle">{t("dashboard.noQuota")}</p>}
           <Link href="/admin/system/storage" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.storage")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.moduleProvisioning")}</p>
-          <p className="mt-1 font-serif text-[1.625rem] font-normal leading-tight text-fg tabular-nums ds2:font-semibold">{modules.assignments}</p>
+          <p className="mt-1 font-display text-[1.625rem] leading-tight text-fg tabular-nums ds2:font-semibold">{modules.assignments}</p>
           <p className="text-meta text-fg-subtle">{t("dashboard.assignmentsHint", { available: modules.available })}</p>
           <Link href="/admin/modules" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manageModules")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.threeD")}</p>
-          <p className="mt-1 font-serif text-[1.625rem] font-normal leading-tight text-fg tabular-nums ds2:font-semibold">{threeD.configured}</p>
+          <p className="mt-1 font-display text-[1.625rem] leading-tight text-fg tabular-nums ds2:font-semibold">{threeD.configured}</p>
           <p className="text-meta text-fg-subtle">{threeD.configured === 0 ? t("dashboard.threeDNone") : t("dashboard.threeDHint", { public: threeD.public, companyOnly: threeD.companyOnly, private: threeD.private, offline: threeD.offline })}</p>
           <Link href="/admin/3d" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manage3d")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>

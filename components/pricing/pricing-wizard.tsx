@@ -521,7 +521,7 @@ function ReviewStep({ ctx, updating, blocked, onProposal }: { ctx: Ctx; updating
       ) : null}
       <div className="rounded-xl bg-graphite p-5 text-graphite-fg">
         <p className="nesto-eyebrow text-graphite-fg/60">{t.review.contractValue}</p>
-        <p className="mt-2 font-serif text-display">{money(quote.preIndexationContractValueCents)}</p>
+        <p className="mt-2 font-display text-display">{money(quote.preIndexationContractValueCents)}</p>
         <p className="mt-1 text-table text-graphite-fg/70">{t.contract.hicpNote}</p>
         {quote.quoteReference ? <p className="mt-3 font-mono text-table">{fill(t.review.reference, { ref: quote.quoteReference })}</p> : updating ? <p className="mt-3 text-table text-graphite-fg/70">{t.review.saving}</p> : null}
       </div>
@@ -561,7 +561,7 @@ function Estimate({ ctx, updating, error, step }: { ctx: Ctx; updating: boolean;
           <p className="nesto-eyebrow text-graphite-fg/60">{t.estimate.label}</p>
           {updating ? <span className="inline-flex items-center gap-1.5 text-meta text-graphite-fg/70"><RefreshCw className="size-3.5 motion-safe:animate-spin" aria-hidden="true" /> {t.estimate.updating}</span> : null}
         </div>
-        <p className="mt-3 font-serif text-display" aria-live="polite" data-testid="estimate-monthly">{money(quote.standardMonthlyCents)}<span className="text-table font-normal text-graphite-fg/70"> {t.estimate.perMonth}</span></p>
+        <p className="mt-3 font-display text-display" aria-live="polite" data-testid="estimate-monthly">{money(quote.standardMonthlyCents)}<span className="text-table font-normal text-graphite-fg/70"> {t.estimate.perMonth}</span></p>
         <p className="mt-1 text-table text-graphite-fg/70">{t.estimate.standard}</p>
       </div>
       <dl className="divide-y divide-line px-5">{rows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3 py-2.5 text-table"><dt className="text-fg-muted">{label}</dt><dd className="text-right font-medium text-fg">{value}</dd></div>)}</dl>

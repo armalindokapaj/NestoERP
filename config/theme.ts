@@ -75,7 +75,7 @@ export const theme = {
     button: 8,
     input: 8,
     smallCard: 10,
-    dashboardCard: 12,
+    dashboardCard: 10,
     dialog: 14,
     featureCard: 16,
   },
@@ -120,8 +120,8 @@ export const theme = {
     base: 180,
     slow: 220,
     /** The public site's one entrance movement (§81). */
-    rise: 600,
-    easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+    rise: 900,
+    easing: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
   },
 
   /**

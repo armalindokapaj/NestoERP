@@ -65,7 +65,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <section className="border-t border-accent/25 bg-surface">
         <Container className="flex flex-col items-start gap-5 py-12 sm:flex-row sm:items-center sm:justify-between sm:py-16">
           <div>
-            <h2 className="text-balance font-serif text-section text-fg sm:text-page">{copy.closing.title}</h2>
+            <h2 className="text-balance font-display text-section text-fg sm:text-page">{copy.closing.title}</h2>
             <p className="mt-2 max-w-xl text-body text-fg-muted">{copy.closing.copy}</p>
           </div>
           <div className="flex flex-wrap gap-3">

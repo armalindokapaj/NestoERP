@@ -53,7 +53,7 @@ export async function Topbar({
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
     // element the box that `position: fixed` children are placed in, which pinned the phone's
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
-    <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
+    <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-fg bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <MobileHeader />
 

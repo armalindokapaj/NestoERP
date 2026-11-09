@@ -160,7 +160,7 @@ export function TableHeaderCell({
     <th
       aria-sort={sort}
       className={cn(
-        "h-(--nesto-height-row-head) px-4 text-left text-micro font-semibold uppercase tracking-[0.08em] text-fg-subtle",
+        "h-(--nesto-height-row-head) px-4 text-left font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-subtle",
         numeric && "text-right",
         className,
       )}

@@ -576,6 +576,7 @@
 
 :root[data-ds="2"]:has([data-app-shell]) body {
   --font-nesto-serif: var(--font-nesto-sans);
+  --font-nesto-display: var(--font-nesto-sans);
 }
 
 /*

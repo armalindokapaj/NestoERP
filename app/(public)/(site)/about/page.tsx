@@ -39,7 +39,7 @@ export default async function AboutPage() {
         <dl className={cn(hairlineGrid, "sm:grid-cols-3")}>
           {about.principles.map((principle) => (
             <div key={principle.term} className={cn(hairlineCell, "p-6")}>
-              <dt className="font-serif text-section text-fg">{principle.term}</dt>
+              <dt className="font-display text-section text-fg">{principle.term}</dt>
               <dd className="mt-2.5 text-table leading-relaxed text-fg-muted">{principle.copy}</dd>
             </div>
           ))}
@@ -58,7 +58,7 @@ export default async function AboutPage() {
                   <p className="nesto-eyebrow text-fg-subtle">
                     {String(index + 1).padStart(2, "0")}
                   </p>
-                  <h2 className="mt-3 font-serif text-section text-fg lg:text-page">
+                  <h2 className="mt-3 font-display text-section text-fg lg:text-page">
                     {section.title}
                   </h2>
                 </div>
@@ -80,7 +80,7 @@ export default async function AboutPage() {
         <Container className="relative py-16 sm:py-20">
           <div className="max-w-xl">
             <p className="nesto-eyebrow text-fg-subtle">{category}</p>
-            <p lang="en" className="mt-6 font-serif text-page leading-tight text-fg sm:text-display">
+            <p lang="en" className="mt-6 font-display text-page leading-tight text-fg sm:text-display">
               {brand.motto.join(" ")}
             </p>
             <p className="mt-5 text-body leading-relaxed text-fg-muted">{about.mottoNote}</p>

@@ -283,7 +283,7 @@ function Shell({ user, permissions, appearance, devActions, children }: { user: 
       <Drawer open={mobile} onOpenChange={setMobile}>
         <DrawerContent side={phone ? "right" : "left"} className="bg-canvas lg:hidden" aria-describedby={undefined}>
           <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-accent/25 pl-4 pr-2">
-            <DrawerTitle className="font-serif text-[1.375rem] font-normal text-fg">{t("shell.menu")}</DrawerTitle>
+            <DrawerTitle className="font-display text-[1.375rem] text-fg">{t("shell.menu")}</DrawerTitle>
             <DrawerClose asChild>
               <button type="button" aria-label={t("shell.closeNavigation")} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"><X aria-hidden="true" className="size-5" strokeWidth={1.6} /></button>
             </DrawerClose>
@@ -295,7 +295,7 @@ function Shell({ user, permissions, appearance, devActions, children }: { user: 
       </Drawer>
       <BreadcrumbRegistryProvider>
       <div className="pl-[var(--nesto-nav-width)] transition-[padding]" data-admin-shell>
-        <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
+        <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-fg bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {/* Tablet: the drawer opens from the left. A phone has its menu at the right, as the platform does. */}
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} className="hidden size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover md:grid lg:hidden"><Menu className="size-5" /></button>

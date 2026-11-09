@@ -249,7 +249,7 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
                   <p className="text-body font-semibold text-fg">
                     {split ? (
                       <>
-                        <span className={cn("font-serif text-[1.625rem] font-normal leading-none ds2:font-semibold", tone.figure)}>{split.figure}</span> {split.rest}
+                        <span className={cn("font-display text-[1.625rem] leading-none ds2:font-semibold", tone.figure)}>{split.figure}</span> {split.rest}
                       </>
                     ) : (
                       item.title

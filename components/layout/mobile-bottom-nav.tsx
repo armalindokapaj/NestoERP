@@ -197,7 +197,7 @@ export function MobileBottomNav({
           }}
         >
           <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-accent/25 pl-4 pr-2">
-            <DrawerTitle className="font-serif text-[1.375rem] font-normal text-fg">{t("mobile.moreTitle")}</DrawerTitle>
+            <DrawerTitle className="font-display text-[1.375rem] text-fg">{t("mobile.moreTitle")}</DrawerTitle>
             <DrawerClose
               aria-label={t("closeNavigation")}
               className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"
@@ -325,7 +325,7 @@ function MoreBody({
       {/* Pinned: the profile stays put while the modules scroll. */}
       <div className="shrink-0 space-y-3 px-4 pb-3 pt-4">
       <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-[18px] border border-line bg-surface px-3 py-2 transition-colors active:border-accent active:bg-accent-soft">
-        <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" className="border-transparent bg-accent font-serif font-normal text-accent-fg" />
+        <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" className="border-transparent bg-accent font-display text-accent-fg" />
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-body font-semibold text-fg">{name}</span>
           <span className="block truncate text-meta text-fg-muted">{[account.roleLabel, account.workspaceName].filter(Boolean).join(" · ")}</span>

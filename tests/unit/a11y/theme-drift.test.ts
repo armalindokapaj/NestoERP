@@ -139,8 +139,9 @@ describe("version 2 is an overlay, never a second default (UI-02 §33)", () => {
 
   it("restates only variables version 1 declares", () => {
     const declared = new Set([...(tokensCss + globalsCss).matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
-    // next/font declares the two font variables on <body> (lib/fonts).
+    // next/font declares the font variables on <body> (lib/fonts).
     declared.add("--font-nesto-serif");
+    declared.add("--font-nesto-display");
     for (const [, name] of v2Css.matchAll(/(--[\w-]+)\s*:/g)) expect(declared.has(name), name).toBe(true);
   });
 

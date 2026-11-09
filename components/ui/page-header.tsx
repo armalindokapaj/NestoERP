@@ -24,19 +24,19 @@ export type PageHeaderKind = "page" | "module" | "record" | "context" | "setting
 type HeaderDrawing = { root: string; row: string; text: string; title: string; subtitle: string; status: string; meta: string };
 
 /**
- * Version 1, class for class as the four components drew it before they shared
- * this file: the serif display title of a plain page, the sans title of a
- * module and a record, the one-line header of a record's sub-page, and the
- * settings heading that left room for a breadcrumb it no longer draws. Nothing
- * here may change what version 1 renders (UI-02 §33).
+ * Version 1: the condensed display title of a page, a module, a record and a
+ * settings page, with an italic standfirst under the first two
+ * (docs/ui/UI-03-vertical-look.md §3); the one-line header of a record's
+ * sub-page; and the settings heading that left room for a breadcrumb it no
+ * longer draws.
  */
 const V1: Record<PageHeaderKind, HeaderDrawing> = {
   page: {
     root: "",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0",
-    title: "font-serif font-normal text-page text-fg md:text-display [overflow-wrap:anywhere]",
-    subtitle: "mt-1.5 text-body text-fg-muted",
+    title: "font-display text-page text-fg md:text-display [overflow-wrap:anywhere]",
+    subtitle: "mt-1.5 nesto-standfirst text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
   },
@@ -44,8 +44,8 @@ const V1: Record<PageHeaderKind, HeaderDrawing> = {
     root: "",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0",
-    title: "text-page font-semibold text-fg [overflow-wrap:anywhere]",
-    subtitle: "mt-1.5 text-body text-fg-muted",
+    title: "font-display text-page text-fg [overflow-wrap:anywhere]",
+    subtitle: "mt-1.5 nesto-standfirst text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
   },
@@ -53,7 +53,7 @@ const V1: Record<PageHeaderKind, HeaderDrawing> = {
     root: "space-y-4",
     row: "flex flex-wrap items-start justify-between gap-4",
     text: "min-w-0",
-    title: "text-page font-semibold text-fg [overflow-wrap:anywhere]",
+    title: "font-display text-page text-fg [overflow-wrap:anywhere]",
     subtitle: "mt-1 text-table text-fg-subtle [overflow-wrap:anywhere]",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
@@ -72,7 +72,7 @@ const V1: Record<PageHeaderKind, HeaderDrawing> = {
     root: "",
     row: "",
     text: "",
-    title: "mt-2 text-page font-semibold text-fg",
+    title: "mt-2 font-display text-page text-fg",
     subtitle: "mt-1.5 text-body text-fg-muted",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
@@ -92,7 +92,7 @@ const V2_FULL: HeaderDrawing = {
   row: "ds2:flex ds2:flex-wrap ds2:items-start ds2:justify-between ds2:gap-x-4 ds2:gap-y-3",
   text: "ds2:min-w-0",
   title: "ds2:mt-0 ds2:text-page ds2:font-semibold ds2:[overflow-wrap:anywhere]",
-  subtitle: "ds2:mt-1 ds2:text-body ds2:text-fg-muted ds2:[overflow-wrap:anywhere]",
+  subtitle: "ds2:mt-1 ds2:font-sans ds2:text-body ds2:font-normal ds2:not-italic ds2:text-fg-muted ds2:[overflow-wrap:anywhere]",
   status: "ds2:mt-2",
   meta: "ds2:mt-3 ds2:gap-x-6",
 };

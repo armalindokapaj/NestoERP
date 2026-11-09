@@ -172,7 +172,7 @@ export async function WorkspacePreview() {
         <div className="bg-canvas p-4 sm:p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h3 className="font-serif text-section text-fg sm:text-page">{copy.greeting}</h3>
+              <h3 className="font-display text-section text-fg sm:text-page">{copy.greeting}</h3>
               <p className="mt-1 text-table text-fg-muted">{copy.subtitle}</p>
             </div>
             <p className="nesto-eyebrow hidden text-fg-subtle sm:block">{copy.date}</p>
