@@ -11,7 +11,8 @@ import { areaText, numberText } from "@/components/project-structure/structure-u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchField } from "@/components/ui/search-field";
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { opensRow, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { formatDate } from "@/lib/i18n/format";
 import { COUNT_CHOICES, ORIENTATION_LABELS, UNIT_ORIENTATIONS, type UnitOrientation } from "@/lib/modules/project-structure/structure.types";
 import type { InventorySort } from "@/lib/modules/sales/units/unit-sales.schema";
@@ -19,7 +20,7 @@ import { UNIT_COMMERCIAL_STATUS_LABELS, type InventoryDTO, type InventoryRowDTO,
 import { cn } from "@/lib/utils/cn";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
-import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
+import { COMMERCIAL_CARD_TINT, COMMERCIAL_ROW_TINT, CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
 import { FormSelect } from "@/components/ui/form-select";
 
 /**
@@ -152,6 +153,7 @@ export function SalesInventory({
     setPage(1);
   }
 
+  const nav = useFeedbackRouter();
   const href = (row: InventoryRowDTO) => `/projects/${projectId}/units/${row.id}`;
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
   const first = list.total ? (list.page - 1) * list.pageSize + 1 : 0;
@@ -255,7 +257,18 @@ export function SalesInventory({
               </TableHead>
               <TableBody>
                 {list.items.map((row) => (
-                  <TableRow key={row.id} data-testid="sales-row" data-unit-code={row.unitCode}>
+                  <TableRow
+                    key={row.id}
+                    data-testid="sales-row"
+                    data-unit-code={row.unitCode}
+                    data-status={row.status}
+                    interactive
+                    className={COMMERCIAL_ROW_TINT[row.status]}
+                    onClick={(event) => {
+                      // Anywhere on the row opens the unit, as on the Units table; the client and deal links keep their own targets.
+                      if (opensRow(event)) nav.push(href(row));
+                    }}
+                  >
                     <TableCell className="whitespace-nowrap">
                       <Link href={href(row)} className="font-medium text-fg hover:text-accent-strong">
                         {row.unitCode}
@@ -285,7 +298,7 @@ export function SalesInventory({
 
           <ul className="space-y-2 md:hidden" data-testid="sales-cards">
             {list.items.map((row) => (
-              <li key={row.id} className="nesto-card p-3" data-testid="sales-card" data-unit-code={row.unitCode}>
+              <li key={row.id} className={cn("nesto-card p-3", COMMERCIAL_CARD_TINT[row.status])} data-testid="sales-card" data-unit-code={row.unitCode} data-status={row.status}>
                 <Link href={href(row)} className="block min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-body font-semibold text-fg">{row.unitCode}</span>

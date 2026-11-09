@@ -11,10 +11,10 @@ import { RecordActionSheet, SheetActionButton, SheetActionLink } from "@/compone
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { opensRow, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { SalesLabel } from "@/components/sales/sales-text";
-import { moneyLabel } from "@/components/sales/unit-sales/commercial-status";
+import { COMMERCIAL_CARD_TINT, COMMERCIAL_ROW_TINT, moneyLabel } from "@/components/sales/unit-sales/commercial-status";
 import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
 import { UNIT_COMMERCIAL_STATUS_LABELS } from "@/lib/modules/sales/units/unit-sales.types";
@@ -36,27 +36,10 @@ import { pageWindow } from "@/lib/modules/shared/list-query";
  * Inactive badge may wrap, while the code, floor, area and price stay on one line.
  */
 
-/**
- * The row tint for a unit's commercial status; Not for sale and On hold have
- * none. The status colours at a low strength, so red and orange stay apart (the
- * `-soft` tokens are too close to tell Sold from Reserved) and dark mode follows.
- */
-const ROW_TINT: Partial<Record<UnitDTO["commercialStatus"], string>> = {
-  FOR_SALE: "bg-success/15 hover:bg-success/25",
-  RESERVED: "bg-warning/20 hover:bg-warning/30",
-  SOLD: "bg-danger/20 hover:bg-danger/30",
-};
 
 /** Narrower cell padding than the table's default, so the seven columns fit beside the structure tree. */
 const FIT = "[&_td]:px-3 [&_th]:px-3 [&_td:last-child]:px-2 [&_th:last-child]:px-2";
 
-/** A click on the row opens the unit, unless it was on something of its own: the code link, the menu, a selection of text. */
-function opensRow(event: React.MouseEvent): boolean {
-  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
-  const target = event.target as HTMLElement | null;
-  if (target?.closest("a, button, input, select, textarea, [role='menu'], [role='menuitem'], [role='dialog']")) return false;
-  return !window.getSelection()?.toString();
-}
 
 function StatusWords({ unit }: { unit: UnitDTO }) {
   return (
@@ -190,7 +173,7 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
                 data-unit-code={unit.unitCode}
                 data-status={unit.commercialStatus}
                 interactive
-                className={ROW_TINT[unit.commercialStatus]}
+                className={COMMERCIAL_ROW_TINT[unit.commercialStatus]}
                 onClick={(event) => {
                   if (opensRow(event)) nav.push(href(unit));
                 }}
@@ -246,7 +229,7 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
               }
               extra={more.length > 0 ? <p className="mt-1 text-meta text-fg-subtle" data-testid="unit-card-more">{more.join(" · ")}</p> : null}
               actions={<UnitActionSheet unit={unit} href={href(unit)} index={index} count={list.items.length} actions={actions} />}
-              className={cn("p-3", ROW_TINT[unit.commercialStatus])}
+              className={cn("p-3", COMMERCIAL_CARD_TINT[unit.commercialStatus])}
             />
           );
         })}

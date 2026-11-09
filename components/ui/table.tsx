@@ -113,6 +113,18 @@ export function TableRow({
   );
 }
 
+/**
+ * Whether a click on an `interactive` row should open its record: a plain left
+ * click that did not land on something of the row's own (a link, a button, a
+ * field, a menu) and did not end a text selection.
+ */
+export function opensRow(event: React.MouseEvent): boolean {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("a, button, input, select, textarea, [role='menu'], [role='menuitem'], [role='dialog']")) return false;
+  return !window.getSelection()?.toString();
+}
+
 /** How a column is ordered; `none` is a sortable column that is not the current order. */
 export type TableSort = "ascending" | "descending" | "none";
 

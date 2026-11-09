@@ -42,3 +42,22 @@ export function perSqmLabel(amount: string | null, currency: string | null, loca
   const text = currency ? numberText(value, { style: "currency", currency, maximumFractionDigits: 0 }, locale) : numberText(value, undefined, locale);
   return `${text}/m²`;
 }
+
+/**
+ * The row tint for a unit's commercial status, shared by the Units and Sales
+ * tables; Not for sale and On hold have none. The status colours at a low
+ * strength, so red and orange stay apart (the `-soft` tokens are too close to
+ * tell Sold from Reserved) and dark mode follows.
+ */
+export const COMMERCIAL_ROW_TINT: Partial<Record<UnitCommercialStatus, string>> = {
+  FOR_SALE: "bg-success/15 hover:bg-success/25",
+  RESERVED: "bg-warning/20 hover:bg-warning/30",
+  SOLD: "bg-danger/20 hover:bg-danger/30",
+};
+
+/** The same tints for a phone card: `.nesto-card` paints its own surface, so these must win over it. */
+export const COMMERCIAL_CARD_TINT: Partial<Record<UnitCommercialStatus, string>> = {
+  FOR_SALE: "bg-success/15! hover:bg-success/25!",
+  RESERVED: "bg-warning/20! hover:bg-warning/30!",
+  SOLD: "bg-danger/20! hover:bg-danger/30!",
+};
