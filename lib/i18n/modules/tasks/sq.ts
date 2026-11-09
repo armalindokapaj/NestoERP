@@ -179,6 +179,7 @@ export const tasksSq: typeof tasksEn = {
     complete: "Përfundo",
     completing: "Po përfundon…",
     completedDone: "Detyra u përfundua.",
+    completeNamed: "Përfundo {title}",
     reopen: "Rihap",
     reopening: "Po rihapet…",
     reopened: "Detyra u rihap.",

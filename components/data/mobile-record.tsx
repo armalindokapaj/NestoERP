@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 
 import Link from "@/components/navigation/nav-link";
 import { UiText } from "@/components/i18n/ui-text";
+import { SwipeActions } from "@/components/ui/swipe-actions";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -56,6 +57,13 @@ export type MobileRecordProps = {
   extra?: React.ReactNode;
   /** Test and hook attributes on the record's root element. */
   data?: Record<`data-${string}`, string | undefined>;
+  /**
+   * Actions revealed by swiping the card left on a phone (`SwipeAction`s;
+   * components/ui/swipe-actions.tsx). Only what the reader may do, and only
+   * actions the record's own page offers too: the swipe is a shortcut, never
+   * the one way. Cards only, not compact rows.
+   */
+  swipe?: React.ReactNode;
 };
 
 function FactList({ facts, className }: { facts: RecordFact[]; className?: string }) {
@@ -83,19 +91,9 @@ function FactList({ facts, className }: { facts: RecordFact[]; className?: strin
 const titleClass = "min-w-0 flex-1 text-body font-medium text-fg [overflow-wrap:anywhere] [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal";
 const stretchedLink = "transition-colors after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] hover:text-accent focus-visible:outline-none";
 
-export function MobileRecordCard({ href, title, subtitle, status, value, leading, facts = [], details = [], actions, selection, label, selected, className, extra, data }: MobileRecordProps) {
-  return (
-    <li
-      {...data}
-      data-record-card
-      data-selected={selected || undefined}
-      className={cn(
-        "nesto-card relative p-4",
-        href && "transition-colors hover:bg-row-hover has-[a[data-card-link]:focus-visible]:ring-2 has-[a[data-card-link]:focus-visible]:ring-ring/40",
-        selected && "border-accent ring-1 ring-accent",
-        className,
-      )}
-    >
+export function MobileRecordCard({ href, title, subtitle, status, value, leading, facts = [], details = [], actions, selection, label, selected, className, extra, data, swipe }: MobileRecordProps) {
+  const body = (
+    <>
       <div className="flex items-start gap-3">
         {selection ? <div className="relative z-10 -ml-1 -mt-1 shrink-0">{selection}</div> : null}
         {leading ? <div className="shrink-0">{leading}</div> : null}
@@ -132,6 +130,29 @@ export function MobileRecordCard({ href, title, subtitle, status, value, leading
           {actions}
         </div>
       ) : null}
+    </>
+  );
+  return (
+    <li
+      {...data}
+      data-record-card
+      data-selected={selected || undefined}
+      className={cn(
+        "nesto-card relative p-4",
+        href && "transition-colors hover:bg-row-hover has-[a[data-card-link]:focus-visible]:ring-2 has-[a[data-card-link]:focus-visible]:ring-ring/40",
+        selected && "border-accent ring-1 ring-accent",
+        // A card with swipe actions: the part that slides carries the padding and the card's own background.
+        swipe ? "p-0" : null,
+        className,
+      )}
+    >
+      {swipe ? (
+        <SwipeActions actions={swipe} className="rounded-[inherit] bg-inherit" contentClassName="rounded-[inherit] bg-inherit p-4">
+          {body}
+        </SwipeActions>
+      ) : (
+        body
+      )}
     </li>
   );
 }

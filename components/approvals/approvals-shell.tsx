@@ -15,6 +15,7 @@ import { UnsavedScope } from "@/components/unsaved/use-unsaved";
 import { useMediaQuery } from "@/components/ui/use-breakpoint";
 import { isAborted } from "@/lib/client/api-request";
 import { useLatestRequest } from "@/lib/client/latest-request";
+import { onDataRefresh } from "@/lib/navigation/refresh-event";
 import { unsaved } from "@/lib/unsaved/coordinator";
 import type {
   ApprovalDecision,
@@ -159,6 +160,8 @@ export function ApprovalsShell({
   const [detailFailure, setDetailFailure] = React.useState<{ message: string; stale: boolean } | null>(initialDetailError ? { message: word(initialDetailError), stale: false } : null);
   const [pending, setPending] = React.useState<ApprovalDecision | null>(null);
   const attemptKey = React.useRef<string | null>(null);
+  // A row decided from its swipe keeps its own attempt key until the server has answered it (AUD-07 PS-15).
+  const listAttempts = React.useRef(new Map<string, string>());
 
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [delegationOpen, setDelegationOpen] = React.useState(openDelegation && !group);
@@ -245,9 +248,16 @@ export function ApprovalsShell({
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
+    // Pull to refresh asks for the queue now, whenever the last read was (lib/navigation/refresh-event.ts).
+    const unrefresh = onDataRefresh(() => {
+      if (pendingRef.current) return;
+      last = Date.now();
+      void loadList(stateRef.current);
+    });
     return () => {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
+      unrefresh();
     };
   }, [loadList]);
 
@@ -298,19 +308,23 @@ export function ApprovalsShell({
    * those first (AUD-03 §5); a selection that follows a recorded decision
    * does not, the input was used.
    */
-  function select(item: UnifiedApprovalItem | null) {
-    if ((item?.id ?? null) === selectedId) {
+  function select(item: UnifiedApprovalItem | null, then?: () => void) {
+    const apply = () => {
       applySelect(item);
+      then?.();
+    };
+    if ((item?.id ?? null) === selectedId) {
+      apply();
       return;
     }
     const intent = { kind: "dismiss", scope: DETAIL_SCOPE } as const;
     if (!unsaved.hasBlocking(intent)) {
-      applySelect(item);
+      apply();
       return;
     }
     void unsaved.requestDeparture(intent).then((approval) => {
       // The page stays: the approval covers this change and nothing after it.
-      if (approval?.run(() => applySelect(item))) approval.release();
+      if (approval?.run(apply)) approval.release();
     });
   }
 
@@ -349,20 +363,38 @@ export function ApprovalsShell({
     }
   }
 
-  async function decide(decision: ApprovalDecision, note: string | null): Promise<boolean> {
-    if (!detail || pending || deciding.current) return false;
+  /**
+   * Records a decision. `target` is a row of the queue decided from its swipe
+   * on a phone (mobile audit 5a); without it, the approval under review. Both
+   * take the same path to the server, with their own attempt key, and the
+   * queue is read again after either.
+   */
+  async function decide(decision: ApprovalDecision, note: string | null, target?: UnifiedApprovalItem): Promise<boolean> {
+    const fromList = target !== undefined;
+    const item = target ?? detail?.item;
+    if (!item || pending || deciding.current) return false;
     deciding.current = true;
-    const item = detail.item;
     const path = decision === "APPROVE" ? "approve" : decision === "REJECT" ? "reject" : "return";
-    attemptKey.current ??= newIdempotencyKey();
+    let key: string;
+    if (fromList) {
+      key = listAttempts.current.get(item.id) ?? newIdempotencyKey();
+      listAttempts.current.set(item.id, key);
+    } else {
+      attemptKey.current ??= newIdempotencyKey();
+      key = attemptKey.current;
+    }
+    const forget = () => {
+      if (fromList) listAttempts.current.delete(item.id);
+      else attemptKey.current = null;
+    };
     setPending(decision);
-    setDetailFailure(null);
+    if (!fromList) setDetailFailure(null);
     try {
       const result = await approvalsApi<ApprovalDecisionResult>(`/api/approvals/${item.providerKey}/${item.approvalId}/${path}`, {
         body: { note: note ?? undefined, expectedVersion: item.version },
-        idempotencyKey: attemptKey.current,
+        idempotencyKey: key,
       });
-      attemptKey.current = null;
+      forget();
       const next = result.item;
       const source = word(item.sourceLabel);
       toast({
@@ -379,6 +411,12 @@ export function ApprovalsShell({
         description: result.alreadyApplied ? t("shell.alreadyRecorded") : t("shell.requesterTold", { name: item.requester.name }),
         tone: "success",
       });
+      if (fromList) {
+        // Decided from its row: the queue is read again; a review of it, if one is open, too.
+        await loadList(state);
+        if (selectedId === item.id) void loadDetail(item.id);
+        return true;
+      }
       const index = items.findIndex((row) => row.id === item.id);
       const refreshed = await loadList(state);
       if (state.tab === "waiting") {
@@ -397,16 +435,32 @@ export function ApprovalsShell({
       // been recorded: keep the attempt's key so trying again cannot record it
       // twice (PRD #41 §123, AUD-07 §7, PS-15).
       const unconfirmed = approvalsFailureOutcome(failure).kind === "unknown";
-      if (!unconfirmed) attemptKey.current = null;
+      if (!unconfirmed) forget();
       const code = isFailure(failure) ? failure.detailCode : undefined;
       const stale = code === "APPROVAL_ALREADY_DECIDED" || code === "APPROVAL_SOURCE_CHANGED";
-      setDetailFailure({ message: fail(failure, "The decision could not be recorded."), stale });
+      if (!fromList) setDetailFailure({ message: fail(failure, "The decision could not be recorded."), stale });
       toast({ title: fail(failure, "The decision could not be recorded."), tone: "danger" });
+      // A row decided elsewhere meanwhile: the queue shows where it stands now.
+      if (fromList && stale) void loadList(state);
       return false;
     } finally {
       deciding.current = false;
       setPending(null);
     }
+  }
+
+  /**
+   * A swiped row's Approve or Reject (mobile audit 5a). Approve is recorded
+   * at once, as the review's Approve is; Reject, and an approval its module
+   * marks high-risk, open the review with the same dialog its own buttons
+   * open — the reason, or the second confirmation.
+   */
+  function quickDecide(item: UnifiedApprovalItem, decision: "APPROVE" | "REJECT"): void | Promise<boolean> {
+    if (decision === "REJECT" || item.requiresStrongConfirmation) {
+      select(item, () => drafts.set(`${item.id}:dialog`, decision));
+      return;
+    }
+    return decide("APPROVE", null, item);
   }
 
   const counts = data.counts;
@@ -658,7 +712,7 @@ export function ApprovalsShell({
             </div>
           ) : (
             <div className={cn(listLoading && "opacity-60 transition-opacity")}>
-              <ApprovalList items={items} tab={state.tab} selectedId={selectedId} density={density} onSelect={(item) => select(item)} group={group} />
+              <ApprovalList items={items} tab={state.tab} selectedId={selectedId} density={density} onSelect={(item) => select(item)} group={group} quick={group ? undefined : quickDecide} />
               {cursor || data.windowed ? (
                 <div className="flex flex-col items-center gap-2 border-t border-line px-4 py-3">
                   {cursor ? (

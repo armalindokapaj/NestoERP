@@ -88,7 +88,13 @@ export default async function ProjectTasksPage({ params, searchParams }: Params)
         />
       ) : (
         <>
-          <TaskTable tasks={result.data} listId="projects.tasks" sort={{ value: query.sort, keys: TASK_SORT_KEYS }} />
+          <TaskTable
+            tasks={result.data}
+            listId="projects.tasks"
+            sort={{ value: query.sort, keys: TASK_SORT_KEYS }}
+            // Complete on a swipe, on a phone (mobile audit 5a); the service refuses work on an archived project anyway.
+            canComplete={!archived && can(context, "task.complete")}
+          />
           <Pagination meta={result.pagination} buildHref={(page) => pageHref(basePath, raw, page)} />
         </>
       )}

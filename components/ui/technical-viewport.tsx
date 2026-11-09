@@ -14,6 +14,8 @@ export function TechnicalViewport({ className, ...props }: React.ComponentProps<
   return (
     <div
       data-technical-viewport
+      // Drawings, plans and models keep the finger: pull to refresh never starts here.
+      data-no-pull-refresh
       className={cn("nesto-technical-viewport relative isolate w-full min-w-0 overflow-hidden overscroll-contain bg-surface-muted [touch-action:none]", className)}
       {...props}
     />

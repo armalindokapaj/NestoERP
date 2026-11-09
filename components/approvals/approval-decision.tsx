@@ -166,8 +166,9 @@ export function DecisionBar({
         ) : null}
       </div>
 
+      {/* A dialog asked for from a swiped row (mobile audit 5a) opens only for a decision this review still offers. */}
       <ReasonDialog
-        open={dialog === "REJECT" || dialog === "RETURN"}
+        open={(dialog === "REJECT" && item.canReject) || (dialog === "RETURN" && item.canReturn)}
         decision={dialog === "RETURN" ? "RETURN" : "REJECT"}
         item={item}
         pending={pending}
@@ -180,7 +181,7 @@ export function DecisionBar({
         }}
       />
       <StrongApproveDialog
-        open={dialog === "APPROVE"}
+        open={dialog === "APPROVE" && item.canApprove}
         item={item}
         pending={pending === "APPROVE"}
         failure={failure}

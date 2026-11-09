@@ -161,6 +161,8 @@ export const en = {
       noModules: "No module matches.",
       profile: "Profile",
       account: "Account",
+      /** In the More sheet: reads the page again, as pulling down at its top does (mobile audit 5c). */
+      refresh: "Refresh this page",
       pending: "Opening…",
     },
     /** The section pill at the top right below lg, and the menu of the page's sections it opens. */
@@ -1188,6 +1190,8 @@ export const en = {
     switchTo: "Switch {label}",
     moreSections: "More",
     pageMenu: "More options",
+    /** The bottom action bar on a phone: a detail page's main action, above the bottom navigation (mobile audit 5b). */
+    pageActions: "Page actions",
     goForward: "Go forward",
     back: "Back",
     forward: "Forward",
@@ -1286,6 +1290,8 @@ export const en = {
     recordActions: "Actions for {name}",
     refresh: "Refresh",
     refreshing: "Refreshing…",
+    /** Said once a pull to refresh (or Refresh in the More sheet) has read the page again (mobile audit 5c). */
+    pageUpdated: "Page updated",
     search: "Search…",
     sort: "Sort",
     sortLabel: "Sort {label}",

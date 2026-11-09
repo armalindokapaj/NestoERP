@@ -1,6 +1,7 @@
 import { DataTable, type TableColumn, type TableSortConfig } from "@/components/data/data-table";
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
+import { TaskSwipeComplete } from "@/components/tasks/task-swipe-complete";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import { formatDate } from "@/lib/i18n/format";
@@ -29,12 +30,19 @@ export async function TaskTable({
   tasks,
   listId = "tasks.list",
   sort,
+  canComplete = false,
 }: {
   tasks: TaskSummaryDTO[];
   /** A nested use (a project's Tasks tab) names its own list, so its column choice is its own. */
   listId?: string;
   /** Header sorts only where the page reads the `sort` they write (AUD-08 §4). */
   sort?: TableSortConfig;
+  /**
+   * The reader holds `task.complete` and the list is not of archived work: a
+   * phone card then reveals Complete when swiped left (mobile audit 5a). Never
+   * in the Group workspace, where a task's commands belong to its company.
+   */
+  canComplete?: boolean;
 }) {
   const locale = await getLocale();
   const t = await getTranslations("tasks");
@@ -162,8 +170,13 @@ export async function TaskTable({
       // A group row links itself, through its company (above).
       rowHref={grouped ? undefined : (task) => `/tasks/${task.id}`}
       // Phone (MOB-03 §46): title, status, then priority, due date and project; the assignee waits behind More details.
+      // Swiping an open task's card left reveals Complete, the task page's own command (mobile audit 5a).
       mobile={{
         status: (task) => <StatusBadge status={task.status} />,
+        swipe: (task) =>
+          canComplete && !task.company && task.status !== "COMPLETED" && task.status !== "ARCHIVED" ? (
+            <TaskSwipeComplete taskId={task.id} version={task.version} title={task.title} />
+          ) : undefined,
         facts: ["priority", "dueDate", "project"],
         omit: ["status"],
         label: (task) =>

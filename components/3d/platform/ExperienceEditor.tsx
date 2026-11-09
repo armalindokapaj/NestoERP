@@ -654,7 +654,8 @@ export function ExperienceEditor({ initial }: { initial: Project3DEditorWorkspac
   const bindingVersion = model && ["READY", "PUBLISHED"].includes(model.status) ? model : null;
 
   return (
-    <div className="flex h-full w-full flex-col">
+    // The editor keeps the finger for itself: pull to refresh never starts here (components/layout/pull-to-refresh.tsx).
+    <div className="flex h-full w-full flex-col" data-no-pull-refresh>
       <EditorTopbar
         experienceName={initial.config.experienceName}
         context={`${initial.project.company.parentGroup.name} · ${initial.project.company.name} · ${initial.project.code}`}

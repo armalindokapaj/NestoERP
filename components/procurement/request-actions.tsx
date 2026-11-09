@@ -7,6 +7,7 @@ import { PenLine } from "lucide-react";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -72,6 +73,8 @@ export function RequestActions({
         </Button>
       ) : null}
 
+      {/* Submit, or Approve and Reject, are the page's main action: below md they sit in the bottom action bar. */}
+      <MainAction>
       {may.canSubmit ? (
         <Button size="sm" disabled={pending} onClick={() => run("submit", t("common.sentForApproval"))}>
           {t("common.submitForApproval")}
@@ -89,6 +92,7 @@ export function RequestActions({
           {t("common.approve")}
         </Button>
       ) : null}
+      </MainAction>
 
       {may.canCreateRfq ? (
         <Button asChild variant="secondary" size="sm">

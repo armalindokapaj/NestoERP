@@ -7,6 +7,7 @@ import { PenLine } from "lucide-react";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -77,6 +78,8 @@ export function OrderActions({
         </Button>
       ) : null}
 
+      {/* Submit, Approve and Reject, or Issue are the page's main action: below md they sit in the bottom action bar. */}
+      <MainAction>
       {may.canSubmit ? (
         <Button size="sm" disabled={pending} onClick={() => run("submit", t("common.sentForApproval"))}>
           {t("common.submitForApproval")}
@@ -100,6 +103,7 @@ export function OrderActions({
           {t("orders.issue")}
         </Button>
       ) : null}
+      </MainAction>
 
       {may.canReceive ? (
         <Button asChild variant="secondary" size="sm">

@@ -285,7 +285,7 @@
      * (AUD-04 §6, MW-08). `focus()` and `scrollIntoView()` both honour it.
      */
     scroll-padding-top: calc(var(--nesto-sticky-cover) + 1rem);
-    scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);
+    scroll-padding-bottom: calc(var(--nesto-bottom-reserve, 0px) + var(--nesto-action-bar-space, 0px));
   }
 
   /*
@@ -364,8 +364,10 @@
    * The phone bottom navigation (MOB-02 §14, §15, §47, §48). While it is on the
    * page, content, focus scrolling and toasts keep clear of it by one variable,
    * so no module adds bottom padding of its own. It steps aside where it would
-   * cost room a person needs: a form's own action bar (one bottom bar at a
-   * time) and an open on-screen keyboard (a focused text field).
+   * cost room a person needs: a page's own hand-made bottom bar
+   * (`data-sticky-action-bar`: one bottom bar at a time) and an open on-screen
+   * keyboard (a focused text field). The shared action bar (below) does not
+   * displace it: it sits above it.
    */
   html:has([data-mobile-bottom-nav]) {
     --nesto-bottom-nav-space: calc(6.5rem + var(--nesto-safe-bottom));
@@ -379,7 +381,7 @@
     }
   }
 
-  /* A form's action bar takes the bottom edge: the bar reserves its own room (5.5rem on a phone). */
+  /* A hand-made action bar takes the bottom edge: the bar reserves its own room (5.5rem on a phone). */
   html:has([data-mobile-bottom-nav]):has([data-sticky-action-bar]) {
     --nesto-bottom-nav-space: 0px;
     --nesto-bottom-reserve: 5.5rem;
@@ -400,6 +402,87 @@
   html:has([data-sticky-action-bar]) [data-mobile-bottom-nav],
   html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) [data-mobile-bottom-nav] {
     display: none;
+  }
+
+  /*
+   * The phone's bottom action bar (components/ui/mobile-action-bar.tsx; mobile
+   * audit 5b): a form's Save / Cancel ("flow") and a detail page's main action
+   * ("pinned"). Unlike the hand-made bars above (`data-sticky-action-bar`),
+   * it does not take the bottom navigation's place: it sits above it, 0.5rem
+   * clear of its top edge (82px plus the safe area, `--nesto-bottom-nav-space`
+   * less its 0.875rem of breathing room), or 0.5rem above the safe area where
+   * the navigation is not pinned (from lg, while typing, a low window in
+   * version 2). An open keyboard lifts it by `--nesto-keyboard-inset`, which
+   * the bar publishes from the visual viewport (0 where the keyboard resizes
+   * the page: Android, the native shell). Its measured height is
+   * `--nesto-action-bar-h`.
+   *
+   * - `--nesto-action-bar-space`: what focus scrolling and toasts keep clear of
+   *   on top of `--nesto-bottom-reserve`, while either bar is on screen.
+   * - `--nesto-action-bar-room`: what the page keeps at its foot for a pinned
+   *   bar, so its last line is never under it. A form's bar is in the form's
+   *   flow and needs none.
+   *
+   * While a text field has focus the pinned bar steps aside, as the bottom
+   * navigation does (the rule that hides it is unlayered, at the end of this
+   * file, so the bar's own `flex` does not outrank it); a form's Save stays,
+   * above the keyboard.
+   */
+  :root {
+    --nesto-keyboard-inset: 0px;
+    --nesto-action-bar-h: 3.875rem;
+    --nesto-action-bar-space: 0px;
+    --nesto-action-bar-room: 0px;
+    --nesto-action-bar-bottom: calc(max(calc(var(--nesto-safe-bottom) + 0.5rem), calc(var(--nesto-bottom-nav-space) - 0.875rem)) + var(--nesto-keyboard-inset));
+  }
+
+  @media (max-width: 767.98px) {
+    html:has([data-mobile-action-bar]:not(:empty)) {
+      --nesto-action-bar-space: calc(var(--nesto-action-bar-h) + 0.5rem);
+    }
+
+    html:has([data-mobile-action-bar="pinned"]:not(:empty)) {
+      --nesto-action-bar-room: calc(var(--nesto-action-bar-h) + 0.5rem);
+    }
+
+    html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) {
+      --nesto-action-bar-room: 0px;
+    }
+
+    html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus):not(:has([data-mobile-action-bar="flow"])) {
+      --nesto-action-bar-space: 0px;
+    }
+  }
+
+  /*
+   * A main action left in the header (from md, a `MainAction` is drawn where
+   * it sits, with no box of its own): in a header row holding the page's ⋯
+   * below lg, it follows the ⋯ as the header's other actions do
+   * (components/ui/page-header.tsx, PAGE_MENU_ACTIONS).
+   */
+  @media (max-width: 1023.98px) {
+    [data-page-header-row]:has([data-page-menu]) > [data-page-actions] > [data-main-action] > * {
+      order: 3;
+    }
+  }
+
+  /*
+   * Pull to refresh is the shell's own gesture on a phone
+   * (components/layout/pull-to-refresh.tsx), so the browser's is turned off:
+   * no reload, no glow, no bounce at the top of the page. In the native shell
+   * the gesture also runs on a tablet, which has no reload button
+   * (`data-pull-refresh`, set by the component there).
+   */
+  @media (max-width: 767.98px) {
+    html,
+    body {
+      overscroll-behavior-y: none;
+    }
+  }
+
+  html[data-pull-refresh],
+  html[data-pull-refresh] body {
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -506,7 +589,7 @@
     min-width: 0;
     max-width: var(--nesto-content-max-width);
     padding-top: var(--nesto-space-page-y);
-    padding-bottom: calc(max(var(--nesto-space-page-y-end), var(--nesto-safe-bottom)) + var(--nesto-bottom-nav-space, 0px));
+    padding-bottom: calc(max(var(--nesto-space-page-y-end), var(--nesto-safe-bottom)) + var(--nesto-bottom-nav-space, 0px) + var(--nesto-action-bar-room, 0px));
     padding-left: max(var(--nesto-space-page-x), var(--nesto-safe-left));
     padding-right: max(var(--nesto-space-page-x), var(--nesto-safe-right));
   }
@@ -1319,4 +1402,16 @@ html[data-unsaved-masked] [data-experience-editor] {
 :root.theme-fading::view-transition-new(root) {
   animation-duration: 900ms;
   animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+}
+
+/*
+ * Typing on a phone: a page's pinned main action steps aside for the keyboard,
+ * as the bottom navigation does (components/ui/mobile-action-bar.tsx; the
+ * room it kept goes too, in the base layer above). Unlayered on purpose: the
+ * bar is a `flex` utility, which outranks anything in a layer.
+ */
+@media (max-width: 767.98px) {
+  html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) [data-mobile-action-bar="pinned"] {
+    display: none;
+  }
 }

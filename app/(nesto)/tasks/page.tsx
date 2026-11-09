@@ -6,6 +6,8 @@ import { ArrowRight } from "lucide-react";
 import { ModulePage } from "@/components/modules/module-page";
 import { PriorityBadge } from "@/components/modules/status-badge";
 import { Button } from "@/components/ui/button";
+import { SwipeActions } from "@/components/ui/swipe-actions";
+import { TaskSwipeComplete } from "@/components/tasks/task-swipe-complete";
 import { ListSectionSkeleton, StatCardsSkeleton } from "@/components/modules/section-skeletons";
 import { SectionBoundary } from "@/components/modules/page-section";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
@@ -76,7 +78,7 @@ export default async function TasksOverviewPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <SectionBoundary className="nesto-card">
             <Suspense fallback={<ListSectionSkeleton title={t("overview.priorityWork")} rows={6} />}>
-              <PriorityWork priority={priority} />
+              <PriorityWork priority={priority} canComplete={!group && can(context, "task.complete")} />
             </Suspense>
           </SectionBoundary>
           <SectionBoundary className="nesto-card">
@@ -116,7 +118,14 @@ async function TaskStats({ stats }: { stats: Overview }) {
 }
 
 /** The primary section: high and critical work in view (NAV-03 STREAM-02). */
-async function PriorityWork({ priority: pending }: { priority: ReturnType<typeof priorityTasksForWorkspace> }) {
+async function PriorityWork({
+  priority: pending,
+  canComplete,
+}: {
+  priority: ReturnType<typeof priorityTasksForWorkspace>;
+  /** Swiping a row left on a phone reveals Complete (mobile audit 5a); the task's page offers it too. */
+  canComplete: boolean;
+}) {
   const priority = await pending;
   const t = await getTranslations("tasks");
   return (
@@ -132,30 +141,48 @@ async function PriorityWork({ priority: pending }: { priority: ReturnType<typeof
         <p className="mt-4 text-table text-fg-subtle">{t("overview.noPriority")}</p>
       ) : (
         <ul className="mt-4 divide-y divide-line">
-          {priority.map((task) => (
-            <li key={task.id} className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
-              <div className="min-w-0">
-                {task.company ? (
-                  <CompanyRecordLink companyId={task.company.id} companyName={task.company.name} href={`/tasks/${task.id}`} className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent">
-                    {task.title}
-                  </CompanyRecordLink>
-                ) : (
-                  <Link href={`/tasks/${task.id}`} className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent">
-                    {task.title}
-                  </Link>
-                )}
-                {task.company ? (
-                  <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                    <CompanyTag name={task.company.name} className="shrink-0" />
+          {priority.map((task) => {
+            const row = (
+              <>
+                <div className="min-w-0">
+                  {task.company ? (
+                    <CompanyRecordLink companyId={task.company.id} companyName={task.company.name} href={`/tasks/${task.id}`} className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent">
+                      {task.title}
+                    </CompanyRecordLink>
+                  ) : (
+                    <Link href={`/tasks/${task.id}`} className="tap-row block truncate text-table font-medium text-fg transition-colors hover:text-accent">
+                      {task.title}
+                    </Link>
+                  )}
+                  {task.company ? (
+                    <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                      <CompanyTag name={task.company.name} className="shrink-0" />
+                      <p className="truncate text-meta text-fg-subtle">{task.project ? task.project.name : t("common.personalTask")}</p>
+                    </div>
+                  ) : (
                     <p className="truncate text-meta text-fg-subtle">{task.project ? task.project.name : t("common.personalTask")}</p>
-                  </div>
-                ) : (
-                  <p className="truncate text-meta text-fg-subtle">{task.project ? task.project.name : t("common.personalTask")}</p>
-                )}
-              </div>
-              <PriorityBadge priority={task.priority} />
-            </li>
-          ))}
+                  )}
+                </div>
+                <PriorityBadge priority={task.priority} />
+              </>
+            );
+            const swipe =
+              canComplete && !task.company && task.status !== "COMPLETED" && task.status !== "ARCHIVED" ? (
+                <TaskSwipeComplete taskId={task.id} version={task.version} title={task.title} />
+              ) : undefined;
+            return swipe ? (
+              // The sliding part is the row: it carries the padding, the background and the link's whole-row target.
+              <li key={task.id} className="group/row">
+                <SwipeActions actions={swipe} contentClassName="flex items-center justify-between gap-3 bg-surface py-2.5 touch:py-3.25 group-first/row:pt-0">
+                  {row}
+                </SwipeActions>
+              </li>
+            ) : (
+              <li key={task.id} className="relative flex items-center justify-between gap-3 py-2.5 touch:py-3.25 first:pt-0">
+                {row}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

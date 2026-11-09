@@ -51,6 +51,13 @@ export type MobileRecordPresentation<T> = {
   label?: (record: T) => string;
   /** `row` is the compact identity-first pattern (people, files); `card` the default. */
   variant?: "card" | "row";
+  /**
+   * Actions revealed by swiping a card left on a phone (`SwipeAction`s,
+   * components/ui/swipe-actions.tsx), or `undefined` for a record the reader
+   * may do none of them to. Cards only. A shortcut: the record's own page
+   * offers the same actions.
+   */
+  swipe?: (record: T) => React.ReactNode;
 };
 
 export type QueryKeys = {

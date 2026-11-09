@@ -721,7 +721,7 @@ export function ScrollRuler({ children }: { children: React.ReactNode }) {
             <div
               ref={frame}
               data-ruler-frame=""
-              className="pointer-events-none fixed right-0 top-[var(--nesto-sticky-cover)] bottom-[var(--nesto-bottom-reserve,0px)] z-[var(--nesto-z-ruler)] w-[var(--nesto-ruler-width)] print:hidden"
+              className="pointer-events-none fixed right-0 top-[var(--nesto-sticky-cover)] bottom-[calc(var(--nesto-bottom-reserve,0px)+var(--nesto-action-bar-space,0px))] z-[var(--nesto-z-ruler)] w-[var(--nesto-ruler-width)] print:hidden"
             >
               {/* The rail's own lane: the frame, less the room a page's context tabs need before they pin. */}
               <div ref={lane} className="absolute inset-x-0 bottom-0 top-[var(--nesto-ruler-inset)]">

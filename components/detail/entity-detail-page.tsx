@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { RecordHeader } from "@/components/modules/record-header";
 import type { Crumb } from "@/components/ui/breadcrumbs";
-import { StickyActions } from "@/components/ui/sticky";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -20,10 +20,11 @@ import { cn } from "@/lib/utils/cn";
  *   </EntityDetailPage>
  *
  * `actions` is the header slot (the `...` menu and any header button);
- * `primaryAction` is the one frequent action (Edit, Approve) — it is pinned to
- * the bottom of a phone screen (StickyActions, clear of the safe area, and the
- * bottom navigation yields to it) and stays in the header on desktop. Pass only
- * actions this person may take.
+ * `primaryAction` is the one frequent action (Edit, Approve) — below `md` it
+ * is pinned to the bottom of the screen above the bottom navigation (the
+ * shell's one action bar, `MainAction` in components/ui/mobile-action-bar.tsx)
+ * and from `md` it stays in the header. It is drawn once, never copied. Pass
+ * only actions this person may take.
  */
 export function EntityDetailPage({
   breadcrumbs,
@@ -62,7 +63,7 @@ export function EntityDetailPage({
         meta={meta}
         actions={
           <>
-            {primaryAction ? <div className="hidden md:block">{primaryAction}</div> : null}
+            {primaryAction ? <MainAction>{primaryAction}</MainAction> : null}
             {actions}
           </>
         }
@@ -77,11 +78,6 @@ export function EntityDetailPage({
         <div className="space-y-5">{children}</div>
       )}
 
-      {primaryAction ? (
-        <StickyActions className="md:hidden" data-testid="detail-primary-action">
-          {primaryAction}
-        </StickyActions>
-      ) : null}
     </div>
   );
 }

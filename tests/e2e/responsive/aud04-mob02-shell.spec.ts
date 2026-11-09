@@ -108,7 +108,11 @@ test.describe("bottom navigation", () => {
     await expect(page.getByTestId("notification-bell")).toHaveCount(1);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     // The last piece of content, not the padded box: it must end above the bar once scrolled to the end.
-    const last = await mainRegion(page).evaluate((main) => (main.lastElementChild ?? main).getBoundingClientRect().bottom);
+    // The pinned page-action bar (fixed, mobile audit 5b) sits at the end of the main region and is not content.
+    const last = await mainRegion(page).evaluate((main) => {
+      const content = [...main.children].filter((child) => !child.matches("[data-mobile-action-bar]"));
+      return (content.at(-1) ?? main).getBoundingClientRect().bottom;
+    });
     const top = (await bar(page).boundingBox())!.y;
     expect(Math.round(last)).toBeLessThanOrEqual(Math.round(top) + 1);
   });
@@ -373,12 +377,16 @@ test.describe("header", () => {
 });
 
 test.describe("form action bar and the keyboard", () => {
-  test("the bottom bar steps aside while a form's own action bar is on the page", async ({ page }) => {
+  test("a form's action bar sits above the bottom bar, which stays (mobile audit 5b)", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/new" });
-    const actionBar = page.locator("[data-sticky-action-bar]");
-    test.skip((await actionBar.count()) === 0, "this form has no sticky action bar");
-    await expect(bar(page)).toBeHidden();
+    const actionBar = mainRegion(page).locator('[data-mobile-action-bar="flow"]').first();
+    await expect(actionBar).toBeVisible();
+    await expect(bar(page)).toBeVisible();
+    const actions = (await actionBar.boundingBox())!;
+    const navigation = (await bar(page).boundingBox())!;
+    // Stacked, never overlapping: Save and Cancel end above the bar's top edge.
+    expect(actions.y + actions.height).toBeLessThanOrEqual(navigation.y + 1);
   });
 
   test("the bottom bar yields to the keyboard while a text field has focus", async ({ page }) => {

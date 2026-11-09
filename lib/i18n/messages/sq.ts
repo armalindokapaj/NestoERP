@@ -148,6 +148,7 @@ export const sq: Messages = {
       noModules: "Asnjë modul nuk përputhet.",
       profile: "Profili",
       account: "Llogaria",
+      refresh: "Rifresko këtë faqe",
       pending: "Po hapet…",
     },
     sectionMenu: {
@@ -1168,6 +1169,7 @@ export const sq: Messages = {
     switchTo: "Ndrysho {label}",
     moreSections: "Më shumë",
     pageMenu: "Më shumë opsione",
+    pageActions: "Veprimet e faqes",
     goForward: "Shko përpara",
     back: "Pas",
     forward: "Përpara",
@@ -1259,6 +1261,7 @@ export const sq: Messages = {
     recordActions: "Veprime për {name}",
     refresh: "Rifresko",
     refreshing: "Po rifreskohet…",
+    pageUpdated: "Faqja u përditësua",
     search: "Kërko…",
     sort: "Rendit",
     sortLabel: "Rendit {label}",

@@ -18,6 +18,7 @@ import {
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Button } from "@/components/ui/button";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
@@ -112,6 +113,8 @@ export function FinanceRecordActions({
         </Button>
       ) : null}
 
+      {/* The workflow step this record is waiting on is the page's main action: below md it sits in the bottom action bar. */}
+      <MainAction>
       {capabilities.canSubmit ? (
         <Button size="sm" onClick={() => run("submit", t("actions.submitted"))} disabled={busy} aria-busy={running === "submit" || undefined}>
           <Send aria-hidden="true" />
@@ -151,6 +154,7 @@ export function FinanceRecordActions({
           {buttonText("restore", t("actions.restore"), t("actions.restoring"))}
         </Button>
       ) : null}
+      </MainAction>
 
       {capabilities.canRevise ? (
         <Button asChild variant="secondary" size="sm">

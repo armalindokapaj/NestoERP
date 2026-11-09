@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, Plus, Settings, X } from "lucide-react";
+import { LogOut, Menu, Plus, RefreshCw, Settings, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
+import { requestPageRefresh } from "@/lib/navigation/refresh-event";
 import { resolveMobileNavigation } from "@/lib/navigation/mobile";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
@@ -213,6 +214,11 @@ export function MobileBottomNav({
                 navigated.current = true;
                 setMoreOpen(false);
               }}
+              onRefresh={() => {
+                // The sheet closes (focus back on Menu) and the page is read again, as pulling down at its top does.
+                setMoreOpen(false);
+                requestPageRefresh();
+              }}
             />
           </div>
         </DrawerContent>
@@ -294,7 +300,20 @@ function BarButton({
 /* More                                                                        */
 /* -------------------------------------------------------------------------- */
 
-function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup[]; account: MobileAccount; footer?: React.ReactNode; onDone: () => void }) {
+function MoreBody({
+  groups,
+  account,
+  footer,
+  onDone,
+  onRefresh,
+}: {
+  groups: NavigationGroup[];
+  account: MobileAccount;
+  footer?: React.ReactNode;
+  onDone: () => void;
+  /** Refresh: the same as pulling down at the top of the page, for whoever does not use the gesture. */
+  onRefresh: () => void;
+}) {
   const t = useTranslations("shell");
   const pathname = usePathname();
   const { signOut, signingOut } = useSignOut(onDone);
@@ -337,13 +356,22 @@ function MoreBody({ groups, account, footer, onDone }: { groups: NavigationGroup
 
       </div>
 
-      {/* Pinned: Settings, the theme and Logout stay at the foot. */}
+      {/* Pinned: Settings, Refresh, the theme and Logout stay at the foot. */}
       <div className="shrink-0 space-y-3 border-t border-accent/25 px-4 pb-4 pt-3">
       <section aria-label={t("mobile.account")} className="overflow-hidden rounded-[18px] border border-line bg-surface">
         <Link href="/settings" navSource="mobile" onNavigate={onDone} className="flex min-h-12 items-center gap-3 border-b border-line px-3 text-body font-medium text-fg hover:bg-hover">
           <Settings aria-hidden="true" strokeWidth={1.6} className="size-[18px] text-accent-strong" />
           {t("settings")}
         </Link>
+        <button
+          type="button"
+          onClick={onRefresh}
+          data-testid="mobile-more-refresh"
+          className="flex min-h-12 w-full items-center gap-3 border-b border-line px-3 text-left text-body font-medium text-fg hover:bg-hover"
+        >
+          <RefreshCw aria-hidden="true" strokeWidth={1.6} className="size-[18px] text-accent-strong" />
+          {t("mobile.refresh")}
+        </button>
         <ThemeToggle variant="row" />
         <button
           type="button"

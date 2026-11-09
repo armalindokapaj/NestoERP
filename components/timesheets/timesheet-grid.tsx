@@ -172,7 +172,8 @@ export function TimesheetGrid({
   const locale = useLocale();
   const t = useTimesheetsTranslations();
   return (
-    <div className="nesto-card overflow-hidden" data-testid="timesheet-grid">
+    // The week is typed into cell by cell: pull to refresh never starts on the grid (components/layout/pull-to-refresh.tsx).
+    <div className="nesto-card overflow-hidden" data-testid="timesheet-grid" data-no-pull-refresh>
       {/*
         * The week pans inside a labelled region on a narrow screen (the review
         * page draws the grid at every width), and the Project / task column

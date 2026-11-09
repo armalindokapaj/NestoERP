@@ -20,6 +20,7 @@ import {
 import { AssignMemberControl } from "@/components/modules/assign-member-control";
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DialogEditor, useOpenedWith } from "@/components/sales/unit-sales/unit-sales-dialogs";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -114,6 +115,8 @@ export function ContractActions({
         />
       ) : null}
 
+      {/* The workflow step the contract is waiting on is the page's main action: below md it sits in the bottom action bar. */}
+      <MainAction>
       {may.canSubmitReview ? (
         <Button size="sm" disabled={pending} onClick={() => run("submit-review", t("actions.sentForReview"))}>
           <Send aria-hidden="true" />
@@ -181,6 +184,7 @@ export function ContractActions({
           {t("common.activate")}
         </Button>
       ) : null}
+      </MainAction>
 
       {may.canExpire ? (
         <Button variant="secondary" size="sm" disabled={pending} onClick={() => setDialog("expire")}>

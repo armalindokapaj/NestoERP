@@ -5,6 +5,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 import { BadgeCheck, Ban } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { useToast } from "@/components/ui/toast";
 import { decideRecordAction } from "@/lib/actions/records";
 import { useCommonTranslations } from "@/components/i18n/common-text";
@@ -49,8 +50,9 @@ export function ApprovalActions({
     });
   }
 
+  // The page's main action: below md both sit in the bottom action bar, above the bottom navigation.
   return (
-    <>
+    <MainAction>
       <Button size="sm" onClick={() => decide("APPROVE")} disabled={pending}>
         <BadgeCheck aria-hidden="true" />
         {labels.approve}
@@ -59,6 +61,6 @@ export function ApprovalActions({
         <Ban aria-hidden="true" />
         {labels.reject}
       </Button>
-    </>
+    </MainAction>
   );
 }

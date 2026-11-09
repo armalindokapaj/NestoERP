@@ -115,7 +115,7 @@ const PLACES = 'a[href^="/"], h1, h2, h3, h4, [id]';
  * in the document moves as the page scrolls, so nothing in it can say where
  * the reader was.
  */
-const PINNED = '[data-context-tabs], [data-sticky-region], [data-sticky-action-bar], [data-shell-breadcrumb], thead, [class*="sticky"], [class~="fixed"]';
+const PINNED = '[data-context-tabs], [data-sticky-region], [data-sticky-action-bar], [data-mobile-action-bar], [data-shell-breadcrumb], thead, [class*="sticky"], [class~="fixed"]';
 
 /**
  * The line content appears under: everything pinned, plus the clearance an

@@ -734,6 +734,8 @@ export function ProjectViewerRuntime({
       id="main-content"
       ref={mainRef}
       data-viewer-channel={channel}
+      // The viewer keeps the finger for itself: pull to refresh never starts here.
+      data-no-pull-refresh
       className="relative flex h-viewport w-full shrink-0 overflow-hidden bg-surface"
     >
       <UnitsWorkspace

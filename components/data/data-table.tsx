@@ -303,6 +303,7 @@ export function DataTable<T>({
             status: mobile?.status?.(record),
             value: mobile?.value?.(record),
             leading: mobile?.leading?.(record),
+            swipe: mobile?.swipe?.(record),
             facts,
             details,
             actions: actions?.(record),

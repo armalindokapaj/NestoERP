@@ -209,7 +209,12 @@ export async function TasksList({
         )
       ) : (
         <>
-          <TaskTable tasks={result.data} sort={{ value: query.sort, keys: TASK_SORT_KEYS }} />
+          <TaskTable
+            tasks={result.data}
+            sort={{ value: query.sort, keys: TASK_SORT_KEYS }}
+            // Complete on a swipe, on a phone: open work in a company workspace, for whoever may complete tasks.
+            canComplete={!group && variant !== "archived" && variant !== "completed" && can(context, "task.complete")}
+          />
           <Pagination meta={result.pagination} buildHref={buildHref} />
         </>
       )}

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
@@ -203,21 +204,25 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         </Button>
       ) : null}
 
-      {verbs.map((verb, index) => (
-        <Button
-          key={verb.command}
-          variant={verb.variant}
-          size="sm"
-          // The first verb stays in view on a phone; the rest are in More there.
-          className={index > 0 ? "max-sm:hidden" : undefined}
-          onClick={() => run(verb.command, verb.done)}
-          disabled={pending}
-          aria-busy={running === verb.command || undefined}
-        >
-          <verb.icon aria-hidden="true" />
-          {running === verb.command ? verb.pendingLabel : verb.label}
-        </Button>
-      ))}
+      {verbs.map((verb, index) => {
+        const button = (
+          <Button
+            key={verb.command}
+            variant={verb.variant}
+            size="sm"
+            // The first verb stays in view on a phone; the rest are in More there.
+            className={index > 0 ? "max-sm:hidden" : undefined}
+            onClick={() => run(verb.command, verb.done)}
+            disabled={pending}
+            aria-busy={running === verb.command || undefined}
+          >
+            <verb.icon aria-hidden="true" />
+            {running === verb.command ? verb.pendingLabel : verb.label}
+          </Button>
+        );
+        // The next step for this task is the page's main action: below md it sits in the bottom action bar.
+        return index === 0 ? <MainAction key={verb.command}>{button}</MainAction> : button;
+      })}
 
       {canEdit ? (
         <Button asChild variant="secondary" size="sm" className="max-sm:hidden">

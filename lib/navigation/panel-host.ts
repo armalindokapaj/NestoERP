@@ -44,6 +44,11 @@ export function usePanelOpen(id: OverlayId): [boolean, (open: boolean) => void] 
   return [current === id, set];
 }
 
+/** The top-bar overlay that is open, if any, read outside React (pull to refresh stays off over one). */
+export function activeOverlay(): OverlayId | null {
+  return active;
+}
+
 /** A changed context or identity closes every panel. */
 export function closeAllPanels(): void {
   setActive(null);

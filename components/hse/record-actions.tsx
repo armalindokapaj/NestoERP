@@ -6,6 +6,7 @@ import { useRouter } from "@/components/navigation/guarded-router";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";
+import { MainAction } from "@/components/ui/mobile-action-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
@@ -361,6 +362,8 @@ export function IncidentActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/* Opening the investigation, putting the incident up for closure and closing it are the page's main action: below md they sit in the bottom action bar. */}
+      <MainAction>
       {may.canInvestigate && incident.status !== "UNDER_INVESTIGATION" ? (
         <Button
           onClick={() =>
@@ -371,6 +374,7 @@ export function IncidentActions({
           {t("actions.investigate")}
         </Button>
       ) : null}
+      </MainAction>
 
       {may.canInvestigate ? (
         <Button asChild variant="secondary">
@@ -390,6 +394,7 @@ export function IncidentActions({
         </Button>
       ) : null}
 
+      <MainAction>
       {readyToSubmit ? (
         <Button onClick={() => setDialog("submit-close")} disabled={pending}>
           {t("incident.detail.putUpForClosure")}
@@ -404,6 +409,7 @@ export function IncidentActions({
           {t("actions.closeIncident")}
         </Button>
       ) : null}
+      </MainAction>
 
       {may.canReopen ? (
         <Button variant="secondary" onClick={() => setDialog("reopen")} disabled={pending}>

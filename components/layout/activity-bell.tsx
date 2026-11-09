@@ -7,6 +7,7 @@ import { Bell, X } from "lucide-react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { createActivityController, fetchTransport, type ActivityController } from "@/lib/activity/activity-controller";
 import { onActivityReset, removeLegacyActivityCache, subscribeActivity } from "@/lib/activity/client";
+import { onDataRefresh } from "@/lib/navigation/refresh-event";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 import { useIsBelow } from "@/components/ui/use-breakpoint";
 import { cn } from "@/lib/utils/cn";
@@ -202,12 +203,15 @@ function useController(contextKey: string): ActivityController {
     window.addEventListener("online", resume);
     document.addEventListener("visibilitychange", resume);
     const unsubscribe = subscribeActivity(() => controller.changed());
+    // Pull to refresh (or Refresh in the More sheet) reads the page again: the bell reads its feed again too.
+    const unrefresh = onDataRefresh(() => controller.changed());
     const unreset = onActivityReset(() => controller.reset());
     return () => {
       window.removeEventListener("focus", resume);
       window.removeEventListener("online", resume);
       document.removeEventListener("visibilitychange", resume);
       unsubscribe();
+      unrefresh();
       unreset();
       controller.stop();
     };

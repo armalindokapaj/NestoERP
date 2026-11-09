@@ -177,6 +177,8 @@ export const tasksEn = {
     complete: "Complete",
     completing: "Completing…",
     completedDone: "Task completed.",
+    /** A swiped task card's Complete, named for a screen reader (mobile audit 5a). */
+    completeNamed: "Complete {title}",
     reopen: "Reopen",
     reopening: "Reopening…",
     reopened: "Task reopened.",

@@ -1,14 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight, X } from "lucide-react";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SwipeAction, SwipeActions } from "@/components/ui/swipe-actions";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";
 import type { Locale } from "@/lib/i18n/config";
-import type { ApprovalTab, UnifiedApprovalItem } from "@/lib/modules/approvals/approvals.types";
+import type { ApprovalDecision, ApprovalTab, UnifiedApprovalItem } from "@/lib/modules/approvals/approvals.types";
 import type { Translate } from "@/lib/i18n/translator";
 import { cn } from "@/lib/utils/cn";
 import { useApprovalsTranslations, useApprovalsWord } from "./approvals-text";
@@ -25,6 +26,11 @@ import { DueBadge, formatMoney, PriorityBadge, relativeText, SourceIcon, StatusB
  * In the Group workspace the queue is a read view (Workspace Context §33, §45,
  * §74): every row names its company and is a link that enters that company's
  * workspace, where the review, the decision and the delegation live.
+ *
+ * On a phone a row the reader may decide can be swiped left to reveal Approve
+ * and Reject (`quick`, mobile audit 5a). They run the Center's own decision:
+ * Approve as the review's Approve does, Reject by opening the review with its
+ * reason dialog. The review itself, one tap on the row, offers both too.
  */
 
 export type Density = "comfortable" | "compact";
@@ -36,6 +42,7 @@ export function ApprovalList({
   density,
   onSelect,
   group = false,
+  quick,
 }: {
   items: UnifiedApprovalItem[];
   tab: ApprovalTab;
@@ -44,9 +51,12 @@ export function ApprovalList({
   onSelect: (item: UnifiedApprovalItem) => void;
   /** The Group workspace: rows are company-labelled links, not selectable reviews. */
   group?: boolean;
+  /** Approve or Reject from a swiped row on a phone; the Center decides how (approvals-shell.tsx). */
+  quick?: (item: UnifiedApprovalItem, decision: Extract<ApprovalDecision, "APPROVE" | "REJECT">) => void | Promise<unknown>;
 }) {
   const refs = React.useRef(new Map<string, HTMLButtonElement>());
   const t = useApprovalsTranslations();
+  const word = useApprovalsWord();
 
   function onKeyDown(event: React.KeyboardEvent, index: number) {
     const next = event.key === "ArrowDown" || event.key === "j" ? index + 1 : event.key === "ArrowUp" || event.key === "k" ? index - 1 : null;
@@ -62,8 +72,20 @@ export function ApprovalList({
       {items.map((item, index) => {
         if (group) return <GroupRow key={`${item.company?.id ?? ""}:${item.id}`} item={item} tab={tab} density={density} />;
         const selected = item.id === selectedId;
-        return (
-          <li key={item.id}>
+        const noun = word(item.sourceLabel).toLowerCase();
+        // Only what this reader may decide is offered on the swipe; nothing at all on a row they may not.
+        const swipe =
+          quick && (item.canApprove || item.canReject) ? (
+            <>
+              {item.canReject ? (
+                <SwipeAction tone="danger" icon={<X />} label={t("decision.reject")} aria-label={t("decision.rejectAria", { noun })} data-testid="approval-swipe-reject" onAction={() => quick(item, "REJECT")} />
+              ) : null}
+              {item.canApprove ? (
+                <SwipeAction tone="success" icon={<Check />} label={t("decision.approve")} aria-label={t("decision.approveAria", { noun })} data-testid="approval-swipe-approve" onAction={() => quick(item, "APPROVE")} />
+              ) : null}
+            </>
+          ) : undefined;
+        const row = (
             <button
               type="button"
               ref={(node) => {
@@ -87,6 +109,16 @@ export function ApprovalList({
               <RowBadges item={item} tab={tab} />
               <ChevronRight aria-hidden="true" className="mt-1 hidden size-4 shrink-0 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100 lg:block" />
             </button>
+        );
+        return (
+          <li key={item.id}>
+            {swipe ? (
+              <SwipeActions actions={swipe} contentClassName="bg-surface">
+                {row}
+              </SwipeActions>
+            ) : (
+              row
+            )}
           </li>
         );
       })}

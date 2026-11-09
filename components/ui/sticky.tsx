@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { MobileActionBar } from "@/components/ui/mobile-action-bar";
 import { usePublishedGeometry } from "@/lib/hooks/use-published-height";
 import { cn } from "@/lib/utils/cn";
 
@@ -101,22 +102,13 @@ export function StickyTabs(props: Omit<React.ComponentProps<"div">, "level">) {
 }
 
 /**
- * The bottom action bar (Save / Submit / Approve). Sticks to the bottom on a
- * phone, clear of the home indicator; from md it sits in the page flow.
- * `data-sticky-action-bar` is what makes toasts and focus scrolling keep clear
+ * The bottom action bar of a form (Save / Cancel). Below `md` it sticks to the
+ * bottom of the screen above the bottom navigation, clear of the safe area and
+ * riding above an open keyboard; from `md` it sits in the page flow. It is the
+ * shared `MobileActionBar` (components/ui/mobile-action-bar.tsx), whose
+ * `data-mobile-action-bar` is what makes toasts and focus scrolling keep clear
  * of it (globals.css), so use this instead of a hand-made bar.
  */
-export function StickyActions({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-sticky-action-bar
-      className={cn(
-        "flex flex-wrap items-center justify-end gap-2",
-        "sticky bottom-0 z-30 -mx-[var(--nesto-space-page-x)] border-t border-line bg-surface/95 px-[var(--nesto-space-page-x)] pt-3 pb-[calc(0.75rem+var(--nesto-safe-bottom))] backdrop-blur",
-        "md:static md:z-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-3 md:backdrop-blur-none",
-        className,
-      )}
-      {...props}
-    />
-  );
+export function StickyActions(props: React.ComponentProps<"div">) {
+  return <MobileActionBar {...props} />;
 }

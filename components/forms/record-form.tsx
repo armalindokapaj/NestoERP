@@ -347,9 +347,9 @@ export function RecordForm({
             {children}
           </fieldset>
 
-          {/* On a phone the actions stay reachable at the bottom, clear of the safe area and the
-              keyboard, and the bottom navigation yields to them (MOB-04 §13, §14). A form inside a
-              dialog keeps them in its own flow; from `md` they sit in the page as they always did. */}
+          {/* On a phone the actions stay reachable at the bottom, above the bottom navigation, clear of
+              the safe area and riding above the keyboard (MOB-04 §13, §14; mobile audit 5b). A form inside
+              a dialog keeps them in its own flow; from `md` they sit in the page as they always did. */}
           {(() => {
             const actions = (
               <>
@@ -365,7 +365,7 @@ export function RecordForm({
             return inDialog ? (
               <div className="flex flex-wrap items-center gap-2">{actions}</div>
             ) : (
-              <StickyActions className="justify-start max-md:mx-0 max-md:rounded-lg max-md:border max-md:px-3" data-form-actions>
+              <StickyActions className="justify-start" data-form-actions>
                 {actions}
               </StickyActions>
             );

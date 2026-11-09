@@ -4,6 +4,8 @@ import { getTranslations } from "@/lib/i18n/server";
 import { PageContainer } from "@/components/ui/page-container";
 import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
 import { PageMenuProvider } from "@/components/navigation/page-menu";
+import { MobileActionBarHost, MobileActionBarProvider } from "@/components/ui/mobile-action-bar";
+import { PullToRefresh } from "@/components/layout/pull-to-refresh";
 import { SectionStoreProvider } from "@/components/navigation/section-registry";
 import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
@@ -148,6 +150,8 @@ export async function AppShell({
               <SectionStoreProvider>
               {/* Below lg a page's tips and Help fold into its one ⋯ menu, at the end of its title row (components/navigation/page-menu.tsx). */}
               <PageMenuProvider>
+              {/* Below md a detail page's main action moves into the one bottom action bar, above the bottom navigation (components/ui/mobile-action-bar.tsx). */}
+              <MobileActionBarProvider>
               <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
                 <Topbar context={context} core={core} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
@@ -161,7 +165,12 @@ export async function AppShell({
                     include the safe-area insets, which viewport-fit=cover makes real. */}
                 <PageContainer as="main" id="nesto-main" tabIndex={-1} className="outline-none">
                   {children}
+                  {/* The page's main action on a phone, pinned above the bottom navigation; nothing while the page has none.
+                      Inside the main region, after the page's content: it is the page's own, and read after it. */}
+                  <MobileActionBarHost />
                 </PageContainer>
+                {/* Pull down at the top of a phone screen to read the page again (mobile audit 5c). */}
+                <PullToRefresh />
                 {/* The phone and tablet-portrait bottom navigation (MOB-02): the same resolved
                     navigation as the sidebar, placed by lib/navigation/mobile.ts — Home, Projects,
                     Create, Alerts (the bell) and Menu. Hidden from lg. */}
@@ -178,6 +187,7 @@ export async function AppShell({
                   }}
                 />
               </div>
+              </MobileActionBarProvider>
               </PageMenuProvider>
               </SectionStoreProvider>
               </BreadcrumbRegistryProvider>
