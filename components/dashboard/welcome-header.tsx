@@ -67,7 +67,8 @@ export async function WelcomeHeader({
           {/* Phone: the greeting and the role chip share one row (Premium Mobile §5.1). */}
           <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
             <p className="text-[0.9375rem] text-fg-muted md:text-body">
-              {greetingText(t)}, {context.firstName}
+              {/* The name takes the heading's accent: the serif in gold italic, like "overview" above. */}
+              {greetingText(t)}, <em className="font-serif text-[1.15em] italic leading-none text-accent-strong ds2:not-italic">{context.firstName}</em>
             </p>
             <Badge tone="neutral" className="rounded-full border border-accent/30 bg-transparent px-2.5 py-0.5 text-micro font-semibold text-accent-strong md:hidden">
               {roleLabel}
