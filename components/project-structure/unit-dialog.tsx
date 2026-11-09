@@ -36,6 +36,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { areaRule, decimalPayload, decimalProblem, Field, fieldErrors, FormError, failureMessage, metresRule, numberText, structureApi, Warnings } from "./structure-ui";
 import { FormSelect } from "@/components/ui/form-select";
+import { UnitPriceFields, useUnitPrice } from "./unit-price-fields";
 
 /**
  * Adding and editing a unit (E-05B §17-§26, §40, §55, §74, §95).
@@ -305,6 +306,7 @@ export function UnitDialog({
   floor,
   unit,
   types,
+  canManagePrice = false,
   onSaved,
 }: {
   open: boolean;
@@ -312,6 +314,8 @@ export function UnitDialog({
   floor: { id: string; name: string; buildingName: string };
   unit?: UnitDTO;
   types: UnitTypeOption[];
+  /** Whether the person may set prices (Sales' `project.unit.price.manage`): the dialog then carries the asking price too. */
+  canManagePrice?: boolean;
   onSaved: (id: string) => void;
 }) {
   const t = useTranslations("projects");
@@ -326,7 +330,7 @@ export function UnitDialog({
           {floor.buildingName} · {floorName(floor.name, locale)}
         </DialogDescription>
         {/* Mounted per opening: each opening starts from the unit as loaded. */}
-        <UnitForm floor={floor} unit={unit} types={types} onSaved={onSaved} onDone={() => onOpenChange(false)} />
+        <UnitForm floor={floor} unit={unit} types={types} canManagePrice={canManagePrice} onSaved={onSaved} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
@@ -336,12 +340,14 @@ function UnitForm({
   floor,
   unit,
   types,
+  canManagePrice,
   onSaved,
   onDone,
 }: {
   floor: { id: string; name: string; buildingName: string };
   unit?: UnitDTO;
   types: UnitTypeOption[];
+  canManagePrice: boolean;
   onSaved: (id: string) => void;
   onDone: () => void;
 }) {
@@ -354,12 +360,15 @@ function UnitForm({
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  // The asking price, per m² of the gross area these fields work out (2026-11-09); saved through Sales after the unit.
+  const grossArea = shownAreas(technical, types.find((type) => type.id === technical.unitTypeId)?.category ?? "OTHER").grossArea;
+  const price = useUnitPrice({ unitId: unit?.id, enabled: canManagePrice, grossArea });
 
   // What was typed is not thrown away by a stray click, a link or a closed tab
   // (E-05D §53, AUD-03 §3): the unit registers with the tab's coordinator.
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
   const editor = useValuesEditor(
-    { code, active, technical },
+    { code, active, technical, price: price.touched ? [price.view.entry, price.view.text] : null },
     { module: "units", saveKind: unit ? "save" : "create", label: unit ? t("unitDialog.editorLabel", { code: unit.unitCode }) : t("unitDialog.newLabel", { floor: floor.name }), save: () => persist.current() },
   );
 
@@ -368,7 +377,9 @@ function UnitForm({
     if (!code.trim()) local.unitCode = t("unitDialog.codeRequired");
     if (!technical.unitTypeId) local.unitTypeId = t("unitDialog.typeRequired");
     Object.assign(local, technicalProblems(technical, (field) => t(`area.${field}`)));
-    if (Object.keys(local).length) {
+    // The price is checked first too, so a price that cannot be saved saves nothing.
+    const priceOk = price.check();
+    if (Object.keys(local).length || !priceOk) {
       setErrors(local);
       return INVALID;
     }
@@ -380,10 +391,12 @@ function UnitForm({
       if (unit) {
         await editor.track(() => structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, isActive: active, expectedVersion: unit.version } }));
         toast({ title: code !== unit.unitCode ? t("unitDialog.renamed", { old: unit.unitCode, code }) : t("unitDialog.saved", { code }) });
+        await price.save(unit.id, code);
         onSaved(unit.id);
       } else {
         const created = await editor.track(() => structureApi<{ id: string }>(`/api/project-floors/${floor.id}/units`, { body }));
         toast({ title: t("unitDialog.added", { code, floor: floorName(floor.name, locale) }) });
+        await price.save(created.id, code);
         onSaved(created.id);
       }
       onDone();
@@ -413,6 +426,7 @@ function UnitForm({
           </Field>
         </div>
         <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
+        <UnitPriceFields price={price} />
         {unit ? (
           <label className="flex items-center gap-2 text-table text-fg">
             <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />

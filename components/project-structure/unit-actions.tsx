@@ -58,7 +58,7 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
         </Button>
       ) : null}
 
-      {open === "edit" ? <UnitDialog open onOpenChange={(value) => !value && setOpen(null)} floor={{ id: unit.floor.id, name: unit.floor.name, buildingName: unit.building.name }} unit={unit} types={types} onSaved={() => router.refresh()} /> : null}
+      {open === "edit" ? <UnitDialog open onOpenChange={(value) => !value && setOpen(null)} floor={{ id: unit.floor.id, name: unit.floor.name, buildingName: unit.building.name }} unit={unit} types={types} canManagePrice={capabilities.canManagePrice} onSaved={() => router.refresh()} /> : null}
       {open === "move" ? (
         <MoveUnitDialog
           open

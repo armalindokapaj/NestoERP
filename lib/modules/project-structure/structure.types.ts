@@ -133,6 +133,12 @@ export type StructureCapabilities = {
   canUpdateUnit: boolean;
   canDeleteUnit: boolean;
   canMoveUnit: boolean;
+  /**
+   * Whether the unit dialogs also carry the asking price (2026-11-09). The
+   * price belongs to Sales and is saved through its door; this mirrors Sales'
+   * own `canManagePrice` (sales view + `project.unit.price.manage`).
+   */
+  canManagePrice: boolean;
 };
 
 export type UnitTypeOption = { id: string; name: string; code: string; category: UnitTypeCategory; isActive: boolean };
@@ -213,7 +219,7 @@ export type UnitListDTO = {
 
 export type UnitDetailDTO = UnitDTO & {
   project: { id: string; name: string; code: string };
-  capabilities: Pick<StructureCapabilities, "canUpdateUnit" | "canDeleteUnit" | "canMoveUnit">;
+  capabilities: Pick<StructureCapabilities, "canUpdateUnit" | "canDeleteUnit" | "canMoveUnit" | "canManagePrice">;
 };
 
 /** The publication states, repeated here so this file stays free of the publishing module (E-05D §13). */
