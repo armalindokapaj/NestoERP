@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { convertPriceEntry, grossPriceBasis, hasGrossArea, prevailingPrice, prevailingRate, priceFromRate, rateFromPrice, unitRate } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { convertPriceEntry, grossPriceBasis, grossRate, hasGrossArea, prevailingPrice, prevailingRate, priceFromRate, priceToSave, rateFromPrice, switchPriceEntry, unitRate, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
 import { pricePerSqm } from "@/lib/modules/sales/units/unit-sales.rules";
 import { priceListSaveSchema } from "@/lib/modules/sales/units/unit-pricing.schema";
 import { MAX_PRICE_LIST_CHANGES } from "@/lib/modules/sales/units/unit-pricing.types";
@@ -105,6 +105,93 @@ describe("a unit's price typed as a total or per m² of gross area", () => {
     expect(convertPriceEntry("12.345", "113.00", "TOTAL")).toBe("12.345");
     expect(convertPriceEntry("210000", null, "PER_SQM")).toBe("210000");
     expect(convertPriceEntry("2000", "0.00", "TOTAL")).toBe("2000");
+  });
+});
+
+describe("switching how the price is typed", () => {
+  /** Switches the box through `entries` in turn, as the dialog does, and returns what it ends on. */
+  function through(text: string, grossArea: string | null, entries: PriceEntry[]) {
+    let state: { text: string; entry: PriceEntry; last: PriceEntrySwitch | null } = { text, entry: entries[0]!, last: null };
+    for (const next of entries.slice(1)) {
+      const switched = switchPriceEntry(state.text, grossArea, state.entry, next, state.last);
+      state = { text: switched.text, entry: next, last: switched.last };
+    }
+    return state;
+  }
+
+  it("restores the total when the rate was only looked at, instead of compounding the rounding", () => {
+    // 200,000 on 105 m²: €1,904.76/m², which times 105 is €199,999.80, not the total typed.
+    expect(priceFromRate("1904.76", "105.00")).toBe("199999.80");
+    expect(through("200000.00", "105.00", ["TOTAL", "PER_SQM"]).text).toBe("1904.76");
+    expect(through("200000.00", "105.00", ["TOTAL", "PER_SQM", "TOTAL"]).text).toBe("200000.00");
+    // 185,000 on 113 m² would come back as 185,000.21; 99,999.99 on 72.40 as 100,000.33.
+    expect(through("185000", "113.00", ["TOTAL", "PER_SQM", "TOTAL"]).text).toBe("185000");
+    expect(through("99999.99", "72.40", ["TOTAL", "PER_SQM", "TOTAL", "PER_SQM", "TOTAL"]).text).toBe("99999.99");
+  });
+
+  it("restores a typed rate the same way", () => {
+    expect(through("1904.7", "105.00", ["PER_SQM", "TOTAL"]).text).toBe("199993.50");
+    expect(through("1904.7", "105.00", ["PER_SQM", "TOTAL", "PER_SQM"]).text).toBe("1904.7");
+  });
+
+  it("converts again once the value was edited", () => {
+    const looked = switchPriceEntry("200000.00", "105.00", "TOTAL", "PER_SQM", null);
+    // The rate is retyped: 2,000 × 105 is the new total.
+    const back = switchPriceEntry("2000", "105.00", "PER_SQM", "TOTAL", looked.last);
+    expect(back).toEqual({ text: "210000.00", last: { from: "2000", fromEntry: "PER_SQM", to: "210000.00" } });
+  });
+
+  it("remembers nothing for what is not an amount", () => {
+    expect(switchPriceEntry("", "105.00", "TOTAL", "PER_SQM", null)).toEqual({ text: "", last: null });
+    expect(switchPriceEntry("12abc", "105.00", "TOTAL", "PER_SQM", null)).toEqual({ text: "12abc", last: null });
+    expect(switchPriceEntry("200000", null, "TOTAL", "PER_SQM", null)).toEqual({ text: "200000", last: null });
+  });
+
+  it("lets an untouched rate stand for the total it came from, and a typed one for nothing", () => {
+    const { last } = switchPriceEntry("200000.00", "105.00", "TOTAL", "PER_SQM", null);
+    expect(untouchedTotal("1904.76", "PER_SQM", last)).toBe("200000.00");
+    expect(untouchedTotal("1904.77", "PER_SQM", last)).toBeNull();
+    expect(untouchedTotal("1904.76", "TOTAL", last)).toBeNull();
+    expect(untouchedTotal("1904.76", "PER_SQM", null)).toBeNull();
+    // A rate converted into a total is not a total converted into a rate.
+    const fromRate = switchPriceEntry("1904.76", "105.00", "PER_SQM", "TOTAL", null);
+    expect(untouchedTotal("199999.80", "PER_SQM", fromRate.last)).toBeNull();
+  });
+});
+
+describe("what a single unit's price is sent with", () => {
+  const legacy = { askingPrice: "200000.00", currency: "EUR", priceBasis: "SALEABLE_AREA" as const };
+  const unpriced = { askingPrice: null, currency: null, priceBasis: "SALEABLE_AREA" as const };
+
+  it("sends an unchanged price exactly as saved, on the basis it was saved on", () => {
+    expect(priceToSave("200000.00", "EUR", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
+    // The same amount written differently is the same price.
+    expect(priceToSave("200000", "EUR", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("200 000,0", "EUR", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
+    // No price before and none now: only the notes or the reason changed.
+    expect(priceToSave("", "EUR", unpriced, "105.00")).toEqual({ askingPrice: "", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("  ", "ALL", unpriced, null)).toEqual({ askingPrice: "", priceBasis: "SALEABLE_AREA" });
+  });
+
+  it("sends a new price on the gross area, or as a fixed price without one", () => {
+    expect(priceToSave("210000", "EUR", legacy, "105.00")).toEqual({ askingPrice: "210000", priceBasis: "GROSS_AREA" });
+    expect(priceToSave("210000", "EUR", unpriced, null)).toEqual({ askingPrice: "210000", priceBasis: "FIXED_UNIT_PRICE" });
+    expect(priceToSave("", "EUR", legacy, "105.00")).toEqual({ askingPrice: "", priceBasis: "GROSS_AREA" });
+    // The same amount in another currency is a new price.
+    expect(priceToSave("200000.00", "USD", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "GROSS_AREA" });
+    // What the server will refuse goes as typed, for the server to say why.
+    expect(priceToSave("1,200", "EUR", legacy, "105.00")).toEqual({ askingPrice: "1,200", priceBasis: "GROSS_AREA" });
+  });
+});
+
+describe("the price per m² a price list row shows", () => {
+  it("is per m² of gross area, whatever basis an older price was saved on, and none for a fixed price", () => {
+    const row = unit({ saleableArea: "95.00", grossArea: "105.00" });
+    expect(grossRate(row, "200000.00", "SALEABLE_AREA")).toBe("1904.76");
+    expect(grossRate(row, "200000.00", "GROSS_AREA")).toBe("1904.76");
+    expect(grossRate(row, "15000.00", "FIXED_UNIT_PRICE")).toBeNull();
+    expect(grossRate(unit({ grossArea: null }), "200000.00", "GROSS_AREA")).toBeNull();
+    expect(grossRate(row, null, "GROSS_AREA")).toBeNull();
   });
 });
 

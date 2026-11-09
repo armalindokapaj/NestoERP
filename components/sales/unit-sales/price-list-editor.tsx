@@ -16,7 +16,7 @@ import { parseOptionalDecimal } from "@/lib/forms/decimal";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
-import { grossPriceBasis, prevailingPrice, prevailingRate, priceFromRate, unitRate } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { grossPriceBasis, grossRate, prevailingPrice, prevailingRate, priceFromRate } from "@/lib/modules/sales/units/unit-pricing.rules";
 import type { PriceListDTO, PriceListSaveResult, PriceListUnitDTO } from "@/lib/modules/sales/units/unit-pricing.types";
 import { SALES_REASON_MAX, type UnitPriceBasis } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
@@ -263,7 +263,8 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     const sold = unit.status === "SOLD";
     const unitChanged = isChanged(unit, draft);
     const price = canonical(draft.price);
-    const rate = price === undefined ? null : unitRate(unit, price, draft.basis);
+    // Per m² of the gross area shown beside it, whatever basis an older price was saved on.
+    const rate = price === undefined ? null : grossRate(unit, price, draft.basis);
     const area = unit.grossArea;
     const inputId = `price-${unit.id}`;
     return (

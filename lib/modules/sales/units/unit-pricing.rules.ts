@@ -16,6 +16,8 @@ const TWO = BigInt(2);
 const FIFTY = BigInt(50);
 const HUNDRED = BigInt(100);
 
+const PRICE_RULE = { label: "Price", ...MONEY_RULE };
+
 /** Hundredths of a canonical two-decimal amount ("1200.5" → 120050). */
 function hundredths(value: string): bigint {
   const [whole, fraction = ""] = value.trim().split(".");
@@ -85,10 +87,71 @@ export function grossPriceBasis(grossArea: string | null): UnitPriceBasis {
  * stays as typed, and so does every value when there is no gross area.
  */
 export function convertPriceEntry(text: string, grossArea: string | null, to: PriceEntry): string {
-  const parsed = parseOptionalDecimal(text, { label: "Price", ...MONEY_RULE });
-  if (!parsed.ok || parsed.value === null) return text;
-  const converted = to === "PER_SQM" ? rateFromPrice(parsed.value, grossArea) : priceFromRate(parsed.value, grossArea);
-  return converted ?? text;
+  return convertedEntry(text, grossArea, to) ?? text;
+}
+
+/** The converted value, or null when the text is not an amount or there is no gross area. */
+function convertedEntry(text: string, grossArea: string | null, to: PriceEntry): string | null {
+  const parsed = parseOptionalDecimal(text, PRICE_RULE);
+  if (!parsed.ok || parsed.value === null) return null;
+  return to === "PER_SQM" ? rateFromPrice(parsed.value, grossArea) : priceFromRate(parsed.value, grossArea);
+}
+
+/**
+ * The last switch of the price box: what it held (`from`, typed as
+ * `fromEntry`) and the converted text the switch put there (`to`).
+ */
+export type PriceEntrySwitch = { from: string; fromEntry: PriceEntry; to: string };
+
+/**
+ * Switches how the price is typed without compounding the rounding. A total
+ * turned into a rate is rounded to the cent, so turning that rate straight
+ * back would move the total by a few cents (€200,000 on 105 m² → €1,904.76 →
+ * €199,999.80). Switching back while the box still holds the converted text,
+ * unedited, restores what was there instead; only an edited value is
+ * converted again.
+ */
+export function switchPriceEntry(text: string, grossArea: string | null, from: PriceEntry, to: PriceEntry, last: PriceEntrySwitch | null): { text: string; last: PriceEntrySwitch | null } {
+  if (from === to) return { text, last };
+  if (last && last.fromEntry === to && last.to === text) return { text: last.from, last: null };
+  const converted = convertedEntry(text, grossArea, to);
+  return converted === null ? { text, last: null } : { text: converted, last: { from: text, fromEntry: from, to: converted } };
+}
+
+/**
+ * The total a rate box stands for when it still holds, unedited, the rate a
+ * total was converted into: that total itself, not the rate times the area —
+ * looking at the rate never changes the price. Null for a rate that was typed.
+ */
+export function untouchedTotal(text: string, entry: PriceEntry, last: PriceEntrySwitch | null): string | null {
+  return entry === "PER_SQM" && last?.fromEntry === "TOTAL" && last.to === text ? last.from : null;
+}
+
+/**
+ * The asking price and basis a single unit's price is sent with. A new price
+ * is on the gross area (fixed without one); a price that did not change —
+ * the same amount, and for a priced unit the same currency — is sent exactly
+ * as it was saved, on the basis it was saved on, because the server counts a
+ * new basis, or "200000" against "200000.00", as a price change. So saving
+ * only the notes or the reason never records one.
+ */
+export function priceToSave(total: string, currency: string, saved: { askingPrice: string | null; currency: string | null; priceBasis: UnitPriceBasis }, grossArea: string | null): { askingPrice: string; priceBasis: UnitPriceBasis } {
+  const parsed = parseOptionalDecimal(total, PRICE_RULE);
+  const same =
+    parsed.ok &&
+    (parsed.value === null
+      ? saved.askingPrice === null
+      : saved.askingPrice !== null && hundredths(parsed.value) === hundredths(saved.askingPrice) && currency === saved.currency);
+  return same ? { askingPrice: saved.askingPrice ?? "", priceBasis: saved.priceBasis } : { askingPrice: total, priceBasis: grossPriceBasis(grossArea) };
+}
+
+/**
+ * The price per m² a price list row shows: per m² of gross area — what a price
+ * per m² always means (2026-11-09), and the area the row shows beside it — and
+ * none for a fixed price.
+ */
+export function grossRate(unit: Pick<PriceListUnitDTO, "grossArea">, price: string | null, basis: UnitPriceBasis): string | null {
+  return basis === "FIXED_UNIT_PRICE" ? null : pricePerSqm(price, "GROSS_AREA", { grossArea: unit.grossArea });
 }
 
 /** A unit's price per m² on its own basis, derived as the inventory derives it (E-05E §10). */

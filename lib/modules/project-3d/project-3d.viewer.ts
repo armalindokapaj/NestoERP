@@ -13,6 +13,7 @@ import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
 import { planningOpen } from "@/lib/modules/project-planning/planning.permissions";
+import { pricePerSqm as unitPricePerSqm } from "@/lib/modules/sales/units/unit-sales.rules";
 import { isProject3DEntitlementActive } from "./project-3d.entitlement";
 import { project3DViewerToken, signProject3DAssetHandle } from "./project-3d.delivery";
 import { assertProject3DStorageKey } from "./project-3d.storage";
@@ -262,7 +263,7 @@ async function buildViewerBootstrap(where: Prisma.ProjectWhereInput, reader: Vie
   const unitRows = unitIds.length === 0 ? [] : await prisma.projectUnit.findMany({
     where: { id: { in: unitIds }, projectId: project.id, companyId: project.companyId },
     select: {
-      id: true, unitCode: true, name: true, internalArea: true, saleableArea: true, rooms: true, bedrooms: true, bathrooms: true, orientation: true, salesPlanDocumentId: true,
+      id: true, unitCode: true, name: true, internalArea: true, saleableArea: true, grossArea: true, rooms: true, bedrooms: true, bathrooms: true, orientation: true, salesPlanDocumentId: true,
       unitType: { select: { id: true, name: true, category: true } },
       floor: { select: { id: true, name: true, number: true, building: { select: { id: true, name: true, code: true } } } },
       commercialProfile: { select: { status: true } },
@@ -275,7 +276,7 @@ async function buildViewerBootstrap(where: Prisma.ProjectWhereInput, reader: Vie
   const readableDocuments = reader.readableDocuments ? await reader.readableDocuments() : null;
   const salesPlanIds = unitRows.map((unit) => unit.salesPlanDocumentId).filter((id): id is string => Boolean(id));
   const [commercialRows, salesPlanRows, mediaRows, phaseRows] = await Promise.all([
-    commercialVisible && unitIds.length ? prisma.unitCommercialProfile.findMany({ where: { unitId: { in: unitIds }, projectId: project.id, companyId: project.companyId }, select: { unitId: true, askingPrice: true, currency: true } }) : [],
+    commercialVisible && unitIds.length ? prisma.unitCommercialProfile.findMany({ where: { unitId: { in: unitIds }, projectId: project.id, companyId: project.companyId }, select: { unitId: true, askingPrice: true, currency: true, priceBasis: true } }) : [],
     readableDocuments && salesPlanIds.length ? prisma.document.findMany({ where: { AND: [readableDocuments, { id: { in: salesPlanIds }, companyId: project.companyId, status: "ACTIVE", storageStatus: "AVAILABLE" }] }, select: { id: true, name: true } }) : [],
     readableDocuments && unitIds.length ? prisma.unitMedia.findMany({
       where: { companyId: project.companyId, projectId: project.id, unitId: { in: unitIds }, document: { is: { AND: [readableDocuments, { status: "ACTIVE", storageStatus: "AVAILABLE" }] } } },
@@ -333,7 +334,8 @@ async function buildViewerBootstrap(where: Prisma.ProjectWhereInput, reader: Vie
     units: unitRows.map((unit) => {
       const commercial = commercialByUnit.get(unit.id);
       const salesPlan = unit.salesPlanDocumentId ? salesPlans.get(unit.salesPlanDocumentId) : null;
-      const pricePerSqm = commercial?.askingPrice && unit.saleableArea && unit.saleableArea.greaterThan(0) ? commercial.askingPrice.dividedBy(unit.saleableArea).toFixed(2) : null;
+      // On the price's own basis, as Sales shows it: per m² of gross area for every price set since 2026-11-09.
+      const pricePerSqm = commercial ? unitPricePerSqm(commercial.askingPrice?.toFixed(2) ?? null, commercial.priceBasis, { saleableArea: unit.saleableArea?.toFixed(2) ?? null, internalArea: unit.internalArea?.toFixed(2) ?? null, grossArea: unit.grossArea?.toFixed(2) ?? null }) : null;
       return {
         id: unit.id,
         code: unit.unitCode,

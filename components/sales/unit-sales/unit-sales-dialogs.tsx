@@ -16,7 +16,7 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { compareDecimal, parseDecimalInput } from "@/lib/forms/decimal";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
-import { convertPriceEntry, grossPriceBasis, hasGrossArea, PRICE_ENTRIES, priceFromRate, type PriceEntry } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { hasGrossArea, PRICE_ENTRIES, priceFromRate, priceToSave, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
 import { SALES_NOTES_MAX, SALES_REASON_MAX, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
@@ -305,6 +305,11 @@ function CurrencySelect({ id, value, onChange }: { id: string; value: string; on
  * up to the cent, exactly as the price list fills a floor — on the gross-area
  * basis, or as a fixed price when the unit has no gross area. The rate is not
  * kept: a later change to the area leaves the saved total as it is.
+ *
+ * Switching only to look at the rate never moves the total: the rounded rate
+ * a total was turned into stands for that total until it is edited, and
+ * switching back restores it. A price that did not change is sent exactly as
+ * saved, on its saved basis, so a notes-only save records no price change.
  */
 export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; onClose: () => void; sales: UnitSalesDTO; submit: Submit }) {
   const request = useDialogRequest(submit);
@@ -314,6 +319,8 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
   const perSqmAllowed = hasGrossArea(grossArea);
   const [entry, setEntry] = React.useState<PriceEntry>("TOTAL");
   const [price, setPrice] = React.useState("");
+  /** The last switch of the box, so switching back unedited restores what was there. */
+  const [lastSwitch, setLastSwitch] = React.useState<PriceEntrySwitch | null>(null);
   const [currency, setCurrency] = React.useState(sales.defaults.currency);
   const [notes, setNotes] = React.useState("");
   const [reason, setReason] = React.useState("");
@@ -324,6 +331,7 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
     if (!open) return;
     setEntry("TOTAL");
     setPrice(sales.askingPrice ?? "");
+    setLastSwitch(null);
     setCurrency(sales.currency ?? sales.defaults.currency);
     setNotes(sales.salesNotes ?? "");
     setReason("");
@@ -343,28 +351,33 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
   // The total the typed rate gives, shown before anything is saved.
   const typedRate = perSqm ? parseDecimalInput(price, rateRule) : null;
   const rate = typedRate?.ok && compareDecimal(typedRate.value, "0") > 0 ? typedRate.value : null;
-  const total = rate === null ? null : priceFromRate(rate, grossArea);
+  // A rate converted from the total and left as it was stands for that total.
+  const kept = perSqm ? untouchedTotal(price, entry, lastSwitch) : null;
+  const total = rate === null ? null : (kept ?? priceFromRate(rate, grossArea));
 
   function chooseEntry(next: PriceEntry) {
     if (next === entry || (next === "PER_SQM" && !perSqmAllowed)) return;
-    setPrice((current) => convertPriceEntry(current, grossArea, next));
+    const switched = switchPriceEntry(price, grossArea, entry, next, lastSwitch);
+    setPrice(switched.text);
+    setLastSwitch(switched.last);
     setEntry(next);
     setRateError(null);
   }
 
   /** What is sent, or null — after saying why — when the typed rate cannot give a total. */
   function body(): Record<string, unknown> | null {
-    let askingPrice = price;
+    let typedTotal = price;
     if (perSqm) {
       const typed = parseDecimalInput(price, rateRule);
       if (!typed.ok || compareDecimal(typed.value, "0") <= 0) {
         setRateError({ message: typed.ok ? t("unitDialogs.rateAboveZero") : typed.message });
         return null;
       }
-      askingPrice = priceFromRate(typed.value, grossArea)!;
+      typedTotal = untouchedTotal(price, entry, lastSwitch) ?? priceFromRate(typed.value, grossArea)!;
     }
     setRateError(null);
-    return { askingPrice, currency, priceBasis: grossPriceBasis(grossArea), salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) };
+    const { askingPrice, priceBasis } = priceToSave(typedTotal, currency, sales, grossArea);
+    return { askingPrice, currency, priceBasis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) };
   }
   const send = (payload: Record<string, unknown>) => request.send(`/api/project-units/${sales.unitId}/sales`, payload, t("unitDialogs.priceSaved", { unit: sales.unitCode }));
 

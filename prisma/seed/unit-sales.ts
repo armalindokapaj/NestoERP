@@ -87,7 +87,8 @@ export async function seedUnitSalesRecords(prisma: PrismaClient, memberId: Membe
         status: input.status,
         askingPrice: dec(last.price),
         currency: EUR,
-        priceBasis: "SALEABLE_AREA",
+        // Per m² of gross area, as every price is since 2026-11-09; every seeded unit has one.
+        priceBasis: "GROSS_AREA",
         holdReason: input.hold?.reason ?? null,
         holdUntil: input.hold ? days(input.hold.until) : null,
         heldByMemberId: input.hold?.by ?? null,
@@ -101,7 +102,7 @@ export async function seedUnitSalesRecords(prisma: PrismaClient, memberId: Membe
     let previous: string | null = null;
     for (const price of input.prices) {
       await prisma.unitPriceHistory.create({
-        data: { companyId, projectId, unitId: input.unitId, oldPrice: previous ? dec(previous) : null, newPrice: dec(price.price), oldCurrency: previous ? EUR : null, currency: EUR, oldPriceBasis: previous ? "SALEABLE_AREA" : null, priceBasis: "SALEABLE_AREA", reason: price.reason ?? null, changedByMemberId: price.by, changedAt: days(price.at) },
+        data: { companyId, projectId, unitId: input.unitId, oldPrice: previous ? dec(previous) : null, newPrice: dec(price.price), oldCurrency: previous ? EUR : null, currency: EUR, oldPriceBasis: previous ? "GROSS_AREA" : null, priceBasis: "GROSS_AREA", reason: price.reason ?? null, changedByMemberId: price.by, changedAt: days(price.at) },
       });
       const shown = `€${Number(price.price).toLocaleString("en-US")}`;
       await trail(companyId, projectId, input.unitId, "UNIT_PRICE_CHANGED", previous ? `changed the asking price of ${input.code} from €${Number(previous).toLocaleString("en-US")} to ${shown}` : `set the asking price of ${input.code} to ${shown}`, price.by, price.at);
