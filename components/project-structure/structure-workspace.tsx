@@ -498,7 +498,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
         ) : units && units.items.length ? (
           <>
             {activeFilters ? <p className="text-table text-fg-muted">{t("counts.results", { count: units.total })}</p> : null}
-            <UnitTable projectId={projectId} list={units} showLocation={!floor} actions={unitActions} onPage={setPage} loading={loading} />
+            <UnitTable projectId={projectId} list={units} actions={unitActions} onPage={setPage} loading={loading} />
           </>
         ) : units ? (
           <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="units-none">

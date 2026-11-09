@@ -120,8 +120,8 @@ export const UNIT_SELECT = {
   updatedAt: true,
   publicationStatus: true,
   currentPublication: { select: { versionNumber: true } },
-  // The commercial status is the one Sales fact everybody who reads the unit sees (E-05E §33, §39).
-  commercialProfile: { select: { status: true } },
+  // The commercial status and the asking price are the Sales facts everybody who reads the unit sees (E-05E §33, §39; the price since 2026-11).
+  commercialProfile: { select: { status: true, askingPrice: true, currency: true } },
   unitType: { select: { id: true, name: true, code: true, category: true, isActive: true } },
   floor: { select: { id: true, name: true, number: true, levelType: true, building: { select: { id: true, name: true, code: true } } } },
 } satisfies Prisma.ProjectUnitSelect;
@@ -152,6 +152,7 @@ export function toUnitDTO(row: UnitRow): UnitDTO {
     updatedAt: row.updatedAt.toISOString(),
     publication: { status: row.publicationStatus, versionNumber: row.currentPublication?.versionNumber ?? null },
     commercialStatus: row.commercialProfile?.status ?? "NOT_FOR_SALE",
+    askingPrice: row.commercialProfile?.askingPrice ? { amount: row.commercialProfile.askingPrice.toFixed(2), currency: row.commercialProfile.currency } : null,
   };
 }
 

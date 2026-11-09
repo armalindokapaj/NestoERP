@@ -100,7 +100,7 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   await chooseFloor(page, "Floor 1");
   await expect(page.getByTestId("floor-empty")).toBeVisible();
   const bulk = await bulkAdd(page, "T-", "101", "104");
-  await bulk.getByLabel("Bedrooms").fill("2");
+  await bulk.getByLabel("Bedrooms").selectOption("2");
   await bulk.getByLabel("Internal area").fill("80.5");
   await bulk.getByRole("button", { name: "Preview" }).click();
   await expect(bulk.getByTestId("bulk-unit-preview").getByRole("listitem")).toHaveCount(4);

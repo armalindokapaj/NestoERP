@@ -196,6 +196,12 @@ export type UnitDTO = {
   publication: { status: UnitPublicationStatusKey; versionNumber: number | null };
   /** Whether it is for sale, reserved or sold (E-05E §7, §33) — the status only; prices and clients need Sales' grant. */
   commercialStatus: UnitCommercialStatusKey;
+  /**
+   * The asking price set on the Prices page (E-05E §10). The Units table shows it
+   * to everyone who can open it (2026-11, the user's decision); clients and deals
+   * still need Sales' grant.
+   */
+  askingPrice: { amount: string; currency: string | null } | null;
 };
 
 export type UnitListDTO = {

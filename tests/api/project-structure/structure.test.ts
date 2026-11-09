@@ -574,6 +574,22 @@ describe("units (§16-§30, §52, §55, §56, §83, §148)", () => {
     expect((await audits(created.id, "UNIT_CODE_CHANGED")).length).toBe(0);
   });
 
+  it("lists each unit's asking price and commercial status to anyone who reads the units (2026-11)", async () => {
+    const eleventh = await floor(await building(`${T} Tower`), 11);
+    const priced = await unit(eleventh, "A-1101");
+    await unit(eleventh, "A-1102");
+    await prisma.unitCommercialProfile.create({ data: { companyId: COMPANY_A, projectId: SITE, unitId: priced.id, status: "RESERVED", askingPrice: "185000", currency: "EUR" } });
+    try {
+      const rows = (await units(pm, SITE, { floorId: eleventh })).items;
+      expect(rows.map((row) => [row.unitCode, row.commercialStatus, row.askingPrice])).toEqual([
+        ["A-1101", "RESERVED", { amount: "185000.00", currency: "EUR" }],
+        ["A-1102", "NOT_FOR_SALE", null],
+      ]);
+    } finally {
+      await prisma.unitCommercialProfile.deleteMany({ where: { unitId: priced.id } });
+    }
+  });
+
   it("works out the net and gross areas on every save, and keeps the counts to their short lists (2026-11)", async () => {
     const tenth = await floor(await building(`${T} Tower`), 10);
     // A gross area sent for an apartment is not the gross area: the sum is.

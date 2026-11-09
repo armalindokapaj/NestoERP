@@ -12,18 +12,52 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
+import { SalesLabel } from "@/components/sales/sales-text";
+import { moneyLabel } from "@/components/sales/unit-sales/commercial-status";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
+import { UNIT_COMMERCIAL_STATUS_LABELS } from "@/lib/modules/sales/units/unit-sales.types";
+import { cn } from "@/lib/utils/cn";
 import { areaText, countText } from "./structure-ui";
-import { CommercialStatusBadge } from "@/components/sales/unit-sales/commercial-status";
-import { PublicationBadge } from "./unit-page/publication-badge";
 import { pageWindow } from "@/lib/modules/shared/list-query";
 
 /**
- * The unit table (E-05B §46, §109), with each unit's publication and commercial
- * status side by side (E-05D §13, E-05E §7). Inside one floor the Building and Floor
- * columns would say the same thing on every row, so they are left out. On a
- * phone each unit is a card with the few facts that decide which one it is.
+ * The unit table (E-05B §46, §109; columns as the user set them, 2026-11): Unit
+ * (the building's code and the unit's, "T-501"), Type, Floor, Orientation,
+ * Bedrooms, Gross area and Total price — the asking price. Where a unit stands
+ * commercially is the row's colour: green for sale, orange reserved, red sold;
+ * Not for sale and On hold stay plain. The colour is also said in words to a
+ * screen reader. The whole row opens the unit; the menu at its end does not.
  */
+
+/**
+ * The row tint for a unit's commercial status; Not for sale and On hold have
+ * none. The status colours at a low strength, so red and orange stay apart (the
+ * `-soft` tokens are too close to tell Sold from Reserved) and dark mode follows.
+ */
+const ROW_TINT: Partial<Record<UnitDTO["commercialStatus"], string>> = {
+  FOR_SALE: "bg-success/15 hover:bg-success/25",
+  RESERVED: "bg-warning/20 hover:bg-warning/30",
+  SOLD: "bg-danger/20 hover:bg-danger/30",
+};
+
+/** A click on the row opens the unit, unless it was on something of its own: the code link, the menu, a selection of text. */
+function opensRow(event: React.MouseEvent): boolean {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("a, button, input, select, textarea, [role='menu'], [role='menuitem'], [role='dialog']")) return false;
+  return !window.getSelection()?.toString();
+}
+
+function StatusWords({ unit }: { unit: UnitDTO }) {
+  return (
+    <span className="sr-only">
+      {" "}
+      (<SalesLabel group="commercialStatus" value={unit.commercialStatus} fallback={UNIT_COMMERCIAL_STATUS_LABELS[unit.commercialStatus]} />)
+    </span>
+  );
+}
 
 export type UnitRowActions = {
   canUpdate: boolean;
@@ -110,9 +144,12 @@ function UnitActionSheet({ unit, href, index, count, actions }: { unit: UnitDTO;
   );
 }
 
-export function UnitTable({ projectId, list, showLocation, actions, onPage, loading }: { projectId: string; list: UnitListDTO; showLocation: boolean; actions: UnitRowActions; onPage: (page: number) => void; loading: boolean }) {
+export function UnitTable({ projectId, list, actions, onPage, loading }: { projectId: string; list: UnitListDTO; actions: UnitRowActions; onPage: (page: number) => void; loading: boolean }) {
   const locale = useLocale();
+  const nav = useFeedbackRouter();
   const href = (unit: UnitDTO) => `/projects/${projectId}/units/${unit.id}`;
+  const label = (unit: UnitDTO) => unitLabel(unit.building.code, unit.unitCode);
+  const price = (unit: UnitDTO) => moneyLabel(unit.askingPrice?.amount ?? null, unit.askingPrice?.currency ?? null, locale);
   const t = useTranslations("projects");
   // "1–50 of 73", "0 results", and a count on a single page too (AUD-08 §4, DT-05).
   const range = pageWindow(list.total, list.page, list.pageSize);
@@ -128,19 +165,11 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
             <tr>
               <TableHeaderCell>{t("unitTable.unit")}</TableHeaderCell>
               <TableHeaderCell>{t("unitTable.type")}</TableHeaderCell>
-              {showLocation ? (
-                <>
-                  <TableHeaderCell>{t("unitTable.building")}</TableHeaderCell>
-                  <TableHeaderCell>{t("unitTable.floor")}</TableHeaderCell>
-                </>
-              ) : null}
-              <TableHeaderCell>{t("unitTable.publication")}</TableHeaderCell>
-              <TableHeaderCell>{t("unitTable.sales")}</TableHeaderCell>
+              <TableHeaderCell>{t("unitTable.floor")}</TableHeaderCell>
               <TableHeaderCell>{t("unitTable.orientation")}</TableHeaderCell>
-              <TableHeaderCell className="text-right">{t("unitTable.internal")}</TableHeaderCell>
-              <TableHeaderCell className="text-right">{t("unitTable.net")}</TableHeaderCell>
-              <TableHeaderCell className="text-right">{t("unitTable.saleable")}</TableHeaderCell>
               <TableHeaderCell className="text-right">{t("unitTable.bedrooms")}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t("unitTable.gross")}</TableHeaderCell>
+              <TableHeaderCell className="text-right">{t("unitTable.totalPrice")}</TableHeaderCell>
               <TableHeaderCell className="w-12">
                 <span className="sr-only">{t("unitTable.actions")}</span>
               </TableHeaderCell>
@@ -148,31 +177,30 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
           </TableHead>
           <TableBody>
             {list.items.map((unit, index) => (
-              <TableRow key={unit.id} data-testid="unit-row" data-unit-code={unit.unitCode}>
+              <TableRow
+                key={unit.id}
+                data-testid="unit-row"
+                data-unit-code={unit.unitCode}
+                data-status={unit.commercialStatus}
+                interactive
+                className={ROW_TINT[unit.commercialStatus]}
+                onClick={(event) => {
+                  if (opensRow(event)) nav.push(href(unit));
+                }}
+              >
                 <TableCell className="whitespace-nowrap">
                   <Link href={href(unit)} className="font-medium text-fg hover:text-accent-strong">
-                    {unit.unitCode}
+                    {label(unit)}
                   </Link>
+                  <StatusWords unit={unit} />
                   {unit.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
                 </TableCell>
                 <TableCell>{unitTypeName(unit.unitType.name, locale)}</TableCell>
-                {showLocation ? (
-                  <>
-                    <TableCell className="whitespace-nowrap">{unit.building.name}</TableCell>
-                    <TableCell className="whitespace-nowrap">{floorName(unit.floor.name, locale)}</TableCell>
-                  </>
-                ) : null}
-                <TableCell className="whitespace-nowrap">
-                  <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
-                </TableCell>
-                <TableCell>
-                  <CommercialStatusBadge status={unit.commercialStatus} />
-                </TableCell>
+                <TableCell className="whitespace-nowrap">{floorName(unit.floor.name, locale)}</TableCell>
                 <TableCell className="text-fg-muted">{unit.orientation ? t(`orientation.${unit.orientation}`) : "—"}</TableCell>
-                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.internalArea, locale)}</TableCell>
-                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.netArea, locale)}</TableCell>
-                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.saleableArea, locale)}</TableCell>
                 <TableCell className="text-right tabular-nums">{countText(unit.bedrooms)}</TableCell>
+                <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(unit.areas.grossArea, locale)}</TableCell>
+                <TableCell className="whitespace-nowrap text-right tabular-nums" data-testid="unit-price">{price(unit)}</TableCell>
                 <TableCell className="text-right">
                   <RowMenu unit={unit} href={href(unit)} index={index} count={list.items.length} actions={actions} />
                 </TableCell>
@@ -186,34 +214,34 @@ export function UnitTable({ projectId, list, showLocation, actions, onPage, load
       <ul className="space-y-2 md:hidden" data-testid="unit-cards">
         {list.items.map((unit, index) => {
           const more = [
+            unit.areas.grossArea !== null ? t("unitTable.grossSuffix", { area: areaText(unit.areas.grossArea, locale) }) : null,
             unit.orientation ? t(`orientation.${unit.orientation}`) : null,
-            unit.areas.internalArea !== null ? t("unitTable.internalSuffix", { area: areaText(unit.areas.internalArea, locale) }) : null,
-            unit.areas.netArea !== null ? t("unitTable.netSuffix", { area: areaText(unit.areas.netArea, locale) }) : null,
+            unit.askingPrice ? price(unit) : null,
           ].filter(Boolean);
           return (
             <MobileRecordCard
               key={unit.id}
-              data={{ "data-testid": "unit-card", "data-unit-code": unit.unitCode }}
+              data={{ "data-testid": "unit-card", "data-unit-code": unit.unitCode, "data-status": unit.commercialStatus }}
               href={href(unit)}
               title={
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-body font-semibold text-fg">{unit.unitCode}</span>
+                  <span className="text-body font-semibold text-fg">
+                    {label(unit)}
+                    <StatusWords unit={unit} />
+                  </span>
                   <span className="text-table font-normal text-fg-muted">{unitTypeName(unit.unitType.name, locale)}</span>
-                  <PublicationBadge status={unit.publication.status} versionNumber={unit.publication.versionNumber} />
-                  {unit.commercialStatus === "NOT_FOR_SALE" ? null : <CommercialStatusBadge status={unit.commercialStatus} />}
                   {unit.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
                 </span>
               }
               subtitle={
                 <span className="text-meta text-fg-subtle">
-                  {showLocation ? `${unit.building.name} · ${floorName(unit.floor.name, locale)} · ` : ""}
-                  {t("unitTable.saleableSuffix", { area: areaText(unit.areas.saleableArea, locale) })}
+                  {floorName(unit.floor.name, locale)}
                   {unit.bedrooms !== null ? t("unitTable.bed", { count: unit.bedrooms }) : ""}
                 </span>
               }
               extra={more.length > 0 ? <p className="mt-1 text-meta text-fg-subtle" data-testid="unit-card-more">{more.join(" · ")}</p> : null}
               actions={<UnitActionSheet unit={unit} href={href(unit)} index={index} count={list.items.length} actions={actions} />}
-              className="p-3"
+              className={cn("p-3", ROW_TINT[unit.commercialStatus])}
             />
           );
         })}

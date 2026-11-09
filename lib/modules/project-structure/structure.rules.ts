@@ -152,6 +152,17 @@ export function suggestCopiedCode(code: string, sourceNumber: number | null, tar
   return `${code.slice(0, match.index)}${replaced.padStart(width, "0")}${code.slice(match.index + digits.length)}`;
 }
 
+/**
+ * How the Units table names a unit (2026-11): its building's code and its own,
+ * "T-501". A code that already starts with the building's ("A-101" in Block A)
+ * is not doubled, and a building without a code adds nothing.
+ */
+export function unitLabel(buildingCode: string | null, unitCode: string): string {
+  const prefix = buildingCode?.trim();
+  if (!prefix) return unitCode;
+  return structureKey(unitCode).startsWith(`${structureKey(prefix)}-`) ? unitCode : `${prefix}-${unitCode}`;
+}
+
 /* Fields by type ------------------------------------------------------------ */
 
 /** Which counts a category is expected to carry (§22, §74). Everything else stays available. */

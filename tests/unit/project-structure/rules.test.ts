@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
 import { ROLE_KEYS, type RoleKey } from "@/config/roles";
-import { attributesFor, defaultFloorName, findCodeConflicts, floorKeyOf, floorRank, generateUnitCodes, levelTypeForNumber, placeFloors, planFloorRange, structureKey, suggestCopiedCode, unitWarnings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
+import { attributesFor, defaultFloorName, findCodeConflicts, floorKeyOf, floorRank, generateUnitCodes, levelTypeForNumber, placeFloors, planFloorRange, structureKey, suggestCopiedCode, unitLabel, unitWarnings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
 import { bulkFloorsSchema, createFloorSchema, createUnitSchema, parseUnitListQuery, updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
 import type { FloorLevelType } from "@/lib/modules/project-structure/structure.types";
 
@@ -135,6 +135,18 @@ describe("fields by type (§22, §71, §74)", () => {
     expect(unitWarnings("RESIDENTIAL", { internalArea: "92.40", saleableArea: "90.00" })).toEqual(["The saleable area is smaller than the internal area."]);
     expect(unitWarnings("RESIDENTIAL", { internalArea: "92.40", saleableArea: "113.00" })).toEqual([]);
     expect(unitWarnings("RESIDENTIAL", { internalArea: "92.40", saleableArea: null })).toEqual([]);
+  });
+});
+
+describe("the Units table's unit label (2026-11)", () => {
+  it("puts the building's code before the unit's, once", () => {
+    expect(unitLabel("T", "501")).toBe("T-501");
+    expect(unitLabel(" T ", "501")).toBe("T-501");
+    expect(unitLabel("A", "A-101")).toBe("A-101");
+    expect(unitLabel("a", "A-101")).toBe("A-101");
+    expect(unitLabel("A", "AB-101")).toBe("A-AB-101");
+    expect(unitLabel(null, "501")).toBe("501");
+    expect(unitLabel("", "501")).toBe("501");
   });
 });
 

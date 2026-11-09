@@ -151,9 +151,11 @@ test("the Architecture head archives the unit and restores it published", async 
 test("every seeded unit is published, and the list filters by Published or Archived", async ({ page }) => {
   await signIn(page, "ARCHITECTURE_HEAD", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
   // Scoped to main: a streamed page briefly keeps a hidden copy of itself outside it (React Suspense reveal).
+  // The table no longer has a Publication column (2026-11): every row's unit is published, and nothing of the review workflow shows.
   const rows = mainRegion(page).getByTestId("unit-table").getByTestId("unit-row");
-  await expect(rows.filter({ hasText: "A-101" })).toContainText("Published v1");
-  for (const code of ["A-102", "A-103", "A-104"]) await expect(rows.filter({ hasText: code })).toContainText("Published v");
+  for (const code of ["A-101", "A-102", "A-103", "A-104"]) await expect(rows.filter({ hasText: code })).toBeVisible();
+  const seeded = await db.projectUnit.findMany({ where: { floorId: STRUCTURE_SEED.floors.a1 }, select: { publicationStatus: true, currentPublicationId: true } });
+  expect(seeded.every((unit) => unit.publicationStatus === "PUBLISHED" && unit.currentPublicationId)).toBe(true);
   await expect(mainRegion(page).getByTestId("unit-table")).not.toContainText(/Ready for Publishing|Revision Required|Draft|Changed/);
   // An old link's retired filter is ignored, not an error.
   await page.goto(`/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}&unpublishedChanges=true&publicationStatus=DRAFT`);
