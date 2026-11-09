@@ -107,11 +107,12 @@ export const CONFIRM_FLOORS_ABOVE = 50;
 export const MAX_BULK_UNITS = 500;
 
 /**
- * How the unit list sorts. `area` is the sale area — the saleable area when
- * typed, else the gross (2026-11-09) — and the table's own columns sort too:
- * gross area, bedrooms and total price.
+ * How both unit lists sort — Units and Sales offer the same keys (2026-11-09),
+ * and Sales adds the reservation expiry. `area` is the sale area: the saleable
+ * area when typed, else the gross. Every key ends in the structure order and
+ * the id, so a page never shuffles.
  */
-export const UNIT_SORTS = ["structure", "code", "-code", "floor", "type", "gross", "-gross", "bedrooms", "-bedrooms", "price", "-price", "area", "-area", "internalArea", "-internalArea"] as const;
+export const UNIT_SORTS = ["structure", "code", "-code", "floor", "type", "area", "-area", "gross", "-gross", "bedrooms", "-bedrooms", "price", "-price", "pricePerSqm", "-pricePerSqm"] as const;
 export type UnitSort = (typeof UNIT_SORTS)[number];
 
 export const UNIT_SORT_LABELS: Record<UnitSort, string> = {
@@ -120,17 +121,27 @@ export const UNIT_SORT_LABELS: Record<UnitSort, string> = {
   "-code": "Unit code Z–A",
   floor: "Floor",
   type: "Type",
+  area: "Area, smallest first",
+  "-area": "Area, largest first",
   gross: "Gross area, smallest first",
   "-gross": "Gross area, largest first",
   bedrooms: "Bedrooms, fewest first",
   "-bedrooms": "Bedrooms, most first",
   price: "Total price, lowest first",
   "-price": "Total price, highest first",
-  area: "Sale area, smallest first",
-  "-area": "Sale area, largest first",
-  internalArea: "Internal area, smallest first",
-  "-internalArea": "Internal area, largest first",
+  pricePerSqm: "Price per m², lowest first",
+  "-pricePerSqm": "Price per m², highest first",
 };
+
+/**
+ * What a unit in use can still be missing (2026-11-09), for the Units tab's
+ * "N units are missing area, bedrooms or price" line and its Fill in. `area`:
+ * no sale area, for anything but parking (priced per space); `details`: that,
+ * or no bedrooms on a type that has them; `price`: no asking price on a unit
+ * not sold; `either`: details or price.
+ */
+export const UNIT_MISSING_KINDS = ["area", "details", "price", "either"] as const;
+export type UnitMissingKind = (typeof UNIT_MISSING_KINDS)[number];
 
 export type StructureCapabilities = {
   canManageStructure: boolean;
@@ -152,6 +163,8 @@ export type StructureCapabilities = {
    * own `canManagePrice` (sales view + `project.unit.price.manage`).
    */
   canManagePrice: boolean;
+  /** Put ticked units on sale or take them off it (2026-11-09): Sales' `canManageStatus` (sales view + `project.unit.sales_status.manage`). */
+  canManageSaleStatus: boolean;
 };
 
 export type UnitTypeOption = { id: string; name: string; code: string; category: UnitTypeCategory; isActive: boolean };
@@ -223,6 +236,8 @@ export type UnitDTO = {
    * still need Sales' grant.
    */
   askingPrice: { amount: string; currency: string | null } | null;
+  /** The version of the unit's sales record, which a price or sale-status change is checked against; 0 before it has one. */
+  salesVersion: number;
 };
 
 export type UnitListDTO = {
@@ -230,6 +245,11 @@ export type UnitListDTO = {
   page: number;
   pageSize: number;
   total: number;
+  /**
+   * In use units of the chosen building or floor (whatever the other filters)
+   * still missing something (2026-11-09): an area or bedrooms, a price, either.
+   */
+  missing: { details: number; price: number; either: number };
 };
 
 export type UnitDetailDTO = UnitDTO & {

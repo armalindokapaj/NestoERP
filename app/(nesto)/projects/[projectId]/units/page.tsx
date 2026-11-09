@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { StructureWorkspace } from "@/components/project-structure/structure-workspace";
-import { EMPTY_FILTERS, type UnitFilters } from "@/components/project-structure/unit-filters";
+import { filtersFromQuery, type UnitFilters } from "@/components/project-structure/unit-filters";
 import { AccessError } from "@/lib/access/guards";
 import { parseUnitListQuery } from "@/lib/modules/project-structure/structure.schema";
 import { getProjectStructure, listProjectUnits } from "@/lib/modules/project-structure/structure.service";
@@ -48,22 +48,13 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
   const selection = { buildingId, floorId: owner ? floorId : null };
 
   const query = parseUnitListQuery(search);
-  const filters: UnitFilters = {
-    ...EMPTY_FILTERS,
-    q: query.q ?? "",
-    unitTypeId: query.unitTypeId ?? "",
-    orientation: query.orientation ?? "",
-    bedrooms: query.bedrooms === undefined ? "" : String(query.bedrooms),
-    bathrooms: query.bathrooms === undefined ? "" : String(query.bathrooms),
-    internalAreaMin: query.internalAreaMin ?? "",
-    internalAreaMax: query.internalAreaMax ?? "",
-    areaMin: query.areaMin ?? "",
-    areaMax: query.areaMax ?? "",
-    publication: query.publicationStatus ?? "",
-    sort: query.sort ?? "structure",
-  };
+  // The building and floor are the tree's choice above, not filters. The internal-area range the
+  // panel no longer offers (2026-11-09) is left out, so an old link shows what the panel says.
+  const filters: UnitFilters = { ...filtersFromQuery(query), buildingId: "", floorId: "", commercialStatus: "" };
+  // The Prices page's "skipped, no area" note: tick those units once on arrival (2026-11-09).
+  const tick = one(search.tick) === "no-area" ? "no-area" : null;
   const units = structure.buildings.length
-    ? await listProjectUnits(context, project.id, { ...query, buildingId: selection.buildingId ?? undefined, floorId: selection.floorId ?? undefined }).catch(refuse)
+    ? await listProjectUnits(context, project.id, { ...query, internalAreaMin: undefined, internalAreaMax: undefined, buildingId: selection.buildingId ?? undefined, floorId: selection.floorId ?? undefined }).catch(refuse)
     : null;
   // A page past the end moves once to the last real page (AUD-08 §4, DT-05).
   if (units && units.total > 0 && units.page > Math.ceil(units.total / units.pageSize)) {
@@ -73,7 +64,7 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
   return (
     <div className="space-y-5">
       <RecordContextHeader nameInLayout title={project.name} subtitle={project.code} status={project.status} />
-      <StructureWorkspace initial={structure} initialSelection={selection} initialFilters={filters} initialPage={units?.page ?? 1} initialUnits={units} />
+      <StructureWorkspace initial={structure} initialSelection={selection} initialFilters={filters} initialPage={units?.page ?? 1} initialUnits={units} initialTick={tick} />
     </div>
   );
 }

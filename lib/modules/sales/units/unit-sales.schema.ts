@@ -5,6 +5,7 @@ import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
 
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { idSchema } from "@/lib/modules/project-structure/structure.schema";
+import { UNIT_SORTS } from "@/lib/modules/project-structure/structure.types";
 import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_PRICE_BASES, UNIT_SALE_STATUSES } from "./unit-sales.types";
 
 /**
@@ -94,7 +95,8 @@ export const markSoldSchema = z.object({ expectedVersion });
 export const reopenSaleSchema = z.object({ to: z.enum(["FOR_SALE", "RESERVED"]), reason, expiresAt: instant.optional(), expectedVersion });
 export const dealUnitSchema = z.object({ unitId: idSchema, agreedPrice: money.optional(), currency: currency.optional() });
 
-export const INVENTORY_SORTS = ["structure", "code", "price", "-price", "pricePerSqm", "-pricePerSqm", "area", "-area", "expiry"] as const;
+/** The Units list's own keys (2026-11-09: one sort list on both tabs), and the reservation expiry. */
+export const INVENTORY_SORTS = [...UNIT_SORTS, "expiry"] as const;
 export type InventorySort = (typeof INVENTORY_SORTS)[number];
 
 const optionalId = idSchema.optional().catch(undefined);

@@ -5,7 +5,8 @@ import { Tags } from "lucide-react";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
 import Link from "@/components/navigation/nav-link";
-import { EMPTY_INVENTORY_FILTERS, SalesInventory, type InventoryFilters } from "@/components/sales/unit-sales/sales-inventory";
+import { filtersFromQuery } from "@/components/project-structure/unit-filters";
+import { SalesInventory, type InventoryFilters } from "@/components/sales/unit-sales/sales-inventory";
 import { Button } from "@/components/ui/button";
 import { AccessError } from "@/lib/access/guards";
 import { getProjectStructure } from "@/lib/modules/project-structure/structure.service";
@@ -44,24 +45,7 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
   const query = parseInventoryQuery(search);
   const [structure, inventory] = await Promise.all([getProjectStructure(context, project.id).catch(refuse), listSalesInventory(context, project.id, query).catch(refuse)]);
   const caps = salesCapabilities(context);
-  const filters: InventoryFilters = {
-    ...EMPTY_INVENTORY_FILTERS,
-    q: query.q ?? "",
-    commercialStatus: query.commercialStatus ?? "",
-    buildingId: query.buildingId ?? "",
-    floorId: query.floorId ?? "",
-    unitTypeId: query.unitTypeId ?? "",
-    orientation: query.orientation ?? "",
-    bedrooms: query.bedrooms === undefined ? "" : String(query.bedrooms),
-    bathrooms: query.bathrooms === undefined ? "" : String(query.bathrooms),
-    areaMin: query.areaMin ?? "",
-    areaMax: query.areaMax ?? "",
-    priceMin: query.priceMin ?? "",
-    priceMax: query.priceMax ?? "",
-    pricePerSqmMin: query.pricePerSqmMin ?? "",
-    pricePerSqmMax: query.pricePerSqmMax ?? "",
-    sort: query.sort ?? "structure",
-  };
+  const filters: InventoryFilters = { ...filtersFromQuery(query), publication: "" };
 
   return (
     <div className="space-y-5">
@@ -92,7 +76,7 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
           initialFilters={filters}
           buildings={structure.buildings.map((building) => ({ id: building.id, name: building.name, floors: building.floors.map((floor) => ({ id: floor.id, name: floor.name })) }))}
           unitTypes={structure.unitTypes.map((type) => ({ id: type.id, name: type.name }))}
-          actions={{ canReserve: caps.canReserve, canRelease: caps.canRelease }}
+          actions={{ canReserve: caps.canReserve, canRelease: caps.canRelease, canManagePrice: caps.canManagePrice, canManageStatus: caps.canManageStatus }}
         />
       )}
     </div>

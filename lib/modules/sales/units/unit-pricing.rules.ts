@@ -172,6 +172,19 @@ export function priceToSave(total: string, currency: string, saved: { askingPric
 }
 
 /**
+ * The asking price one change to many ticked units gives a unit (2026-11-09):
+ * the same total for each, or a rate per m² times the unit's own sale area.
+ * Saved on the unit's sale area basis either way, as a single unit's new price
+ * is (`priceToSave`); null for a rate on a unit with no area, which is skipped.
+ */
+export function bulkAskingPrice(entry: PriceEntry, amount: string, areas: SaleAreas): { askingPrice: string; priceBasis: UnitPriceBasis } | null {
+  const sale = saleArea(areas);
+  if (entry === "TOTAL") return { askingPrice: amount, priceBasis: sale.basis };
+  const total = priceFromRate(amount, sale.area);
+  return total === null ? null : { askingPrice: total, priceBasis: sale.basis };
+}
+
+/**
  * The rate per m² more of a floor's units priced by area share than any other —
  * what the floor "is" at — each on its own sale area. Null when none is priced
  * by area, or when two rates are equally common: a floor of one unit at the

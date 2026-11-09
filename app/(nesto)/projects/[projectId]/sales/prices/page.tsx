@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AccessError } from "@/lib/access/guards";
 import { getTranslations } from "@/lib/i18n/server";
 import * as projects from "@/lib/modules/projects/project.service";
+import { structureCapabilities } from "@/lib/modules/project-structure/structure.permissions";
 import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
 import { getPriceList } from "@/lib/modules/sales/units/unit-pricing.service";
 import { loadProject } from "../../project-context";
@@ -51,7 +52,7 @@ export default async function ProjectPricesPage({ params }: Params) {
           </Button>
         }
       />
-      <PriceListEditor initial={list} />
+      <PriceListEditor initial={list} canEditUnits={structureCapabilities(context).canUpdateUnit} />
     </div>
   );
 }

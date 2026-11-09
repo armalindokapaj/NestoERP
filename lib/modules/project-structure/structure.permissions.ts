@@ -70,5 +70,6 @@ export function structureCapabilities(context: UserContext): StructureCapabiliti
     canMoveUnit: has("project.unit.move"),
     canArchiveUnit: has("project.unit.archive"),
     canManagePrice: has("project.unit.sales.view") && has("project.unit.price.manage"),
+    canManageSaleStatus: has("project.unit.sales.view") && has("project.unit.sales_status.manage"),
   };
 }

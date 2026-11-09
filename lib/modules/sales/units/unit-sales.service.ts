@@ -228,7 +228,12 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
 
 /* Price and notes (§10-§12) ------------------------------------------------------ */
 
-export async function updateCommercialDetails(context: UserContext, unitId: string, input: z.infer<typeof commercialDetailsSchema>): Promise<{ version: number }> {
+/**
+ * The asking price, basis and notes. Sales notes left out (`undefined`) keep
+ * the saved ones — a price set on many ticked units at once (2026-11-09)
+ * never touches their notes; the unit's own forms always send them.
+ */
+export async function updateCommercialDetails(context: UserContext, unitId: string, input: Omit<z.infer<typeof commercialDetailsSchema>, "salesNotes"> & { salesNotes?: string | null }): Promise<{ version: number }> {
   const unit = await findSellableUnit(context, unitId);
   assertPermission(context, "project.unit.price.manage");
   const settings = await resolveUnitSalesSettings(context.companyId);
@@ -247,7 +252,7 @@ export async function updateCommercialDetails(context: UserContext, unitId: stri
         askingPrice: input.askingPrice === null ? null : new Prisma.Decimal(input.askingPrice),
         currency,
         priceBasis: input.priceBasis,
-        salesNotes: input.salesNotes,
+        salesNotes: input.salesNotes === undefined ? profile.salesNotes : input.salesNotes,
         updatedByMemberId: context.membershipId,
         version: { increment: 1 },
       },

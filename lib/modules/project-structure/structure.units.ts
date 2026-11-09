@@ -290,6 +290,7 @@ export async function updateUnit(context: UserContext, unitId: string, input: Up
     storage: keep(sent.storage, unit.storage),
     attributes: keep(sent.attributes, (unit.attributes ?? null) as TechnicalInput["attributes"]),
     description: keep(sent.description, unit.description),
+    isActive: keep(sent.isActive, unit.isActive),
   };
   const unitCodeKey = structureKey(values.unitCode);
   const codeChanged = values.unitCode !== unit.unitCode;

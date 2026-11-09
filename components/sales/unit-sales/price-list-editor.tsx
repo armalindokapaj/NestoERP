@@ -5,6 +5,7 @@ import { Car, ChevronDown, RotateCcw } from "lucide-react";
 
 import { selectClass } from "@/components/forms/record-form";
 import { useLocale } from "@/components/i18n/i18n-provider";
+import Link from "@/components/navigation/nav-link";
 import { areaText, failureMessage, isFailure, numberText, structureApi } from "@/components/project-structure/structure-ui";
 import { useSalesTranslations } from "@/components/sales/sales-text";
 import { Button } from "@/components/ui/button";
@@ -86,7 +87,7 @@ function mostUsedCurrency(list: PriceListDTO): string {
   return best;
 }
 
-export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
+export function PriceListEditor({ initial, canEditUnits = false }: { initial: PriceListDTO; canEditUnits?: boolean }) {
   const locale = useLocale();
   const t = useSalesTranslations();
   const toast = useToast();
@@ -97,6 +98,8 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
   const [rates, setRates] = React.useState<Record<string, string>>({});
   const [parkingPrice, setParkingPrice] = React.useState("");
   const [notes, setNotes] = React.useState<Record<string, string>>({});
+  /** The floors whose rate skipped units with no area: their note links to those units, ticked, on Units (2026-11-09). */
+  const [noArea, setNoArea] = React.useState<Record<string, boolean>>({});
   const [reason, setReason] = React.useState("");
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [problem, setProblem] = React.useState<{ message: string; reload: boolean } | null>(null);
@@ -149,6 +152,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
       return price === null ? null : { price: shortMoney(price), basis: sale.basis };
     });
     setNotes((current) => ({ ...current, [floorId]: skipped ? t("priceList.skippedNoArea", { count: skipped }) : "" }));
+    setNoArea((current) => ({ ...current, [floorId]: skipped > 0 }));
   }
 
   function applyParking() {
@@ -446,6 +450,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
                       suffix={`${currency}/m²`}
                       disabled={pending}
                       note={notes[floor.id]}
+                      noteLink={noArea[floor.id] ? { href: `/projects/${list.projectId}/units?floor=${floor.id}&tick=no-area`, label: canEditUnits ? t("priceList.fillAreas") : t("priceList.showOnUnits") } : undefined}
                       testId="floor"
                     />
                   </header>
@@ -503,6 +508,7 @@ function RateControl({
   suffix,
   disabled,
   note,
+  noteLink,
   testId,
 }: {
   id: string;
@@ -517,6 +523,8 @@ function RateControl({
   suffix: string;
   disabled: boolean;
   note?: string;
+  /** A way to fix what the note says: the skipped units, ticked, on the Units tab. */
+  noteLink?: { href: string; label: string };
   testId: string;
 }) {
   return (
@@ -554,6 +562,14 @@ function RateControl({
       {note ? (
         <p className="text-meta text-warning-strong" role="status">
           {note}
+          {noteLink ? (
+            <>
+              {" "}
+              <Link href={noteLink.href} className="font-medium underline underline-offset-2 hover:text-fg" data-testid={`${testId}-fix-link`}>
+                {noteLink.label}
+              </Link>
+            </>
+          ) : null}
         </p>
       ) : null}
     </div>

@@ -173,6 +173,12 @@ export type UnitSalesDTO = {
 
 export type InventoryRowDTO = {
   id: string;
+  /** The unit's own version and its sales record's (0 before it has one), which a change to ticked units is checked against. */
+  version: number;
+  salesVersion: number;
+  floorId: string;
+  isActive: boolean;
+  grossArea: string | null;
   unitCode: string;
   /** How the unit is named to people: its building's code and its own, "T-501". */
   label: string;

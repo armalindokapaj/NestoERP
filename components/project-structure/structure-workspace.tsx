@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
-import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, RotateCcw, SlidersHorizontal, Tags, Trash2 } from "lucide-react";
+import { floorName } from "@/lib/i18n/stock-names";
+import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import Link from "@/components/navigation/nav-link";
 
 import { selectClass } from "@/components/forms/record-form";
@@ -11,29 +11,21 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
-import {
-  COUNT_CHOICES,
-  UNIT_ORIENTATIONS,
-  UNIT_SORTS,
-  type BuildingNodeDTO,
-  type FloorNodeDTO,
-  type ProjectStructureDTO,
-  type UnitDTO,
-  type UnitListDTO,
-  type UnitSort,
-} from "@/lib/modules/project-structure/structure.types";
+import { type BuildingNodeDTO, type FloorNodeDTO, type ProjectStructureDTO, type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
+import { pageState, refreshUnits } from "@/lib/modules/project-structure/unit-bulk.rules";
 import { cn } from "@/lib/utils/cn";
 import { BulkFloorsDialog, BulkUnitsDialog, CopyFloorDialog } from "./bulk-dialogs";
 import { BuildingDialog, FloorDialog, MoveFloorDialog, MoveUnitDialog } from "./structure-dialogs";
 import { AddUnitsDialog, splitFloors } from "./add-units-dialog";
-import { areaRule, failureMessage, numberText, structureApi } from "./structure-ui";
-import { parseOptionalDecimal } from "@/lib/forms/decimal";
+import { failureMessage, structureApi } from "./structure-ui";
 import { UnitDialog } from "./unit-dialog";
-import { EMPTY_FILTERS, type UnitFilters } from "./unit-filters";
-import { UNIT_PUBLICATION_FILTER_STATUSES } from "@/lib/modules/project-structure/unit-publishing.types";
-import { UnitTable, type UnitRowActions } from "./unit-table";
+import { activeCount, EMPTY_FILTERS, filterParams, type UnitFilters } from "./unit-filters";
+import { UnitActionSheet, UnitRowMenu, type UnitRowActions } from "./unit-table";
+import { canChangeTogether, fetchSelection, SelectionHelp, useUnitBulk } from "./unit-list/unit-bulk";
+import { rowFromUnit, selectedFromRow, type UnitListRow } from "./unit-list/unit-list-row";
+import { UnitListTable } from "./unit-list/unit-list-table";
+import { UnitListToolbar } from "./unit-list/unit-list-toolbar";
 import { FormSelect } from "@/components/ui/form-select";
 
 /**
@@ -52,6 +44,14 @@ import { FormSelect } from "@/components/ui/form-select";
  * carries them from lg, so the heading's line keeps only the floor's details
  * there. "Add units" is the main button whenever there is a floor to add to;
  * it asks for the building and floor itself. "Add building" is the tree's +.
+ *
+ * The unit list is the table the Sales tab shares, with tick boxes for
+ * somebody who may change units together (2026-11-09): Edit details, Set
+ * price, Put on sale, Move, Archive. A line above it says how many units in
+ * view still miss an area, bedrooms or a price, and Fill in ticks exactly
+ * those and opens Edit details — or Set price when only prices are missing.
+ * The Prices page's "skipped, no area" note opens this tab with `tick=no-area`
+ * and its floor, which ticks the units it skipped once, on arrival.
  */
 
 type Selection = { buildingId: string | null; floorId: string | null };
@@ -70,17 +70,10 @@ type DialogState =
   | { kind: "delete"; target: { type: "building"; building: BuildingNodeDTO } | { type: "floor"; floor: FloorNodeDTO } | { type: "unit"; unit: UnitDTO } }
   | null;
 
-const FILTER_KEYS = ["unitTypeId", "orientation", "bedrooms", "bathrooms", "internalAreaMin", "internalAreaMax", "areaMin", "areaMax"] as const;
-
 function queryString(selection: Selection, filters: UnitFilters, page: number): string {
-  const params = new URLSearchParams();
+  const params = filterParams(filters, "units");
   if (selection.buildingId) params.set("buildingId", selection.buildingId);
   if (selection.floorId) params.set("floorId", selection.floorId);
-  if (filters.q.trim()) params.set("q", filters.q.trim());
-  for (const key of FILTER_KEYS) if (filters[key]) params.set(key, filters[key]);
-  // Published or Archived (E-05D §13): every change is published at once, so there is nothing "changed" to find.
-  if (filters.publication) params.set("publicationStatus", filters.publication);
-  if (filters.sort !== "structure") params.set("sort", filters.sort);
   if (page > 1) params.set("page", String(page));
   return params.toString();
 }
@@ -108,7 +101,22 @@ function reorder<T extends { id: string }>(items: T[], id: string, offset: -1 | 
   return ids;
 }
 
-export function StructureWorkspace({ initial, initialSelection, initialFilters, initialPage, initialUnits }: { initial: ProjectStructureDTO; initialSelection: Selection; initialFilters: UnitFilters; initialPage: number; initialUnits: UnitListDTO | null }) {
+export function StructureWorkspace({
+  initial,
+  initialSelection,
+  initialFilters,
+  initialPage,
+  initialUnits,
+  initialTick = null,
+}: {
+  initial: ProjectStructureDTO;
+  initialSelection: Selection;
+  initialFilters: UnitFilters;
+  initialPage: number;
+  initialUnits: UnitListDTO | null;
+  /** Ticks these units once on arrival: `no-area`, the units the Prices page skipped for having no area. */
+  initialTick?: "no-area" | null;
+}) {
   const toast = useToast();
   const t = useTranslations("projects");
   const locale = useLocale();
@@ -121,7 +129,6 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
   const [loading, setLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [reloadKey, setReloadKey] = React.useState(0);
-  const [filtersOpen, setFiltersOpen] = React.useState(FILTER_KEYS.some((key) => initialFilters[key]));
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set(initial.buildings.length <= 3 ? initial.buildings.map((building) => building.id) : initialSelection.buildingId ? [initialSelection.buildingId] : []));
   const [treeFilter, setTreeFilter] = React.useState("");
   /** Which buildings show their empty floors; one opens by itself when an empty floor of it is chosen. */
@@ -137,7 +144,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
   const projectId = structure.project.id;
   const building = structure.buildings.find((candidate) => candidate.id === selection.buildingId) ?? null;
   const floor = building?.floors.find((candidate) => candidate.id === selection.floorId) ?? null;
-  const activeFilters = FILTER_KEYS.filter((key) => filters[key]).length + (filters.q.trim() ? 1 : 0) + (filters.publication ? 1 : 0);
+  const activeFilters = activeCount(filters, "units");
 
   // Search waits for typing to pause (E-05A's 300 ms), everything else applies at once.
   React.useEffect(() => {
@@ -196,6 +203,58 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
     await refreshStructure();
     setReloadKey((key) => key + 1);
   }, [refreshStructure]);
+
+  /* Ticking units and changing them together (2026-11-09) ----------------------- */
+
+  const bulkCaps = { details: caps.canUpdateUnit, price: caps.canManagePrice, status: caps.canManageSaleStatus, move: caps.canMoveUnit, archive: caps.canArchiveUnit };
+  const canTick = canChangeTogether(bulkCaps);
+  // What the list shows, its page and sort aside: when it changes, the ticks go.
+  const shownKey = React.useMemo(() => {
+    const params = filterParams({ ...filters, sort: "structure" }, "units");
+    return `${selection.buildingId ?? ""}|${selection.floorId ?? ""}|${params.toString()}`;
+  }, [filters, selection]);
+  const bulk = useUnitBulk({
+    projectId,
+    caps: bulkCaps,
+    resetKey: shownKey,
+    types: structure.unitTypes,
+    buildings: structure.buildings.map((candidate) => ({ id: candidate.id, name: candidate.name, floors: candidate.floors.map((level) => ({ id: level.id, name: level.name })) })),
+    onChanged: reloadAll,
+  });
+  const { setSelection: setTicks, setMany: tickMany, start: startBulk } = bulk;
+  const rows = React.useMemo(() => (units ? units.items.map(rowFromUnit) : []), [units]);
+  // A list read again brings each ticked unit's current versions with it.
+  React.useEffect(() => {
+    setTicks((current) => refreshUnits(current, rows.map(selectedFromRow)));
+  }, [rows, setTicks]);
+
+  /** Every unit of the current choice, optionally narrowed by the filters or to what it is missing. */
+  const selectionUrl = React.useCallback(
+    (options: { withFilters: boolean; missing?: string; floorId?: string | null }) => {
+      const params = options.withFilters ? filterParams(filters, "units") : new URLSearchParams();
+      const floorId = options.floorId === undefined ? selection.floorId : options.floorId;
+      if (floorId) params.set("floorId", floorId);
+      else if (selection.buildingId) params.set("buildingId", selection.buildingId);
+      if (options.missing) params.set("missing", options.missing);
+      params.set("select", "all");
+      return `/api/projects/${projectId}/units?${params.toString()}`;
+    },
+    [filters, projectId, selection],
+  );
+
+  // The Prices page's "skipped, no area" note lands here once, with its floor chosen.
+  const tickedOnArrival = React.useRef(false);
+  React.useEffect(() => {
+    if (tickedOnArrival.current || initialTick !== "no-area") return;
+    tickedOnArrival.current = true;
+    void fetchSelection(selectionUrl({ withFilters: false, missing: "area" }))
+      .then((found) => {
+        if (!found.units.length) return;
+        tickMany(found.units, true);
+        if (caps.canUpdateUnit) startBulk("details", found.units);
+      })
+      .catch((error: unknown) => toast({ title: failureMessage(error, t("unitList.selectFailed")), tone: "danger" }));
+  }, [caps.canUpdateUnit, initialTick, selectionUrl, startBulk, t, tickMany, toast]);
 
   function choose(next: Selection) {
     setSelection(next);
@@ -496,40 +555,22 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
       </Empty>
     );
   } else {
+    const ticks = bulk.selection;
+    const page = pageState(ticks, rows.map((row) => row.id));
+    const missingCount = caps.canUpdateUnit && caps.canManagePrice ? units?.missing.either ?? 0 : caps.canUpdateUnit ? units?.missing.details ?? 0 : caps.canManagePrice ? units?.missing.price ?? 0 : 0;
+    const missingKind = caps.canUpdateUnit && caps.canManagePrice ? "either" : caps.canUpdateUnit ? "details" : "price";
     body = (
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchField className="w-full sm:w-auto sm:min-w-0 sm:max-w-xs sm:flex-1" placeholder={t("workspace.searchPlaceholder")} value={search} onChange={(event) => setSearch(event.target.value)} aria-label={t("workspace.searchLabel")} />
-          <Button variant="secondary" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}>
-            <SlidersHorizontal aria-hidden="true" />
-            {t("workspace.filters")}{FILTER_KEYS.some((key) => filters[key]) ? ` (${FILTER_KEYS.filter((key) => filters[key]).length})` : ""}
-          </Button>
-          <FormSelect aria-label={t("workspace.sortLabel")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as UnitSort })}>
-            {UNIT_SORTS.map((sort) => (
-              <option key={sort} value={sort}>
-                {t(`unitSort.${sort}`)}
-              </option>
-            ))}
-          </FormSelect>
-          {activeFilters ? (
-            <Button variant="ghost" onClick={clearFilters}>
-              <RotateCcw aria-hidden="true" />
-              {t("workspace.clearFilters")}
-            </Button>
-          ) : null}
-        </div>
-
-        {filtersOpen ? (
-          <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="unit-filters">
-            <FilterSelect label={t("workspace.type")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={structure.unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
-            <FilterSelect label={t("workspace.publication")} value={filters.publication} onChange={(publication) => setFilter({ publication })} options={UNIT_PUBLICATION_FILTER_STATUSES.map((value) => ({ value, label: t(`publication.${value}`) }))} />
-            <FilterSelect label={t("workspace.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: t(`orientation.${value}`) }))} />
-            <FilterSelect label={t("workspace.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={COUNT_CHOICES.bedrooms.map((value) => ({ value: String(value), label: String(value) }))} />
-            <FilterSelect label={t("workspace.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={COUNT_CHOICES.bathrooms.map((value) => ({ value: String(value), label: String(value) }))} />
-            <RangeFilter label={t("workspace.internalArea")} min={filters.internalAreaMin} max={filters.internalAreaMax} onChange={(internalAreaMin, internalAreaMax) => setFilter({ internalAreaMin, internalAreaMax })} />
-            <RangeFilter label={t("workspace.saleArea")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
-          </div>
-        ) : null}
+        <UnitListToolbar
+          kind="units"
+          filters={filters}
+          search={search}
+          onSearch={setSearch}
+          onChange={setFilter}
+          onClear={clearFilters}
+          placeholder={t("workspace.searchPlaceholder")}
+          unitTypes={structure.unitTypes}
+        />
 
         {loadError ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong" role="alert">
@@ -539,10 +580,79 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
             </Button>
           </div>
         ) : units && units.items.length ? (
-          <>
+          <div className="space-y-3">
             {activeFilters ? <p className="text-table text-fg-muted">{t("counts.results", { count: units.total })}</p> : null}
-            <UnitTable projectId={projectId} list={units} actions={unitActions} onPage={setPage} loading={loading} />
-          </>
+            {canTick ? (
+              <SelectionHelp
+                ticked={ticks.size}
+                page={page}
+                total={units.total}
+                limit={500}
+                onSelectAll={async () => {
+                  const found = await fetchSelection(selectionUrl({ withFilters: true }));
+                  bulk.setMany(found.units, true);
+                }}
+                // The whole floor, whatever the filters and pages show: offered while some of it is not ticked and the page alone would not tick it.
+                floor={
+                  floor && (floor.unitCount > units.items.length || activeFilters > 0) && [...ticks.values()].filter((unit) => unit.floorId === floor.id).length < floor.unitCount
+                    ? {
+                        count: floor.unitCount,
+                        onSelect: async () => {
+                          const found = await fetchSelection(selectionUrl({ withFilters: false, floorId: floor.id }));
+                          bulk.setMany(found.units, true);
+                        },
+                      }
+                    : null
+                }
+                missing={
+                  missingCount > 0
+                    ? {
+                        text: t(`unitList.missing.${missingKind}`, { count: missingCount }),
+                        // Ticks exactly the units missing something and opens Edit details — the areas a price per m² needs come first —
+                        // or Set price when only prices are missing. The ticks stay, so Set price can follow on the same units.
+                        onFill: async () => {
+                          const found = await fetchSelection(selectionUrl({ withFilters: false, missing: missingKind }));
+                          if (!found.units.length) return;
+                          bulk.clear();
+                          bulk.setMany(found.units, true);
+                          const needsDetails = caps.canUpdateUnit && (missingKind === "details" || (units.missing.details ?? 0) > 0);
+                          bulk.start(needsDetails ? "details" : "price", found.units);
+                        },
+                      }
+                    : null
+                }
+              />
+            ) : null}
+            <UnitListTable
+              kind="units"
+              rows={rows}
+              total={units.total}
+              page={units.page}
+              pageSize={units.pageSize}
+              onPage={setPage}
+              loading={loading}
+              href={(row) => `/projects/${projectId}/units/${row.id}`}
+              selection={
+                canTick
+                  ? {
+                      isSelected: (id) => ticks.has(id),
+                      toggle: (row: UnitListRow) => bulk.toggle(selectedFromRow(row)),
+                      page,
+                      togglePage: (on) => bulk.setMany(rows.map(selectedFromRow), on),
+                    }
+                  : undefined
+              }
+              rowMenu={(row, index) => {
+                const unit = units.items.find((item) => item.id === row.id);
+                return unit ? <UnitRowMenu unit={unit} href={`/projects/${projectId}/units/${unit.id}`} index={index} count={units.items.length} actions={unitActions} /> : null;
+              }}
+              cardActions={(row, index) => {
+                const unit = units.items.find((item) => item.id === row.id);
+                return unit ? <UnitActionSheet unit={unit} href={`/projects/${projectId}/units/${unit.id}`} index={index} count={units.items.length} actions={unitActions} /> : null;
+              }}
+            />
+            {bulk.bar}
+          </div>
         ) : units ? (
           <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="units-none">
             {activeFilters ? t("workspace.noMatch") : t("workspace.noneHere")}
@@ -834,6 +944,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
         pending={pending}
         onConfirm={() => void confirmDelete()}
       />
+      {bulk.dialogs}
       {/* Archive and Restore from the row menu: the unit page's confirmation, word for word (E-05D §32). */}
       <ConfirmDialog
         open={dialog?.kind === "archive" || dialog?.kind === "restore"}
@@ -857,53 +968,5 @@ function Empty({ icon, title, description, children, testId }: { icon: React.Rea
       <p className="mt-1 max-w-sm text-table text-fg-muted">{description}</p>
       {children ? <div className="mt-4 flex flex-wrap justify-center gap-2">{children}</div> : null}
     </div>
-  );
-}
-
-function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  const id = `filter-${label.toLowerCase().replace(/\W+/g, "-")}`;
-  const t = useTranslations("projects");
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-meta font-medium text-fg-muted">
-        {label}
-      </label>
-      <FormSelect id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{t("workspace.any")}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </FormSelect>
-    </div>
-  );
-}
-
-function RangeFilter({ label, min, max, onChange }: { label: string; min: string; max: string; onChange: (min: string, max: string) => void }) {
-  const [low, setLow] = React.useState(min);
-  const [high, setHigh] = React.useState(max);
-  const t = useTranslations("projects");
-  React.useEffect(() => {
-    setLow(min);
-    setHigh(max);
-  }, [min, max]);
-  const apply = () => {
-    // Read by the shared locale rule (AUD-09 §4, FV-06): "12,5" is 12.5; an ambiguous "1,234" is not applied.
-    const valid = (value: string) => {
-      const parsed = parseOptionalDecimal(value, areaRule(label));
-      return parsed.ok ? (parsed.value ?? "") : "";
-    };
-    if (valid(low) !== min || valid(high) !== max) onChange(valid(low), valid(high));
-  };
-  return (
-    <fieldset className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
-      <legend className="mb-1 text-meta font-medium text-fg-muted">{label}</legend>
-      <div className="flex items-center gap-1.5">
-        <Input aria-label={t("workspace.from", { label })} placeholder={t("workspace.min")} inputMode="decimal" className="h-9" value={low} onChange={(event) => setLow(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
-        <span className="text-fg-subtle">–</span>
-        <Input aria-label={t("workspace.to", { label })} placeholder={t("workspace.max")} inputMode="decimal" className="h-9" value={high} onChange={(event) => setHigh(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
-      </div>
-    </fieldset>
   );
 }

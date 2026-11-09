@@ -1,0 +1,345 @@
+"use client";
+
+import * as React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
+import { MobileRecordCard } from "@/components/data/mobile-record";
+import Link from "@/components/navigation/nav-link";
+import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
+import { SalesLabel } from "@/components/sales/sales-text";
+import { COMMERCIAL_CARD_TINT, COMMERCIAL_KEY, COMMERCIAL_ROW_TINT, CommercialStatusBadge, moneyLabel, perSqmLabel } from "@/components/sales/unit-sales/commercial-status";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { opensRow, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
+import { formatDate } from "@/lib/i18n/format";
+import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
+import { pageWindow } from "@/lib/modules/shared/list-query";
+import { UNIT_SALE_STATUS_LABELS } from "@/lib/modules/sales/units/unit-sales.types";
+import { cn } from "@/lib/utils/cn";
+import { areaText, countText } from "../structure-ui";
+import type { UnitListKind } from "../unit-filters";
+import type { UnitListRow } from "./unit-list-row";
+
+/**
+ * One table for the Units and the Sales tab (2026-11-09, "Two tabs, one
+ * table"). Units is for setting up and Sales for selling, so each has its own
+ * columns — Units: Unit, Type, Floor, Bedrooms, Gross, Total price; Sales:
+ * Unit (its type under it), Floor, Bedrooms, Area, Status, Total price, price
+ * per m², and Client, Deal and Expires once a unit on screen is reserved or
+ * sold — but the same code ("T-501"), the same words, the same row tints, the
+ * same tick boxes and the same phone and tablet cards.
+ *
+ * The whole row opens the unit; the tick box and the menu at the row's ends do
+ * not. A tick box is drawn only for somebody who may change units together.
+ * Rows are tinted by sale status — green for sale, orange reserved, red sold —
+ * which is also said in words: a badge on Sales, a screen-reader line and a
+ * colour key on Units.
+ *
+ * The table fits its column without scrolling sideways at the narrowest
+ * desktop window: cells are padded 12px a side, the tick and menu columns 8px.
+ */
+
+/** Narrower cell padding than the table's default, so the columns fit beside the structure tree. */
+const FIT = "[&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-3 [&_td:last-child]:px-2 [&_th:last-child]:px-2";
+
+export type UnitListSelection = {
+  isSelected: (id: string) => boolean;
+  toggle: (row: UnitListRow) => void;
+  /** The header tick: ticks or unticks the whole page. */
+  page: "all" | "some" | "none";
+  togglePage: (on: boolean) => void;
+};
+
+const TEST_IDS = {
+  units: { table: "unit-table", row: "unit-row", cards: "unit-cards", card: "unit-card" },
+  sales: { table: "sales-table", row: "sales-row", cards: "sales-cards", card: "sales-card" },
+} as const;
+
+function StatusWords({ row }: { row: UnitListRow }) {
+  return (
+    <span className="sr-only">
+      {" "}
+      (<SalesLabel group="commercialStatus" value={row.saleStatus} fallback={UNIT_SALE_STATUS_LABELS[row.saleStatus]} />)
+    </span>
+  );
+}
+
+/** One line under the Units table naming the row colours (2026-11-09): For sale, Reserved, Sold. Other rows stay plain. */
+export function ColourKey() {
+  const t = useTranslations("projects");
+  return (
+    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-fg-muted" data-testid="unit-colour-key">
+      <span className="sr-only">{t("unitTable.colourKey")}</span>
+      {COMMERCIAL_KEY.map((entry) => (
+        <span key={entry.status} className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className={cn("size-2.5 rounded-full", entry.dot)} />
+          <SalesLabel group="commercialStatus" value={entry.status} fallback={UNIT_SALE_STATUS_LABELS[entry.status]} />
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function RowTick({ row, selection }: { row: UnitListRow; selection: UnitListSelection }) {
+  const t = useTranslations("projects");
+  return <Checkbox checked={selection.isSelected(row.id)} onCheckedChange={() => selection.toggle(row)} aria-label={t("unitList.tick", { code: row.label })} data-testid="unit-tick" />;
+}
+
+export function UnitListTable({
+  kind,
+  rows,
+  total,
+  page,
+  pageSize,
+  onPage,
+  loading,
+  href,
+  selection,
+  rowMenu,
+  cardActions,
+  deal,
+}: {
+  kind: UnitListKind;
+  rows: UnitListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPage: (page: number) => void;
+  loading: boolean;
+  /** Where a row opens: the unit's Overview from Units, its Sales section from Sales. */
+  href: (row: UnitListRow) => string;
+  /** Tick boxes, for somebody who may change units together. */
+  selection?: UnitListSelection;
+  /** The row's own menu at its end (desktop). */
+  rowMenu?: (row: UnitListRow, index: number) => React.ReactNode;
+  /** The card's own actions (phone and tablet). */
+  cardActions?: (row: UnitListRow, index: number) => React.ReactNode;
+  /** Sales: which reservation columns to draw — only once a unit on screen is reserved or sold. */
+  deal?: { show: boolean; client: boolean; deal: boolean };
+}) {
+  const locale = useLocale();
+  const t = useTranslations("projects");
+  const nav = useFeedbackRouter();
+  const ids = TEST_IDS[kind];
+  const sales = kind === "sales";
+  const range = pageWindow(total, page, pageSize);
+  const price = (row: UnitListRow) => moneyLabel(row.askingPrice, row.currency, locale);
+  const areaWord = (row: UnitListRow) => (row.saleArea === null ? null : row.saleAreaBasis === "SALEABLE_AREA" ? t("unitTable.areaSaleable") : t("unitTable.areaGross"));
+  const showDeal = Boolean(sales && deal?.show);
+  // The table from md on Units (no tree beside it below lg); from lg on Sales, which is wider (mobile audit 2d).
+  const tableShown = sales ? "hidden lg:block" : "hidden md:block";
+  const cardsShown = sales ? "lg:hidden" : "md:hidden";
+
+  return (
+    <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
+      <div className={tableShown}>
+        <Table label={sales ? t("unitList.salesTable") : t("unitTable.units")} data-testid={ids.table} className={FIT}>
+          <TableHead>
+            <tr>
+              {selection ? (
+                <TableHeaderCell className="w-px">
+                  <Checkbox
+                    checked={selection.page === "all" ? true : selection.page === "some" ? "indeterminate" : false}
+                    onCheckedChange={() => selection.togglePage(selection.page !== "all")}
+                    aria-label={t("unitList.tickPage")}
+                    data-testid="unit-tick-page"
+                  />
+                </TableHeaderCell>
+              ) : null}
+              <TableHeaderCell>{t("unitTable.unit")}</TableHeaderCell>
+              {sales ? null : <TableHeaderCell>{t("unitTable.type")}</TableHeaderCell>}
+              <TableHeaderCell>{t("unitTable.floor")}</TableHeaderCell>
+              <TableHeaderCell numeric>{t("unitTable.bedrooms")}</TableHeaderCell>
+              {sales ? <TableHeaderCell numeric>{t("unitTable.area")}</TableHeaderCell> : <TableHeaderCell numeric>{t("unitTable.gross")}</TableHeaderCell>}
+              {sales ? <TableHeaderCell>{t("unitTable.status")}</TableHeaderCell> : null}
+              <TableHeaderCell numeric>{t("unitTable.totalPrice")}</TableHeaderCell>
+              {sales ? <TableHeaderCell numeric>{t("unitTable.pricePerSqm")}</TableHeaderCell> : null}
+              {showDeal && deal?.client ? <TableHeaderCell>{t("unitTable.client")}</TableHeaderCell> : null}
+              {showDeal && deal?.deal ? <TableHeaderCell>{t("unitTable.deal")}</TableHeaderCell> : null}
+              {showDeal ? <TableHeaderCell>{t("unitTable.expires")}</TableHeaderCell> : null}
+              {rowMenu ? (
+                <TableHeaderCell className="w-px">
+                  <span className="sr-only">{t("unitTable.actions")}</span>
+                </TableHeaderCell>
+              ) : null}
+            </tr>
+          </TableHead>
+          <TableBody>
+            {rows.map((row, index) => (
+              <TableRow
+                key={row.id}
+                data-testid={ids.row}
+                data-unit-code={row.unitCode}
+                data-status={sales ? row.saleStatus : row.status}
+                interactive
+                selected={selection?.isSelected(row.id)}
+                className={COMMERCIAL_ROW_TINT[row.status]}
+                onClick={(event) => {
+                  // Anywhere on the row opens the unit; the tick box, the menu and the client and deal links keep their own.
+                  if (opensRow(event)) nav.push(href(row));
+                }}
+              >
+                {selection ? (
+                  <TableCell className="w-px">
+                    <RowTick row={row} selection={selection} />
+                  </TableCell>
+                ) : null}
+                <TableCell className="whitespace-nowrap">
+                  <Link href={href(row)} className="font-medium text-fg hover:text-accent-strong">
+                    {row.label}
+                  </Link>
+                  {sales ? <span className="block text-meta text-fg-subtle">{unitTypeName(row.typeName, locale)}</span> : <StatusWords row={row} />}
+                  {row.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
+                  {row.archived ? <Badge className="ml-2" data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
+                </TableCell>
+                {sales ? null : <TableCell>{unitTypeName(row.typeName, locale)}</TableCell>}
+                <TableCell className="whitespace-nowrap">{floorName(row.floorName, locale)}</TableCell>
+                <TableCell numeric>{countText(row.bedrooms)}</TableCell>
+                {sales ? (
+                  <TableCell numeric className="whitespace-nowrap" data-testid="sales-area" data-basis={row.saleAreaBasis}>
+                    {areaText(row.saleArea, locale)}
+                    {areaWord(row) ? <span className="block text-meta text-fg-subtle">{areaWord(row)}</span> : null}
+                  </TableCell>
+                ) : (
+                  <TableCell numeric className="whitespace-nowrap">
+                    {areaText(row.grossArea, locale)}
+                  </TableCell>
+                )}
+                {sales ? (
+                  <TableCell>
+                    <CommercialStatusBadge status={row.saleStatus} />
+                  </TableCell>
+                ) : null}
+                <TableCell numeric className="whitespace-nowrap" data-testid="unit-price">
+                  {price(row)}
+                </TableCell>
+                {sales ? (
+                  <TableCell numeric className="whitespace-nowrap text-fg-muted">
+                    {perSqmLabel(row.pricePerSqm, row.currency, locale)}
+                  </TableCell>
+                ) : null}
+                {showDeal && deal?.client ? (
+                  <TableCell className="max-w-[10rem] truncate">
+                    {row.client ? (
+                      <Link href={`/clients/${row.client.id}`} className="hover:underline">
+                        {row.client.name}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                ) : null}
+                {showDeal && deal?.deal ? (
+                  <TableCell className="max-w-[10rem] truncate">
+                    {row.deal ? (
+                      <Link href={`/sales/opportunities/${row.deal.id}`} className="hover:underline">
+                        {row.deal.name}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                ) : null}
+                {showDeal ? <TableCell className="whitespace-nowrap text-fg-muted">{row.reservationExpiresAt ? formatDate(row.reservationExpiresAt, locale) : "—"}</TableCell> : null}
+                {rowMenu ? <TableCell className="text-right">{rowMenu(row, index)}</TableCell> : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Phone and tablet (MOB-03 §45): the shared record card, with its tick box. The unit opens from the whole card. */}
+      <ul className={cn("space-y-2", cardsShown)} data-testid={ids.cards}>
+        {rows.map((row, index) => {
+          const more = sales
+            ? [areaText(row.saleArea, locale) + (areaWord(row) ? ` ${areaWord(row)}` : ""), row.pricePerSqm !== null ? perSqmLabel(row.pricePerSqm, row.currency, locale) : null].filter(Boolean)
+            : [row.grossArea !== null ? t("unitTable.grossSuffix", { area: areaText(row.grossArea, locale) }) : null, row.askingPrice ? price(row) : null].filter(Boolean);
+          const reservation = sales && (row.client || row.reservationExpiresAt) ? [row.client?.name ?? null, row.reservationExpiresAt ? t("unitTable.expiresOn", { date: formatDate(row.reservationExpiresAt, locale) }) : null].filter(Boolean).join(" · ") : null;
+          return (
+            <MobileRecordCard
+              key={row.id}
+              data={{ "data-testid": ids.card, "data-unit-code": row.unitCode, "data-status": sales ? row.saleStatus : row.status }}
+              href={href(row)}
+              selection={selection ? <span className="grid size-11 place-items-center"><RowTick row={row} selection={selection} /></span> : undefined}
+              selected={selection?.isSelected(row.id)}
+              title={
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-body font-semibold text-fg">
+                    {row.label}
+                    {sales ? null : <StatusWords row={row} />}
+                  </span>
+                  <span className="text-table font-normal text-fg-muted">{unitTypeName(row.typeName, locale)}</span>
+                  {row.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
+                  {row.archived ? <Badge data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
+                </span>
+              }
+              status={sales ? <CommercialStatusBadge status={row.saleStatus} /> : undefined}
+              subtitle={
+                <span className="text-meta text-fg-subtle">
+                  {floorName(row.floorName, locale)}
+                  {row.bedrooms !== null ? t("unitTable.bed", { count: row.bedrooms }) : ""}
+                  {sales && row.askingPrice ? ` · ${price(row)}` : ""}
+                </span>
+              }
+              extra={
+                more.length > 0 || reservation ? (
+                  <>
+                    {more.length > 0 ? (
+                      <p className="mt-1 text-meta text-fg-subtle" data-testid={sales ? "sales-card-more" : "unit-card-more"}>
+                        {more.join(" · ")}
+                      </p>
+                    ) : null}
+                    {reservation ? <p className="mt-1 text-meta text-fg-muted">{reservation}</p> : null}
+                  </>
+                ) : null
+              }
+              actions={cardActions?.(row, index)}
+              className={cn("p-3", COMMERCIAL_CARD_TINT[row.status])}
+            />
+          );
+        })}
+      </ul>
+
+      {sales ? null : <ColourKey />}
+
+      {range.totalPages > 1 ? (
+        <nav aria-label={t("unitTable.pagination")} className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
+            <span className="tabular-nums">
+              {range.from}–{range.to}
+            </span>{" "}
+            {t("unitTable.of")} <span className="tabular-nums">{total}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" disabled={page <= 1 || loading} onClick={() => onPage(page - 1)}>
+              <ChevronLeft aria-hidden="true" />
+              {t("unitTable.previous")}
+            </Button>
+            <span className="text-table tabular-nums text-fg-subtle">{t("unitTable.page", { page: range.page, pages: range.totalPages })}</span>
+            <Button variant="secondary" size="sm" disabled={page >= range.totalPages || loading} onClick={() => onPage(page + 1)}>
+              {t("unitTable.next")}
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          </div>
+        </nav>
+      ) : (
+        <p className="mt-3 text-table text-fg-muted" aria-live="polite" data-testid="pagination-count">
+          {total === 0 ? (
+            <>
+              <span className="tabular-nums">0</span> {t("unitTable.results")}
+            </>
+          ) : (
+            <>
+              <span className="tabular-nums">
+                {range.from}–{range.to}
+              </span>{" "}
+              {t("unitTable.of")} <span className="tabular-nums">{total}</span>
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}

@@ -1030,7 +1030,8 @@ async function riversideProbe() {
  * is publishing's (E-05D), so neither decides whether a role keeps the structure.
  */
 function structureWrites(capabilities: StructureCapabilities): Partial<StructureCapabilities> {
-  return Object.fromEntries(Object.entries(capabilities).filter(([key]) => key !== "canManagePrice" && key !== "canArchiveUnit"));
+  // Sales' grants — the price and the sale status (2026-11-09) — and Archive are not the structure's.
+  return Object.fromEntries(Object.entries(capabilities).filter(([key]) => key !== "canManagePrice" && key !== "canManageSaleStatus" && key !== "canArchiveUnit"));
 }
 
 async function keepStructure(context: UserContext, projectId: string, label: string) {

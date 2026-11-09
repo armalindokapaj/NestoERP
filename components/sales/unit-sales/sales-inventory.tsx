@@ -1,27 +1,23 @@
 "use client";
 
 import * as React from "react";
-import Link from "@/components/navigation/nav-link";
-import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { BookmarkCheck, ExternalLink, MoreHorizontal, Tag, Tags, Unlock } from "lucide-react";
 
-import { selectClass } from "@/components/forms/record-form";
-import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
-import { areaText, numberText } from "@/components/project-structure/structure-ui";
+import { useTranslations } from "@/components/i18n/i18n-provider";
+import Link from "@/components/navigation/nav-link";
+import { RecordActionSheet, SheetActionButton } from "@/components/data/record-action-sheet";
+import { activeCount, EMPTY_FILTERS, filterParams, type UnitListFilters } from "@/components/project-structure/unit-filters";
+import { canChangeTogether, fetchSelection, SelectionHelp, useUnitBulk } from "@/components/project-structure/unit-list/unit-bulk";
+import { rowFromInventory, selectedFromRow, type UnitListRow } from "@/components/project-structure/unit-list/unit-list-row";
+import { UnitListTable } from "@/components/project-structure/unit-list/unit-list-table";
+import { UnitListToolbar } from "@/components/project-structure/unit-list/unit-list-toolbar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { SearchField } from "@/components/ui/search-field";
-import { opensRow, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
-import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
-import { formatDate } from "@/lib/i18n/format";
-import { COUNT_CHOICES, ORIENTATION_LABELS, UNIT_ORIENTATIONS, type UnitOrientation } from "@/lib/modules/project-structure/structure.types";
-import type { InventorySort } from "@/lib/modules/sales/units/unit-sales.schema";
-import { UNIT_SALE_STATUS_LABELS, type InventoryDTO, type InventoryRowDTO, type UnitSaleStatus } from "@/lib/modules/sales/units/unit-sales.types";
-import { cn } from "@/lib/utils/cn";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
+import { pageState, refreshUnits } from "@/lib/modules/project-structure/unit-bulk.rules";
+import { UNIT_SALE_STATUS_LABELS, type InventoryDTO, type UnitSaleStatus } from "@/lib/modules/sales/units/unit-sales.types";
+import { cn } from "@/lib/utils/cn";
 import { useSalesTranslations } from "@/components/sales/sales-text";
-import { COMMERCIAL_CARD_TINT, COMMERCIAL_ROW_TINT, CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
-import { FormSelect } from "@/components/ui/form-select";
 
 /**
  * A project's units as Sales sees them (E-05E §13, §14, §55).
@@ -29,59 +25,29 @@ import { FormSelect } from "@/components/ui/form-select";
  * The canonical units — no copy — filtered, searched and sorted by the server a
  * page at a time. The quick filters say how many units each would show under
  * every other filter; a unit nobody has priced reads Not Priced and has its
- * own (2026-11-09). A row opens the unit's Sales section; on a phone each unit
- * is a card with what decides a sale, and the reserve and release actions the
- * reader may take land on that section with the dialog open.
+ * own (2026-11-09). A row opens the unit's Sales section.
  *
- * The same words as the Units table (2026-11-09): the unit is named "T-501",
- * its building's code and its own, so the Floor column carries no building;
- * the area is the sale area — saleable when typed, else gross, and the column
- * says which; Client, Deal and Expires appear once a unit on screen is
- * reserved or sold, or the Reserved or Sold filter is chosen.
+ * The table, the toolbar and the tick boxes are the Units tab's own
+ * (2026-11-09, "Two tabs, one table"): the same code ("T-501"), the same words
+ * and the same sort list, with Sales' columns — the sale area and which area
+ * it is, the status, the price per m², and Client, Deal and Expires once a
+ * unit on screen is reserved or sold, or the Reserved or Sold chip is chosen.
+ * Ticked units take Set price and Put on sale / Take off sale together. A row's
+ * menu offers what the reader may do to that unit: open it, set its price, put
+ * it on sale or take it off, and reserve or release it on its Sales section
+ * with the dialog open (`?action=`).
  */
 
-export type InventoryFilters = {
-  q: string;
-  commercialStatus: string;
-  buildingId: string;
-  floorId: string;
-  unitTypeId: string;
-  orientation: string;
-  bedrooms: string;
-  bathrooms: string;
-  areaMin: string;
-  areaMax: string;
-  priceMin: string;
-  priceMax: string;
-  pricePerSqmMin: string;
-  pricePerSqmMax: string;
-  sort: InventorySort;
-};
+export type InventoryFilters = UnitListFilters;
 
-export const EMPTY_INVENTORY_FILTERS: InventoryFilters = { q: "", commercialStatus: "", buildingId: "", floorId: "", unitTypeId: "", orientation: "", bedrooms: "", bathrooms: "", areaMin: "", areaMax: "", priceMin: "", priceMax: "", pricePerSqmMin: "", pricePerSqmMax: "", sort: "structure" };
-
-const PANEL_KEYS = ["buildingId", "floorId", "unitTypeId", "orientation", "bedrooms", "bathrooms", "areaMin", "areaMax", "priceMin", "priceMax", "pricePerSqmMin", "pricePerSqmMax"] as const;
 const QUICK: Array<UnitSaleStatus | ""> = ["", "FOR_SALE", "NOT_PRICED", "ON_HOLD", "RESERVED", "SOLD", "NOT_FOR_SALE"];
-const SORT_LABELS: Record<InventorySort, string> = {
-  structure: "Building and floor",
-  code: "Unit code",
-  price: "Price, low to high",
-  "-price": "Price, high to low",
-  pricePerSqm: "Price/m², low to high",
-  "-pricePerSqm": "Price/m², high to low",
-  area: "Area, small to large",
-  "-area": "Area, large to small",
-  expiry: "Reservation expiry",
-};
 
 type Place = { id: string; name: string; floors: Array<{ id: string; name: string }> };
 
+export type InventoryActions = { canReserve: boolean; canRelease: boolean; canManagePrice: boolean; canManageStatus: boolean };
+
 function queryString(filters: InventoryFilters, page: number): string {
-  const params = new URLSearchParams();
-  if (filters.q.trim()) params.set("q", filters.q.trim());
-  if (filters.commercialStatus) params.set("commercialStatus", filters.commercialStatus);
-  for (const key of PANEL_KEYS) if (filters[key]) params.set(key, filters[key]);
-  if (filters.sort !== "structure") params.set("sort", filters.sort);
+  const params = filterParams(filters, "sales");
   if (page > 1) params.set("page", String(page));
   return params.toString();
 }
@@ -99,11 +65,10 @@ export function SalesInventory({
   initialFilters: InventoryFilters;
   buildings: Place[];
   unitTypes: Array<{ id: string; name: string }>;
-  actions: { canReserve: boolean; canRelease: boolean };
+  actions: InventoryActions;
 }) {
-  const locale = useLocale();
   const t = useSalesTranslations();
-  const tUi = useTranslations("ui");
+  const tp = useTranslations("projects");
   const [filters, setFilters] = React.useState(initialFilters);
   const [search, setSearch] = React.useState(initialFilters.q);
   const [page, setPage] = React.useState(initial.page);
@@ -111,12 +76,8 @@ export function SalesInventory({
   const [loading, setLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [reloadKey, setReloadKey] = React.useState(0);
-  const [panelOpen, setPanelOpen] = React.useState(PANEL_KEYS.some((key) => initialFilters[key]));
   const firstLoad = React.useRef(true);
-
-  const panelCount = PANEL_KEYS.filter((key) => filters[key]).length;
-  const active = panelCount + (filters.q.trim() ? 1 : 0) + (filters.commercialStatus ? 1 : 0);
-  const floors = buildings.find((building) => building.id === filters.buildingId)?.floors ?? buildings.flatMap((building) => building.floors.map((floor) => ({ ...floor, name: `${building.name} · ${floorName(floor.name, locale)}` })));
+  const active = activeCount(filters, "sales");
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setFilters((current) => (current.q === search ? current : { ...current, q: search })), 300);
@@ -156,20 +117,127 @@ export function SalesInventory({
 
   function clear() {
     setSearch("");
-    setFilters({ ...EMPTY_INVENTORY_FILTERS, sort: filters.sort });
+    setFilters((current) => ({ ...EMPTY_FILTERS, sort: current.sort }));
     setPage(1);
   }
 
-  const nav = useFeedbackRouter();
-  const href = (row: InventoryRowDTO) => `/projects/${projectId}/units/${row.id}`;
+  /* Ticking units and changing them together (2026-11-09) ----------------------- */
+
+  const bulkCaps = { details: false, price: actions.canManagePrice, status: actions.canManageStatus, move: false, archive: false };
+  const canTick = canChangeTogether(bulkCaps);
+  const shownKey = React.useMemo(() => filterParams({ ...filters, sort: "structure" }, "sales").toString(), [filters]);
+  const reload = React.useCallback(() => setReloadKey((key) => key + 1), []);
+  const bulk = useUnitBulk({ projectId, caps: bulkCaps, resetKey: shownKey, onChanged: reload });
+  const { setSelection: setTicks } = bulk;
+  const rows = React.useMemo(() => list.items.map(rowFromInventory), [list]);
+  React.useEffect(() => {
+    setTicks((current) => refreshUnits(current, rows.map(selectedFromRow)));
+  }, [rows, setTicks]);
+  const ticks = bulk.selection;
+  const pageTicks = pageState(ticks, rows.map((row) => row.id));
+
+  const href = (row: UnitListRow) => `/projects/${projectId}/units/${row.id}`;
   // Sales opens the unit where it is sold: its Sales section, not its Overview (2026-11-09).
-  const salesHref = (row: InventoryRowDTO) => `${href(row)}/sales`;
+  const salesHref = (row: UnitListRow) => `${href(row)}/sales`;
   // The reservation's columns, only once there is something to show in them — or the reader asked for reserved or sold units.
   const showDeal = filters.commercialStatus === "RESERVED" || filters.commercialStatus === "SOLD" || list.items.some((row) => row.status === "RESERVED" || row.status === "SOLD");
-  const areaWord = (row: InventoryRowDTO) => (row.saleArea === null ? null : row.saleAreaBasis === "SALEABLE_AREA" ? t("inventory.areaSaleable") : t("inventory.areaGross"));
-  const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
-  const first = list.total ? (list.page - 1) * list.pageSize + 1 : 0;
-  const last = Math.min(list.page * list.pageSize, list.total);
+
+  /** What the reader may do to one unit from its row, by their grants and where the unit stands. */
+  const offers = (row: UnitListRow) => ({
+    price: actions.canManagePrice && row.status !== "SOLD",
+    putOnSale: actions.canManageStatus && row.status === "NOT_FOR_SALE" && row.isActive && row.published,
+    takeOffSale: actions.canManageStatus && row.status === "FOR_SALE",
+    reserve: actions.canReserve && (row.status === "FOR_SALE" || row.status === "ON_HOLD") && row.published,
+    release: actions.canRelease && row.status === "RESERVED",
+  });
+
+  const rowMenu = (row: UnitListRow) => {
+    const can = offers(row);
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label={tp("unitTable.actionsFor", { code: row.label })} data-testid="sales-row-menu">
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link href={salesHref(row)}>
+              <ExternalLink aria-hidden="true" />
+              {tp("unitTable.openUnit")}
+            </Link>
+          </DropdownMenuItem>
+          {can.price ? (
+            <DropdownMenuItem onSelect={() => bulk.start("price", [selectedFromRow(row)])}>
+              <Tag aria-hidden="true" />
+              {tp("unitList.action.price")}
+            </DropdownMenuItem>
+          ) : null}
+          {can.putOnSale ? (
+            <DropdownMenuItem onSelect={() => bulk.start("put_on_sale", [selectedFromRow(row)])}>
+              <Tags aria-hidden="true" />
+              {tp("unitList.action.putOnSale")}
+            </DropdownMenuItem>
+          ) : null}
+          {can.takeOffSale ? (
+            <DropdownMenuItem onSelect={() => bulk.start("take_off_sale", [selectedFromRow(row)])}>
+              <Tags aria-hidden="true" />
+              {tp("unitList.action.takeOffSale")}
+            </DropdownMenuItem>
+          ) : null}
+          {can.reserve ? (
+            <DropdownMenuItem asChild>
+              <Link href={`${salesHref(row)}?action=reserve`}>
+                <BookmarkCheck aria-hidden="true" />
+                {tp("unitList.action.reserve")}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+          {can.release ? (
+            <DropdownMenuItem asChild>
+              <Link href={`${salesHref(row)}?action=release`}>
+                <Unlock aria-hidden="true" />
+                {tp("unitList.action.release")}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  // A card keeps its Deal, Reserve and Release buttons (AUD-04 §5, MW-05); pricing and the sale status are one sheet.
+  const cardActions = (row: UnitListRow) => {
+    const can = offers(row);
+    return (
+      <>
+        {list.canSeeDeals && row.deal ? (
+          <Button asChild variant="secondary" size="sm" className="max-w-full">
+            <Link href={`/sales/opportunities/${row.deal.id}`} aria-label={t("inventory.dealLabel", { name: row.deal.name })}>
+              <span className="truncate">{t("inventory.dealLabel", { name: row.deal.name })}</span>
+            </Link>
+          </Button>
+        ) : null}
+        {can.reserve ? (
+          <Button asChild size="sm">
+            <Link href={`${salesHref(row)}?action=reserve`}>{t("inventory.reserve")}</Link>
+          </Button>
+        ) : null}
+        {can.release ? (
+          <Button asChild variant="secondary" size="sm">
+            <Link href={`${salesHref(row)}?action=release`}>{t("inventory.release")}</Link>
+          </Button>
+        ) : null}
+        {can.price || can.putOnSale || can.takeOffSale ? (
+          <RecordActionSheet name={row.label}>
+            {can.price ? <SheetActionButton onSelect={() => bulk.start("price", [selectedFromRow(row)])} icon={<Tag aria-hidden="true" />}>{tp("unitList.action.price")}</SheetActionButton> : null}
+            {can.putOnSale ? <SheetActionButton onSelect={() => bulk.start("put_on_sale", [selectedFromRow(row)])} icon={<Tags aria-hidden="true" />}>{tp("unitList.action.putOnSale")}</SheetActionButton> : null}
+            {can.takeOffSale ? <SheetActionButton onSelect={() => bulk.start("take_off_sale", [selectedFromRow(row)])} icon={<Tags aria-hidden="true" />}>{tp("unitList.action.takeOffSale")}</SheetActionButton> : null}
+          </RecordActionSheet>
+        ) : null}
+      </>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -196,46 +264,17 @@ export function SalesInventory({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchField
-          className="w-full sm:w-auto sm:min-w-0 sm:max-w-xs sm:flex-1"
-          placeholder={list.canSeeClients || list.canSeeDeals ? t("inventory.searchWide") : t("inventory.searchNarrow")}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          aria-label={t("inventory.searchUnits")}
-        />
-        <Button variant="secondary" onClick={() => setPanelOpen((open) => !open)} aria-expanded={panelOpen}>
-          <SlidersHorizontal aria-hidden="true" />
-          {tUi("filters")}{panelCount ? ` (${panelCount})` : ""}
-        </Button>
-        <FormSelect aria-label={t("inventory.sortUnits")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => setFilter({ sort: event.target.value as InventorySort })}>
-          {(Object.keys(SORT_LABELS) as InventorySort[]).map((sort) => (
-            <option key={sort} value={sort}>
-              {t(`inventory.sort.${sort}` as "inventory.sort.code")}
-            </option>
-          ))}
-        </FormSelect>
-        {active ? (
-          <Button variant="ghost" onClick={clear}>
-            <RotateCcw aria-hidden="true" />
-            {t("inventory.clearFilters")}
-          </Button>
-        ) : null}
-      </div>
-
-      {panelOpen ? (
-        <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="sales-filters">
-          <FilterSelect label={t("inventory.building")} value={filters.buildingId} onChange={(buildingId) => setFilter({ buildingId, floorId: "" })} options={buildings.map((building) => ({ value: building.id, label: building.name }))} />
-          <FilterSelect label={t("inventory.floor")} value={filters.floorId} onChange={(floorId) => setFilter({ floorId })} options={floors.map((floor) => ({ value: floor.id, label: floorName(floor.name, locale) }))} />
-          <FilterSelect label={t("inventory.unitType")} value={filters.unitTypeId} onChange={(unitTypeId) => setFilter({ unitTypeId })} options={unitTypes.map((type) => ({ value: type.id, label: unitTypeName(type.name, locale) }))} />
-          <FilterSelect label={t("inventory.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={COUNT_CHOICES.bedrooms.map((value) => ({ value: String(value), label: String(value) }))} />
-          <FilterSelect label={t("inventory.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={COUNT_CHOICES.bathrooms.map((value) => ({ value: String(value), label: String(value) }))} />
-          <FilterSelect label={t("inventory.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: salesLabel(t, "orientation", value, ORIENTATION_LABELS[value]) }))} />
-          <RangeFilter label={t("inventory.areaRange")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
-          <RangeFilter label={t("inventory.totalPrice")} min={filters.priceMin} max={filters.priceMax} onChange={(priceMin, priceMax) => setFilter({ priceMin, priceMax })} />
-          <RangeFilter label={t("inventory.pricePerSqm")} min={filters.pricePerSqmMin} max={filters.pricePerSqmMax} onChange={(pricePerSqmMin, pricePerSqmMax) => setFilter({ pricePerSqmMin, pricePerSqmMax })} />
-        </div>
-      ) : null}
+      <UnitListToolbar
+        kind="sales"
+        filters={filters}
+        search={search}
+        onSearch={setSearch}
+        onChange={setFilter}
+        onClear={clear}
+        placeholder={list.canSeeClients || list.canSeeDeals ? tp("workspace.searchSales") : tp("workspace.searchPlaceholder")}
+        unitTypes={unitTypes}
+        buildings={buildings}
+      />
 
       {loadError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger-soft px-4 py-3 text-table text-danger-strong" role="alert">
@@ -249,185 +288,49 @@ export function SalesInventory({
           {active ? t("inventory.noMatch") : t("inventory.noUnits")}
         </p>
       ) : (
-        <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
-          {active ? <p className="mb-2 text-table text-fg-muted">{t("inventory.unitCount", { count: list.total })}</p> : null}
-          {/* The table from lg; below it the cards, which carry every column — at 768–1023px the table needed ~1170px (mobile audit 2d). */}
-          <div className="hidden lg:block">
-            <Table label={t("inventory.table")} data-testid="sales-table">
-              <TableHead>
-                <tr>
-                  <TableHeaderCell>{t("inventory.unit")}</TableHeaderCell>
-                  <TableHeaderCell>{t("inventory.floor")}</TableHeaderCell>
-                  <TableHeaderCell className="text-right">{t("inventory.area")}</TableHeaderCell>
-                  <TableHeaderCell className="text-right">{t("inventory.bedrooms")}</TableHeaderCell>
-                  <TableHeaderCell className="hidden 2xl:table-cell">{t("inventory.orientation")}</TableHeaderCell>
-                  <TableHeaderCell>{t("inventory.status")}</TableHeaderCell>
-                  <TableHeaderCell className="text-right">{t("inventory.totalPrice")}</TableHeaderCell>
-                  <TableHeaderCell className="text-right">{t("inventory.pricePerSqm")}</TableHeaderCell>
-                  {showDeal && list.canSeeClients ? <TableHeaderCell>{t("inventory.client")}</TableHeaderCell> : null}
-                  {showDeal && list.canSeeDeals ? <TableHeaderCell>{t("inventory.deal")}</TableHeaderCell> : null}
-                  {showDeal ? <TableHeaderCell>{t("inventory.expires")}</TableHeaderCell> : null}
-                </tr>
-              </TableHead>
-              <TableBody>
-                {list.items.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-testid="sales-row"
-                    data-unit-code={row.unitCode}
-                    data-status={row.saleStatus}
-                    interactive
-                    className={COMMERCIAL_ROW_TINT[row.status]}
-                    onClick={(event) => {
-                      // Anywhere on the row opens the unit's Sales section; the client and deal links keep their own targets.
-                      if (opensRow(event)) nav.push(salesHref(row));
-                    }}
-                  >
-                    <TableCell className="whitespace-nowrap">
-                      <Link href={salesHref(row)} className="font-medium text-fg hover:text-accent-strong">
-                        {row.label}
-                      </Link>
-                      <span className="block text-meta text-fg-subtle">{unitTypeName(row.unitType, locale)}</span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{floorName(row.floor, locale)}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums" data-testid="sales-area" data-basis={row.saleAreaBasis}>
-                      {areaText(row.saleArea, locale)}
-                      {areaWord(row) ? <span className="block text-meta text-fg-subtle">{areaWord(row)}</span> : null}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{row.bedrooms ?? "—"}</TableCell>
-                    <TableCell className="hidden text-fg-muted 2xl:table-cell">{row.orientation ? salesLabel(t, "orientation", row.orientation, ORIENTATION_LABELS[row.orientation as UnitOrientation]) : "—"}</TableCell>
-                    <TableCell>
-                      <CommercialStatusBadge status={row.saleStatus} />
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{moneyLabel(row.askingPrice, row.currency, locale)}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums text-fg-muted">{perSqmLabel(row.pricePerSqm, row.currency, locale)}</TableCell>
-                    {showDeal && list.canSeeClients ? <TableCell className="max-w-[10rem] truncate">{row.client ? <Link href={`/clients/${row.client.id}`} className="hover:underline">{row.client.name}</Link> : "—"}</TableCell> : null}
-                    {showDeal && list.canSeeDeals ? <TableCell className="max-w-[10rem] truncate">{row.deal ? <Link href={`/sales/opportunities/${row.deal.id}`} className="hover:underline">{row.deal.name}</Link> : "—"}</TableCell> : null}
-                    {showDeal ? <TableCell className="whitespace-nowrap text-fg-muted">{row.reservationExpiresAt ? formatDate(row.reservationExpiresAt, locale) : "—"}</TableCell> : null}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          <ul className="space-y-2 lg:hidden" data-testid="sales-cards">
-            {list.items.map((row) => (
-              <li key={row.id} className={cn("nesto-card p-3", COMMERCIAL_CARD_TINT[row.status])} data-testid="sales-card" data-unit-code={row.unitCode} data-status={row.saleStatus}>
-                <Link href={salesHref(row)} className="block min-w-0">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-body font-semibold text-fg">{row.label}</span>
-                    <CommercialStatusBadge status={row.saleStatus} />
-                    <span className="ml-auto text-body font-medium tabular-nums text-fg">{moneyLabel(row.askingPrice, row.currency, locale)}</span>
-                  </span>
-                  <span className="mt-0.5 block text-meta text-fg-subtle">
-                    {floorName(row.floor, locale)} · {areaText(row.saleArea, locale)}
-                    {areaWord(row) ? ` ${areaWord(row)}` : null}
-                    {row.pricePerSqm !== null ? ` · ${perSqmLabel(row.pricePerSqm, row.currency, locale)}` : null}
-                  </span>
-                  {row.client || row.reservationExpiresAt ? (
-                    <span className="mt-1 block text-meta text-fg-muted">
-                      {row.client ? row.client.name : null}
-                      {row.client && row.reservationExpiresAt ? " · " : null}
-                      {row.reservationExpiresAt ? t("inventory.expiresOn", { date: formatDate(row.reservationExpiresAt, locale) }) : null}
-                    </span>
-                  ) : null}
-                </Link>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button asChild variant="secondary" size="sm">
-                    <Link href={salesHref(row)}>{t("inventory.open")}</Link>
-                  </Button>
-                  {/* The table's Deal column, so a phone reaches the unit's deal too (AUD-04 §5, MW-05). */}
-                  {list.canSeeDeals && row.deal ? (
-                    <Button asChild variant="secondary" size="sm" className="max-w-full">
-                      <Link href={`/sales/opportunities/${row.deal.id}`} aria-label={t("inventory.dealLabel", { name: row.deal.name })}>
-                        <span className="truncate">{t("inventory.dealLabel", { name: row.deal.name })}</span>
-                      </Link>
-                    </Button>
-                  ) : null}
-                  {actions.canReserve && (row.status === "FOR_SALE" || row.status === "ON_HOLD") && row.publicationStatus === "PUBLISHED" ? (
-                    <Button asChild size="sm">
-                      <Link href={`${salesHref(row)}?action=reserve`}>{t("inventory.reserve")}</Link>
-                    </Button>
-                  ) : null}
-                  {actions.canRelease && row.status === "RESERVED" ? (
-                    <Button asChild variant="secondary" size="sm">
-                      <Link href={`${salesHref(row)}?action=release`}>{t("inventory.release")}</Link>
-                    </Button>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          {list.total > list.pageSize ? (
-            <nav aria-label={t("inventory.pagination")} className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-table text-fg-muted">
-                <span className="tabular-nums">
-                  {first}–{last}
-                </span>{" "}
-                {t("inventory.of")} <span className="tabular-nums">{list.total}</span>
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" disabled={list.page <= 1 || loading} onClick={() => setPage(list.page - 1)}>
-                  <ChevronLeft aria-hidden="true" />
-                  {t("inventory.previous")}
-                </Button>
-                <span className="text-table tabular-nums text-fg-subtle">
-                  {t("inventory.pageOf", { page: list.page, pages })}
-                </span>
-                <Button variant="secondary" size="sm" disabled={list.page >= pages || loading} onClick={() => setPage(list.page + 1)}>
-                  {t("inventory.next")}
-                  <ChevronRight aria-hidden="true" />
-                </Button>
-              </div>
-            </nav>
+        <div className="space-y-3">
+          {active ? <p className="text-table text-fg-muted">{t("inventory.unitCount", { count: list.total })}</p> : null}
+          {canTick ? (
+            <SelectionHelp
+              ticked={ticks.size}
+              page={pageTicks}
+              total={list.total}
+              limit={500}
+              onSelectAll={async () => {
+                const params = filterParams(filters, "sales");
+                params.set("select", "all");
+                const found = await fetchSelection(`/api/projects/${projectId}/sales/units?${params.toString()}`);
+                bulk.setMany(found.units, true);
+              }}
+            />
           ) : null}
+          <UnitListTable
+            kind="sales"
+            rows={rows}
+            total={list.total}
+            page={list.page}
+            pageSize={list.pageSize}
+            onPage={setPage}
+            loading={loading}
+            href={salesHref}
+            deal={{ show: showDeal, client: list.canSeeClients, deal: list.canSeeDeals }}
+            selection={
+              canTick
+                ? {
+                    isSelected: (id) => ticks.has(id),
+                    toggle: (row) => bulk.toggle(selectedFromRow(row)),
+                    page: pageTicks,
+                    togglePage: (on) => bulk.setMany(rows.map(selectedFromRow), on),
+                  }
+                : undefined
+            }
+            rowMenu={rowMenu}
+            cardActions={cardActions}
+          />
+          {bulk.bar}
         </div>
       )}
+      {bulk.dialogs}
     </div>
-  );
-}
-
-function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  const t = useSalesTranslations();
-  const id = `sales-filter-${label.toLowerCase().replace(/\W+/g, "-")}`;
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-meta font-medium text-fg-muted">
-        {label}
-      </label>
-      <FormSelect id={id} className={cn(selectClass, "h-9")} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{t("inventory.any")}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </FormSelect>
-    </div>
-  );
-}
-
-function RangeFilter({ label, min, max, onChange }: { label: string; min: string; max: string; onChange: (min: string, max: string) => void }) {
-  const t = useSalesTranslations();
-  const [low, setLow] = React.useState(min);
-  const [high, setHigh] = React.useState(max);
-  React.useEffect(() => {
-    setLow(min);
-    setHigh(max);
-  }, [min, max]);
-  const apply = () => {
-    const valid = (value: string) => (/^\d{1,16}(\.\d{1,2})?$/.test(value) ? value : "");
-    if (valid(low) !== min || valid(high) !== max) onChange(valid(low), valid(high));
-  };
-  return (
-    <fieldset className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
-      <legend className="mb-1 text-meta font-medium text-fg-muted">{label}</legend>
-      <div className="flex items-center gap-1.5">
-        <Input aria-label={t("inventory.from", { label })} placeholder={t("inventory.min")} inputMode="decimal" className="h-9" value={low} onChange={(event) => setLow(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
-        <span className="text-fg-subtle">–</span>
-        <Input aria-label={t("inventory.to", { label })} placeholder={t("inventory.max")} inputMode="decimal" className="h-9" value={high} onChange={(event) => setHigh(numberText(event.target.value))} onBlur={apply} onKeyDown={(event) => event.key === "Enter" && apply()} />
-      </div>
-    </fieldset>
   );
 }

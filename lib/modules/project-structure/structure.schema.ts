@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { UNIT_TYPE_CATEGORIES, UNIT_TYPE_CODE_MAX, UNIT_TYPE_NAME_MAX } from "@/config/unit-types";
-import { COUNT_CHOICES, type CountField, FLOOR_LEVEL_TYPES, MAX_BULK_FLOORS, MAX_BULK_UNITS, UNIT_ORIENTATIONS, UNIT_SORTS, UNIT_PAGE_SIZE } from "./structure.types";
+import { COUNT_CHOICES, type CountField, FLOOR_LEVEL_TYPES, MAX_BULK_FLOORS, MAX_BULK_UNITS, UNIT_MISSING_KINDS, UNIT_ORIENTATIONS, UNIT_SORTS, UNIT_PAGE_SIZE } from "./structure.types";
 
 /**
  * Structure validation (E-05B §72, §124-§126). Ids are shapes only: whether a
@@ -161,17 +161,33 @@ const technicalFields = {
 
 export const createUnitSchema = z.object({ unitCode, ...technicalFields });
 /**
- * A unit edit (AUD-09 §4, FV-05): the code, the type, whether it is active and
- * the version are always sent; every other technical field may be left out
- * and then keeps its saved value — an absent area used to become `null` and
- * erase it. `null` (or `""`) clears. The dialog sends every field, so for it
- * nothing changes.
+ * A unit edit (AUD-09 §4, FV-05): the code, the type and the version are
+ * always sent; every other technical field may be left out and then keeps its
+ * saved value — an absent area used to become `null` and erase it. `null` (or
+ * `""`) clears. The dialog sends every field. `isActive` too keeps its saved
+ * value when left out: the dialog has had no Active tick since a unit leaves
+ * use by Archive (2026-11-09).
  */
 const keptTechnical = Object.fromEntries(
   Object.entries(technicalFields).map(([key, schema]) => [key, key === "unitTypeId" ? schema : (schema as z.ZodTypeAny).optional()]),
 ) as { [K in keyof typeof technicalFields]: K extends "unitTypeId" ? (typeof technicalFields)[K] : z.ZodOptional<(typeof technicalFields)[K]> };
 
-export const updateUnitSchema = z.object({ unitCode, ...keptTechnical, isActive: z.boolean(), expectedVersion });
+export const updateUnitSchema = z.object({ unitCode, ...keptTechnical, isActive: z.boolean().optional(), expectedVersion });
+
+/**
+ * One change for many units (2026-11-09, "Edit details" on ticked units): the
+ * technical fields the person touched, each optional — a field left out keeps
+ * every unit's own value, `null` clears it. Not the code, which is each unit's
+ * own, nor the gross area or attributes, which belong to one unit's type.
+ */
+export const BULK_DETAIL_FIELDS = ["unitTypeId", "orientation", "internalArea", "balconyArea", "terraceArea", "commonAreaAllocation", "saleableArea", "outdoorArea", "gardenArea", "bedrooms", "bathrooms", "storage", "description"] as const satisfies ReadonlyArray<keyof typeof technicalFields>;
+export type BulkDetailField = (typeof BULK_DETAIL_FIELDS)[number];
+
+export const unitDetailsChangeSchema = z
+  .object(Object.fromEntries(BULK_DETAIL_FIELDS.map((field) => [field, (technicalFields[field] as z.ZodTypeAny).optional()])) as { [K in BulkDetailField]: z.ZodOptional<(typeof technicalFields)[K]> })
+  .strict()
+  .refine((change) => Object.values(change).some((value) => value !== undefined), "Change at least one field.");
+export type UnitDetailsChange = z.infer<typeof unitDetailsChangeSchema>;
 export const bulkUnitsSchema = z.object({
   units: z.array(z.object({ unitCode })).min(1, "Add at least one unit.").max(MAX_BULK_UNITS, `Create at most ${MAX_BULK_UNITS} units at once.`),
   defaults: z.object(technicalFields),
@@ -195,6 +211,7 @@ export type CopyUnitsInput = z.infer<typeof copyUnitsSchema>;
 const optionalId = idSchema.optional().catch(undefined);
 const optionalCount = z.coerce.number().int().min(0).max(10_000).optional().catch(undefined);
 const optionalArea = z.string().regex(/^\d{1,10}(\.\d{1,2})?$/).optional().catch(undefined);
+const optionalAmount = z.string().regex(/^\d{1,16}(\.\d{1,2})?$/).optional().catch(undefined);
 
 export const unitListQuerySchema = z.object({
   q: z.string().trim().max(100).optional().catch(undefined),
@@ -209,6 +226,13 @@ export const unitListQuerySchema = z.object({
   // The sale area: saleable when typed, else gross (2026-11-09).
   areaMin: optionalArea,
   areaMax: optionalArea,
+  // The asking price and the price per m² of the sale area, as Sales filters them (2026-11-09).
+  priceMin: optionalAmount,
+  priceMax: optionalAmount,
+  pricePerSqmMin: optionalAmount,
+  pricePerSqmMax: optionalAmount,
+  // Only for a selection read (`select=all`): the units still missing this.
+  missing: z.enum(UNIT_MISSING_KINDS).optional().catch(undefined),
   // Publishing (E-05D §13): a unit is Published or Archived (units publish on create, 2026-11). An old
   // link's retired status or `unpublishedChanges=true` is ignored, not refused — unknown keys are dropped.
   publicationStatus: z.enum(["PUBLISHED", "ARCHIVED"]).optional().catch(undefined),

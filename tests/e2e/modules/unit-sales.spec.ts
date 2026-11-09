@@ -203,6 +203,43 @@ test("the inventory filters by status and searches, and a draft unit cannot be o
   await expect(mainRegion(page).getByRole("button", { name: "Put on sale" })).toHaveCount(0);
 });
 
+test("Sales offers a row's own actions, and prices ticked units together (2026-11-09)", async ({ page }) => {
+  await signIn(page, "SALES", { to: `/projects/${PROJECT}/sales` });
+  await page.getByRole("searchbox", { name: "Search units" }).fill("Q-10");
+  const rows = page.getByTestId("sales-table").getByTestId("sales-row");
+  await expect(rows).toHaveCount(3);
+
+  // A unit for sale: open it, set its price, take it off sale, reserve it.
+  await rows.filter({ hasText: "Q-102" }).getByTestId("sales-row-menu").click();
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem")).toHaveText(["Open unit", "Set price", "Take off sale", "Reserve"]);
+  await page.keyboard.press("Escape");
+  // A draft unit cannot be offered, so its menu has no Put on sale.
+  await rows.filter({ hasText: "Q-103" }).getByTestId("sales-row-menu").click();
+  await expect(page.getByRole("menu").getByRole("menuitem", { name: "Put on sale" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Tick the draft and price it: the price saves, and the unit stays off sale, named with the reason.
+  await rows.filter({ hasText: "Q-103" }).getByTestId("unit-tick").click();
+  const bar = mainRegion(page).getByTestId("unit-selection-bar");
+  await expect(bar.getByTestId("unit-selection-count")).toHaveText("1 unit selected");
+  await bar.getByTestId("bulk-price").click();
+  const price = page.getByRole("dialog", { name: "Set the price of 1 unit" });
+  await expect(price.getByTestId("bulk-price-entry-per-sqm")).toBeChecked();
+  await price.getByText("Total price").first().click();
+  await price.getByTestId("bulk-price-amount").fill("150000");
+  await expect(price.getByTestId("bulk-price-put-on-sale").getByRole("checkbox")).toBeChecked();
+  await price.getByTestId("bulk-price-apply").click();
+  const result = page.getByTestId("bulk-result");
+  await expect(result).toContainText("1 priced unit stayed off sale");
+  await expect(result.getByTestId("bulk-skipped")).toContainText("Q-103");
+  // The footer's Close; the dialog's corner × has the same name.
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).last().click();
+  await expect(rows.filter({ hasText: "Q-103" }).getByTestId("commercial-status")).toHaveText("Not For Sale");
+  const profile = await db.unitCommercialProfile.findFirstOrThrow({ where: { unitId: DRAFT }, select: { askingPrice: true, status: true } });
+  expect([profile.askingPrice?.toFixed(2), profile.status]).toEqual(["150000.00", "NOT_FOR_SALE"]);
+});
+
 test("an Architect sees a unit's commercial status, but not its sale", async ({ page }) => {
   await signIn(page, "ARCHITECT", { to: `/projects/${PROJECT}/units/${OFFER}` });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Q-101");

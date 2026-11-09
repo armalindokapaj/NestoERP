@@ -194,6 +194,45 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   expect(unit).toEqual({ unitCode: "T-201A", floor: { name: "Floor 3" } });
 });
 
+test("the project manager ticks units and changes them together (2026-11-09)", async ({ page }) => {
+  await signIn(page, "PM_B", { to: `/projects/${PROJECT}/units` });
+  await chooseFloor(page, "Floor 1");
+  const rows = page.getByTestId("unit-table").getByTestId("unit-row");
+  await expect(rows).toHaveCount(4);
+
+  // The header tick takes the page; the bar says how many and offers what this person may change.
+  await mainRegion(page).getByTestId("unit-tick-page").click();
+  const bar = mainRegion(page).getByTestId("unit-selection-bar");
+  await expect(bar.getByTestId("unit-selection-count")).toHaveText("4 units selected");
+  await expect(bar.getByTestId("bulk-details")).toBeVisible();
+  await expect(bar.getByTestId("bulk-move")).toBeVisible();
+
+  // Edit details: only the fields touched change, on every ticked unit; each saves its own new version.
+  await bar.getByTestId("bulk-details").click();
+  const details = page.getByRole("dialog", { name: "Edit 4 units" });
+  await details.getByLabel("Bedrooms").selectOption("3");
+  await details.getByTestId("bulk-details-apply").click();
+  await expect(details).toBeHidden();
+  await expect(rows.first()).toContainText("3");
+  const edited = await db.projectUnit.findMany({ where: { projectId: PROJECT, unitCode: { in: ["T-101", "T-102", "T-103", "T-104"] } }, select: { bedrooms: true, internalArea: true } });
+  expect(edited.map((unit) => [unit.bedrooms, unit.internalArea?.toFixed(2)])).toEqual(Array(4).fill([3, "80.50"]));
+  // The ticks stay for the next change; Escape clears them.
+  await expect(bar.getByTestId("unit-selection-count")).toHaveText("4 units selected");
+  await page.keyboard.press("Escape");
+  await expect(bar).toBeHidden();
+
+  // Two ticked units move to another floor together.
+  await rows.filter({ hasText: "T-103" }).getByTestId("unit-tick").click();
+  await rows.filter({ hasText: "T-104" }).getByTestId("unit-tick").click();
+  await bar.getByTestId("bulk-move").click();
+  const move = page.getByRole("dialog", { name: "Move 2 units" });
+  await move.getByLabel(/^Floor/).selectOption({ label: "Floor 4" });
+  await move.getByTestId("bulk-move-apply").click();
+  await expect(move).toBeHidden();
+  await expect(rows).toHaveCount(2);
+  await expect(bar).toBeHidden();
+});
+
 test("sales reads the units without changing them (§80)", async ({ page }) => {
   await signIn(page, "SALES", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
   await expect(heading(page)).toHaveText("Floor 1 — Block A");
