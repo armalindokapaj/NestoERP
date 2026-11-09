@@ -11,6 +11,8 @@ export type NavigationEventName =
   | "navigation_destination_opened"
   | "quick_create_opened"
   | "more_opened"
+  /** The top bar's section pill opened its menu, below lg (components/layout/section-menu.tsx). */
+  | "section_menu_opened"
   | "workspace_switched"
   | "global_search_opened";
 

@@ -30,9 +30,16 @@ export async function ModuleTabs({
   // The module is named as the sidebar names it and each tab as its section is
   // configured, both in the reader's language; config/modules.ts keeps the English.
   const [t, names] = await Promise.all([getTranslations("common"), getTranslations("modules")]);
+  // The same tabs as data, for the top bar's section menu below lg.
+  const sections = experience.sections.map((section) => ({
+    key: section.key,
+    label: sectionLabel(t, experience.module, section),
+    href: sectionRoute(experience.module, section.key),
+    active: section.key === activeSection,
+  }));
 
   return (
-    <ContextTabsFrame label={t("sections", { label: names(`${experience.module}.label`) })}>
+    <ContextTabsFrame label={t("sections", { label: names(`${experience.module}.label`) })} sections={sections}>
         {experience.sections.map((section) => {
           const active = section.key === activeSection;
           return (

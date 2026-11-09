@@ -13,6 +13,7 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { PendingApprovalsFigure, PendingApprovalsList, PendingApprovalsSkeleton } from "@/components/dashboard/pending-approvals";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { GroupHero } from "@/components/dashboard/group-hero";
+import { HomeTasks } from "@/components/dashboard/home-tasks";
 import { WelcomeHeader } from "@/components/dashboard/welcome-header";
 import { PageSections } from "@/components/layout/page-sections";
 import { PageSectionLinks } from "@/components/ui/page-sections";
@@ -57,6 +58,10 @@ export async function generateMetadata(): Promise<Metadata> {
  * colour and held to that height. Pending Approvals is
  * the planned widget (or, in the Group workspace, the planned figure) moved up
  * there — shown once, and only for a reader whose plan has it.
+ *
+ * On phones and tablets (below `lg`) the aside opens with Tasks — My tasks, Due
+ * today, Overdue and All tasks — for a reader whose navigation has Tasks: the
+ * bottom bar has no Tasks cell, and Home is where it is (home-tasks.tsx).
  */
 export default async function DashboardPage() {
   const context = await requireUserContext();
@@ -86,6 +91,9 @@ export default async function DashboardPage() {
           focus={plan.focus}
           aside={
             <>
+              {/* Below lg: Tasks, at the top of Home; its counts stream in on their own. */}
+              <HomeTasks context={context} />
+
               {/* The day's entry point: a dark card on a phone, the plain row from tablet up (Premium Mobile §5.2). */}
               <Link
                 href="/my-day"

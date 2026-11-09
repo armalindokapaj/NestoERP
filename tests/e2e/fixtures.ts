@@ -173,6 +173,45 @@ export function mainRegion(page: Page) {
 }
 
 /**
+ * A page's sections the way a person reaches them at this width. From 1024px
+ * they are the page's tab rows. Below it (phones and tablets) no tab row is
+ * drawn: the top bar's section pill — "Sales ▾" — opens them as one menu, and a
+ * record's own tabs inside a tabbed page (a unit inside its project) are a
+ * second group there, under that row's name (components/layout/section-menu.tsx).
+ */
+export const sectionsInMenu = (page: Page) => page.viewportSize()!.width < 1024;
+
+export function sectionMenuTrigger(page: Page) {
+  return page.getByTestId("section-menu-trigger");
+}
+
+/** Below 1024px: opens the section menu and returns it. */
+export async function openSectionMenu(page: Page) {
+  await sectionMenuTrigger(page).click();
+  const menu = page.getByTestId("section-menu");
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+/**
+ * Opens a section by its name: from the section menu below 1024px, from the
+ * page's tab row from 1024px. `row` is the tab row's accessible name — also the
+ * menu group's, where the page has more than one level of sections.
+ */
+export async function openSection(page: Page, name: string, row?: string | RegExp) {
+  if (sectionsInMenu(page)) {
+    const menu = await openSectionMenu(page);
+    // One level is one list; several are groups, each named as its row is.
+    const grouped = row !== undefined && (await menu.getByRole("group").count()) > 0;
+    const scope = grouped ? menu.getByRole("group", { name: row }) : menu;
+    await scope.getByRole("link", { name, exact: true }).click();
+    return;
+  }
+  const rows = row ? page.getByRole("navigation", { name: row }) : mainRegion(page).locator("[data-context-tabs] nav");
+  await rows.getByRole("link", { name, exact: true }).first().click();
+}
+
+/**
  * The workspace header at the top of the sidebar (OW §2, §18): the workspace
  * being worked in, by its own name, and the way to its dashboard. It switches
  * nothing — that is `workspaceSwitcher`, in the top bar. Scoped to the sidebar,

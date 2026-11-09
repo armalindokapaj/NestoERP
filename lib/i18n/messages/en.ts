@@ -152,6 +152,8 @@ export const en = {
       home: "Home",
       create: "Create",
       more: "More",
+      /** The bar's last cell, the hamburger that opens More. */
+      menu: "Menu",
       moreTitle: "More",
       general: "General",
       searchModules: "Search modules",
@@ -160,13 +162,20 @@ export const en = {
       profile: "Profile",
       account: "Account",
       pending: "Opening…",
-      /** The small menu the bar's Tasks button opens. */
-      tasksMenu: {
-        mine: "My tasks",
-        today: "Due today",
-        overdue: "Overdue",
-        all: "All tasks",
-      },
+    },
+    /** The section pill at the top right below lg, and the menu of the page's sections it opens. */
+    sectionMenu: {
+      trigger: "Page sections: {section}",
+      title: "Page sections",
+    },
+    /** The Tasks block at the top of Home, below lg. */
+    homeTasks: {
+      title: "Tasks",
+      mine: "My tasks",
+      today: "Due today",
+      overdue: "Overdue",
+      all: "All tasks",
+      countUnavailable: "Count unavailable",
     },
   },
 

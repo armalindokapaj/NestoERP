@@ -103,7 +103,10 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
         ) : null}
       </header>
 
-      <ContextTabsFrame label={t("department.sections")}>
+      <ContextTabsFrame
+        label={t("department.sections")}
+        sections={visible.map((key) => ({ key, label: organizationLabel(t, "tab", key, key.charAt(0).toUpperCase() + key.slice(1)), href: href(key), active: key === tab }))}
+      >
           {visible.map((key) => (
             <Link
                 key={key}

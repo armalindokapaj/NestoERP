@@ -363,8 +363,9 @@
  * a strip to read in. Where the pinned layers of a page would take more than
  * half the window's height, the secondary ones — the breadcrumb bar, context
  * tabs, a page's own toolbars, the phone's bottom bar — scroll with the page,
- * and only the top bar stays; every destination is still in it (the menu, the
- * drawer). Nothing changes at an ordinary height.
+ * and only the top bar stays; a page's sections are still in it (the section
+ * menu, below 1024px), and the bar's Menu ends the page. Nothing changes at an
+ * ordinary height.
  *
  * The thresholds are twice what is pinned, from the heights above:
  *
@@ -374,6 +375,10 @@
  *   from 1024px                      header 64 + breadcrumb 40          = 104   -> under 208px
  *     with context tabs (44px, the touch sizes)                          = 148   -> under 296px
  *     with a record's tabs under them                                    = 192   -> under 384px
+ *
+ * Below 1024px a tab row that is in the section menu (`data-tabs-in-menu`) is
+ * not drawn and pins nothing (globals.css), so there only a row built by hand
+ * counts as context tabs.
  *
  * The stack is then the top bar alone, so focus, anchors and the ruler land
  * under it, and the ruler keeps clear of everything that has yet to scroll away.
@@ -393,7 +398,19 @@
   }
 }
 
-@media (max-width: 1023.98px) and (max-height: 451.98px), (min-width: 1024px) and (max-height: 295.98px) {
+@media (max-width: 1023.98px) and (max-height: 451.98px) {
+  :root[data-ds="2"]:has([data-context-tabs]:not([data-tabs-in-menu])) {
+    --nesto-layer-pin: static;
+    --nesto-bottom-nav-pin: static;
+    --nesto-bottom-nav-margin: 1.75rem auto calc(0.875rem + var(--nesto-safe-bottom));
+    --nesto-bottom-nav-space: 0px;
+    --nesto-sticky-stack: var(--nesto-shell-header-h);
+    --nesto-sticky-cover: var(--nesto-shell-header-h);
+    --nesto-ruler-inset: calc(var(--nesto-shell-breadcrumb-h) + var(--nesto-shell-banner-h) + var(--nesto-shell-tabs-h) + var(--nesto-space-page-y));
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 295.98px) {
   :root[data-ds="2"]:has([data-context-tabs]) {
     --nesto-layer-pin: static;
     --nesto-bottom-nav-pin: static;
@@ -405,7 +422,20 @@
   }
 }
 
-@media (max-width: 1023.98px) and (max-height: 539.98px), (min-width: 1024px) and (max-height: 383.98px) {
+@media (max-width: 1023.98px) and (max-height: 539.98px) {
+  :root[data-ds="2"]:has([data-context-tabs]:not([data-tabs-in-menu]) ~ * [data-context-tabs]:not([data-tabs-in-menu])),
+  :root[data-ds="2"]:has([data-context-tabs]:not([data-tabs-in-menu]) ~ [data-context-tabs]:not([data-tabs-in-menu])) {
+    --nesto-layer-pin: static;
+    --nesto-bottom-nav-pin: static;
+    --nesto-bottom-nav-margin: 1.75rem auto calc(0.875rem + var(--nesto-safe-bottom));
+    --nesto-bottom-nav-space: 0px;
+    --nesto-sticky-stack: var(--nesto-shell-header-h);
+    --nesto-sticky-cover: var(--nesto-shell-header-h);
+    --nesto-ruler-inset: calc(var(--nesto-shell-breadcrumb-h) + var(--nesto-shell-banner-h) + var(--nesto-shell-tabs-h) + var(--nesto-space-page-y));
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 383.98px) {
   :root[data-ds="2"]:has([data-context-tabs] ~ * [data-context-tabs], [data-context-tabs] ~ [data-context-tabs]) {
     --nesto-layer-pin: static;
     --nesto-bottom-nav-pin: static;

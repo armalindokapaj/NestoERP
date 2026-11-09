@@ -3,7 +3,7 @@ import { expect, test, type Page } from "../pw";
 
 import { memberId } from "../approvals-fixtures";
 import { db, removeTestDocuments, removeTestFinanceRecords } from "../db";
-import { mainRegion, signIn } from "../fixtures";
+import { mainRegion, openSection, signIn } from "../fixtures";
 import { expectInViewport, expectInputsAtLeast16px, expectNoPageOverflow, expectTouchTargets, outsideProjects } from "./geometry";
 
 /**
@@ -141,7 +141,8 @@ test("MW-13 an expense is raised, edited, given its receipt, submitted, and appr
   expect(attached).toEqual([{ storageStatus: "AVAILABLE" }]);
 
   // Submitted: pending, not approved — whatever the save said.
-  await main.getByRole("link", { name: "Overview" }).click();
+  // Every width here is below 1024px: the record's sections are the top bar's section menu.
+  await openSection(page, "Overview");
   const submit = main.getByRole("button", { name: "Submit for approval" });
   await expectTouchTargets(page, submit);
   await submit.click();

@@ -13,6 +13,10 @@ import { signIn } from "../fixtures";
  * too low for them the secondary layers scroll with the page and the top bar
  * alone stays.
  *
+ * Below 1024px no tab row is pinned: a page's sections are the top bar's
+ * section pill (components/layout/section-menu.tsx), and the project
+ * Overview's own controls stay on the page, scrolling with it.
+ *
  * Version 2 is drawn only where NESTO_DESIGN_SYSTEM is set and the server has
  * its development conveniences (lib/layout/design-state.ts): the `nesto.ds`
  * cookie selects it there. Anywhere else the page comes back in version 1 and
@@ -21,14 +25,14 @@ import { signIn } from "../fixtures";
 
 const PROJECT = "/projects/project_a";
 
-type Tier = { name: string; width: number; height: number; header: number; breadcrumb: number | null; tabs: number; sidebar: number | null };
+type Tier = { name: string; width: number; height: number; header: number; breadcrumb: number | null; tabs: number | null; sidebar: number | null };
 
-/** A fine pointer from 1024px; below it the touch sizes of the two rows under the header (§6.4). */
+/** A fine pointer from 1024px; below it the touch size of the breadcrumb bar (§6.4), and no pinned tab row. */
 const TIERS: Tier[] = [
   { name: "desktop 1440", width: 1440, height: 900, header: 64, breadcrumb: 32, tabs: 40, sidebar: 208 },
   { name: "desktop 1024 (rail)", width: 1024, height: 768, header: 64, breadcrumb: 32, tabs: 40, sidebar: 64 },
-  { name: "tablet 768", width: 768, height: 1024, header: 60, breadcrumb: 40, tabs: 44, sidebar: null },
-  { name: "phone 390", width: 390, height: 844, header: 56, breadcrumb: null, tabs: 44, sidebar: null },
+  { name: "tablet 768", width: 768, height: 1024, header: 60, breadcrumb: 40, tabs: null, sidebar: null },
+  { name: "phone 390", width: 390, height: 844, header: 56, breadcrumb: null, tabs: null, sidebar: null },
 ];
 
 async function openInVersion2(page: Page, path: string, size: { width: number; height: number }) {
@@ -89,9 +93,14 @@ for (const tier of TIERS) {
       expect(g.breadcrumb?.height).toBe(tier.breadcrumb);
       edge += tier.breadcrumb;
     }
-    expect(g.tabs?.top).toBeCloseTo(edge, 0);
-    expect(g.tabs?.height).toBe(tier.tabs);
-    edge += tier.tabs;
+    if (tier.tabs === null) {
+      // The section pill has the tabs; what is left of the row (the Overview's controls) scrolls with the page.
+      expect(g.tabs?.position ?? "static").toBe("static");
+    } else {
+      expect(g.tabs?.top).toBeCloseTo(edge, 0);
+      expect(g.tabs?.height).toBe(tier.tabs);
+      edge += tier.tabs;
+    }
 
     // What everything else is offset by is what is really pinned (§7.3).
     expect(g.stack).toBeCloseTo(edge, 0);
@@ -167,20 +176,17 @@ test("400% zoom (360 by 225): the secondary layers scroll with the page and the 
   await expect(page.getByTestId("global-actions")).toBeVisible();
 });
 
-test("a phone's project tabs are one row that scrolls sideways and marks the edge it continues past", async ({ page }) => {
+test("a phone draws no project tab row: the sections are the top bar's pill, and the Overview's own controls stay on the page", async ({ page }) => {
   await openInVersion2(page, PROJECT, { width: 390, height: 844 });
-  const scroller = page.locator("[data-context-tabs] [data-tab-scroller]").first();
-  await expect(scroller).toHaveAttribute("data-more-end", "");
-  await expect(scroller).not.toHaveAttribute("data-more-start", "");
-  expect(await scroller.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-  // One row: every tab on the same line.
-  const tops = await scroller.locator("a, button").evaluateAll((tabs) => [...new Set(tabs.map((tab) => Math.round(tab.getBoundingClientRect().top)))]);
-  expect(tops).toHaveLength(1);
-
-  // The labelled More control is at the far end of the row, reachable by scrolling it.
-  const more = scroller.getByRole("button", { name: "More" });
-  await more.scrollIntoViewIfNeeded();
-  await expect(scroller).toHaveAttribute("data-more-start", "");
-  await expect(scroller).not.toHaveAttribute("data-more-end", "");
-  await expect(more).toBeVisible();
+  await expect(page.locator("[data-context-tabs] [data-tab-scroller]").first()).toBeHidden();
+  await expect(page.locator("header[data-topbar-row]").getByTestId("section-menu-trigger")).toBeVisible();
+  const trailing = page.locator("[data-context-tabs-trailing]").first();
+  await expect(trailing).toBeVisible();
+  const g = await geometry(page);
+  expect(g.tabs?.position).toBe("static");
+  // Right-aligned where the row was: its right edge on the content's.
+  const [row, controls] = [(await page.locator("[data-context-tabs]").first().boundingBox())!, (await trailing.boundingBox())!];
+  expect(Math.abs(row.x + row.width - (controls.x + controls.width))).toBeLessThanOrEqual(24);
+  expect(g.stack).toBeCloseTo(56, 0);
+  expect(g.sidewaysScroll).toBe(false);
 });

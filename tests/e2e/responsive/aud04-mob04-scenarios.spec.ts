@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { mainRegion, signIn, type DemoRole } from "../fixtures";
+import { mainRegion, openSectionMenu, sectionsInMenu, signIn, type DemoRole } from "../fixtures";
 import { expectNoPageOverflow } from "./geometry";
 
 /**
@@ -61,12 +61,15 @@ test("project overview stays a structured page, not an endless column", async ({
 test.describe("employee field-level visibility", () => {
   test("an HR role sees Compensation; the CEO does not (a locked tab would confirm a salary exists)", async ({ page }) => {
     await openFirstRecord(page, "HR", "/hr/employees", /\/hr\/employees\/[^/]+$/);
-    const tabs = page.getByRole("navigation", { name: /employee sections/i });
-    await expect(tabs.getByRole("link", { name: "Compensation" })).toBeVisible();
+    // The record's sections: its tab row from 1024px, the top bar's section menu below it.
+    const sections = async () => (sectionsInMenu(page) ? openSectionMenu(page) : page.getByRole("navigation", { name: /employee sections/i }));
+    await expect((await sections()).getByRole("link", { name: "Compensation" })).toBeVisible();
     const url = page.url();
     await page.context().clearCookies();
     await signIn(page, "CEO", { to: new URL(url).pathname });
-    await expect(page.getByRole("navigation", { name: /employee sections/i }).getByRole("link", { name: "Compensation" })).toHaveCount(0);
+    const tabs = await sections();
+    await expect(tabs.getByRole("link", { name: "Overview", exact: true })).toBeVisible();
+    await expect(tabs.getByRole("link", { name: "Compensation" })).toHaveCount(0);
   });
 });
 

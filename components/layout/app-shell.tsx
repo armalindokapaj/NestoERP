@@ -3,6 +3,7 @@ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { getTranslations } from "@/lib/i18n/server";
 import { PageContainer } from "@/components/ui/page-container";
 import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
+import { SectionStoreProvider } from "@/components/navigation/section-registry";
 import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
 import { cookies } from "next/headers";
@@ -142,6 +143,8 @@ export async function AppShell({
                     }}
               >
               <BreadcrumbRegistryProvider>
+              {/* A page's tab rows hand their sections to the top bar's section pill, below lg (components/layout/section-menu.tsx). */}
+              <SectionStoreProvider>
               <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
                 <Topbar context={context} navigation={navigation} core={core} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
@@ -157,7 +160,8 @@ export async function AppShell({
                   {children}
                 </PageContainer>
                 {/* The phone and tablet-portrait bottom navigation (MOB-02): the same resolved
-                    navigation as the sidebar, placed by lib/navigation/mobile.ts. Hidden from lg. */}
+                    navigation as the sidebar, placed by lib/navigation/mobile.ts — Home, Projects,
+                    Create, Alerts (the bell) and Menu. Hidden from lg. */}
                 <MobileBottomNav
                   navigation={navigation}
                   canCreate={core.quickCreate.canOpen}
@@ -171,6 +175,7 @@ export async function AppShell({
                   }}
                 />
               </div>
+              </SectionStoreProvider>
               </BreadcrumbRegistryProvider>
               </RecordNavigationProvider>
 

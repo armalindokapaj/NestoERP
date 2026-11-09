@@ -1,6 +1,6 @@
 import { expect, test } from "../pw";
 
-import { mainRegion, signIn } from "../fixtures";
+import { mainRegion, openSection, openSectionMenu, sectionMenuTrigger, signIn } from "../fixtures";
 import { STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
@@ -37,9 +37,20 @@ test("reads a published unit's page, sections and Sales Plan on a phone (E-05D Â
   await expect(mainRegion(page).getByTestId("unit-primary-image")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  await page.getByRole("navigation", { name: "A-101 sections" }).getByRole("link", { name: "Documents", exact: true }).click();
+  // A phone draws no tab rows: the unit's sections are the second group of the top bar's section menu,
+  // under the project's, and the pill names the unit's section (components/layout/section-menu.tsx).
+  await expect(sectionMenuTrigger(page).getByTestId("section-menu-current")).toHaveText("Overview");
+  const menu = await openSectionMenu(page);
+  await expect(menu).toHaveAccessibleName("Page sections");
+  await expect(menu.getByRole("group")).toHaveCount(2);
+  const [project, unit] = [menu.getByRole("group", { name: "Project sections" }), menu.getByRole("group", { name: "A-101 sections" })];
+  await expect(project.getByRole("link", { name: "Units", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(unit.getByRole("link", { name: "Overview", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(project.getByRole("link", { name: "Overview", exact: true })).not.toHaveAttribute("aria-current", "page");
+  await unit.getByRole("link", { name: "Documents", exact: true }).click();
   await expect(page.getByTestId("sales-plan")).toContainText("A-101 Sales Plan.pdf");
-  await page.getByRole("navigation", { name: "A-101 sections" }).getByRole("link", { name: "Publishing", exact: true }).click();
+  await expect(sectionMenuTrigger(page).getByTestId("section-menu-current")).toHaveText("Documents");
+  await openSection(page, "Publishing", "A-101 sections");
   await expect(page.getByTestId("publication-history")).toContainText("v1 Published");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

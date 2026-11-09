@@ -2,18 +2,16 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { AlarmClock, CalendarClock, ListChecks, LogOut, MoreHorizontal, Plus, Settings, UserCheck, X } from "lucide-react";
+import { LogOut, Menu, Plus, Settings, X } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
-import { usePhone } from "@/components/layout/use-phone";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useSignOut } from "@/components/layout/use-sign-out";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { Avatar } from "@/components/ui/avatar";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { resolveMobileNavigation } from "@/lib/navigation/mobile";
@@ -27,7 +25,11 @@ import { cn } from "@/lib/utils/cn";
  */
 export const OPEN_QUICK_CREATE_EVENT = "nesto:open-quick-create";
 
-/** The phone's hamburger in the top bar raises this; the More sheet below opens (components/layout/mobile-menu-button.tsx). */
+/**
+ * The bar's Menu cell raises this and the More sheet below opens, with focus going back to `detail.opener`
+ * on close; anything else that needs the sheet raises it the same way, so the sheet, its focus handling and
+ * its analytics stay in one place.
+ */
 export const OPEN_MORE_EVENT = "nesto:open-more";
 
 export type MobileAccount = {
@@ -43,10 +45,14 @@ export type MobileAccount = {
  *
  * Presentation only. It renders what `resolveMobileNavigation` places from the
  * groups the one navigation resolver produced for this person, so a
- * destination they cannot open is not in its input and cannot appear. The bar
- * shows up to three of those, then Create (when Quick Create has anything for
- * them) and More; with little access it simply has fewer buttons, never dead
- * ones (§58).
+ * destination they cannot open is not in its input and cannot appear. Left to
+ * right the bar is Home and Projects, Create (on a phone, when Quick Create has
+ * anything for them; a tablet keeps it in the top bar), Alerts — the bell — and
+ * Menu, the hamburger that opens More. Tasks is not in the bar: it is the Tasks
+ * block at the top of Home (components/dashboard/home-tasks.tsx) and a module in
+ * More. With little access the bar simply has fewer buttons, never dead ones
+ * (§58). The top right of the top bar is the page's section pill instead
+ * (components/layout/section-menu.tsx).
  *
  * Its layer is the lowest shell layer (`--nesto-z-shell-tabs`, 28), under the
  * top bar (30): the Create, Search and Activity panels live inside the top
@@ -59,8 +65,7 @@ export type MobileAccount = {
  *
  * Version 2 holds it through `--nesto-bottom-nav-pin` (styles/tokens-v2.css):
  * fixed as here, and in a window too low for it the bar ends the page instead
- * of covering it — every destination is still in the top bar's menu (UI-02
- * §7.3, §24).
+ * of covering it, its Menu still at the page's end (UI-02 §7.3, §24).
  */
 export function MobileBottomNav({
   navigation,
@@ -74,11 +79,10 @@ export function MobileBottomNav({
   account: MobileAccount;
   /** Extra controls for the More sheet's foot (the development user switcher). */
   footer?: React.ReactNode;
-  /** The notification bell, which takes the last place on a phone, where the hamburger now carries More. */
+  /** The notification bell (Alerts), between Create and Menu at every width the bar is drawn. */
   activity?: React.ReactNode;
 }) {
   const t = useTranslations("shell");
-  const phone = usePhone();
   const pathname = usePathname();
   const { primary, more } = React.useMemo(() => resolveMobileNavigation(navigation), [navigation]);
   const [moreOpen, setMoreOpen] = React.useState(false);
@@ -87,7 +91,7 @@ export function MobileBottomNav({
   // Set when More closes because a destination was chosen: focus then goes to the new page, not back to the bar.
   const navigated = React.useRef(false);
 
-  // The hamburger asks for More; focus goes back to it on close.
+  // Menu asks for More through the event; focus goes back to whoever asked on close.
   const opener = React.useRef<HTMLElement | null>(null);
   React.useEffect(() => {
     const onOpen = (event: Event) => {
@@ -104,13 +108,9 @@ export function MobileBottomNav({
 
   const moreActive = more.some((group) => group.items.some((item) => isNavigationItemActive(item, pathname)));
 
-  // Create sits in the middle of the destinations; the split is for rendering only (Premium Mobile §6.1).
-  const left = primary.slice(0, Math.ceil(primary.length / 2));
-  const right = primary.slice(left.length);
   const renderLink = (item: NavigationItem) => (
     <li key={item.key} className="min-w-0 flex-1 px-0.5">
-      {/* Tasks opens its own small menu — the views people go to most, and the whole module. */}
-      {item.key === "tasks" ? <TasksMenu item={item} active={isNavigationItemActive(item, pathname)} /> : <BarLink item={item} active={isNavigationItemActive(item, pathname)} />}
+      <BarLink item={item} active={isNavigationItemActive(item, pathname)} />
     </li>
   );
 
@@ -120,8 +120,9 @@ export function MobileBottomNav({
       data-mobile-bottom-nav
       className="nesto-bottom-nav fixed inset-x-[max(0.75rem,var(--nesto-safe-left))] bottom-[calc(0.875rem+var(--nesto-safe-bottom))] z-[var(--nesto-z-shell-tabs)] mx-auto h-[68px] max-w-xl rounded-[24px] border border-line bg-surface/85 px-1.5 shadow-menu backdrop-blur-xl lg:hidden"
     >
+      {/* Home and Projects, Create, Alerts, Menu: Create sits in the middle of a full phone bar (Premium Mobile §6.1). */}
       <ul className="flex h-full items-center">
-        {left.map(renderLink)}
+        {primary.map(renderLink)}
         {canCreate ? (
           // Tablet portrait keeps Create in the top bar; the bar carries it on a phone (MOB-02 §16, §44).
           <li className="flex min-w-0 flex-1 justify-center md:hidden">
@@ -143,27 +144,24 @@ export function MobileBottomNav({
             </button>
           </li>
         ) : null}
-        {right.map(renderLink)}
-        {/* Phone: the bell, with More in the top bar's hamburger. Tablet keeps More here. */}
-        {activity ? <li className="flex min-w-0 flex-1 md:hidden">{activity}</li> : null}
-        {phone === true && activity ? null : (
-        <li className={cn("min-w-0 flex-1 px-0.5", activity && "max-md:hidden")}>
+        {/* Alerts: the bell, in the place Tasks had. */}
+        {activity ? <li className="flex min-w-0 flex-1">{activity}</li> : null}
+        {/* Menu: the hamburger, last. It opens More through the same event as anything else that asks for it. */}
+        <li className="min-w-0 flex-1 px-0.5">
           <BarButton
-            icon={MoreHorizontal}
-            label={t("mobile.more")}
+            icon={Menu}
+            label={t("mobile.menu")}
             active={moreActive}
             expanded={moreOpen}
             haspopup="dialog"
             testId="mobile-more"
             buttonRef={moreButton}
-            onClick={() => {
+            onClick={(event) => {
               emitNavigationEvent("more_opened");
-              navigated.current = false;
-              setMoreOpen(true);
+              window.dispatchEvent(new CustomEvent(OPEN_MORE_EVENT, { detail: { opener: event.currentTarget } }));
             }}
           />
         </li>
-        )}
       </ul>
 
       {/* The hamburger's menu slides in from the right and closes the same ways a dialog does.
@@ -241,63 +239,6 @@ function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
   );
 }
 
-/**
- * Tasks, from the bar: a small popup — glass, with its pointer on the button —
- * of the views people go to most, closed by "All tasks", the module itself
- * (where the button used to go directly). Every row is a tab of the Tasks
- * module, so anybody who has the button may open each of them.
- */
-function TasksMenu({ item, active }: { item: NavigationItem; active: boolean }) {
-  const t = useTranslations("shell");
-  const modules = useTranslations("modules");
-  const pathname = usePathname();
-  const [open, setOpen] = React.useState(false);
-  // A completed navigation closes it, so nothing is left over the new page.
-  React.useEffect(() => setOpen(false), [pathname]);
-  const Icon = getIcon(item.icon);
-  const label = modules(`${item.key}.label`);
-  const rows = [
-    { key: "mine", href: `${item.href}/my-tasks`, icon: UserCheck },
-    { key: "today", href: `${item.href}/all?due=today`, icon: CalendarClock },
-    { key: "overdue", href: `${item.href}/overdue`, icon: AlarmClock },
-  ] as const;
-  const row = "flex min-h-12 items-center gap-3 rounded-2xl px-3 text-body font-medium text-fg transition-colors hover:bg-hover active:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
-  const opened = (target: string) => {
-    emitNavigationEvent("navigation_destination_opened", { module: item.key, source: "bottom_nav" });
-    void target;
-    setOpen(false);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" data-active={active} aria-current={active ? "page" : undefined} aria-haspopup="dialog" data-testid="mobile-tasks" className={cellClass}>
-          <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
-          <span className="max-w-full truncate">{label}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="center" sideOffset={10} collisionPadding={12} aria-label={label} className="w-64 p-1.5" data-testid="mobile-tasks-menu">
-        <ul>
-          {rows.map((entry) => (
-            <li key={entry.key}>
-              <Link href={entry.href} navSource="mobile" onNavigate={() => opened(entry.href)} className={row}>
-                <entry.icon aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong" />
-                <span className="min-w-0 flex-1 truncate">{t(`mobile.tasksMenu.${entry.key}`)}</span>
-              </Link>
-            </li>
-          ))}
-          <li className="mt-1 border-t border-line/70 pt-1">
-            <Link href={item.href} navSource="mobile" intent onNavigate={() => opened(item.href)} className={row} data-testid="mobile-tasks-all">
-              <ListChecks aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong" />
-              <span className="min-w-0 flex-1 truncate">{t("mobile.tasksMenu.all")}</span>
-            </Link>
-          </li>
-        </ul>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function BarButton({
   icon: Icon,
   label,
@@ -316,7 +257,7 @@ function BarButton({
   expanded: boolean;
   haspopup: "dialog";
   testId: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPointerDown?: () => void;
 }) {
   return (

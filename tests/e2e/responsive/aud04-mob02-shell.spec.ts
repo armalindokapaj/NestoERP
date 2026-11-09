@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { mainRegion, signIn } from "../fixtures";
+import { mainRegion, openSectionMenu, sectionMenuTrigger, signIn } from "../fixtures";
 import { expectNoPageOverflow, expectTouchTargets } from "./geometry";
 
 /**
@@ -11,10 +11,13 @@ import { expectNoPageOverflow, expectTouchTargets } from "./geometry";
  * Phone is below 768, tablet portrait 768-1023 (bottom bar and drawer, Create
  * in the top bar), desktop 1024 and up (the sidebar; no bottom bar).
  *
- * A phone's bar is Home, Projects, Create, Tasks and Alerts — the bell — and
- * More is the menu button at the right end of the top bar; a tablet's bar
- * keeps More and has no bell. The destination the app is at is a cell filled
- * with the accent. Tasks, Create and Alerts open as popups above the bar, a
+ * A phone's bar is Home, Projects, Create, Alerts — the bell — and Menu, the
+ * hamburger that opens More; a tablet's is the same without Create, which
+ * stays in its top bar. Tasks is not in the bar: it is the Tasks block at the
+ * top of Home, and a module in More. The top right of the top bar is the
+ * page's section pill ("Sales ▾"), which opens the page's tabs as a menu: no
+ * tab row is drawn below 1024px. The destination the app is at is a cell
+ * filled with the accent. Create and Alerts open as popups above the bar, a
  * pointer on the button pressed.
  *
  * Read-only against the seeded demo except the dirty-form check, which types
@@ -27,9 +30,18 @@ const isTablet = (page: Page) => width(page) >= 768 && width(page) < 1024;
 const isDesktop = (page: Page) => width(page) >= 1024;
 
 const bar = (page: Page) => page.getByRole("navigation", { name: "Primary" });
-// The one in view: the top bar's menu button on a phone, the bar's own cell on a tablet. Until the page
-// knows its width both are in the document (components/layout/use-phone.ts).
-const more = (page: Page) => page.getByTestId("mobile-more").filter({ visible: true });
+// Menu: the bar's last cell, on a phone and a tablet alike.
+const more = (page: Page) => bar(page).getByTestId("mobile-more");
+
+/** The bar's cells in view, left to right: a destination by its name, a control by its test id. */
+const cells = (page: Page) =>
+  bar(page)
+    .locator("ul > li")
+    .evaluateAll((items) =>
+      items
+        .filter((item) => item.getClientRects().length > 0 && item.querySelector("a, button"))
+        .map((item) => item.querySelector<HTMLElement>("[data-testid=mobile-create], [data-testid=notification-bell], [data-testid=mobile-more]")?.dataset.testid ?? item.textContent?.trim()),
+    );
 
 const ground = (cell: Locator) => cell.evaluate((element) => getComputedStyle(element).backgroundColor);
 
@@ -39,7 +51,7 @@ async function landed(popup: Locator) {
 }
 
 test.describe("bottom navigation", () => {
-  test("phone: Home, Projects, Create, Tasks and Alerts, with More in the top bar; the current destination is a filled cell", async ({ page }) => {
+  test("phone: Home, Projects, Create, Alerts and Menu; the current destination is a filled cell", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     await expect(bar(page)).toBeVisible();
@@ -47,13 +59,13 @@ test.describe("bottom navigation", () => {
     const projects = bar(page).getByRole("link", { name: "Projects" });
     await expect(home).toHaveAttribute("aria-current", "page");
     await expect(projects).toBeVisible();
-    // Tasks is a button: it opens its own small menu.
-    await expect(bar(page).getByTestId("mobile-tasks")).toHaveText("Tasks");
-    await expect(page.getByTestId("mobile-create")).toBeVisible();
-    // The bell took More's place in the bar; More is the menu button at the right end of the top bar.
-    await expect(bar(page).getByTestId("notification-bell")).toBeVisible();
-    await expect(page.locator("header[data-shell-region]").getByTestId("mobile-more")).toBeVisible();
-    expect(await bar(page).getByRole("link").count()).toBeLessThanOrEqual(3);
+    // Alerts took Tasks' place; Menu, the hamburger, is the last cell. Tasks is no longer in the bar.
+    await expect(page.getByTestId("notification-bell")).toHaveCount(1);
+    expect(await cells(page)).toEqual(["Home", "Projects", "mobile-create", "notification-bell", "mobile-more"]);
+    await expect(more(page)).toHaveText("Menu");
+    await expect(bar(page).getByText("Tasks", { exact: true })).toHaveCount(0);
+    await expect(page.locator("header[data-shell-region]").getByTestId("mobile-more")).toHaveCount(0);
+    expect(await bar(page).getByRole("link").count()).toBeLessThanOrEqual(2);
     // The destination the app is at is a cell filled with the accent, as Create is; the others are bare.
     expect(await ground(home)).toBe(await ground(page.getByTestId("mobile-create")));
     expect(await ground(projects)).toBe("rgba(0, 0, 0, 0)");
@@ -68,7 +80,7 @@ test.describe("bottom navigation", () => {
     await expect(bar(page).getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current", "page");
   });
 
-  test("phone: tapping a destination navigates and keeps the bar; Tasks goes through its menu", async ({ page }) => {
+  test("phone: tapping a destination navigates and keeps the bar; Tasks is a module in Menu", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     const projects = bar(page).getByRole("link", { name: "Projects" });
@@ -76,22 +88,13 @@ test.describe("bottom navigation", () => {
     await expect(page).toHaveURL(/\/projects$/);
     await expect(projects).toHaveAttribute("aria-current", "page");
 
-    // Tasks opens a small menu of the views people go to most, closed by "All tasks": the module itself.
-    const tasks = bar(page).getByTestId("mobile-tasks");
-    await tasks.click();
-    const menu = page.getByTestId("mobile-tasks-menu");
-    await expect(menu.getByRole("link")).toHaveText(["My tasks", "Due today", "Overdue", "All tasks"]);
-    await landed(menu);
-    // A popup on a touch layout: glass, above the bar, its pointer on the button pressed.
-    await expect(menu.locator(".nesto-popup-pointer")).toBeVisible();
-    const [control, popup] = [(await tasks.boundingBox())!, (await menu.boundingBox())!];
-    expect(popup.y + popup.height).toBeLessThanOrEqual(control.y + 1);
-    await expectTouchTargets(page, menu);
-    await menu.getByRole("link", { name: "All tasks" }).click();
+    await more(page).click();
+    await page.getByRole("dialog", { name: "More" }).getByRole("link", { name: "Tasks", exact: true }).click();
     await expect(page).toHaveURL(/\/tasks$/);
-    await expect(menu).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "More" })).toHaveCount(0);
     await expect(bar(page)).toBeVisible();
-    await expect(tasks).toHaveAttribute("aria-current", "page");
+    // A destination of More: the Menu cell is the one the app is at now.
+    await expect(more(page)).toHaveAttribute("data-active", "true");
     await expect(projects).not.toHaveAttribute("aria-current", "page");
   });
 
@@ -110,13 +113,18 @@ test.describe("bottom navigation", () => {
     expect(Math.round(last)).toBeLessThanOrEqual(Math.round(top) + 1);
   });
 
-  test("tablet portrait: the bar is there, Create stays in the top bar, and the drawer remains", async ({ page }) => {
+  test("tablet portrait: Home, Projects, Alerts and Menu; Create stays in the top bar, and the drawer remains", async ({ page }) => {
     test.skip(!isTablet(page), "tablet portrait shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     await expect(bar(page)).toBeVisible();
     await expect(page.getByTestId("mobile-create")).toBeHidden();
     await expect(page.getByTestId("quick-create-button")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
+    // The bell is the bar's below 1024px: one bell, none in the top bar.
+    await expect(page.getByTestId("notification-bell")).toHaveCount(1);
+    await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toHaveCount(0);
+    expect(await cells(page)).toEqual(["Home", "Projects", "notification-bell", "mobile-more"]);
+    await expect(more(page)).toHaveText("Menu");
   });
 
   test("desktop: no bottom bar; the sidebar is unchanged", async ({ page }) => {
@@ -126,6 +134,9 @@ test.describe("bottom navigation", () => {
     await expect(page.getByTestId("mobile-context")).toBeHidden();
     await expect(page.getByTestId("quick-create-button")).toBeVisible();
     await expect(page.getByTestId("account-trigger")).toBeVisible();
+    await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeVisible();
+    // Home has no Tasks block here: the sidebar has Tasks.
+    await expect(mainRegion(page).getByTestId("home-tasks")).toBeHidden();
   });
 
   test("a person without create rights sees no Create button and no dead slot", async ({ page }) => {
@@ -167,14 +178,10 @@ test.describe("More", () => {
     await page.getByRole("dialog", { name: "More" }).getByRole("link", { name: "Calendar" }).click();
     await expect(page).toHaveURL(/\/calendar/);
     await expect(page.getByRole("dialog", { name: "More" })).toHaveCount(0);
-    if (isTablet(page)) {
-      // A tablet's bar keeps More: it is the cell the app is at now.
-      await expect(more(page)).toHaveAttribute("data-active", "true");
-    } else {
-      // A phone's More is the top bar's menu button, which carries no state: the sheet marks the destination when it is opened again.
-      await more(page).click();
-      await expect(page.getByRole("dialog", { name: "More" }).getByRole("link", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
-    }
+    // Menu is the cell the app is at now, and the sheet marks the destination when it is opened again.
+    await expect(more(page)).toHaveAttribute("data-active", "true");
+    await more(page).click();
+    await expect(page.getByRole("dialog", { name: "More" }).getByRole("link", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
   });
 
   test("the bar is inert behind the open sheet", async ({ page }) => {
@@ -195,6 +202,103 @@ test.describe("More", () => {
     // Back must not reveal authenticated content.
     await page.goBack();
     await expect(page).not.toHaveURL(/\/dashboard$/);
+  });
+});
+
+test.describe("Tasks on Home", () => {
+  test("phone and tablet: Tasks opens Home — My tasks, Due today and Overdue with their counts, and All tasks", async ({ page }) => {
+    test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
+    const block = mainRegion(page).getByTestId("home-tasks");
+    await expect(block).toBeVisible();
+    await expect(block.getByRole("heading", { name: "Tasks" })).toBeVisible();
+    // The block opens Home's aside, above My Day.
+    const [tasksTop, myDayTop] = [(await block.boundingBox())!.y, (await mainRegion(page).getByTestId("open-my-day").boundingBox())!.y];
+    expect(tasksTop).toBeLessThan(myDayTop);
+    const links = block.getByRole("link");
+    await expect(links).toHaveCount(4);
+    await expect(block.getByTestId("home-tasks-mine")).toHaveAttribute("href", "/tasks/my-tasks");
+    await expect(block.getByTestId("home-tasks-today")).toHaveAttribute("href", "/tasks/all?due=today");
+    await expect(block.getByTestId("home-tasks-overdue")).toHaveAttribute("href", "/tasks/overdue");
+    await expect(block.getByTestId("home-tasks-all")).toHaveAttribute("href", "/tasks");
+    // Each count streams in on its own and is a number once it has.
+    await expect(block.getByTestId("home-tasks-count")).toHaveCount(3);
+    for (const count of await block.getByTestId("home-tasks-count").all()) await expect(count).toHaveText(/^\d+$/);
+    await expectTouchTargets(page, block);
+    await block.getByTestId("home-tasks-mine").click();
+    await expect(page).toHaveURL(/\/tasks\/my-tasks$/);
+  });
+
+  test("somebody who cannot open Tasks gets no Tasks block", async ({ page }) => {
+    test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "VIEWER", { to: "/dashboard" });
+    const response = await page.request.get("/tasks");
+    test.skip(!response.url().includes("access-denied"), "this role can open Tasks");
+    await expect(mainRegion(page).getByTestId("dashboard-heading")).toBeVisible();
+    await expect(mainRegion(page).getByTestId("home-tasks")).toHaveCount(0);
+  });
+});
+
+test.describe("section menu", () => {
+  test("phone and tablet: a project's tabs are the top bar's pill and its menu; no tab row is drawn", async ({ page }) => {
+    test.skip(isDesktop(page), "the pill exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    const header = page.locator("header[data-shell-region]");
+    const pill = header.getByTestId("section-menu-trigger");
+    await expect(pill).toBeVisible();
+    await expect(pill).toHaveAccessibleName("Page sections: Overview");
+    await expect(pill.getByTestId("section-menu-current")).toHaveText("Overview");
+    // The tab row is not drawn; the Overview's own controls stay on the page, where the row was.
+    await expect(page.getByRole("navigation", { name: "Project sections" })).toHaveCount(0);
+    const controls = mainRegion(page).locator("[data-context-tabs-trailing]");
+    await expect(controls.getByRole("button", { name: "More project actions" })).toBeVisible();
+
+    const menu = await openSectionMenu(page);
+    await expect(menu).toHaveAccessibleName("Project sections");
+    await landed(menu);
+    // Every section the row had, those it tucked under More included, the current one marked and focused.
+    const current = menu.getByRole("link", { name: "Overview", exact: true });
+    await expect(current).toHaveAttribute("aria-current", "page");
+    await expect(current).toBeFocused();
+    await expect(menu.getByRole("link", { name: "Tasks", exact: true })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Activity", exact: true })).toBeVisible();
+    await expect(menu.locator('[aria-current="page"]')).toHaveCount(1);
+    // A popup on a touch layout: glass, under the pill, its pointer on it, whole on screen.
+    await expect(menu.locator(".nesto-popup-pointer")).toBeVisible();
+    const [control, popup] = [(await pill.boundingBox())!, (await menu.boundingBox())!];
+    expect(popup.y).toBeGreaterThanOrEqual(control.y + control.height - 1);
+    expect(popup.x + popup.width).toBeLessThanOrEqual(width(page) + 1);
+    await expectTouchTargets(page, menu);
+
+    await menu.getByRole("link", { name: "Tasks", exact: true }).click();
+    await expect(page).toHaveURL(/\/projects\/project_a\/tasks$/);
+    await expect(page.getByTestId("section-menu")).toHaveCount(0);
+    await expect(pill.getByTestId("section-menu-current")).toHaveText("Tasks");
+    await expectNoPageOverflow(page, "project tasks with the pill");
+  });
+
+  test("the menu works from the keyboard: the arrows move, Escape closes it and gives focus back to the pill", async ({ page }) => {
+    test.skip(isDesktop(page), "the pill exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    const pill = sectionMenuTrigger(page);
+    await pill.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.getByTestId("section-menu");
+    await expect(menu.getByRole("link", { name: "Overview", exact: true })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("link", { name: "Overview", exact: true })).not.toBeFocused();
+    await page.keyboard.press("End");
+    await expect(menu.getByRole("link").last()).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(pill).toBeFocused();
+  });
+
+  test("desktop: the tab rows are drawn and there is no pill", async ({ page }) => {
+    test.skip(!isDesktop(page), "desktop shell");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    await expect(page.getByRole("navigation", { name: "Project sections" })).toBeVisible();
+    await expect(sectionMenuTrigger(page)).toBeHidden();
   });
 });
 
@@ -230,14 +334,17 @@ test.describe("Create", () => {
 });
 
 test.describe("header", () => {
-  test("phone: workspace context, search and the menu; the bell is the bar's; no drawer trigger, no account menu, no company switcher", async ({ page }) => {
+  test("phone: workspace context and search; no hamburger, and on a page without sections no pill; the bell is the bar's; no drawer trigger, no account menu, no company switcher", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     const header = page.locator("header[data-shell-region]");
     await expect(header.getByTestId("mobile-context")).toBeVisible();
     await expect(header.getByTestId("search-trigger")).toBeVisible();
-    await expect(header.getByTestId("mobile-more")).toBeVisible();
-    // One bell, in the bottom bar (the top bar's is gone once the page knows it is a phone).
+    // Menu moved to the bottom bar; the top right is the section pill, and Home has no sections.
+    await expect(header.getByTestId("mobile-more")).toHaveCount(0);
+    await expect(header.getByTestId("section-menu-trigger")).toHaveCount(0);
+    await expect(header.locator("[data-section-pill-placeholder]")).toBeHidden();
+    // One bell, in the bottom bar (the top bar's is gone once the page knows its width).
     await expect(header.getByTestId("notification-bell")).toHaveCount(0);
     await expect(bar(page).getByTestId("notification-bell")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();

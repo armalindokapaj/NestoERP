@@ -123,7 +123,9 @@ test.describe("mobile module layout (PRD #9 §184)", () => {
 
     await expect(page.getByRole("heading", { name: "Riverside Residences" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Project sections" })).toBeVisible();
+    // Below 1024px the project's tabs are the top bar's section pill, not a tab row.
+    await expect(page.getByTestId("section-menu-trigger")).toHaveAccessibleName("Page sections: Overview");
+    await expect(page.getByRole("navigation", { name: "Project sections" })).toHaveCount(0);
   });
 });
 

@@ -1,5 +1,5 @@
 import { GlobalSearch } from "@/components/layout/global-search";
-import { MobileMenuButton } from "@/components/layout/mobile-menu-button";
+import { SectionMenu } from "@/components/layout/section-menu";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { QuickCreate } from "@/components/layout/quick-create";
@@ -28,9 +28,12 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * Every panel opened from this bar starts on the breadcrumb bar's top line
  * (lib/layout/topbar-line.ts), so they read as one family.
  *
- * On a phone the bell lives in the bottom bar and the account in More (MOB-02
- * §39), and the development user switcher moves into the navigation drawer's
- * foot. The gutters include the safe-area insets.
+ * Below `lg` (phones and tablets) the bell lives in the bottom bar, and the top
+ * right is the page's section pill — "Sales ▾" — which opens the page's tabs as
+ * a menu, as the tab rows are not drawn there (components/layout/section-menu.tsx).
+ * On a phone the account lives in More (MOB-02 §39), and the development user
+ * switcher moves into the navigation drawer's foot. The gutters include the
+ * safe-area insets.
  */
 export async function Topbar({
   context,
@@ -74,8 +77,10 @@ export async function Topbar({
       {/* The universal cluster, in this order on every surface: Search, Notifications, Account (UI-01 §1). */}
       <div className="flex min-w-0 items-center justify-end gap-0 sm:gap-1" data-testid="global-actions">
         <GlobalSearch contextKey={core.contextKey} />
-        {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). Phone: the bell is in the bottom bar. */}
-        <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
+        {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). Below lg it is the bottom bar's Alerts. */}
+        <div className="contents max-lg:hidden">
+          <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
+        </div>
         {/* Phone: the account lives in More (MOB-02 §39). */}
         <div className="contents max-md:hidden">
           <AccountPanel
@@ -94,8 +99,8 @@ export async function Topbar({
             }}
           />
         </div>
-        {/* Phone: the menu, fixed at the top right (More). */}
-        <MobileMenuButton />
+        {/* Below lg: the page's sections, as the pill at the top right; nothing on a page without them. */}
+        <SectionMenu />
       </div>
     </header>
   );

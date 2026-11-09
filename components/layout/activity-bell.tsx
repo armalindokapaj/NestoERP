@@ -8,7 +8,7 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { createActivityController, fetchTransport, type ActivityController } from "@/lib/activity/activity-controller";
 import { onActivityReset, removeLegacyActivityCache, subscribeActivity } from "@/lib/activity/client";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
-import { usePhone } from "@/components/layout/use-phone";
+import { useIsBelow } from "@/components/ui/use-breakpoint";
 import { cn } from "@/lib/utils/cn";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
 import { aimPointer, PanelPointer } from "@/components/ui/popup-pointer";
@@ -27,15 +27,16 @@ import { unsaved } from "@/lib/unsaved/coordinator";
 const body = createPanelLoader("activity", () => import("@/components/layout/panels/activity-panel-body"));
 
 /**
- * `placement="bar"` is the phone's bottom bar cell (icon over label). The bell
- * lives in the top bar from tablet up and in the bar on a phone; once the width
- * is known only the one that belongs is mounted, so there is one controller and
- * one `notification-bell`.
+ * `placement="bar"` is the bottom bar's Alerts cell (icon over label). The bell
+ * lives in the bottom bar wherever the bar is drawn — phones and tablets, below
+ * `lg` — and in the top bar from `lg`; once the width is known only the one
+ * that belongs is mounted, so there is one controller and one
+ * `notification-bell`.
  */
 export function ActivityBell({ contextKey, canManageAnnouncements = false, placement = "topbar" }: { contextKey: string; canManageAnnouncements?: boolean; placement?: "topbar" | "bar" }) {
-  const phone = usePhone();
-  if (phone === true && placement === "topbar") return null;
-  if (phone === false && placement === "bar") return null;
+  const belowLg = useIsBelow("lg");
+  if (belowLg === true && placement === "topbar") return null;
+  if (belowLg === false && placement === "bar") return null;
   return <BellControl contextKey={contextKey} canManageAnnouncements={canManageAnnouncements} placement={placement} />;
 }
 
@@ -97,7 +98,7 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
 
   // In the top bar it stays fixed under the bar: its top edge on the breadcrumb bar's top line, its right
   // edge on the content's, like every panel opened from the top bar (lib/layout/topbar-line.ts).
-  // In the phone's bottom bar it is a bubble of glass floating above the bar, its pointer on the bell.
+  // In the bottom bar it is a bubble of glass floating above the bar, its pointer on the bell.
   const panel = open ? (
     <div
       ref={panelRef}

@@ -97,6 +97,13 @@ export default async function PersonPage({ params, searchParams }: Props) {
                   : true,
       );
   const tab: Tab = visible.find((candidate) => candidate === requested) ?? "overview";
+  // The tab row, and the same tabs as the top bar's section menu below lg.
+  const sections = visible.map((key) => ({
+    key,
+    label: key === "projects" ? t("tabs.projects", { count: profile.projects.filter((project) => project.status === "ACTIVE").length }) : t(`tabs.${key}` as MessageKey<"people">),
+    href: key === "overview" ? `/people/${profile.personId}` : `/people/${profile.personId}?tab=${key}`,
+    active: key === tab,
+  }));
   const status = WORK_STATUS[profile.status];
   const editable = {
     personId: profile.personId,
@@ -145,15 +152,15 @@ export default async function PersonPage({ params, searchParams }: Props) {
         </div>
       </header>
 
-      <ContextTabsFrame label={t("tabs.sections")}>
-          {visible.map((key) => (
+      <ContextTabsFrame label={t("tabs.sections")} sections={sections}>
+          {sections.map((section) => (
             <Link
-                key={key}
-                href={key === "overview" ? `/people/${profile.personId}` : `/people/${profile.personId}?tab=${key}`}
-                aria-current={key === tab ? "page" : undefined}
-                className={contextTabClass(key === tab)}
+                key={section.key}
+                href={section.href}
+                aria-current={section.active ? "page" : undefined}
+                className={contextTabClass(section.active)}
               >
-                {key === "projects" ? t("tabs.projects", { count: profile.projects.filter((project) => project.status === "ACTIVE").length }) : t(`tabs.${key}` as MessageKey<"people">)}
+                {section.label}
               </Link>
           ))}
       </ContextTabsFrame>

@@ -5,8 +5,8 @@
  * groups `resolveNavigation` already produced for this person — module switch
  * and permission applied — and only decides *where* each item sits:
  *
- *   primary  the bottom bar, at most three destinations
- *   more     everything else, kept in its existing groups
+ *   primary  the bottom bar, at most two destinations (Home and Projects)
+ *   more     everything else, kept in its existing groups — the Menu cell's sheet
  *
  * It never adds an item and never checks a permission: an item that is not in
  * its input cannot appear in its output. Which modules are primary is
@@ -15,8 +15,8 @@
 import { modules } from "@/config/modules";
 import type { NavigationGroup, NavigationItem } from "@/config/navigation";
 
-/** The bar holds five slots: these primary destinations, then Create and More. */
-export const MAX_PRIMARY_DESTINATIONS = 3;
+/** The bar holds five slots: these primary destinations, then Create, Alerts (the bell) and Menu. */
+export const MAX_PRIMARY_DESTINATIONS = 2;
 
 export type MobileNavigation = {
   primary: NavigationItem[];

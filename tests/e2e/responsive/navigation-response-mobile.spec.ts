@@ -13,24 +13,23 @@ test("a bottom-bar tap keeps the shell, and the wait stays visible in it (N02)",
   let release!: () => void;
   const held = new Promise<void>((resolve) => (release = resolve));
   await page.route(
-    (url) => url.pathname === "/tasks",
+    (url) => url.pathname === "/projects",
     async (route) => {
       const headers = route.request().headers();
       if (headers.rsc === "1" && !headers["next-router-prefetch"]) await held;
       await route.continue();
     },
   );
-  // Tasks is a bottom-bar destination on a phone (MOB-02). Its button opens a small menu of the task views,
-  // closed by "All tasks", the module itself. The accepted tap closes the menu; the bar stays, and the shell
-  // keeps the wait on screen (the progress bar until the commit, then the destination's skeleton).
+  // Projects is a bottom-bar destination on a phone (MOB-02), prepared only on deliberate intent, so a tap
+  // fetches it then. The bar stays, and the shell keeps the wait on screen (the progress bar until the
+  // commit, then the destination's skeleton).
   const bar = page.getByRole("navigation", { name: "Primary" });
-  await bar.getByTestId("mobile-tasks").click();
-  await page.getByTestId("mobile-tasks-menu").locator('a[href="/tasks"]').click();
+  await bar.getByRole("link", { name: "Projects" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(bar).toBeVisible();
   await expect(page.getByTestId("nav-progress").or(mainRegion(page).getByTestId("page-skeleton")).first()).toBeVisible();
   release();
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByTestId("nav-progress")).toHaveCount(0);
 });
 

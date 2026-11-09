@@ -20,7 +20,11 @@ export function SectionNav({ items, label, testId, layout = "column" }: { items:
 
   if (layout === "tabs") {
     return (
-      <ContextTabsFrame label={label} testId={testId}>
+      <ContextTabsFrame
+        label={label}
+        testId={testId}
+        sections={items.map((item) => ({ key: item.href, label: item.label, href: item.href, active: item.href === active, count: item.count ?? null }))}
+      >
         {items.map((item) => {
           const current = item.href === active;
           return (

@@ -31,7 +31,8 @@ function activeFor(tabs: ContextTab[], pathname: string, rootKey?: string) {
  * tabs always shown; the rest fold into More, which carries the active tab's
  * name while one of them is open. The active tab follows the URL, so back,
  * forward, refresh and deep links all land on the right one (§35, §36).
- * `trailing` is a page's own controls at the end of the row.
+ * `trailing` is a page's own controls at the end of the row. Below lg the row is
+ * the top bar's section menu, every tab in it (ContextTabsFrame).
  */
 export function ContextTabs({ label, tabs, primary, rootKey, trailing }: { label: string; tabs: ContextTab[]; primary?: string[]; rootKey?: string; trailing?: React.ReactNode }) {
   const t = useTranslations("ui");
@@ -41,9 +42,11 @@ export function ContextTabs({ label, tabs, primary, rootKey, trailing }: { label
   const shown = primary ? tabs.filter((tab) => primary.includes(tab.key)) : tabs;
   const more = primary ? tabs.filter((tab) => !primary.includes(tab.key)) : [];
   const activeInMore = more.find((tab) => tab.key === active);
+  // Every tab, More's included, for the section menu below lg.
+  const sections = tabs.map((tab) => ({ key: tab.key, label: tab.label, href: tab.href, active: tab.key === active, newTab: tab.newTab }));
 
   return (
-    <ContextTabsFrame label={label} trailing={trailing}>
+    <ContextTabsFrame label={label} sections={sections} trailing={trailing}>
       {shown.map((tab) => (
         <Link
           navSource="tab"

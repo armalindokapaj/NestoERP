@@ -140,6 +140,7 @@ export const sq: Messages = {
       home: "Kryefaqja",
       create: "Krijo",
       more: "Më shumë",
+      menu: "Menyja",
       moreTitle: "Më shumë",
       general: "Të përgjithshme",
       searchModules: "Kërko module",
@@ -148,12 +149,18 @@ export const sq: Messages = {
       profile: "Profili",
       account: "Llogaria",
       pending: "Po hapet…",
-      tasksMenu: {
-        mine: "Detyrat e mia",
-        today: "Me afat sot",
-        overdue: "Të vonuara",
-        all: "Të gjitha detyrat",
-      },
+    },
+    sectionMenu: {
+      trigger: "Seksionet e faqes: {section}",
+      title: "Seksionet e faqes",
+    },
+    homeTasks: {
+      title: "Detyrat",
+      mine: "Detyrat e mia",
+      today: "Me afat sot",
+      overdue: "Të vonuara",
+      all: "Të gjitha detyrat",
+      countUnavailable: "Numri nuk është i disponueshëm",
     },
   },
 

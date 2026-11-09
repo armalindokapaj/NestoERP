@@ -1,0 +1,104 @@
+/**
+ * The page's sections, for the section menu below `lg` (components/layout/section-menu.tsx).
+ *
+ * Below 1024px a page's tab rows are not drawn: the top bar's section pill
+ * opens them as one menu instead. Every tab row goes through ContextTabsFrame,
+ * which hands its tabs to this store while it is mounted — its level — and
+ * takes them back when it unmounts. A record's own tabs inside a tabbed page
+ * (a unit inside its project) are a second level; the levels are kept in
+ * document order, outer first.
+ *
+ * Presentation only. A row's tabs arrive already filtered by permission, so
+ * the menu can hold nothing the row would not have shown. Framework-free, so
+ * it is unit-tested on its own; the React side is section-registry.tsx.
+ */
+
+export type SectionItem = {
+  key: string;
+  label: string;
+  href: string;
+  /** The section the page is on. */
+  active: boolean;
+  /** A number the tab shows beside its name, if any. */
+  count?: number | null;
+  /** Opens in a new browser tab (the 3D viewer). */
+  newTab?: boolean;
+};
+
+export type SectionLevel = { id: string; label: string; items: readonly SectionItem[] };
+
+/** Where an anchor sits in the document; a DOM Node in the browser, anything with the method in a test. */
+export type SectionAnchor = { isConnected: boolean; compareDocumentPosition(other: SectionAnchor): number };
+
+type Entry = SectionLevel & { anchor: SectionAnchor | null; seq: number };
+
+// Node.DOCUMENT_POSITION_PRECEDING and _FOLLOWING, spelled out so this file needs no DOM.
+const PRECEDING = 2;
+const FOLLOWING = 4;
+
+const EMPTY: readonly SectionLevel[] = Object.freeze([]);
+
+/** Outer before inner: by place in the document where both anchors are in it, else by when they registered. */
+export function orderLevels<T extends { anchor: SectionAnchor | null; seq: number }>(entries: readonly T[]): T[] {
+  return [...entries].sort((a, b) => {
+    if (a.anchor && b.anchor && a.anchor !== b.anchor && a.anchor.isConnected && b.anchor.isConnected) {
+      const position = a.anchor.compareDocumentPosition(b.anchor);
+      if (position & FOLLOWING) return -1;
+      if (position & PRECEDING) return 1;
+    }
+    return a.seq - b.seq;
+  });
+}
+
+export class SectionStore {
+  private entries = new Map<string, Entry>();
+  private listeners = new Set<() => void>();
+  private snapshot: readonly SectionLevel[] = EMPTY;
+  private seq = 0;
+
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  getSnapshot = () => this.snapshot;
+  /** The server, and the hydrating render, know no sections: the pill appears once the page's rows have registered. */
+  getServerSnapshot = () => EMPTY;
+
+  /** Registers a level, or replaces what it holds; it keeps its place among the levels. */
+  set(id: string, level: { label: string; items: readonly SectionItem[] }, anchor: SectionAnchor | null = null) {
+    const seq = this.entries.get(id)?.seq ?? ++this.seq;
+    this.entries.set(id, { id, label: level.label, items: level.items, anchor, seq });
+    this.publish();
+  }
+
+  remove(id: string) {
+    if (this.entries.delete(id)) this.publish();
+  }
+
+  private publish() {
+    this.snapshot = this.entries.size === 0 ? EMPTY : orderLevels([...this.entries.values()]).map(({ id, label, items }) => ({ id, label, items }));
+    for (const listener of this.listeners) listener();
+  }
+}
+
+/** The levels the menu offers: a row of one tab is no choice, as ContextTabs draws no row for it. */
+export function menuLevels(levels: readonly SectionLevel[]): SectionLevel[] {
+  return levels.filter((level) => level.items.length > 1);
+}
+
+/**
+ * What the pill says: the innermost level's current section — on a unit, the
+ * unit's, not the project's — or, where no level marks one, the innermost
+ * level's own name. Null when there is nothing to offer.
+ */
+export function pillFor(levels: readonly SectionLevel[]): { label: string; item: SectionItem | null } | null {
+  if (levels.length === 0) return null;
+  for (let index = levels.length - 1; index >= 0; index -= 1) {
+    const item = levels[index]!.items.find((candidate) => candidate.active);
+    if (item) return { label: item.label, item };
+  }
+  return { label: levels[levels.length - 1]!.label, item: null };
+}

@@ -111,8 +111,9 @@ export type ModuleDefinition = {
   inNavigation?: false;
   /**
    * Where the phone shell places this module (MOB-02 §65). `primary` puts it in
-   * the bottom bar. It is presentation only: whether the person sees it at all
-   * is still decided by the navigation resolver (module switch and permission).
+   * the bottom bar, beside Create, Alerts and Menu — Home and Projects today. It
+   * is presentation only: whether the person sees it at all is still decided by
+   * the navigation resolver (module switch and permission).
    */
   mobilePriority?: "primary";
 };
@@ -198,7 +199,7 @@ export const modules: Record<ModuleKey, ModuleDefinition> = {
     ],
   },
   tasks: {
-    mobilePriority: "primary",
+    // Not in the phone's bottom bar: Tasks is the block at the top of Home, and a module in More.
     key: "tasks",
     label: "Tasks",
     description: "Work assigned across projects and departments.",

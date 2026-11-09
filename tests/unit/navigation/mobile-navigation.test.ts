@@ -9,10 +9,17 @@ const allPermissions = MODULE_KEYS.map((key) => modules[key].permission);
 const resolve = (enabled: readonly ModuleKey[], permissions: readonly string[] = allPermissions) => resolveNavigation({ enabledModules: enabled, permissions });
 
 describe("resolveMobileNavigation (MOB-02 §63-§65)", () => {
-  it("places dashboard, projects and tasks in the bar for a fully permitted person", () => {
+  it("places Home (the dashboard) and Projects in the bar for a fully permitted person; Create, Alerts and Menu follow them", () => {
     const { primary } = resolveMobileNavigation(resolve(MODULE_KEYS));
-    expect(primary.map((item) => item.key)).toEqual(["dashboard", "projects", "tasks"]);
+    expect(primary.map((item) => item.key)).toEqual(["dashboard", "projects"]);
     expect(primary.length).toBeLessThanOrEqual(MAX_PRIMARY_DESTINATIONS);
+    expect(MAX_PRIMARY_DESTINATIONS).toBe(2);
+  });
+
+  it("Tasks is no bar destination: it is a module in More (and the block at the top of Home)", () => {
+    const { primary, more } = resolveMobileNavigation(resolve(MODULE_KEYS));
+    expect(primary.map((item) => item.key)).not.toContain("tasks");
+    expect(more.flatMap((group) => group.items).map((item) => item.key)).toContain("tasks");
   });
 
   it("never adds an item the resolver did not produce", () => {
@@ -23,9 +30,9 @@ describe("resolveMobileNavigation (MOB-02 §63-§65)", () => {
   });
 
   it("drops a primary destination the person cannot open instead of leaving a dead slot", () => {
-    const withoutTasks = MODULE_KEYS.filter((key) => key !== "tasks");
-    const { primary } = resolveMobileNavigation(resolve(withoutTasks));
-    expect(primary.map((item) => item.key)).toEqual(["dashboard", "projects"]);
+    const withoutProjects = MODULE_KEYS.filter((key) => key !== "projects");
+    const { primary } = resolveMobileNavigation(resolve(withoutProjects));
+    expect(primary.map((item) => item.key)).toEqual(["dashboard"]);
   });
 
   it("a restricted person with no primary destination still gets a More list", () => {
@@ -50,7 +57,7 @@ describe("resolveMobileNavigation (MOB-02 §63-§65)", () => {
 
   it("primary is metadata on the module registry, not a route list", () => {
     const flagged = MODULE_KEYS.filter((key) => modules[key].mobilePriority === "primary");
-    expect(flagged).toEqual(["dashboard", "projects", "tasks"]);
+    expect(flagged).toEqual(["dashboard", "projects"]);
   });
 });
 

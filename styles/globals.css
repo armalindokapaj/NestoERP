@@ -852,6 +852,35 @@ html[data-unsaved-masked] [data-experience-editor] {
 }
 
 /*
+ * Below lg (phones and tablets) a page's sections are the top bar's section
+ * menu (components/layout/section-menu.tsx), so a row that hands its tabs to it
+ * (`data-tabs-in-menu`, components/navigation/context-tabs-frame.tsx) is not
+ * drawn. One that carries a page's own controls keeps just those, right-aligned
+ * in its place and scrolling with the page; one without is not there at all.
+ * Neither is pinned, so neither counts in the sticky stack. A row built by hand
+ * (the Admin Console's) is not in the menu and keeps its place. Unlayered and
+ * after version 2's pin (tokens-v2.css), so it wins over both.
+ */
+@media (max-width: 1023.98px) {
+  :root [data-context-tabs][data-tabs-in-menu] {
+    position: static;
+  }
+
+  :root [data-context-tabs][data-tabs-in-menu]:not(:has([data-context-tabs-trailing])) {
+    display: none;
+  }
+
+  :root:has([data-tabs-in-menu]):not(:has([data-context-tabs]:not([data-tabs-in-menu]))) {
+    --nesto-shell-tabs-h: 0px;
+  }
+
+  /* Until the page hydrates and its rows register, the top bar keeps the pill's place (section-menu.tsx). */
+  html:has([data-section-level]) [data-section-pill-placeholder] {
+    display: grid;
+  }
+}
+
+/*
  * The content gutter each shell's <main> uses, so a sticky tab row can bleed to
  * the column's edges: 16/24/32px in the workspace (md, xl), 16/24/32px in the
  * Admin Console (sm, lg).

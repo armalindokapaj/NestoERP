@@ -35,7 +35,10 @@ export function FinanceRecordTabs({
   const visible = TABS.filter((tab) => tab.key === "overview" || show[tab.key]);
 
   return (
-    <ContextTabsFrame label={t("tabs.sections")}>
+    <ContextTabsFrame
+      label={t("tabs.sections")}
+      sections={visible.map((tab) => ({ key: tab.key, label: t(tab.label), href: `${basePath}${tab.suffix}`, active: tab.key === active }))}
+    >
         {visible.map((tab) => {
           const isActive = tab.key === active;
           return (

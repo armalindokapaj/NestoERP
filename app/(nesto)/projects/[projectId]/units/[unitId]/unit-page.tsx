@@ -86,6 +86,8 @@ export async function UnitShell({ page, active, children }: { page: Page; active
   const financeOpen = financeCapabilities(page.context).canView;
   const opens: Partial<Record<UnitSection, boolean>> = { documents: filesOpen, media: filesOpen, activity: actions.canViewActivity, sales: salesOpen, legal: legalOpen, finance: financeOpen };
   const visible = SECTIONS.filter((section) => opens[section.key] ?? true);
+  // The tab row, and the same tabs as the unit's level of the top bar's section menu below lg (under the project's).
+  const sections = visible.map((section) => ({ key: section.key, label: t(`unitPage.sections.${section.key}`), href: `${base}${section.suffix}`, active: section.key === active }));
 
   return (
     <div className="space-y-5">
@@ -123,20 +125,17 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           </>
         }
       />
-      <ContextTabsFrame label={t("unitPage.sectionsLabel", { code: unit.unitCode })}>
-          {visible.map((section) => {
-            const current = section.key === active;
-            return (
-              <Link
-                  key={section.key}
-                  href={`${base}${section.suffix}`}
-                  aria-current={current ? "page" : undefined}
-                  className={contextTabClass(current)}
-                >
-                  {t(`unitPage.sections.${section.key}`)}
-                </Link>
-            );
-          })}
+      <ContextTabsFrame label={t("unitPage.sectionsLabel", { code: unit.unitCode })} sections={sections}>
+          {sections.map((section) => (
+            <Link
+                key={section.key}
+                href={section.href}
+                aria-current={section.active ? "page" : undefined}
+                className={contextTabClass(section.active)}
+              >
+                {section.label}
+              </Link>
+          ))}
         </ContextTabsFrame>
       {children}
     </div>
