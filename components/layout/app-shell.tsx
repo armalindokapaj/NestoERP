@@ -135,7 +135,7 @@ export async function AppShell({
                       scopeType: context.workspace.scopeType,
                       companyId: context.workspace.companyId,
                       // Whether the Group view can be entered streams in with the chooser (COMPAT-01).
-                      group: { name: context.parentGroup.name },
+                      group: { name: context.parentGroup.name, standalone: context.parentGroup.standalone },
                       company: context.workspace.scopeType === "COMPANY"
                         ? { id: context.workspace.companyId!, name: context.company.name }
                         : null,

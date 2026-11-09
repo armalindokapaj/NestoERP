@@ -71,10 +71,44 @@ export function returnHref(href: string, history: readonly ReturnHistoryEntry[],
  * nearest parent the trail already offers as a link, which the page and the
  * module registry only ever offer to somebody who may open it.
  */
-export function fallbackParent<T extends { href?: string; disabled?: boolean; label: string }>(trail: readonly T[]): T | null {
+export function fallbackParent<T extends { href?: string; disabled?: boolean; label: string }>(trail: readonly T[], currentPath?: string): T | null {
+  // A parent that leads to the page already open (the company crumb on the Dashboard) is no way back.
+  const current = currentPath ? cleanPath(currentPath) : null;
   for (let index = trail.length - 2; index >= 0; index -= 1) {
     const item = trail[index];
-    if (item?.href && !item.disabled) return item;
+    if (item?.href && !item.disabled && cleanPath(item.href) !== current) return item;
   }
   return null;
+}
+
+export type WorkspaceCrumbInput = {
+  scopeType: "GROUP" | "COMPANY";
+  groupName: string;
+  companyName: string | null;
+  /** The tenant holds one company: a company made without a group, or a group of one. */
+  standalone: boolean;
+  /** Whether this person may open the Group view; null while that is still being worked out. */
+  canEnterGroup: boolean | null;
+};
+
+/**
+ * Which of the workspace's own levels the breadcrumb names. A level is named
+ * only when it tells the reader something the sidebar header does not, or
+ * when it is a way somewhere:
+ * - a tenant of one company has no group level, and its one company is
+ *   already named in the sidebar header: neither is shown, and the trail
+ *   starts at the module;
+ * - in the Group view, the group alone;
+ * - in a company of a larger group, the company (it carries the company
+ *   switcher), and the group only while it is a link the person may follow,
+ *   and never when it bears the company's own name.
+ */
+export function workspaceCrumbs(input: WorkspaceCrumbInput): { group: boolean; company: boolean } {
+  if (input.standalone) return { group: false, company: false };
+  if (input.scopeType === "GROUP") return { group: true, company: false };
+  const hasCompany = input.companyName !== null;
+  return {
+    group: input.canEnterGroup === true && input.groupName !== input.companyName,
+    company: hasCompany,
+  };
 }

@@ -93,15 +93,15 @@ test.describe("slots never hold up the page", () => {
     await expect(workspaceSwitcher(page)).toHaveAttribute("data-options", "ready");
   });
 
-  test("while the chooser loads, the Group crumb is not yet a link; the record page is not held (S07)", async ({ page }) => {
+  test("while the chooser loads, the Group crumb is not named; it comes as a link; the record page is not held (S07)", async ({ page }) => {
     await signIn(page, "OWNER", { to: "/dashboard" });
     await delay(page, "workspaces=3000");
     // Not "load": a streamed document's load event waits for its last slot.
     await page.goto("/projects/project_a", { waitUntil: "commit" });
     const header = page.getByTestId("record-navigation-header");
     await expect(header).toBeVisible();
-    await expect(header.getByText(GROUP_NAME).first()).toBeVisible();
-    await expect(header.getByRole("link", { name: GROUP_NAME })).toHaveCount(0);
+    // The group is named only as a way in, never as text that cannot be followed (breadcrumbs: workspaceCrumbs).
+    await expect(header.getByText(GROUP_NAME)).toHaveCount(0);
     await expect(header.getByRole("link", { name: GROUP_NAME })).toHaveCount(1, { timeout: 10_000 });
   });
 

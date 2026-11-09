@@ -22,7 +22,8 @@ export type NavigationWorkspace = {
   scopeType: WorkspaceScopeType;
   companyId: string | null;
   /** Whether the Group view can be entered is streamed separately: `useGroupEntry` (NAV-02 COMPAT-01). */
-  group: { name: string };
+  /** `standalone`: the tenant holds one company, so it has no group level to name (the breadcrumb leaves it out). */
+  group: { name: string; standalone: boolean };
   company: { name: string; id: string } | null;
 };
 

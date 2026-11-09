@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils/cn";
-import { breadcrumbRouteMetadata, fallbackParent, returnHref, type ReturnHistoryEntry } from "@/config/breadcrumb-routes";
+import { breadcrumbRouteMetadata, fallbackParent, returnHref, workspaceCrumbs, type ReturnHistoryEntry } from "@/config/breadcrumb-routes";
 
 /** The record navigation's own history in this tab, read only to borrow a list's last query (AUD-05 §3, UX-04). */
 const RECORD_HISTORY_KEY = "nesto-record-navigation-v1";
@@ -246,24 +246,38 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
   const [history, setHistory] = React.useState<ReturnHistoryEntry[]>([]);
   React.useEffect(() => setHistory(readReturnHistory()), [pathname]);
   const workspaceKey = navigation?.workspace.key ?? null;
-  const trail = React.useMemo<ResolvedCrumb[]>(() => {
+  const { trail, fallbackTrail } = React.useMemo(() => {
     // The Admin Console is its own context (§33): its root, never a company's operational trail.
     const roots: ResolvedCrumb[] = root ? [{ ...root, key: "root" }] : [];
     const workspace = root ? undefined : navigation?.workspace;
+    // The workspace's levels the trail leaves out still count for Back with no history in this tab.
+    const unnamed = new Set<string>();
     if (workspace) {
+      const canEnterGroup = groupEntry?.status === "ready" ? groupEntry.canEnter : groupEntry?.status === "failed" ? false : null;
+      const shown = workspaceCrumbs({
+        scopeType: workspace.scopeType,
+        groupName: workspace.group.name,
+        companyName: workspace.company?.name ?? null,
+        standalone: workspace.group.standalone,
+        canEnterGroup: workspace.scopeType === "GROUP" ? true : canEnterGroup,
+      });
+      const groupKey = `group-${workspace.key}`;
       roots.push({
-        key: `group-${workspace.key}`,
+        key: groupKey,
         icon: "group",
         label: workspace.group.name,
-        // A link only once the Group view is known to be open to them: pending
-        // and failed are not denials, just not yet a way in (NAV-02 COMPAT-01).
+        // A link only once the Group view is known to be open to them (NAV-02 COMPAT-01).
         href: groupEntry?.status === "ready" && groupEntry.canEnter ? "/dashboard" : undefined,
         workspaceTarget: workspace.scopeType === "GROUP" ? undefined : { scopeType: "GROUP", companyId: null },
       });
+      if (!shown.group) unnamed.add(groupKey);
       if (workspace.scopeType === "COMPANY" && workspace.company) {
-        roots.push({ key: `company-${workspace.company.id}`, icon: "company", companyId: workspace.company.id, label: workspace.company.name, href: "/dashboard" });
+        const companyKey = `company-${workspace.company.id}`;
+        roots.push({ key: companyKey, icon: "company", companyId: workspace.company.id, label: workspace.company.name, href: "/dashboard" });
+        if (!shown.company) unnamed.add(companyKey);
       }
     }
+    // A page that names the group or company itself is still deduplicated against them, shown or not.
     const rootLabels = new Set(roots.map((root) => root.label));
     const authorizedItems: (Crumb & { icon?: CrumbIcon })[] = items.filter((item) => !rootLabels.has(item.label));
     const metadata = root ? null : breadcrumbRouteMetadata(pathname);
@@ -283,13 +297,18 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
       href: item.href && !item.disabled ? returnHref(item.href, history, workspaceKey) : item.href,
       key: `crumb-${index}-${item.label}`,
     }));
-    return [...roots, ...supplied].filter((item, index, all) => {
-      const previous = all[index - 1];
-      return !previous || previous.label !== item.label || previous.href !== item.href;
-    });
+    const distinct = (list: ResolvedCrumb[]) =>
+      list.filter((item, index, all) => {
+        const previous = all[index - 1];
+        return !previous || previous.label !== item.label || previous.href !== item.href;
+      });
+    const named = distinct([...roots.filter((item) => !unnamed.has(item.key)), ...supplied]);
+    // A page that names nothing and has no module still says where it is: the workspace itself.
+    const lastRoot = roots[roots.length - 1];
+    return { trail: named.length > 0 || !lastRoot ? named : [lastRoot], fallbackTrail: distinct([...roots, ...supplied]) };
   }, [items, root, navigation?.workspace, pathname, groupEntry, moduleNames, history, workspaceKey]);
   // No history in this tab (a deep link): Back goes to the nearest parent instead of doing nothing (UX-04).
-  const fallback = navigation?.canGoBack ? null : fallbackParent(trail);
+  const fallback = navigation?.canGoBack ? null : fallbackParent(fallbackTrail, pathname);
 
   const collapseAt = Math.max(4, maxVisible);
   const collapsed = trail.length > collapseAt;
