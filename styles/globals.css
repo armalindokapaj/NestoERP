@@ -417,6 +417,21 @@
   }
 }
 
+/*
+ * A page drawn without the breadcrumb bar (a single company's Projects page)
+ * marks itself with `data-shell-breadcrumb-off`. The bar and its height go
+ * together, so the sticky stack starts under the top bar. In CSS, so the
+ * server-rendered page has no bar to flash. Unlayered and doubled `:root`, so
+ * this outranks both the bar's own utilities and the design versions' heights.
+ */
+:root:root:has([data-shell-breadcrumb-off]) {
+  --nesto-shell-breadcrumb-h: 0px;
+}
+
+:root:has([data-shell-breadcrumb-off]) [data-shell-breadcrumb] {
+  display: none;
+}
+
 @layer utilities {
   /*
    * Page container (MOB-01 §10, components/ui/page-container.tsx). Width,

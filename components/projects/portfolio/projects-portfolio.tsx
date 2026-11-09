@@ -36,16 +36,22 @@ const SEARCH_DEBOUNCE_MS = 250;
  * search is a new URL and brings a new first page. A new workspace is a new
  * tree: the shell keys the page by workspace, so nothing here survives into the
  * next one (§83, §86).
+ *
+ * A single company's page is the cards alone (`cardsOnly`): one company's
+ * projects need no search and no second view, so neither is offered.
  */
 export function ProjectsPortfolio({
   initial,
   q,
   canCreate,
+  cardsOnly = false,
 }: {
   initial: PortfolioListDTO;
   q: string;
   /** Whether this person may create a project here; only then does the empty workspace offer it (§73). */
   canCreate: boolean;
+  /** Only the cards: no search, no cards/list switch, always cards. */
+  cardsOnly?: boolean;
 }) {
   const router = useRouter();
   const feedback = useNavigationFeedback();
@@ -55,12 +61,14 @@ export function ProjectsPortfolio({
   const [navigating, startNavigation] = React.useTransition();
 
   // Cards or a compact list (MOB-05 §15): a per-viewer convenience, so it lives in the browser and the page renders correctly without it.
-  const [view, setView] = React.useState<"cards" | "list">("cards");
+  const [chosenView, setView] = React.useState<"cards" | "list">("cards");
+  const view = cardsOnly ? "cards" : chosenView;
   React.useEffect(() => {
+    if (cardsOnly) return;
     try {
       if (window.localStorage.getItem(VIEW_KEY) === "list") setView("list");
     } catch {}
-  }, []);
+  }, [cardsOnly]);
   const chooseView = (next: "cards" | "list") => {
     setView(next);
     try {
@@ -163,31 +171,33 @@ export function ProjectsPortfolio({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-        <ProjectsSearch value={q} onSearch={search} />
-        <div role="group" aria-label={t("portfolio.viewLabel")} className="flex shrink-0 gap-1 sm:ml-auto">
-          {(["cards", "list"] as const).map((mode) => {
-            const Icon = mode === "cards" ? LayoutGrid : List;
-            return (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={view === mode}
-                aria-label={t(mode === "cards" ? "portfolio.viewCards" : "portfolio.viewList")}
-                onClick={() => chooseView(mode)}
-                className={cn("grid size-10 place-items-center rounded-md border border-line touch:size-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", view === mode ? "bg-hover text-fg" : "text-fg-muted")}
-                data-testid={`projects-view-${mode}`}
-              >
-                <Icon aria-hidden="true" className="size-4" />
-              </button>
-            );
-          })}
+      {cardsOnly ? null : (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <ProjectsSearch value={q} onSearch={search} />
+          <div role="group" aria-label={t("portfolio.viewLabel")} className="flex shrink-0 gap-1 sm:ml-auto">
+            {(["cards", "list"] as const).map((mode) => {
+              const Icon = mode === "cards" ? LayoutGrid : List;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={view === mode}
+                  aria-label={t(mode === "cards" ? "portfolio.viewCards" : "portfolio.viewList")}
+                  onClick={() => chooseView(mode)}
+                  className={cn("grid size-10 place-items-center rounded-md border border-line touch:size-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", view === mode ? "bg-hover text-fg" : "text-fg-muted")}
+                  data-testid={`projects-view-${mode}`}
+                >
+                  <Icon aria-hidden="true" className="size-4" />
+                </button>
+              );
+            })}
+          </div>
+          {/* The count of what the search found, only while there is one (§148). */}
+          <p className="text-table text-fg-muted" aria-live="polite" data-testid="projects-result-count">
+            {navigating ? <span className="sr-only">{t("portfolio.loading")}</span> : q && total > 0 ? t("portfolio.found", { projects: t("portfolio.count", { count: total }) }) : null}
+          </p>
         </div>
-        {/* The count of what the search found, only while there is one (§148). */}
-        <p className="text-table text-fg-muted" aria-live="polite" data-testid="projects-result-count">
-          {navigating ? <span className="sr-only">{t("portfolio.loading")}</span> : q && total > 0 ? t("portfolio.found", { projects: t("portfolio.count", { count: total }) }) : null}
-        </p>
-      </div>
+      )}
 
       <div className={cn("transition-opacity", navigating && "pointer-events-none opacity-60")} aria-busy={navigating}>
         {shown === 0 ? (
@@ -281,11 +291,11 @@ function ProjectsSearch({ value, onSearch }: { value: string; onSearch: (q: stri
 }
 
 /** What the page shows while the first page is on its way: the same cards, the same shape (§101-§103). */
-export function ProjectsPortfolioSkeleton() {
+export function ProjectsPortfolioSkeleton({ cardsOnly = false }: { cardsOnly?: boolean } = {}) {
   const t = useTranslations("projects");
   return (
     <div className="space-y-5" role="status" aria-busy="true" aria-label={t("portfolio.loading")}>
-      <div className="h-10 w-full animate-pulse rounded-md bg-surface-muted sm:max-w-sm motion-reduce:animate-none" />
+      {cardsOnly ? null : <div className="h-10 w-full animate-pulse rounded-md bg-surface-muted sm:max-w-sm motion-reduce:animate-none" />}
       <div className={GALLERY_GRID}>
         {Array.from({ length: 8 }, (_, index) => (
           <ProjectCardSkeleton key={index} />

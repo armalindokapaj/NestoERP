@@ -30,15 +30,21 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  * workspace — as one grid, in one order. The workspace is the organisational
  * filter; the page does not ask for a company, role, type, place, sort or view
  * again. It only offers a search, and the way into a project.
+ *
+ * A tenant of a single company sees only the cards: no breadcrumb bar, no
+ * section tabs, no explainer, no search and no list view — Active projects
+ * first, as everywhere.
  */
 export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
   const { session } = await requireProjectPortfolio();
   const params = await searchParams;
+  const single = session.parentGroup.standalone;
 
   // A bookmark from before the simplification: the same page, without the
-  // filters it no longer applies (§184).
+  // filters it no longer applies (§184). A single company's page has no search to keep.
   const canonical = canonicalPortfolioHref(params);
   if (canonical) redirect(canonical);
+  if (single && params.q !== undefined) redirect("/projects");
 
   return (
     // No key: a new search keeps the page on screen, dimmed, while the next
@@ -46,11 +52,11 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
     <Suspense
       fallback={
         <ProjectsFrame session={session} description={<span aria-hidden="true" className="inline-block h-4 w-44 animate-pulse rounded bg-surface-muted align-middle motion-reduce:animate-none" />}>
-          <ProjectsPortfolioSkeleton />
+          <ProjectsPortfolioSkeleton cardsOnly={single} />
         </ProjectsFrame>
       }
     >
-      <ProjectsBody session={session} q={parsePortfolioQuery(params).q ?? ""} />
+      <ProjectsBody session={session} q={single ? "" : (parsePortfolioQuery(params).q ?? "")} />
     </Suspense>
   );
 }
@@ -62,6 +68,14 @@ async function ProjectsBody({ session, q }: { session: UserContext; q: string })
     creatableCompanies(session),
   ]);
   const t = await getTranslations("projects");
+
+  if (session.parentGroup.standalone) {
+    return (
+      <ProjectsFrame session={session} description={headerCount(result.meta, t)}>
+        <ProjectsPortfolio initial={result} q="" canCreate={creatable.length > 0} cardsOnly />
+      </ProjectsFrame>
+    );
+  }
 
   return (
     <ProjectsFrame session={session} description={headerCount(result.meta, t)}>
@@ -100,9 +114,13 @@ function headerCount(meta: PortfolioListDTO["meta"], t: Awaited<ReturnType<typeo
  * no company whose sections these would be, shows the page without them
  * (Workspace Context §25). No "New project" beside the title: the top bar's
  * + Create is where projects are started (§74, §75).
+ *
+ * A single company's page is the title and the cards: no section tabs, and no
+ * breadcrumb bar (`data-shell-breadcrumb-off`, styles/globals.css).
  */
 async function ProjectsFrame({ session, description, children }: { session: UserContext; description: React.ReactNode; children: React.ReactNode }) {
-  if (session.workspace.scopeType === "COMPANY" && isModuleEnabled(session, "projects") && canAccessModule(session, "projects")) {
+  const single = session.parentGroup.standalone;
+  if (!single && session.workspace.scopeType === "COMPANY" && isModuleEnabled(session, "projects") && canAccessModule(session, "projects")) {
     return (
       <ModulePage experience={resolveModuleExperience(session, "projects")} activeSection="portfolio" description={description}>
         {children}
@@ -111,7 +129,8 @@ async function ProjectsFrame({ session, description, children }: { session: User
   }
   const t = await getTranslations("projects");
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-testid="projects-page">
+      {single ? <span hidden data-shell-breadcrumb-off /> : null}
       <div className="min-w-0">
         <h1 className="text-page font-semibold text-fg">{t("meta.projects")}</h1>
         {description === null ? null : <p className="mt-1.5 text-body text-fg-muted">{description}</p>}
