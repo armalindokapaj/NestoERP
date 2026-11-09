@@ -122,9 +122,9 @@ export async function AssignmentTable({ items, view }: { items: AssignmentDTO[];
   if (!items.length) return <EmptyState icon={<HardHat />} title={view === "project" ? t("tables.noOnProject") : t("tables.notAssigned")} description={view === "project" ? t("tables.noOnProjectDescription") : t("tables.notAssignedDescription")} />;
   const status = (value: AssignmentDTO["status"]) => contractorsLabel(t, "assignmentStatus", value, ASSIGNMENT_STATUS_LABELS[value]);
   /*
-   * Phones get a card per assignment with its actions on the card; the
-   * ten-column table (from md) had Edit and Terminate ~800px to the right
-   * (AUD-04 §5, D-09-12, MW-05).
+   * Phones and tablets get a card per assignment with its actions on the
+   * card; the ten-column table (from lg) had Edit and Terminate ~800px to the
+   * right (AUD-04 §5, D-09-12, MW-05).
    */
   const manage = (row: AssignmentDTO) =>
     row.canManage ? (
