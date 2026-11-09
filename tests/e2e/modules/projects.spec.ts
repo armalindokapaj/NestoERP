@@ -176,7 +176,13 @@ test.describe("Viewer (PRD #9 §163)", () => {
 
     await expect(page.getByRole("heading", { name: "Riverside Residences" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /more project actions/i })).toHaveCount(0);
+    // The project's ⋯ is the page's at every width, so it is there for "What is this?"; it offers nothing that changes the project.
+    const more = page.getByRole("button", { name: /more project actions/i });
+    await expect(more).toBeVisible();
+    await more.click();
+    await expect(page.getByRole("menuitem", { name: "What is this?" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /edit project|change status|manage project media|manage team|archive project/i })).toHaveCount(0);
+    await page.keyboard.press("Escape");
   });
 
   test("is refused every mutation endpoint (PRD #9 §113)", async ({ page, request }) => {

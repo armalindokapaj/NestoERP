@@ -21,7 +21,9 @@ export function usePhone(): boolean | null {
   );
 }
 
-const BELOW_LG = "(max-width: 1023.98px)";
+/** Below `lg` (1024px): phones and tablets. Shared with the page's ⋯ menu (components/navigation/page-menu.tsx). */
+export const BELOW_LG_QUERY = "(max-width: 1023.98px)";
+const BELOW_LG = BELOW_LG_QUERY;
 
 /**
  * Whether the viewport is below `lg` (phones and tablets), where the shell

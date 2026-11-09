@@ -54,7 +54,7 @@ test("Project workspace: phone identity, tabs and Overview", async ({ page }) =>
 });
 
 test("Project Overview below 1024px: the ⋯ follows the status on the header's line and holds What is this?", async ({ page }) => {
-  test.skip(page.viewportSize()!.width >= 1024, "phones and tablets; from 1024px the ⋯ and What is this? stay on the tab row");
+  test.skip(page.viewportSize()!.width >= 1024, "phones and tablets; from 1024px the ⋯ is on the hero (next test)");
   await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
   const identity = page.getByTestId("project-phone-identity");
   await expect(identity).toBeVisible();
@@ -78,6 +78,52 @@ test("Project Overview below 1024px: the ⋯ follows the status on the header's 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expectNoPageOverflow(page);
+});
+
+test("Project Overview from 1024px: the ⋯ follows the status on the hero, holds What is this?, and the tab row is the tabs alone", async ({ page }) => {
+  test.skip(page.viewportSize()!.width < 1024, "desktop; below 1024px the ⋯ follows the status in the compact header");
+  await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+  const line = mainRegion(page).getByTestId("project-hero-status-line");
+  const more = line.getByRole("button", { name: "More project actions" });
+  await expect(more).toBeVisible();
+  // One project menu on the page: the compact header's copy is not mounted from lg, and the tab row has no controls.
+  await expect(page.getByRole("button", { name: "More project actions" })).toHaveCount(1);
+  await expect(page.locator("[data-context-tabs-trailing]")).toBeHidden();
+  await expect(mainRegion(page).getByTestId("help-projects.detail.relationships")).toBeHidden();
+  // Right after the status, on its line, and the line no taller for it.
+  const [status, dots] = [(await line.getByTestId("project-hero-status").boundingBox())!, (await more.boundingBox())!];
+  expect(dots.x).toBeGreaterThan(status.x + status.width - 1);
+  expect(dots.x - (status.x + status.width)).toBeLessThanOrEqual(24);
+  expect(Math.abs(dots.y + dots.height / 2 - (status.y + status.height / 2))).toBeLessThanOrEqual(8);
+  expect((await line.boundingBox())!.height).toBeLessThanOrEqual(24);
+
+  await more.focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("menuitem", { name: "What is this?" }).click();
+  const dialog = page.getByTestId("page-help-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("opens from the tabs of this project");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
+test("A module page from 1024px: Help and What is this? are in the ⋯ right after the title", async ({ page }) => {
+  test.skip(page.viewportSize()!.width < 1024, "desktop; below 1024px the ⋯ ends the title's row (next test)");
+  await signIn(page, "PROJECT_MANAGER", { to: "/tasks" });
+  const header = mainRegion(page).locator('[data-page-header="module"]');
+  await expect(header.getByTestId("module-help-entry")).toBeHidden();
+  const more = header.getByTestId("page-menu");
+  await expect(more).toBeVisible();
+  const [title, dots] = [(await header.locator("[data-page-title]").boundingBox())!, (await more.boundingBox())!];
+  // On the title's line, right after the title, not a row of its own.
+  expect(dots.y).toBeLessThan(title.y + title.height);
+  expect(dots.x).toBeGreaterThan(title.x + title.width - 1);
+  expect(dots.x - (title.x + title.width)).toBeLessThanOrEqual(24);
+  await expect(mainRegion(page).getByTestId("help-lists.search-filters")).toBeHidden();
+  await more.click();
+  await expect(page.getByRole("menuitem", { name: "What is this?" })).toBeVisible();
+  await page.getByRole("menuitem", { name: /^Help/ }).click();
+  await expect(page).toHaveURL(/\/help\/tasks/);
 });
 
 test("A module page below 1024px: Help is in the ⋯ at the end of the title's line, not a row of its own", async ({ page }) => {

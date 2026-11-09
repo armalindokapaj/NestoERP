@@ -69,7 +69,7 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Below lg Help is an item of the ⋯ at the end of the title's line (components/navigation/page-menu.tsx). */}
+      {/* Help is an item of the ⋯ at the end of the title's line, at every width (components/navigation/page-menu.tsx). */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="max-lg:grow">
           <div className="flex items-start gap-2">

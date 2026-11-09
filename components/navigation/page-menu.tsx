@@ -4,31 +4,33 @@ import * as React from "react";
 import { BookOpen, CircleHelp, MoreHorizontal } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { BELOW_LG_QUERY } from "@/components/layout/use-phone";
 import Link from "@/components/navigation/nav-link";
-import { isOrphan, PageMenuStore, slotShows, type PageMenuEntry, type PageMenuState } from "@/components/navigation/page-menu-store";
+import { isOrphan, offeredEntries, PageMenuStore, slotShows, type PageMenuEntry, type PageMenuSlotWidth, type PageMenuState } from "@/components/navigation/page-menu-store";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The page's ⋯ menu below `lg` (phones and tablets): one ⋯ at the end of the
- * page's title row, holding its secondary actions, its "What is this?" tips
- * and its Help link, which are not drawn where they sit there. The API — how
- * a page adds an item, and how its primary action stays a button — is
- * described at the top of page-menu-store.ts. From `lg` nothing here is drawn
- * and every control stays where the page put it.
+ * The page's ⋯ menu, at every width: one ⋯ right after the page's title or
+ * status (below `lg` at the end of the title row), holding its "What is
+ * this?" tips and its Help link, which are not drawn where they sit. Below
+ * `lg` it also holds the page's secondary actions; from `lg` those stay
+ * visible buttons where the page put them. The API — how a page adds an item,
+ * and how its primary action stays a button — is described at the top of
+ * page-menu-store.ts.
  *
  * - `WhatIsThis` registers itself; `HelpEntry` and secondary actions through
  *   `FoldIntoPageMenu`.
- * - A page's own record menu (a project's, a task's) claims them with
- *   `useClaimPageMenu` and lists them with `PageMenuItems`.
+ * - A page's own record menu (a project's, a task's, a client's…) claims them
+ *   with `useClaimPageMenu` and lists them with `PageMenuItems`.
  * - Otherwise the page header's `PageMenuSlot` draws a ⋯ for them, the first
- *   one in the document where there are several.
+ *   one in the document drawn at this width where there are several.
  * - A tip opens as a dialog (`PageHelpDialog`, one for the shell), with the
  *   same heading, words and link as inline.
  * - Where nothing can hold them (a page without a header slot, or outside the
- *   shell), each is drawn where it sits, as from `lg`.
+ *   shell), each is drawn where it sits.
  */
 
 type Node = React.ReactNode;
@@ -37,12 +39,20 @@ export type PageMenuItem = PageMenuEntry<Node>;
 const PageMenuContext = React.createContext<PageMenuStore<Node> | null>(null);
 
 /** Outside the shell nothing collects the entries: they are drawn where they sit (`isOrphan`), on the server as in the browser. */
-const NO_SHELL: PageMenuState<Node> = Object.freeze({ ready: true, entries: Object.freeze([]), claimed: false, slot: null, openTip: null });
+const NO_SHELL: PageMenuState<Node> = Object.freeze({ ready: true, wide: false, entries: Object.freeze([]), claimed: false, slot: null, openTip: null });
 const noSubscribe = () => () => undefined;
 const noShell = () => NO_SHELL;
 
 export function PageMenuProvider({ children }: { children: React.ReactNode }) {
   const [store] = React.useState(() => new PageMenuStore<Node>());
+  // Which slots are drawn and what the ⋯ offers follow the width: set before the first paint, and on every change.
+  React.useLayoutEffect(() => {
+    const media = window.matchMedia(BELOW_LG_QUERY);
+    const sync = () => store.setWide(!media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, [store]);
   return (
     <PageMenuContext.Provider value={store}>
       {children}
@@ -101,7 +111,7 @@ export function useRegisterPageMenuItem(item: PageMenuItem | null) {
 /** The earlier name of `useRegisterPageMenuItem`. */
 export const useRegisterPageHelp = useRegisterPageMenuItem;
 
-/** Whether the page's folded controls are drawn where they sit below `lg`, for want of a menu to hold them. */
+/** Whether the page's folded controls are drawn where they sit at this width, for want of a menu to hold them. */
 export function usePageMenuInline(): boolean {
   return isOrphan(usePageMenuState());
 }
@@ -109,7 +119,7 @@ export function usePageMenuInline(): boolean {
 /** The earlier name of `usePageMenuInline`. */
 export const usePageHelpInline = usePageMenuInline;
 
-/** A page's own ⋯ menu takes the folded items while `active` (below `lg`); it lists them with `PageMenuItems`. */
+/** A page's own ⋯ menu takes the folded items while `active` (while its ⋯ is drawn, at every width); it lists them with `PageMenuItems`. */
 export function useClaimPageMenu(active: boolean) {
   const store = React.useContext(PageMenuContext);
   const id = React.useId();
@@ -120,24 +130,25 @@ export function useClaimPageMenu(active: boolean) {
   }, [store, id, active]);
 }
 
-/** How many items there are to offer: a claiming menu shows its ⋯ for them even when it has nothing else. */
+/** How many items there are to offer at this width: a claiming menu shows its ⋯ for them even when it has nothing else. */
 export function usePageMenuCount(): number {
-  return usePageMenuState().entries.length;
+  return offeredEntries(usePageMenuState()).length;
 }
 
 /** The earlier name of `usePageMenuCount`. */
 export const usePageHelpCount = usePageMenuCount;
 
 /**
- * The folded items as menu items: secondary actions, then (set off by a
- * separator) the tips and Help. For the page's ⋯ below `lg`. In a record's
- * own menu, `separator` puts one before them, against its own items
+ * The folded items as menu items: below `lg` the secondary actions, then (set
+ * off by a separator) the tips and Help; from `lg` the tips and Help only, the
+ * actions being buttons on the page there. In a record's own menu,
+ * `separator` puts one before them, against its own items
  * (`separatorClassName` says where those are shown, so no separator is left
  * hanging at the top of a menu whose own items are hidden at this width).
  */
 export function PageMenuItems({ separator = false, separatorClassName }: { separator?: boolean; separatorClassName?: string }) {
   const store = React.useContext(PageMenuContext);
-  const { entries } = usePageMenuState();
+  const entries = offeredEntries(usePageMenuState());
   if (!store || entries.length === 0) return null;
   const tips = entries.filter((entry) => entry.kind === "tip").length;
   const firstHelp = entries.findIndex((entry) => entry.kind !== "action");
@@ -195,14 +206,17 @@ export function PageMenuItems({ separator = false, separatorClassName }: { separ
 export const PageHelpMenuItems = PageMenuItems;
 
 /**
- * Where a page header offers the ⋯ below `lg`, at the end of its title row
- * (`data-page-menu`; components/ui/page-header.tsx orders it there). Drawn
- * only while it is the first slot on the page, there is something to offer
- * and no record menu took it. `reserve`: the header knows it will hold
- * something (a module page's Help), so the ⋯ is drawn from the first paint
- * and nothing moves when the page has hydrated.
+ * Where a page header offers the ⋯: right after its title or status, or below
+ * `lg` at the end of its title row (`data-page-menu`;
+ * components/ui/page-header.tsx orders it there). Drawn only while it is the
+ * first slot on the page drawn at this width, there is something to offer and
+ * no record menu took it. `at` limits it to one width: `belowLg` (a project's
+ * compact header, a page header's row) or `lg` (a page header's title or
+ * status line). `reserve`: the header knows it will hold something (a module
+ * page's Help), so the ⋯ is drawn from the first paint and nothing moves when
+ * the page has hydrated.
  */
-export function PageMenuSlot({ reserve = false, className }: { reserve?: boolean; className?: string }) {
+export function PageMenuSlot({ reserve = false, at = "all", className }: { reserve?: boolean; at?: PageMenuSlotWidth; className?: string }) {
   const store = React.useContext(PageMenuContext);
   const state = usePageMenuState();
   const t = useTranslations("ui");
@@ -210,17 +224,26 @@ export function PageMenuSlot({ reserve = false, className }: { reserve?: boolean
   const id = React.useId();
   React.useLayoutEffect(() => {
     if (!store) return;
-    store.addSlot(id, anchor.current);
+    store.addSlot(id, anchor.current, at);
     return () => store.removeSlot(id);
-  }, [store, id]);
+  }, [store, id, at]);
   if (!store) return null;
+  // Before the width is known a reserved slot is drawn in each of a header's places, CSS showing the one for this width; the test id is the drawn one's alone.
+  const testId = at === "all" || state.ready ? "page-menu" : undefined;
   return (
     <>
       <span ref={anchor} hidden />
       {slotShows(state, id, reserve) ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={t("pageMenu")} className={cn("shrink-0 lg:hidden", className)} data-page-menu data-testid="page-menu">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("pageMenu")}
+              className={cn("shrink-0", at === "belowLg" && "lg:hidden", at === "lg" && "max-lg:hidden", className)}
+              data-page-menu
+              data-testid={testId}
+            >
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -234,14 +257,15 @@ export function PageMenuSlot({ reserve = false, className }: { reserve?: boolean
 }
 
 /**
- * A control that folds into the page's ⋯ below `lg`: `item` is what stands
- * for it in the menu, and `children` — the control as drawn from `lg` — is
- * not drawn below it, unless nothing on the page can hold the item.
+ * A control that folds into the page's ⋯: `item` is what stands for it in the
+ * menu, and `children` is the control as drawn on the page. An action's
+ * children are drawn from `lg` and not below it; a link's (Help) at no width.
+ * Either is drawn where it sits when nothing on the page can hold the item.
  */
 export function FoldIntoPageMenu({ item, children }: { item: PageMenuItem; children: React.ReactNode }) {
   useRegisterPageMenuItem(item);
   const inline = usePageMenuInline();
-  return <div className={cn("contents", !inline && "max-lg:hidden")}>{children}</div>;
+  return <div className={inline ? "contents" : item.kind === "action" ? "contents max-lg:hidden" : "hidden"}>{children}</div>;
 }
 
 /** The open tip, as a dialog: a bottom sheet on a phone, centred from 640px. */

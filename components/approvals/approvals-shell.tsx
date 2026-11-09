@@ -487,7 +487,7 @@ export function ApprovalsShell({
   return (
     <ApprovalDraftProvider store={drafts}>
     <div className="flex flex-col gap-5" data-testid="approvals-center">
-      {/* Below lg "What is this?" and Help are items of the ⋯ at the end of the heading's line (components/navigation/page-menu.tsx). */}
+      {/* "What is this?" and Help are items of the ⋯ at the end of the heading's line, at every width (components/navigation/page-menu.tsx). */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0 max-lg:grow">
           <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>

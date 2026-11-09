@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { PageMenuItems, useClaimPageMenu } from "@/components/navigation/page-menu";
 import {
   Archive,
   ArchiveRestore,
@@ -99,6 +100,9 @@ export function FinanceRecordActions({
     });
   }
 
+  // The record's ⋯ is the page's: while it is drawn it also holds the page's "What is this?" and Help (components/navigation/page-menu.tsx).
+  const pageMenu = capabilities.canClose || capabilities.canCancel || capabilities.canArchive;
+  useClaimPageMenu(pageMenu);
   const busy = pending || running !== null;
   const buttonText = (action: string, idle: string, working: string) => (running === action ? working : idle);
 
@@ -165,7 +169,7 @@ export function FinanceRecordActions({
         </Button>
       ) : null}
 
-      {capabilities.canClose || capabilities.canCancel || capabilities.canArchive ? (
+      {pageMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { label })} data-page-menu>
@@ -206,6 +210,7 @@ export function FinanceRecordActions({
                 {t("actions.archiveKind", { kind: kindLower })}
               </DropdownMenuItem>
             ) : null}
+            <PageMenuItems separator />
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

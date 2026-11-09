@@ -93,7 +93,7 @@ describe("contextual help points (AUD-05 §7, UX-15)", () => {
     ["approvals.queue", "components/approvals/approvals-shell.tsx"],
     ["tasks.detail.status", "app/(nesto)/tasks/[taskId]/page.tsx"],
     ["lists.search-filters", "app/(nesto)/tasks/tasks-list.tsx"],
-    ["projects.detail.relationships", "app/(nesto)/projects/[projectId]/project-tabs.tsx"],
+    ["projects.detail.relationships", "app/(nesto)/projects/[projectId]/page.tsx"],
   ];
 
   it.each(points)("%s is placed in %s", (id, file) => {

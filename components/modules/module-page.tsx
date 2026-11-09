@@ -20,11 +20,11 @@ import { getTranslations } from "@/lib/i18n/server";
  *
  * Orientation (AUD-05 §3, §4, §7): the default heading and description are the
  * module's name and line as the sidebar gives them, in the reader's language,
- * so the menu, the heading and the breadcrumb agree (UX-07). The header ends
- * with the module's Help entry, a quiet link after the page's own actions: the
- * primary action stays the one that stands out (UX-16). Below lg Help is an
- * item of the header's ⋯, at the end of the title row (`reserveMenu`;
- * components/navigation/page-menu.tsx).
+ * so the menu, the heading and the breadcrumb agree (UX-07). The module's Help
+ * is an item of the header's ⋯, right after the title (below lg at the end of
+ * the title row), with the page's "What is this?" tips, so the primary action
+ * stays the one that stands out (UX-16). The ⋯ is drawn from the first paint
+ * (`reserveMenu`; components/navigation/page-menu.tsx).
  *
  * The heading block is the one every page shares (`PageHeaderFrame`,
  * components/ui/page-header.tsx; UI-02 §7.2).

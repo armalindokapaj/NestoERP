@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { PageMenuItems, useClaimPageMenu } from "@/components/navigation/page-menu";
 import { Archive, ArchiveRestore, Download, MoreHorizontal, PenLine } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,10 @@ export function DocumentActions({ document }: { document: DocumentDetailDTO }) {
     });
   }
 
+  // The record's ⋯ is the page's: while it is drawn it also holds the page's "What is this?" and Help (components/navigation/page-menu.tsx).
+  const pageMenu = !archived && may.canArchive;
+  useClaimPageMenu(pageMenu);
+
   return (
     <>
       {may.canDownload ? (
@@ -87,7 +92,7 @@ export function DocumentActions({ document }: { document: DocumentDetailDTO }) {
         </Button>
       ) : null}
 
-      {!archived && may.canArchive ? (
+      {pageMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} data-page-menu>
@@ -104,6 +109,7 @@ export function DocumentActions({ document }: { document: DocumentDetailDTO }) {
               <Archive />
               {t("actions.archive")}
             </DropdownMenuItem>
+            <PageMenuItems separator />
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

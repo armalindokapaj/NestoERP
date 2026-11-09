@@ -31,9 +31,10 @@ function activeFor(tabs: ContextTab[], pathname: string, rootKey?: string) {
  * tabs always shown; the rest fold into More, which carries the active tab's
  * name while one of them is open. The active tab follows the URL, so back,
  * forward, refresh and deep links all land on the right one (§35, §36).
- * `trailing` is a page's own controls at the end of the row. Below lg the row is
- * the top bar's section menu, every tab in it, and `lead` — the context's own
- * compact header — takes the row's place beside `trailing` (ContextTabsFrame).
+ * Below lg the row is the top bar's section menu, every tab in it, and `lead` —
+ * the context's own compact header — takes the row's place, with `trailing`, a
+ * page's own controls, at its end; from lg the row holds only the tabs
+ * (ContextTabsFrame).
  */
 export function ContextTabs({ label, tabs, primary, rootKey, trailing, lead }: { label: string; tabs: ContextTab[]; primary?: string[]; rootKey?: string; trailing?: React.ReactNode; lead?: React.ReactNode }) {
   const t = useTranslations("ui");

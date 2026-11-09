@@ -37,25 +37,26 @@ import { ChangeProjectStatusDialog } from "./change-project-status-dialog";
  *
  * On the project's Overview the menu also carries the star (`favorite`, when
  * favourites are on) and "Available offline" (`offline`, on a live project):
- * the record's own toggles first, then what changes the project. Below `lg`
- * it is the page's ⋯, right after the project's status in its compact header:
- * it then also holds the page's "What is this?" and Help, last
- * (components/navigation/page-menu.tsx).
+ * the record's own toggles first, then what changes the project. It is the
+ * page's ⋯, right after the project's status: in the compact header below
+ * `lg`, on the hero's code and status line from `lg`. It also holds the
+ * page's "What is this?" and Help, last (components/navigation/page-menu.tsx).
+ *
+ * `at` says which of those two places this copy is for, and only the copy for
+ * the current width is mounted, so exactly one claims the page's tips and
+ * owns the dialogs. The compact header's (`belowLg`) is also mounted while
+ * the width is not yet known, so phones and tablets have it from the first
+ * paint; its row is not drawn from `lg`. The hero's (`lg`) mounts once the
+ * width is known to be `lg` or more; the hero gives it its on-image look
+ * (`classNames`).
  */
-export function ProjectActions({
-  projectId,
-  projectName,
-  companyName,
-  statusMoves = [],
-  archived,
-  canUpdate,
-  canArchive,
-  canRestore,
-  canManageMedia = false,
-  canManageTeam = false,
-  favorite,
-  offline = false,
-}: {
+export function ProjectActions({ at, ...props }: ProjectActionsProps & { at: "belowLg" | "lg" }) {
+  const belowLg = useBelowLg();
+  const mounted = at === "lg" ? belowLg === false : belowLg !== false;
+  return mounted ? <ProjectActionsMenu {...props} /> : null;
+}
+
+type ProjectActionsProps = {
   projectId: string;
   projectName: string;
   companyName: string;
@@ -71,7 +72,25 @@ export function ProjectActions({
   favorite?: { initial: boolean };
   /** Offer "Available offline" (a live project only). */
   offline?: boolean;
-}) {
+  /** Extra classes for the ⋯ and for Restore, where the menu sits on something other than the page (the Overview's hero image). */
+  classNames?: { trigger?: string; restore?: string };
+};
+
+function ProjectActionsMenu({
+  projectId,
+  projectName,
+  companyName,
+  statusMoves = [],
+  archived,
+  canUpdate,
+  canArchive,
+  canRestore,
+  canManageMedia = false,
+  canManageTeam = false,
+  favorite,
+  offline = false,
+  classNames,
+}: ProjectActionsProps) {
   const router = useRouter();
   const toast = useToast();
   const t = useTranslations("projects");
@@ -120,16 +139,15 @@ export function ProjectActions({
   const showOffline = offline && !archived && download.shown;
   const toggles = Boolean(favorite) || showOffline;
   const changes = !archived && (canArchive || canUpdate || canChangeStatus || canManageMedia || canManageTeam);
-  const belowLg = useBelowLg() === true;
-  useClaimPageMenu(belowLg);
-  const helpCount = usePageMenuCount();
-  const helpItems = belowLg && helpCount > 0;
+  // The page's ⋯ at every width: it holds the page's tips and Help (components/navigation/page-menu.tsx).
+  useClaimPageMenu(true);
+  const helpItems = usePageMenuCount() > 0;
   const showMenu = toggles || changes || helpItems;
 
   return (
     <>
       {archived && canRestore ? (
-        <Button size="sm" onClick={restore} disabled={pending}>
+        <Button size="sm" onClick={restore} disabled={pending} className={classNames?.restore}>
           <ArchiveRestore aria-hidden="true" />
           {pending ? t("actions.restoring") : t("actions.restore")}
         </Button>
@@ -138,7 +156,7 @@ export function ProjectActions({
       {showMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} className={toggles || changes ? undefined : "lg:hidden"} data-page-menu>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} className={classNames?.trigger} data-page-menu>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>

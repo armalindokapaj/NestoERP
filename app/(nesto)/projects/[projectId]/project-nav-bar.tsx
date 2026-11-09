@@ -42,10 +42,12 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
    * Below lg: who and what, once — name, code, company and status in one
    * compact header, in the tab row's place (MOB-05 §18, §19, §70). The page's
    * ⋯ follows the status on the same line: the Overview's project menu, or on
-   * a section the ⋯ for its tips and Help when it has any. A section's own
-   * page header then draws only its actions (RecordContextHeader
-   * `nameInLayout`) and the Overview's hero no name, so the name is not shown
-   * twice. From lg the tab row and the pages' own headers are drawn as ever.
+   * a section the ⋯ for its tips, Help and secondary actions when it has any.
+   * A section's own page header then draws only its actions
+   * (RecordContextHeader `nameInLayout`) and the Overview's hero no name, so
+   * the name is not shown twice. From lg the row is the tabs alone: the
+   * Overview's menu is on its hero, after the status (page.tsx), and a
+   * section's ⋯ in its own page header, after its title or status.
    */
   const header = <ProjectCompactHeader identity={identity} className="lg:hidden" />;
   return (
@@ -53,7 +55,7 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
       <Breadcrumbs items={trail} level="layout" />
       {/* A project with no section but its Overview draws no tab row; its header stands alone. */}
       {tabs.length <= 1 ? header : null}
-      {/* The Overview's own controls end the row on the Overview only; every other section keeps the row to its tabs. */}
+      {/* The Overview's menu ends the compact row below lg, on the Overview only; from lg the row is the tabs alone. */}
       <ContextTabs label={sectionsLabel} tabs={tabs} primary={PRIMARY} rootKey="overview" trailing={segment === null ? overviewTrailing : undefined} lead={header} />
     </>
   );
@@ -62,7 +64,8 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
 /**
  * The project's compact header below lg: its name, then its code and company,
  * on the left; its status, then the page's ⋯, on the right. The ⋯ here is the
- * one for a section's tips and Help (`PageMenuSlot`); on the Overview the
+ * one for a section's tips, Help and secondary actions (`PageMenuSlot`, below
+ * lg only: from lg a section's own header has it); on the Overview the
  * project's own menu, which follows this header in the row, holds them.
  */
 function ProjectCompactHeader({ identity, className }: { identity: ProjectIdentity; className?: string }) {
@@ -77,7 +80,7 @@ function ProjectCompactHeader({ identity, className }: { identity: ProjectIdenti
         </p>
       </div>
       <ProjectStatusBadge status={identity.status} className="shrink-0" />
-      <PageMenuSlot />
+      <PageMenuSlot at="belowLg" />
     </div>
   );
 }

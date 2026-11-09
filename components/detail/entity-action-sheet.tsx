@@ -4,7 +4,9 @@ import * as React from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { usePhone } from "@/components/layout/use-phone";
 import Link from "@/components/navigation/nav-link";
+import { PageMenuItems, useClaimPageMenu } from "@/components/navigation/page-menu";
 import { RecordActionSheet, SheetActionButton, SheetActionLink } from "@/components/data/record-action-sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
@@ -35,9 +37,16 @@ export type EntityAction = {
  * The `...` menu for a record. One control on every width — a bottom sheet on a
  * phone, the desktop dropdown from `md` — over the same action list, so the two
  * can never offer different things. Renders nothing when there is no action.
+ *
+ * `pageMenu`: this is the record page's own ⋯ in its header, so its dropdown
+ * (from `md`) also holds the page's "What is this?" and Help
+ * (components/navigation/page-menu.tsx). The phone's sheet does not list
+ * them; there the page header's own ⋯ does.
  */
-export function EntityActionSheet({ name, actions }: { name: string; actions: EntityAction[] }) {
+export function EntityActionSheet({ name, actions, pageMenu = false }: { name: string; actions: EntityAction[]; pageMenu?: boolean }) {
   const t = useTranslations("ui");
+  const phone = usePhone();
+  useClaimPageMenu(pageMenu && actions.length > 0 && phone === false);
   if (actions.length === 0) return null;
   const ordered = [...actions.filter((a) => !a.destructive), ...actions.filter((a) => a.destructive)];
   const firstDestructive = ordered.findIndex((a) => a.destructive);
@@ -84,6 +93,7 @@ export function EntityActionSheet({ name, actions }: { name: string; actions: En
                 )}
               </React.Fragment>
             ))}
+            {pageMenu && phone === false ? <PageMenuItems separator /> : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

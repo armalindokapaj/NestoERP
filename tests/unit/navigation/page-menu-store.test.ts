@@ -2,17 +2,19 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { isOrphan, PageMenuStore, SERVER_STATE, slotShows, type PageHelpEntry } from "@/components/navigation/page-menu-store";
+import { isOrphan, offeredEntries, PageMenuStore, SERVER_STATE, slotShows, type PageHelpEntry } from "@/components/navigation/page-menu-store";
 import type { SectionAnchor } from "@/components/navigation/section-store";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { FoldIntoPageMenu, PageMenuProvider, PageMenuSlot, type PageMenuItem } from "@/components/navigation/page-menu";
 import { messages } from "@/lib/i18n/messages";
 
 /**
- * The page's ⋯ menu below lg (the user's rule: What is this? and Help live in
- * the ⋯ at the end of the title row, on every page). Tips and Help register
- * while mounted; the page's own record menu claims them, or the first header
- * slot in the document draws a ⋯ for them; with neither they stay inline.
+ * The page's ⋯ menu (the user's rule: What is this? and Help live in the ⋯
+ * right after the title or status, on every page and at every width; below lg
+ * the secondary actions too). Tips and Help register while mounted; the
+ * page's own record menu claims them, or the first header slot in the
+ * document drawn at this width draws a ⋯ for them; with neither they stay
+ * inline.
  */
 
 const tip = (title: string): PageHelpEntry<string> => ({ kind: "tip", label: "What is this?", title, body: `${title} body` });
@@ -58,6 +60,61 @@ describe("PageMenuStore", () => {
     store.setEntry("export", { kind: "action", label: "Export CSV", onSelect: () => undefined });
     store.setEntry("import", { kind: "action", label: "Import…", href: "/import" });
     expect(store.getSnapshot().entries.map((entry) => entry.id)).toEqual(["export", "import", "tip", "help"]);
+    expect(offeredEntries(store.getSnapshot()).map((entry) => entry.id)).toEqual(["export", "import", "tip", "help"]);
+  });
+
+  it("from lg offers the tips and Help only: the secondary actions are buttons on the page there", () => {
+    const store = new PageMenuStore<string>();
+    const listener = vi.fn();
+    store.subscribe(listener);
+    store.setEntry("export", { kind: "action", label: "Export CSV", onSelect: () => undefined });
+    store.setEntry("tip", tip("T"));
+    store.setEntry("help", help);
+    store.setWide(true);
+    expect(store.getSnapshot().wide).toBe(true);
+    expect(offeredEntries(store.getSnapshot()).map((entry) => entry.id)).toEqual(["tip", "help"]);
+    store.setWide(true);
+    expect(listener).toHaveBeenCalledTimes(4);
+    store.setWide(false);
+    expect(offeredEntries(store.getSnapshot()).map((entry) => entry.id)).toEqual(["export", "tip", "help"]);
+  });
+
+  it("from lg a slot with only actions to offer draws no ⋯; with a tip or Help it does", () => {
+    const store = new PageMenuStore<string>();
+    store.setWide(true);
+    store.addSlot("header", anchorAt(1));
+    store.setEntry("export", { kind: "action", label: "Export CSV", onSelect: () => undefined });
+    expect(slotShows(store.getSnapshot(), "header", false)).toBe(false);
+    store.setEntry("help", help);
+    expect(slotShows(store.getSnapshot(), "header", false)).toBe(true);
+  });
+
+  it("uses the first slot drawn at this width: the compact header's below lg, the section header's from lg", () => {
+    const store = new PageMenuStore<string>();
+    store.setEntry("t", tip("T"));
+    store.addSlot("compact", anchorAt(1), "belowLg");
+    store.addSlot("section-row", anchorAt(6), "belowLg");
+    store.addSlot("section-title", anchorAt(5), "lg");
+    expect(store.getSnapshot().slot).toBe("compact");
+    store.setWide(true);
+    expect(store.getSnapshot().slot).toBe("section-title");
+    expect(slotShows(store.getSnapshot(), "compact", false)).toBe(false);
+    expect(slotShows(store.getSnapshot(), "section-title", false)).toBe(true);
+    store.addSlot("everywhere", anchorAt(0));
+    expect(store.getSnapshot().slot).toBe("everywhere");
+    store.setWide(false);
+    expect(store.getSnapshot().slot).toBe("everywhere");
+  });
+
+  it("leaves the entries inline from lg where the only slot is drawn below lg", () => {
+    const store = new PageMenuStore<string>();
+    store.setEntry("t", tip("T"));
+    store.addSlot("compact", null, "belowLg");
+    expect(isOrphan(store.getSnapshot())).toBe(false);
+    store.setWide(true);
+    expect(isOrphan(store.getSnapshot())).toBe(true);
+    store.claim("record-menu");
+    expect(isOrphan(store.getSnapshot())).toBe(false);
   });
 
   it("draws the ⋯ in the first slot of the document, and only with something to offer", () => {
@@ -124,16 +181,29 @@ describe("page menu on the server", () => {
   const render = (node: React.ReactNode) =>
     renderToStaticMarkup(React.createElement(I18nProvider, { locale: "en", messages: messages.en } as never, React.createElement(PageMenuProvider, null, node)));
 
-  it("a module header reserves its ⋯, so it is in the first paint; an unreserved slot draws nothing", () => {
+  it("a module header reserves its ⋯, so it is in the first paint, at every width; an unreserved slot draws nothing", () => {
     const reserved = render(React.createElement(PageMenuSlot, { reserve: true }));
     expect(reserved).toContain("data-page-menu");
     expect(reserved).toContain('aria-label="More options"');
+    expect(reserved).toContain('data-testid="page-menu"');
+    expect(reserved).not.toMatch(/lg:hidden/);
     expect(render(React.createElement(PageMenuSlot, { reserve: false }))).not.toContain("data-page-menu");
   });
 
-  it("a folded Help link is drawn from lg only while a menu can hold it below lg", () => {
+  it("a header's two places for its ⋯ are each drawn at their own width, and only the drawn one carries the test id", () => {
+    const below = render(React.createElement(PageMenuSlot, { reserve: true, at: "belowLg" }));
+    expect(below).toMatch(/class="[^"]*\blg:hidden\b/);
+    expect(below).not.toContain("data-testid");
+    const wide = render(React.createElement(PageMenuSlot, { reserve: true, at: "lg" }));
+    expect(wide).toMatch(/class="[^"]*\bmax-lg:hidden\b/);
+    expect(wide).not.toContain("data-testid");
+  });
+
+  it("a folded Help link is not drawn at any width while a menu can hold it; a folded action only below lg", () => {
     const folded = render(React.createElement(Fold, { item: { kind: "link", label: "Help", href: "/help/tasks" } }, React.createElement("a", { href: "/help/tasks" }, "Help")));
-    expect(folded).toContain('class="contents max-lg:hidden"');
+    expect(folded).toContain('<div class="hidden">');
+    const action = render(React.createElement(Fold, { item: { kind: "action", label: "Export CSV", onSelect: () => undefined } }, React.createElement("button", null, "Export CSV")));
+    expect(action).toContain('class="contents max-lg:hidden"');
     // Outside the shell nothing collects it: drawn at every width.
     const outside = renderToStaticMarkup(React.createElement(Fold, { item: { kind: "link", label: "Help", href: "/help/tasks" } }, "Help"));
     expect(outside).toContain('class="contents"');

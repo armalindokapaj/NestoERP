@@ -25,10 +25,11 @@ import { cn } from "@/lib/utils/cn";
  *   §7) — never the raw user id, never localStorage, no form data. Another
  *   demo identity in the same tab sees it again; a route change does not bring
  *   it back. Bumping `version` when the text changes shows it once more.
- * - Below `lg` (phones and tablets) it is not drawn where it sits: it is an
- *   item of the page's ⋯ menu at the end of the title row, which opens the
- *   same heading, words and link as a dialog (components/navigation/page-menu.tsx).
- *   Where the page has nothing to hold it, it stays where it is, as from `lg`.
+ * - It is not drawn where it sits, at any width: it is an item of the page's
+ *   ⋯ menu, right after the page's title or status, which opens the same
+ *   heading, words and link as a dialog (components/navigation/page-menu.tsx).
+ *   Where the page has nothing to hold it, it stays where it is, as the
+ *   disclosure described above.
  */
 
 const PREFIX = "nesto.help.dismissed";
@@ -98,7 +99,7 @@ export function WhatIsThis({ id, version = 1, label, title, children, link, clas
     if (isHelpDismissed(sessionStore(), tabIdentity()?.user ?? null, id, version)) setDismissed(true);
   }, [id, version]);
 
-  // Below lg: an item of the page's ⋯ menu, opening the same help (components/navigation/page-menu.tsx).
+  // An item of the page's ⋯ menu, opening the same help (components/navigation/page-menu.tsx).
   const text = label ?? t("help.whatIsThis");
   useRegisterPageMenuItem(dismissed ? null : { kind: "tip", label: text, title, body: children, link });
   const inline = usePageMenuInline();
@@ -106,7 +107,7 @@ export function WhatIsThis({ id, version = 1, label, title, children, link, clas
   if (dismissed) return null;
 
   return (
-    <div className={cn("text-table", placement === "popover" && "relative", !inline && "max-lg:hidden", className)} data-testid={`help-${id}`}>
+    <div className={cn("text-table", placement === "popover" && "relative", !inline && "hidden", className)} data-testid={`help-${id}`}>
       <button
         ref={triggerRef}
         type="button"

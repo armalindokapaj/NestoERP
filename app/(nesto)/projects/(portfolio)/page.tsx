@@ -133,7 +133,7 @@ async function ProjectsFrame({ session, description, children }: { session: User
     <div className="space-y-5" data-testid="projects-page">
       {single ? <span hidden data-shell-breadcrumb-off /> : null}
       <div className="min-w-0">
-        {/* Below lg "What is this?" is an item of the ⋯ at the end of the title's line (components/navigation/page-menu.tsx). */}
+        {/* "What is this?" is an item of the ⋯ at the end of the title's line, at every width (components/navigation/page-menu.tsx). */}
         <div className="flex items-start gap-2">
           <h1 className="min-w-0 flex-1 text-page font-semibold text-fg">{t("meta.projects")}</h1>
           <PageMenuSlot />

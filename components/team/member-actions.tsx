@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { PageMenuItems, useClaimPageMenu } from "@/components/navigation/page-menu";
 import { Crown, MoreHorizontal, PenLine, ShieldOff, UserCheck, UserMinus } from "lucide-react";
 
 import { useTeamServerText, useTeamTranslations } from "@/components/team/team-text";
@@ -77,6 +78,10 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
       : []),
   ];
 
+  // The record's ⋯ is the page's: while it is drawn it also holds the page's "What is this?" and Help (components/navigation/page-menu.tsx).
+  const pageMenu = menuItems.length > 0;
+  useClaimPageMenu(pageMenu);
+
   return (
     <>
       {may.canEditMembership ? (
@@ -102,7 +107,7 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
         </Button>
       ) : null}
 
-      {menuItems.length > 0 ? (
+      {pageMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { name })} data-page-menu>
@@ -123,6 +128,7 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
                 {item.label}
               </DropdownMenuItem>
             ))}
+            <PageMenuItems separator />
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

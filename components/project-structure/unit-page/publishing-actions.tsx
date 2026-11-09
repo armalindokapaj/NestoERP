@@ -53,6 +53,7 @@ export function PublishingActions({ unitId, unitCode, version, publishing }: { u
     <>
       {/* One action list on every width: a sheet on a phone, the dropdown from md (MOB-04 §79). */}
       <EntityActionSheet
+        pageMenu
         name={unitCode}
         actions={[
           ...(offerRestore ? [{ key: "restore", label: t("publishing.restore"), icon: <ArchiveRestore aria-hidden="true" />, onSelect: () => setOpen("restore") }] : []),

@@ -21,8 +21,9 @@ import { cn } from "@/lib/utils/cn";
  * stay on the page there, a compact right-aligned row in the tab row's place
  * that scrolls with it (`data-tabs-in-menu`, styles/globals.css). `lead` is
  * what names the context in that row below `lg` — a project's name, code,
- * company and status — so the name and the controls share one line; it is
- * never drawn from `lg`, where the row is the tabs.
+ * company and status — so the name and the controls share one line. Neither
+ * is drawn from `lg`, where the row is the tabs alone and a page's controls
+ * are in its own header (a project's Overview: its hero).
  */
 export function ContextTabsFrame({
   label,
@@ -61,11 +62,11 @@ export function ContextTabsFrame({
     <div data-context-tabs data-tabs-in-menu className={cn("nesto-context-tabs", className)}>
       <RegisterSections label={label} items={sections} />
       {trailing ? (
-        // A page's own controls at the row's end: outside the scroller, so they stay in view while the tabs scroll, on the same hairline.
+        // A page's own controls at the end of the compact row below lg; from lg the row is the tabs alone.
         <div className="flex items-stretch max-lg:justify-end max-lg:gap-2">
           {leading}
           {scroller}
-          <div className="flex h-(--nesto-shell-tab-row-h) shrink-0 items-center gap-1 border-b border-line pl-2 max-lg:border-b-0 max-lg:pl-0" data-context-tabs-trailing>
+          <div className="flex h-(--nesto-shell-tab-row-h) shrink-0 items-center gap-1 lg:hidden" data-context-tabs-trailing>
             {trailing}
           </div>
         </div>

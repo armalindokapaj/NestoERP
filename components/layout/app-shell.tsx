@@ -148,7 +148,7 @@ export async function AppShell({
               <BreadcrumbRegistryProvider>
               {/* A page's tab rows hand their sections to the top bar's section pill, below lg (components/layout/section-menu.tsx). */}
               <SectionStoreProvider>
-              {/* Below lg a page's tips and Help fold into its one ⋯ menu, at the end of its title row (components/navigation/page-menu.tsx). */}
+              {/* A page's tips and Help fold into its one ⋯ menu, right after its title or status, and below lg its secondary actions too (components/navigation/page-menu.tsx). */}
               <PageMenuProvider>
               {/* Below md a detail page's main action moves into the one bottom action bar, above the bottom navigation (components/ui/mobile-action-bar.tsx). */}
               <MobileActionBarProvider>

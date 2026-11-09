@@ -141,7 +141,7 @@ export function PageHeaderFrame({
   /** Short key/value pairs shown under the title. */
   meta?: { label: string; value: React.ReactNode }[];
   actions?: React.ReactNode;
-  /** The header will hold Help below lg (a module page): its ⋯ is drawn from the first paint (`PageMenuSlot`). */
+  /** The header will hold Help (a module page): its ⋯ is drawn from the first paint (`PageMenuSlot`). */
   reserveMenu?: boolean;
   className?: string;
   /** Extra classes for the block holding the title, its line, status and facts (a record named above it below lg). */
@@ -151,14 +151,38 @@ export function PageHeaderFrame({
   const v2 = kind === "context" ? V2_COMPACT : V2_FULL;
   // A record's sub-page keeps everything on the title's line, so the line under the title is inline there.
   const Subtitle = kind === "context" ? "span" : "p";
+  /*
+   * From lg the page's ⋯ (its tips and Help, where no record menu holds them)
+   * follows the status, or the title where there is no status: in a line of
+   * text it takes no more height than the text (`-my-…`). Below lg it is the
+   * row's own slot at the end of the title row, after the actions.
+   */
+  const inline = kind === "context" || Boolean(status);
+  const wideMenu = <PageMenuSlot at="lg" reserve={reserveMenu} className={inline ? "-my-1.5 touch:-my-3" : undefined} />;
+  const heading = <h1 data-page-title className={cn(v1.title, v2.title, !inline && "lg:min-w-0")}>{title}</h1>;
   return (
     <div data-page-header={kind} className={cn(v1.root, v2.root, className)}>
       {lead}
       <div data-page-header-row className={cn(v1.row, v2.row, PAGE_MENU_ROW)}>
         <div className={cn(v1.text, v2.text, PAGE_MENU_TEXT, textClassName)}>
-          <h1 data-page-title className={cn(v1.title, v2.title)}>{title}</h1>
+          {inline ? (
+            heading
+          ) : (
+            // The title's line from lg; below lg this box draws nothing of its own.
+            <div className="contents lg:flex lg:items-start lg:gap-2">
+              {heading}
+              {wideMenu}
+            </div>
+          )}
           {subtitle === null || subtitle === undefined ? null : <Subtitle className={cn(v1.subtitle, v2.subtitle)}>{subtitle}</Subtitle>}
-          {status ? <div className={cn(v1.status, v2.status)}>{status}</div> : null}
+          {status ? (
+            <div className={cn(v1.status, v2.status)}>
+              {status}
+              {kind === "context" ? null : wideMenu}
+            </div>
+          ) : null}
+          {/* A record's sub-page: one line, title, its line and status, then the ⋯. */}
+          {kind === "context" ? wideMenu : null}
           {meta && meta.length > 0 ? (
             <dl className={cn(v1.meta, v2.meta)}>
               {meta.map((entry) => (
@@ -171,8 +195,8 @@ export function PageHeaderFrame({
           ) : null}
         </div>
         {actions ? <div data-page-actions className={cn(headerActionsClass, PAGE_MENU_ACTIONS)}>{actions}</div> : null}
-        {/* Below lg: the ⋯ for the page's tips and Help, where no record menu holds them (components/navigation/page-menu.tsx). */}
-        <PageMenuSlot reserve={reserveMenu} />
+        {/* Below lg: the ⋯ for the page's tips, Help and secondary actions, where no record menu holds them (components/navigation/page-menu.tsx). */}
+        <PageMenuSlot at="belowLg" reserve={reserveMenu} />
       </div>
     </div>
   );
@@ -186,7 +210,9 @@ export function PageHeaderFrame({
  * holds one, the action group lets go of its box (`contents`) so each action
  * is an item of the row; the title block takes the line but for the ⋯'s room,
  * the ⋯ follows it, and the other actions wrap onto the next line, left to
- * right. From lg nothing here applies: the actions and the ⋯ are drawn as ever.
+ * right. From lg none of this applies: the actions are drawn as ever, a
+ * record's ⋯ among them, and the header's own ⋯ follows the title or status
+ * (`wideMenu` above).
  */
 // `flex flex-wrap`: a settings header's row is a plain block in version 1, which would put its ⋯ on a line of its own.
 const PAGE_MENU_ROW = "group/page-header-row max-lg:has-[[data-page-menu]]:flex max-lg:has-[[data-page-menu]]:flex-wrap max-lg:has-[[data-page-menu]]:justify-start max-lg:[&_[data-page-menu]]:order-1";

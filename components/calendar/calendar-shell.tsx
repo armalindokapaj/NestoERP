@@ -253,7 +253,7 @@ export function CalendarShell({
       )}
       data-testid="calendar"
     >
-      {/* Below lg Help is an item of the ⋯ at the end of the heading's line (components/navigation/page-menu.tsx). */}
+      {/* Help is an item of the ⋯ at the end of the heading's line, at every width (components/navigation/page-menu.tsx). */}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 max-lg:grow">
           <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>

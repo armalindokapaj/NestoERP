@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { PageMenuItems, useClaimPageMenu } from "@/components/navigation/page-menu";
 import { Archive, ArchiveRestore, MoreHorizontal, PenLine } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,10 @@ export function ClientActions({
     });
   }
 
+  // The record's ⋯ is the page's: while it is drawn it also holds the page's "What is this?" and Help (components/navigation/page-menu.tsx).
+  const pageMenu = !archived && canArchive;
+  useClaimPageMenu(pageMenu);
+
   return (
     <>
       {!archived && canUpdate ? (
@@ -92,7 +97,7 @@ export function ClientActions({
         </Button>
       ) : null}
 
-      {!archived && canArchive ? (
+      {pageMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} data-page-menu>
@@ -109,6 +114,7 @@ export function ClientActions({
               <Archive />
               {t("actions.archiveClient")}
             </DropdownMenuItem>
+            <PageMenuItems separator />
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

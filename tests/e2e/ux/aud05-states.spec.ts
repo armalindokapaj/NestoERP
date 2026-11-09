@@ -18,6 +18,19 @@ import { DEMO_USERNAME, mainRegion, signIn, type DemoRole } from "../fixtures";
  */
 
 const PREFIX = "aud05h_";
+
+/**
+ * A page's "What is this?" is an item of its ⋯ at every width — the page
+ * header's own, or a record's — and opens as a dialog with the same heading,
+ * words and link (components/navigation/page-menu.tsx).
+ */
+async function openTip(page: Page, menu: ReturnType<Page["locator"]>) {
+  await menu.click();
+  await page.getByRole("menuitem", { name: "What is this?" }).click();
+  const dialog = page.getByTestId("page-help-dialog");
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
 const NO_MATCH = `zz-aud05-nomatch-${Date.now().toString(36)}`;
 
 type ListCase = { path: string; searchParam: string };
@@ -235,40 +248,35 @@ test.describe("Error vs not found vs denied (UX-11, UX-12)", () => {
 });
 
 test.describe("Contextual help (AUD-05 §7, UX-15, UX-16)", () => {
-  test("What is this? opens by keyboard, hides for this identity only, and stays hidden across routes", async ({ page }) => {
+  test("What is this? opens from the page's ⋯ by keyboard, as a dialog, and grants nothing", async ({ page }) => {
     await signIn(page, "CEO", { to: "/approvals" });
-    const help = mainRegion(page).getByTestId("help-approvals.queue");
-    const trigger = help.getByRole("button", { name: "What is this?" });
-    await trigger.focus();
+    // Not drawn on the page: an item of the ⋯ right after the heading.
+    await expect(mainRegion(page).getByTestId("help-approvals.queue")).toBeHidden();
+    const more = mainRegion(page).getByTestId("page-menu");
+    await more.focus();
     await page.keyboard.press("Enter");
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await expect(help.getByRole("region", { name: "The approvals queue" })).toBeVisible();
+    const item = page.getByRole("menuitem", { name: "What is this?" });
+    await expect(item).toBeVisible();
+    await item.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByTestId("page-help-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "The approvals queue" })).toBeVisible();
     // Help never grants: the decision buttons are explained, not added.
-    await expect(help.getByRole("button", { name: /^Approve/ })).toHaveCount(0);
-    await help.getByRole("button", { name: "Hide this tip" }).click();
-    await expect(help).toHaveCount(0);
-
-    // A route change does not bring it back.
-    await page.goto("/tasks/all");
-    await page.goto("/approvals");
-    await expect(mainRegion(page).getByTestId("help-approvals.queue")).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: /^Approve/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
     // Nothing went to localStorage.
     expect(await page.evaluate(() => Object.keys(window.localStorage).filter((key) => key.startsWith("nesto.help")))).toEqual([]);
-
-    // Another identity in the same tab sees it again (UX-06).
-    await page.context().clearCookies();
-    await signIn(page, "FINANCE", { to: "/approvals" });
-    await expect(mainRegion(page).getByTestId("help-approvals.queue")).toBeVisible();
   });
 
   test("the Projects page explains Group versus Company results", async ({ page }) => {
     await signIn(page, "OWNER", { to: "/projects", workspace: "GROUP" });
-    const help = mainRegion(page).getByTestId("help-workspace.scope.projects");
-    await help.getByRole("button", { name: "What is this?" }).click();
-    await expect(help).toContainText("Group workspace");
+    const group = await openTip(page, mainRegion(page).getByTestId("page-menu"));
+    await expect(group).toContainText("Group workspace");
+    await page.keyboard.press("Escape");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects" });
-    const company = mainRegion(page).getByTestId("help-workspace.scope.projects");
-    await company.getByRole("button", { name: "What is this?" }).click();
+    const company = await openTip(page, mainRegion(page).getByTestId("page-menu"));
     await expect(company).toContainText("company workspace");
   });
 });
@@ -278,9 +286,11 @@ test.describe("Journeys (UX-13) — persisted results, never just a toast", () =
     const title = `${PREFIX}journey ${Date.now().toString(36)}`;
     await signIn(page, "PROJECT_MANAGER", { to: "/tasks/new" });
     const main = mainRegion(page);
-    // The help sits beside the choice it explains.
-    await main.getByTestId("help-tasks.create.project").getByRole("button", { name: "What is this?" }).click();
-    await expect(main.getByTestId("help-tasks.create.project")).toContainText("assignee list follows the project");
+    // The help is in the ⋯ right after the page's title.
+    const tip = await openTip(page, main.getByTestId("page-menu"));
+    await expect(tip).toContainText("assignee list follows the project");
+    await page.keyboard.press("Escape");
+    await expect(tip).toBeHidden();
 
     await main.getByLabel("Title").fill(title);
     await main.getByLabel("Project").selectOption({ index: 1 });
@@ -331,8 +341,7 @@ test.describe("Journeys (UX-13) — persisted results, never just a toast", () =
     await signIn(page, "FINANCE", { to: `/finance/expenses/${expenseId}` });
     await expect(mainRegion(page).getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
     await page.goto("/approvals");
-    const help = mainRegion(page).getByTestId("help-approvals.queue");
-    await help.getByRole("button", { name: "What is this?" }).click();
+    const help = await openTip(page, mainRegion(page).getByTestId("page-menu"));
     await expect(help).toContainText("never see them on a request you submitted yourself");
     expect((await db.expense.findUniqueOrThrow({ where: { id: expenseId } })).status).toBe("PENDING_APPROVAL");
   });
@@ -352,9 +361,11 @@ test.describe("Journeys (UX-13) — persisted results, never just a toast", () =
   test("project: the overview explains how its records connect, and its tabs open", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
     const main = mainRegion(page);
-    const help = main.getByTestId("help-projects.detail.relationships");
-    await help.getByRole("button", { name: "What is this?" }).click();
+    // In the project's ⋯, right after its status (the hero from 1024px, the compact header below).
+    const help = await openTip(page, page.getByRole("button", { name: "More project actions" }));
     await expect(help).toContainText("opens from the tabs of this project");
+    await page.keyboard.press("Escape");
+    await expect(help).toBeHidden();
     await main.getByRole("link", { name: "Tasks", exact: true }).first().click();
     await expect(page).toHaveURL(/\/projects\/project_a\/tasks/);
   });

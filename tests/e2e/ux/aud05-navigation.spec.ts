@@ -52,7 +52,12 @@ for (const family of FAMILIES) {
 
     test("the module's Help is reachable from its header by keyboard and describes only what this role can do (UX-16)", async ({ page }) => {
       await signIn(page, family.role, { to: family.module.href });
-      const entry = mainRegion(page).getByTestId("module-help-entry");
+      // Help is an item of the header's ⋯, right after the module's title (components/navigation/page-menu.tsx).
+      await expect(mainRegion(page).getByTestId("module-help-entry")).toBeHidden();
+      const more = mainRegion(page).getByTestId("page-menu");
+      await more.focus();
+      await page.keyboard.press("Enter");
+      const entry = page.getByRole("menuitem", { name: `Help for ${family.module.label}` });
       await expect(entry).toHaveAccessibleName(`Help for ${family.module.label}`);
       await entry.focus();
       await page.keyboard.press("Enter");
@@ -285,7 +290,8 @@ test.describe("orientation costs no extra requests (UX-18)", () => {
     });
     await sidebar(page).getByRole("link", { name: "Tasks" }).click();
     await expect(page).toHaveURL(/\/tasks/);
-    await mainRegion(page).getByTestId("module-help-entry").click();
+    await mainRegion(page).getByTestId("page-menu").click();
+    await page.getByRole("menuitem", { name: /^Help/ }).click();
     await expect(page).toHaveURL(/\/help\/tasks/);
     expect(api.filter((path) => /help|navigation|permission/.test(path))).toEqual([]);
   });

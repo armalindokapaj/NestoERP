@@ -4,9 +4,11 @@ import { Suspense, type ReactNode } from "react";
 import Link from "@/components/navigation/nav-link";
 import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "lucide-react";
 
+import { WhatIsThis } from "@/components/help/what-is-this";
 import { ProjectMobileOverview, type ProjectQuickAction } from "@/components/projects/mobile/project-mobile-overview";
+import { ProjectActions } from "@/components/projects/project-actions";
 import { PersonLink } from "@/components/people/person-link";
-import { RecordOpened } from "@/components/productivity/record-favorite";
+import { favoriteState, RecordOpened } from "@/components/productivity/record-favorite";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionBoundary } from "@/components/modules/page-section";
@@ -18,6 +20,7 @@ import { getProject3DAvailability } from "@/lib/modules/project-3d/project-3d.vi
 import { listProjectMedia } from "@/lib/modules/project-media/project-media.service";
 import { projectPlanningSummary } from "@/lib/modules/project-planning/planning.reports";
 import * as projects from "@/lib/modules/projects/project.service";
+import { statusMovesFrom } from "@/lib/modules/projects/project.machine";
 import { projectMobileSummary, projectMyWork, projectUpcoming, type ProjectUpcomingItem, type ProjectWorkItem } from "@/lib/modules/projects/project-workspace.service";
 import type { ProjectActivityDTO } from "@/lib/modules/projects/project.types";
 import { can } from "@/lib/access/can";
@@ -40,6 +43,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     return { title: (await getTranslations("projects"))("meta.project") };
   }
 }
+
+/** The project's ⋯ (and Restore) on the hero's image: white, with a white focus ring (the shell's accent ring is lost on a dark photo), and no taller than the line of text it ends. */
+const HERO_MENU = {
+  trigger: "-my-2 text-white/80 hover:bg-white/15 hover:text-white focus-visible:outline-white data-[state=open]:bg-white/15 data-[state=open]:text-white ds2:active:bg-white/20 touch:-my-3.5",
+  restore: "-my-2 bg-white text-neutral-900 hover:bg-white/90 focus-visible:outline-white ds2:active:bg-white/80 touch:-my-3.5",
+};
 
 const workIcons = { tasks: CheckCircle2, approvals: ClipboardCheck, meetings: CalendarDays, documents: FileWarning };
 
@@ -85,7 +94,10 @@ export default async function ProjectOverviewPage({ params }: Params) {
   const myWork = projectMyWork(context, project.id);
   const upcoming = projectUpcoming(context, project);
   const activity = actions.canViewActivity ? projects.listActivity(context, project.id, { page: 1, limit: 5 }) : null;
-  const lastChange = actions.canViewActivity ? await projects.lastProjectChange(context, project.id) : null;
+  const [lastChange, favorite] = await Promise.all([
+    actions.canViewActivity ? projects.lastProjectChange(context, project.id) : null,
+    favoriteState(context, "project", project.id).catch(() => null),
+  ]);
   /*
    * The deal this project came from (PRD #17 §267, §385) — only for somebody who
    * may see Sales records, resolved through the Sales scope, so a project manager
@@ -113,8 +125,14 @@ export default async function ProjectOverviewPage({ params }: Params) {
     <div className="space-y-7 max-lg:space-y-4">
       {/* The top of the page, under the project's name. The name itself sits at the foot of the hero (and is another element on a phone), so the anchor is here. */}
       <PageSection id="overview" label={project.name} order={0} />
-      {/* The star, "Available offline", the project's actions and "What is this?" sit at the end of the tab row (project-tabs.tsx). */}
+      {/* The star, "Available offline", the project's actions and "What is this?" are in the project's ⋯, right after its status: on the hero from lg, in the compact header below it (project-tabs.tsx). */}
       <RecordOpened context={context} entityType="project" entityId={project.id} />
+
+      {/* How a project's records hang together (AUD-05 §7, UX-13): an item of the project's ⋯, drawn here only if nothing held it. */}
+      <WhatIsThis id="projects.detail.relationships" title={t("overview.relationshipsTitle")}>
+        <p>{t("overview.relationshipsBody1", { company: project.company.name })}</p>
+        <p>{t("overview.relationshipsBody2")}</p>
+      </WhatIsThis>
 
       {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />{t("overview.archivedNotice")}</p> : null}
 
@@ -136,7 +154,30 @@ export default async function ProjectOverviewPage({ params }: Params) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/10" aria-hidden="true" />
           <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
             {/* Below lg the project's compact header above names it (code, company, status): the hero does not name it again; its heading stays for screen readers. */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65 max-lg:hidden"><span>{project.code}</span><span aria-hidden="true">·</span><span>{t(`status.${project.status}`)}</span></div>
+            {/* From lg the project's ⋯ follows the status on this line (one copy mounted at a time: components/projects/project-actions.tsx). The hero is drawn at every width from lg, archived or without media too, so the menu is always reachable there. */}
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65 max-lg:hidden" data-testid="project-hero-status-line">
+              <span>{project.code}</span>
+              <span aria-hidden="true">·</span>
+              <span data-testid="project-hero-status">{t(`status.${project.status}`)}</span>
+              <span className="inline-flex items-center gap-2 normal-case tracking-normal empty:hidden">
+                <ProjectActions
+                  at="lg"
+                  projectId={project.id}
+                  projectName={project.name}
+                  companyName={project.company.name}
+                  statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []}
+                  archived={archived}
+                  canUpdate={actions.canUpdate}
+                  canArchive={actions.canArchive}
+                  canRestore={actions.canRestore}
+                  canManageMedia={actions.canManageMedia}
+                  canManageTeam={actions.canManageMembers}
+                  favorite={favorite === null ? undefined : { initial: favorite }}
+                  offline
+                  classNames={HERO_MENU}
+                />
+              </span>
+            </div>
             <h1 id="project-title" className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.025em] max-lg:sr-only sm:text-4xl ds2:text-page">{project.name}</h1>
             <p className="mt-2 text-sm font-medium text-white/70 max-lg:hidden">{project.company.name}</p>
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70 max-lg:mt-0"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{projectTypeName(project.projectType.name, locale)}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>

@@ -4,7 +4,6 @@ import * as projects from "@/lib/modules/projects/project.service";
 import { getTranslations } from "@/lib/i18n/server";
 import { projectListQuerySchema } from "@/lib/modules/projects/project.schema";
 import { statusMovesFrom } from "@/lib/modules/projects/project.machine";
-import { WhatIsThis } from "@/components/help/what-is-this";
 import { favoriteState } from "@/components/productivity/record-favorite";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { ProjectNavBar, type ProjectNavTab } from "./project-nav-bar";
@@ -69,34 +68,30 @@ export async function ProjectNav({ projectId }: { projectId: string }) {
     { label: project.name, href: base, switcher: { label: t("meta.projects"), items: siblings.map((sibling) => ({ label: sibling.name, href: `/projects/${sibling.id}`, current: sibling.id === projectId })) } },
   ];
   /*
-   * The Overview's own controls, at the end of the tab row: how a project's
-   * records hang together (AUD-05 §7, UX-13), and one menu with the star,
-   * "Available offline" (MOB-09 §7) and what changes the project. Below lg
-   * the tip is an item of that menu, so the row holds the project's compact
-   * header and the ⋯ alone, the ⋯ right after the status.
+   * The Overview's menu below lg: the star, "Available offline" (MOB-09 §7),
+   * what changes the project, and the page's "What is this?" (how a project's
+   * records hang together, page.tsx), right after the status in the compact
+   * header's row. From lg the Overview's hero draws the same menu after its
+   * status (page.tsx) and the tab row holds only the tabs; one copy is
+   * mounted at a time (`at`).
    */
   const archived = project.archivedAt !== null || project.status === "ARCHIVED";
   const overviewTrailing = (
-    <>
-      <WhatIsThis id="projects.detail.relationships" title={t("overview.relationshipsTitle")} placement="popover">
-        <p>{t("overview.relationshipsBody1", { company: project.company.name })}</p>
-        <p>{t("overview.relationshipsBody2")}</p>
-      </WhatIsThis>
-      <ProjectActions
-        projectId={project.id}
-        projectName={project.name}
-        companyName={project.company.name}
-        statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []}
-        archived={archived}
-        canUpdate={actions.canUpdate}
-        canArchive={actions.canArchive}
-        canRestore={actions.canRestore}
-        canManageMedia={actions.canManageMedia}
-        canManageTeam={actions.canManageMembers}
-        favorite={favorite === null ? undefined : { initial: favorite }}
-        offline
-      />
-    </>
+    <ProjectActions
+      at="belowLg"
+      projectId={project.id}
+      projectName={project.name}
+      companyName={project.company.name}
+      statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []}
+      archived={archived}
+      canUpdate={actions.canUpdate}
+      canArchive={actions.canArchive}
+      canRestore={actions.canRestore}
+      canManageMedia={actions.canManageMedia}
+      canManageTeam={actions.canManageMembers}
+      favorite={favorite === null ? undefined : { initial: favorite }}
+      offline
+    />
   );
   return <ProjectNavBar projectId={projectId} crumbs={crumbs} tabs={tabs} sectionsLabel={t("tabs.sectionsLabel")} identity={{ name: project.name, code: project.code, companyName: project.company.name, status: project.status }} overviewTrailing={overviewTrailing} />;
 }
