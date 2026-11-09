@@ -72,7 +72,7 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader nameInLayout title={project.name} subtitle={project.code} status={project.status} />
       <StructureWorkspace initial={structure} initialSelection={selection} initialFilters={filters} initialPage={units?.page ?? 1} initialUnits={units} />
     </div>
   );

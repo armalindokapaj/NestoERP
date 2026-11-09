@@ -8,6 +8,7 @@ import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
 import { NoAccessibleData } from "@/components/finance/group-rows";
 import { Money, Variance } from "@/components/finance/money";
 import { ModulePage } from "@/components/modules/module-page";
+import { RegisterSections } from "@/components/navigation/section-registry";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { inGroupWorkspace } from "@/config/workspace";
@@ -36,7 +37,8 @@ export async function generateMetadata(): Promise<Metadata> {
  *
  * Six named reports, not a report builder. Each one is offered only when the
  * reader holds the permission behind it, so the tab strip is the list of
- * reports they can actually open (PRD #15 §158).
+ * reports they can actually open (PRD #15 §158). Below `lg` the strip is the
+ * top bar's section pill instead, a level under Finance's sections.
  *
  * In the Group workspace a report is offered when at least one company lets the
  * reader open it, and it is that company's own report for every company that
@@ -100,7 +102,12 @@ export default async function FinanceReportsPage({
   return (
     <ModulePage experience={experience} activeSection="reports">
       <div className="space-y-5">
-        <nav aria-label={t("reports.nav")} className="border-b border-line">
+        {/* Below lg the reports are a level of the top bar's section pill, under Finance's own sections; the strip is not drawn. */}
+        <RegisterSections
+          label={t("reports.nav")}
+          items={available.map((entry) => ({ key: entry.key, label: t(entry.label), href: `/finance/reports?report=${entry.key}`, active: entry.key === active }))}
+        />
+        <nav aria-label={t("reports.nav")} className="border-b border-line max-lg:hidden">
           <ul className="-mb-px flex gap-1 overflow-x-auto">
             {available.map((entry) => (
               <li key={entry.key}>

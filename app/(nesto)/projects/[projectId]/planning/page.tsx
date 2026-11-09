@@ -42,7 +42,7 @@ export default async function ProjectPlanningPage({ params, searchParams }: Para
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader nameInLayout title={project.name} subtitle={project.code} status={project.status} />
       {overview.project.archived ? <p className="rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted">{t("structurePages.planningArchived")}</p> : null}
       <PlanningShell
         initial={overview}

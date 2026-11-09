@@ -182,6 +182,9 @@ test("a phone draws no project tab row: the sections are the top bar's pill, and
   await expect(page.locator("header[data-topbar-row]").getByTestId("section-menu-trigger")).toBeVisible();
   const trailing = page.locator("[data-context-tabs-trailing]").first();
   await expect(trailing).toBeVisible();
+  // The project's compact header shares the row with them: the name is shown once, not above the row as well.
+  await expect(page.locator("[data-context-tabs] [data-context-tabs-lead]").getByTestId("project-phone-identity")).toBeVisible();
+  await expect(page.getByTestId("project-phone-identity")).toHaveCount(1);
   const g = await geometry(page);
   expect(g.tabs?.position).toBe("static");
   // Right-aligned where the row was: its right edge on the content's.

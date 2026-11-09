@@ -22,7 +22,8 @@ import { getTranslations } from "@/lib/i18n/server";
  * module's name and line as the sidebar gives them, in the reader's language,
  * so the menu, the heading and the breadcrumb agree (UX-07). The header ends
  * with the module's Help entry, a quiet link after the page's own actions: the
- * primary action stays the one that stands out (UX-16).
+ * primary action stays the one that stands out (UX-16). On a phone it sits at
+ * the end of the title's line rather than on a row of its own (`help`).
  *
  * The heading block is the one every page shares (`PageHeaderFrame`,
  * components/ui/page-header.tsx; UI-02 §7.2).
@@ -54,12 +55,8 @@ export async function ModulePage({
         kind="module"
         title={title ?? moduleLabel}
         subtitle={description === null ? null : description ?? names(`${experience.module}.description`)}
-        actions={
-          <>
-            {actions}
-            <HelpEntry moduleKey={experience.module} moduleLabel={moduleLabel} />
-          </>
-        }
+        actions={actions}
+        help={<HelpEntry moduleKey={experience.module} moduleLabel={moduleLabel} />}
       />
 
       <ModuleTabs experience={experience} activeSection={activeSection} />

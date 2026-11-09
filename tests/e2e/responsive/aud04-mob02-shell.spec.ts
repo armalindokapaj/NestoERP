@@ -113,13 +113,15 @@ test.describe("bottom navigation", () => {
     expect(Math.round(last)).toBeLessThanOrEqual(Math.round(top) + 1);
   });
 
-  test("tablet portrait: Home, Projects, Alerts and Menu; Create stays in the top bar, and the drawer remains", async ({ page }) => {
+  test("tablet portrait: Home, Projects, Alerts and Menu; Create stays in the top bar, and Menu is the only menu", async ({ page }) => {
     test.skip(!isTablet(page), "tablet portrait shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     await expect(bar(page)).toBeVisible();
     await expect(page.getByTestId("mobile-create")).toBeHidden();
     await expect(page.getByTestId("quick-create-button")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
+    // No top-left drawer trigger: the bottom bar's Menu is the one menu below 1024px; the mark leads home.
+    await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(0);
+    await expect(page.locator("header[data-shell-region]").getByTestId("organization-home")).toBeVisible();
     // The bell is the bar's below 1024px: one bell, none in the top bar.
     await expect(page.getByTestId("notification-bell")).toHaveCount(1);
     await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toHaveCount(0);

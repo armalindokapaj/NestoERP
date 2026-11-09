@@ -91,14 +91,42 @@ export function menuLevels(levels: readonly SectionLevel[]): SectionLevel[] {
 
 /**
  * What the pill says: the innermost level's current section — on a unit, the
- * unit's, not the project's — or, where no level marks one, the innermost
- * level's own name. Null when there is nothing to offer.
+ * unit's, not the project's. A page that is reachable but in no row (a
+ * project's Media, opened from its Overview) is marked by none; the pill then
+ * names the page itself (`pageName`, read from the page by the menu), and only
+ * when the page has no name to give, the innermost level's own name. Null when
+ * there is nothing to offer.
  */
-export function pillFor(levels: readonly SectionLevel[]): { label: string; item: SectionItem | null } | null {
+export function pillFor(levels: readonly SectionLevel[], pageName?: string | null): { label: string; item: SectionItem | null } | null {
   if (levels.length === 0) return null;
   for (let index = levels.length - 1; index >= 0; index -= 1) {
     const item = levels[index]!.items.find((candidate) => candidate.active);
     if (item) return { label: item.label, item };
   }
-  return { label: levels[levels.length - 1]!.label, item: null };
+  const name = pageName?.trim();
+  return { label: name || levels[levels.length - 1]!.label, item: null };
+}
+
+/** True when some level marks the section the page is on; otherwise the pill needs the page's own name. */
+export function hasCurrentSection(levels: readonly SectionLevel[]): boolean {
+  return levels.some((level) => level.items.some((item) => item.active));
+}
+
+/**
+ * The page's own name, for a page no row marks: its heading — the title of
+ * its page header (`h1[data-page-title]`), unless that header only names the
+ * record the page sits in (a project's sub-page: `data-page-header="context"`)
+ * — or else the first part of the document's title ("Work packages · Projects
+ * · NESTO" is "Work packages"). Null when neither gives one. `main` and
+ * `title` are passed in, so this is tested without a DOM.
+ */
+export function pageNameFrom(main: { querySelectorAll(selector: string): ArrayLike<{ textContent: string | null; closest(selector: string): unknown }> } | null, title: string): string | null {
+  const headings = main ? Array.from(main.querySelectorAll("[data-page-header] h1[data-page-title]")) : [];
+  for (const heading of headings) {
+    if (heading.closest('[data-page-header="context"]')) continue;
+    const text = heading.textContent?.replace(/\s+/g, " ").trim();
+    if (text) return text;
+  }
+  const first = title.split(" · ")[0]?.trim();
+  return first && first !== title.trim() ? first : null;
 }

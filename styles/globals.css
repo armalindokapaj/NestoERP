@@ -856,7 +856,9 @@ html[data-unsaved-masked] [data-experience-editor] {
  * menu (components/layout/section-menu.tsx), so a row that hands its tabs to it
  * (`data-tabs-in-menu`, components/navigation/context-tabs-frame.tsx) is not
  * drawn. One that carries a page's own controls keeps just those, right-aligned
- * in its place and scrolling with the page; one without is not there at all.
+ * in its place and scrolling with the page, with the context's compact header
+ * (a project's name, code, company and status) at its start when it has one;
+ * one with neither is not there at all.
  * Neither is pinned, so neither counts in the sticky stack. A row built by hand
  * (the Admin Console's) is not in the menu and keeps its place. Unlayered and
  * after version 2's pin (tokens-v2.css), so it wins over both.
@@ -866,7 +868,7 @@ html[data-unsaved-masked] [data-experience-editor] {
     position: static;
   }
 
-  :root [data-context-tabs][data-tabs-in-menu]:not(:has([data-context-tabs-trailing])) {
+  :root [data-context-tabs][data-tabs-in-menu]:not(:has([data-context-tabs-trailing], [data-context-tabs-lead])) {
     display: none;
   }
 

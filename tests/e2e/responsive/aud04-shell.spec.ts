@@ -1,15 +1,15 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { mainRegion, sidebar, signIn } from "../fixtures";
+import { mainRegion, signIn } from "../fixtures";
 import { expectInViewport, expectNoPageOverflow, expectTouchTargets } from "./geometry";
 
 /**
  * AUD-04 shell on phones and tablets (§4; MW-02, MW-03, MW-19).
  *
- * Runs in every AUD-04 matrix project (playwright.config.ts). The drawer
- * exists below the shell's lg breakpoint (1024), so the drawer tests skip at
- * 1024 and at desktop widths; aud04-primitives.spec.ts holds the desktop
- * regression checks (MW-21).
+ * Runs in every AUD-04 matrix project (playwright.config.ts). Below the
+ * shell's lg breakpoint (1024) there is no navigation drawer — the bottom
+ * bar's Menu is the one menu — so these checks skip at 1024 and at desktop
+ * widths; aud04-primitives.spec.ts holds the desktop regression checks (MW-21).
  *
  * Nothing here saves a record: the unsaved-work checks type into a new
  * client's form and leave by Stay or Discard, and the workspace switch is the
@@ -19,44 +19,27 @@ import { expectInViewport, expectNoPageOverflow, expectTouchTargets } from "./ge
 const AURELIA = "company_demo_a";
 const FORMA = "company_demo_d";
 
-function drawer(page: Page) {
-  return page.getByRole("dialog", { name: /navigation/i });
-}
-
-function hamburger(page: Page) {
-  return page.getByRole("button", { name: /open navigation/i });
-}
-
 function prompt(page: Page) {
   return page.getByTestId("unsaved-prompt");
 }
 
-/** Below lg the shell is not the desktop's (a phone's bottom bar or a tablet's drawer). */
-function drawerLayout(page: Page) {
+/** Below lg the shell is not the desktop's: the bottom bar, its Menu the one menu (MOB-02). */
+function belowLg(page: Page) {
   return page.viewportSize()!.width < 1024;
 }
 
-/** The hamburger drawer is the tablet-portrait shell (MD up to lg); a phone has the bottom bar and More (MOB-02). */
-function tabletDrawer(page: Page) {
-  const width = page.viewportSize()!.width;
-  return width >= 768 && width < 1024;
+/** A phone (below md): the workspace header is the top bar's context line; a tablet switches from the top bar's company switcher. */
+function phone(page: Page) {
+  return page.viewportSize()!.width < 768;
 }
 
-/** The workspace header: in the drawer on a tablet, in the top bar's context on a phone (MOB-02 §8). */
-async function workspaceHeader(page: Page) {
-  if (tabletDrawer(page)) return (await openDrawer(page)).getByTestId("organization-header");
+function workspaceHeader(page: Page) {
   return page.getByTestId("mobile-context").getByTestId("organization-header");
-}
-
-async function openDrawer(page: Page) {
-  await hamburger(page).click();
-  await expect(drawer(page)).toBeVisible();
-  return drawer(page);
 }
 
 /**
  * No leftover overlay: the page's centre answers to the page, not a backdrop (MW-02).
- * A drawer that has just closed is still fading out for a moment — the workspace
+ * A sheet that has just closed is still fading out for a moment — the workspace
  * switch closes it as it starts, so Stay can arrive while it leaves — and left
  * over means still there once it has had that moment.
  */
@@ -74,27 +57,24 @@ async function expectNoOverlay(page: Page) {
     .toBe(false);
 }
 
-/** Where a set of links leads. Read from the document: the sidebar is folded away below 1024px, and its links are still what the drawer is compared with. */
-async function hrefs(links: Locator) {
-  return (await links.evaluateAll((elements) => elements.map((link) => link.getAttribute("href")))).filter(Boolean).sort();
-}
-
 async function currentCompany(page: Page) {
   const response = await page.request.get("/api/me");
   const body = (await response.json()) as { data?: { company?: { id: string } }; company?: { id: string } };
   return (body.data ?? body).company?.id;
 }
 
-test.describe("AUD-04 navigation drawer (MW-02)", () => {
+test.describe("AUD-04 top bar below 1024px (MW-02)", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!tabletDrawer(page), "the hamburger drawer is the tablet-portrait shell (768-1023); phones use the bottom bar (MOB-02)");
+    test.skip(!belowLg(page), "the phone and tablet top bar (below 1024px)");
   });
 
-  test("opens and closes with 44px controls; the top bar fits without collisions", async ({ page }) => {
+  test("no navigation drawer: the bottom bar's Menu is the one menu; the top bar fits without collisions, with 44px controls", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     const header = page.locator("header[data-shell-region]");
     await expectNoPageOverflow(page, "dashboard");
     await expectTouchTargets(page, header);
+    await expect(page.getByRole("button", { name: /open navigation/i })).toHaveCount(0);
+    await expect(page.getByTestId("mobile-more")).toBeVisible();
 
     // No two top-bar controls overlap, and every one is on screen (320px included).
     const boxes = await header.locator("button:visible, a[href]:visible").evaluateAll((elements) =>
@@ -115,98 +95,12 @@ test.describe("AUD-04 navigation drawer (MW-02)", () => {
         expect(overlap, `${x.name} overlaps ${y.name}`).toBe(false);
       }
     }
-
-    const nav = await openDrawer(page);
-    await expectTouchTargets(page, nav);
-    await page.getByRole("button", { name: /close navigation/i }).click();
-    await expect(drawer(page)).toBeHidden();
-    // Closed by its own control, focus goes back to the hamburger.
-    await expect(hamburger(page)).toBeFocused();
-    await expectNoOverlay(page);
-
-    await openDrawer(page);
-    await page.keyboard.press("Escape");
-    await expect(drawer(page)).toBeHidden();
-    await expectNoOverlay(page);
-  });
-
-  test("offers exactly the sidebar's destinations, scrolls on its own and opens with the active module in view", async ({ page }) => {
-    await signIn(page, "OWNER", { to: "/dashboard" });
-    // One permission-filtered configuration: the drawer lists what the (hidden) sidebar lists.
-    const nav = await openDrawer(page);
-    const drawerLinks = await hrefs(nav.getByTestId("drawer-navigation").getByRole("link"));
-    expect(drawerLinks.length).toBeGreaterThan(3);
-    expect(drawerLinks).toEqual(await hrefs(sidebar(page).locator("a[href]")));
-
-    // Go to the last destination: the drawer must reopen with it in view.
-    const last = drawerLinks[drawerLinks.length - 1]!;
-    await page.keyboard.press("Escape");
-    await page.goto(last);
-    const reopened = await openDrawer(page);
-    const list = reopened.getByTestId("drawer-navigation");
-    const active = list.locator('[aria-current="page"]');
-    await expect(active).toHaveCount(1);
-    await expect
-      .poll(async () => {
-        const [a, l] = await Promise.all([active.boundingBox(), list.boundingBox()]);
-        return Boolean(a && l && a.y >= l.y - 1 && a.y + a.height <= l.y + l.height + 1);
-      })
-      .toBe(true);
-
-    // The list scrolls inside the drawer; the page behind does not move.
-    const pageY = await page.evaluate(() => window.scrollY);
-    const scrolled = await list.evaluate((el) => {
-      const before = el.scrollTop;
-      el.scrollTop = before === 0 ? el.scrollHeight : 0;
-      return { overflowY: getComputedStyle(el).overflowY, moved: el.scrollHeight <= el.clientHeight || el.scrollTop !== before };
-    });
-    expect(scrolled.overflowY).toBe("auto");
-    expect(scrolled.moved).toBe(true);
-    expect(await page.evaluate(() => window.scrollY)).toBe(pageY);
-  });
-
-  test("a navigation closes the drawer, shows the destination and puts focus on the page; a same-route tap leaves no overlay", async ({ page }) => {
-    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    const nav = await openDrawer(page);
-    await nav.getByRole("link", { name: "Projects", exact: true }).click();
-    await expect(page).toHaveURL(/\/projects(\?|$)/);
-    await expect(drawer(page)).toBeHidden();
-    await expect(mainRegion(page)).toBeFocused();
-    await expectNoOverlay(page);
-
-    // The active item again: nothing to load, and still no overlay left behind.
-    const again = await openDrawer(page);
-    await again.getByRole("link", { name: "Projects", exact: true }).click();
-    await expect(drawer(page)).toBeHidden();
-    await expectNoOverlay(page);
-    await expectNoPageOverflow(page, "projects");
-  });
-
-  test("unsaved work holds a drawer navigation: Stay keeps the editor, its text and a usable page (AUD-03)", async ({ page }) => {
-    await signIn(page, "OWNER", { company: AURELIA, to: "/clients/new" });
-    const name = mainRegion(page).getByLabel("Client name");
-    await name.fill("AUD04A drawer draft");
-    await expect(page.getByTestId("unsaved-indicator").first()).toHaveText("Unsaved changes");
-
-    const nav = await openDrawer(page);
-    await nav.getByRole("link", { name: "Projects", exact: true }).click();
-    await expect(prompt(page)).toBeVisible();
-    await expect(prompt(page).getByTestId("unsaved-stay")).toBeFocused();
-    await prompt(page).getByTestId("unsaved-stay").click();
-
-    await expect(page).toHaveURL(/\/clients\/new/);
-    await expect(name).toHaveValue("AUD04A drawer draft");
-    await expect(drawer(page)).toBeHidden();
-    await expectNoOverlay(page);
-    // The editor is still usable, not behind an invisible layer.
-    await name.click();
-    await expect(name).toBeFocused();
   });
 });
 
 test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!drawerLayout(page), "the header is the workspace switch below 1024px only: the drawer's on a tablet, the top bar's on a phone");
+    test.skip(!phone(page), "the header is the workspace switch on a phone only; a tablet switches from the top bar's company switcher (shell/organization-header.spec.ts)");
   });
 
   test("the header's workspace popup switches with AUD-03 Stay and Discard, and the full name stays accessible", async ({ page }) => {
@@ -221,7 +115,7 @@ test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
     });
 
     const choose = async () => {
-      const header = await workspaceHeader(page);
+      const header = workspaceHeader(page);
       // Truncated on screen, whole in the accessible name and the title (§4).
       await expect(header).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
       await expect(header).toHaveAttribute("title", /Aurelia Construction/);
@@ -254,7 +148,7 @@ test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
     // The draft does not follow into the new workspace, and a page is shown (route kept or a safe fallback).
     await expect(page.getByText("AUD04A switch draft")).toHaveCount(0);
     await expect(page).not.toHaveURL(/\/login/);
-    const after = await workspaceHeader(page);
+    const after = workspaceHeader(page);
     await expect(after).toHaveAccessibleName(/Current workspace: Forma Engineering/);
     await expectNoPageOverflow(page, "after the switch");
   });

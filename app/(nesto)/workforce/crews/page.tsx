@@ -41,7 +41,7 @@ export default async function CrewsPage({ searchParams }: { searchParams: Promis
       actions={canCreate ? <CrewFormButton projects={projects} sites={sites} trades={trades} supervisors={supervisors} projectRequired={!seesWholeCompany(context)} /> : null}
     >
       <div className="space-y-4">
-        <nav aria-label={t("crews.status")} className="flex gap-2">
+        <nav aria-label={t("crews.status")} className="flex flex-wrap gap-2">
           <Link href="/workforce/crews" className={chip(!archived)} aria-current={!archived ? "page" : undefined}>
             {t("crews.inUse")}
           </Link>

@@ -8,7 +8,7 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { useSectionLevels } from "@/components/navigation/section-registry";
-import { menuLevels, pillFor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
+import { hasCurrentSection, menuLevels, pageNameFrom, pillFor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { cn } from "@/lib/utils/cn";
@@ -24,10 +24,15 @@ import { cn } from "@/lib/utils/cn";
  * Its sections are what the page's tab rows registered (section-registry.tsx):
  * already filtered by permission, so the menu offers nothing the row would not
  * have. From `lg` the rows are drawn and this is not rendered at all.
+ *
+ * The pill always names the page the person is on. A page reachable from its
+ * context but in none of its rows (a project's Media) is marked by no level;
+ * the pill then carries the page's own name (`usePageName`), never the row's.
  */
 export function SectionMenu() {
   const levels = menuLevels(useSectionLevels());
-  const pill = pillFor(levels);
+  const pageName = usePageName(levels.length > 0 && !hasCurrentSection(levels));
+  const pill = pillFor(levels, pageName);
   if (!pill) {
     // Before the page has hydrated its rows have not registered yet; a page that has sections keeps the pill's
     // place meanwhile (`data-section-level`, styles/globals.css), so the bar does not shift when it arrives.
@@ -50,6 +55,16 @@ function SectionPill({ levels, label, current }: { levels: SectionLevel[]; label
 
   // A completed navigation closes it, so nothing is left over the new page.
   React.useEffect(() => setOpen(false), [pathname]);
+
+  // So does turning a tablet to landscape (1024px and up), where the pill is not drawn and the tab rows are.
+  React.useEffect(() => {
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const close = () => {
+      if (wide.matches) setOpen(false);
+    };
+    wide.addEventListener("change", close);
+    return () => wide.removeEventListener("change", close);
+  }, []);
 
   const grouped = levels.length > 1;
   const choose = (item: SectionItem) => {
@@ -170,6 +185,37 @@ function SectionLink({ item, onChoose }: { item: SectionItem; onChoose: () => vo
       {item.active ? <Check aria-hidden="true" strokeWidth={2.2} className="size-4 shrink-0" /> : null}
     </Link>
   );
+}
+
+/**
+ * The page's own name (section-store.ts, `pageNameFrom`), read while `enabled`
+ * — only when no level marks the page — and again as the page streams in or
+ * its title changes, so it follows a navigation without a reload.
+ */
+function usePageName(enabled: boolean): string | null {
+  const pathname = usePathname();
+  const [name, setName] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!enabled) {
+      setName(null);
+      return;
+    }
+    let frame = 0;
+    const read = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setName(pageNameFrom(document.getElementById("nesto-main"), document.title)));
+    };
+    read();
+    const observer = new MutationObserver(read);
+    const main = document.getElementById("nesto-main");
+    if (main) observer.observe(main, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [enabled, pathname]);
+  return enabled ? name : null;
 }
 
 /** Up and Down move between the sections, Home and End to the first and the last; Tab still works as ever. */

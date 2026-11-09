@@ -106,6 +106,18 @@ export function MobileBottomNav({
   // A completed navigation closes More, so no sheet is left over the new page.
   React.useEffect(() => setMoreOpen(false), [pathname]);
 
+  // Turning a tablet to landscape (1024px and up) takes the bar away, and with it the Menu that closes More:
+  // the sheet closes too, so no overlay is ever left over the desktop layout with nothing to dismiss it from.
+  React.useEffect(() => {
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const close = () => {
+      if (wide.matches) setMoreOpen(false);
+    };
+    close();
+    wide.addEventListener("change", close);
+    return () => wide.removeEventListener("change", close);
+  }, []);
+
   const moreActive = more.some((group) => group.items.some((item) => isNavigationItemActive(item, pathname)));
 
   const renderLink = (item: NavigationItem) => (

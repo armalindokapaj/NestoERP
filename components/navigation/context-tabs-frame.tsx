@@ -19,7 +19,10 @@ import { cn } from "@/lib/utils/cn";
  * tab, including those a row tucks under More — are the top bar's section menu
  * (components/layout/section-menu.tsx). A page's own controls (`trailing`)
  * stay on the page there, a compact right-aligned row in the tab row's place
- * that scrolls with it (`data-tabs-in-menu`, styles/globals.css).
+ * that scrolls with it (`data-tabs-in-menu`, styles/globals.css). `lead` is
+ * what names the context in that row below `lg` — a project's name, code,
+ * company and status — so the name and the controls share one line; it is
+ * never drawn from `lg`, where the row is the tabs.
  */
 export function ContextTabsFrame({
   label,
@@ -28,6 +31,7 @@ export function ContextTabsFrame({
   className,
   testId,
   trailing,
+  lead,
 }: {
   label: string;
   /** The row's tabs as data, for the section menu: the same tabs, in the same order, with the one the page is on marked. */
@@ -36,6 +40,8 @@ export function ContextTabsFrame({
   className?: string;
   testId?: string;
   trailing?: React.ReactNode;
+  /** Below lg only: the context's own compact header, at the start of the row. Its own classes say where it shows (it carries `lg:hidden` or narrower). */
+  lead?: React.ReactNode;
 }) {
   const scroller = (
     // Desktop tab sets are kept short enough not to scroll (§20); below lg the row is the section menu instead.
@@ -46,19 +52,28 @@ export function ContextTabsFrame({
       <ContextTabsOverflow />
     </div>
   );
+  const leading = lead ? (
+    <div className="flex min-w-0 flex-1 items-center lg:hidden" data-context-tabs-lead>
+      {lead}
+    </div>
+  ) : null;
   return (
     <div data-context-tabs data-tabs-in-menu className={cn("nesto-context-tabs", className)}>
       <RegisterSections label={label} items={sections} />
       {trailing ? (
         // A page's own controls at the row's end: outside the scroller, so they stay in view while the tabs scroll, on the same hairline.
-        <div className="flex items-stretch max-lg:justify-end">
+        <div className="flex items-stretch max-lg:justify-end max-lg:gap-2">
+          {leading}
           {scroller}
           <div className="flex h-(--nesto-shell-tab-row-h) shrink-0 items-center gap-1 border-b border-line pl-2 max-lg:border-b-0 max-lg:pl-0" data-context-tabs-trailing>
             {trailing}
           </div>
         </div>
       ) : (
-        scroller
+        <>
+          {leading}
+          {scroller}
+        </>
       )}
     </div>
   );

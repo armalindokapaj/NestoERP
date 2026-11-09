@@ -8,11 +8,12 @@ import { Breadcrumbs, type Crumb } from "@/components/ui/breadcrumbs";
 import { ProjectStatusBadge } from "@/components/projects/portfolio/project-status-badge";
 import { switchProjectHref } from "@/lib/modules/projects/project.switch";
 import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
+import { cn } from "@/lib/utils/cn";
 import type { ProjectTabKey } from "./project-context";
 
 export type ProjectNavTab = ContextTab & { key: ProjectTabKey };
 
-export type ProjectIdentity = { name: string; companyName: string; status: ProjectCardDTO["status"] };
+export type ProjectIdentity = { name: string; code: string; companyName: string; status: ProjectCardDTO["status"] };
 
 /** The six sections a project always shows (Sticky Navigation §9); every other permitted one is under More. */
 const PRIMARY: ProjectTabKey[] = ["overview", "planning", "units", "sales", "tasks", "calendar"];
@@ -36,19 +37,39 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
       : crumb,
   );
   const trail = section ? [...carried, { label: section.label, href: section.href }] : carried;
+  /*
+   * Below lg: who and what, once — name, code, company and status in one
+   * compact header, in the tab row's place, beside the Overview's controls
+   * (MOB-05 §18, §19, §70). A section's own page header then draws only its
+   * actions there (RecordContextHeader `nameInLayout`), so the name is not
+   * shown twice. From sm the Overview's hero names the project itself, so there
+   * the header is a phone's only.
+   */
+  const header = <ProjectCompactHeader identity={identity} className={segment === null ? "sm:hidden" : "lg:hidden"} />;
   return (
     <>
       <Breadcrumbs items={trail} level="layout" />
-      {/* Phones: who and what, once, above the pinned tabs; it scrolls away and the tabs stay (MOB-05 §18, §19, §70). */}
-      <div className="flex min-w-0 items-center justify-between gap-3 pt-3 sm:hidden" data-testid="project-phone-identity">
-        <div className="min-w-0">
-          <p className="truncate text-card font-semibold text-fg">{identity.name}</p>
-          <p className="truncate text-table text-fg-muted" data-testid="project-phone-company">{identity.companyName}</p>
-        </div>
-        <ProjectStatusBadge status={identity.status} />
-      </div>
+      {/* A project with no section but its Overview draws no tab row; its header stands alone. */}
+      {tabs.length <= 1 ? header : null}
       {/* The Overview's own controls end the row on the Overview only; every other section keeps the row to its tabs. */}
-      <ContextTabs label={sectionsLabel} tabs={tabs} primary={PRIMARY} rootKey="overview" trailing={segment === null ? overviewTrailing : undefined} />
+      <ContextTabs label={sectionsLabel} tabs={tabs} primary={PRIMARY} rootKey="overview" trailing={segment === null ? overviewTrailing : undefined} lead={header} />
     </>
+  );
+}
+
+/** The project's compact header below lg: its name, then its code and company, and its status at the end. */
+function ProjectCompactHeader({ identity, className }: { identity: ProjectIdentity; className?: string }) {
+  return (
+    <div className={cn("flex min-w-0 flex-1 items-center justify-between gap-3 py-1", className)} data-testid="project-phone-identity">
+      <div className="min-w-0">
+        <p className="truncate text-card font-semibold text-fg">{identity.name}</p>
+        <p className="truncate text-table text-fg-muted">
+          <span data-testid="project-phone-code">{identity.code}</span>
+          <span aria-hidden="true"> · </span>
+          <span data-testid="project-phone-company">{identity.companyName}</span>
+        </p>
+      </div>
+      <ProjectStatusBadge status={identity.status} className="shrink-0" />
+    </div>
   );
 }

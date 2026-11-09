@@ -32,9 +32,10 @@ function activeFor(tabs: ContextTab[], pathname: string, rootKey?: string) {
  * name while one of them is open. The active tab follows the URL, so back,
  * forward, refresh and deep links all land on the right one (§35, §36).
  * `trailing` is a page's own controls at the end of the row. Below lg the row is
- * the top bar's section menu, every tab in it (ContextTabsFrame).
+ * the top bar's section menu, every tab in it, and `lead` — the context's own
+ * compact header — takes the row's place beside `trailing` (ContextTabsFrame).
  */
-export function ContextTabs({ label, tabs, primary, rootKey, trailing }: { label: string; tabs: ContextTab[]; primary?: string[]; rootKey?: string; trailing?: React.ReactNode }) {
+export function ContextTabs({ label, tabs, primary, rootKey, trailing, lead }: { label: string; tabs: ContextTab[]; primary?: string[]; rootKey?: string; trailing?: React.ReactNode; lead?: React.ReactNode }) {
   const t = useTranslations("ui");
   const pathname = usePathname();
   if (tabs.length <= 1) return null;
@@ -46,7 +47,7 @@ export function ContextTabs({ label, tabs, primary, rootKey, trailing }: { label
   const sections = tabs.map((tab) => ({ key: tab.key, label: tab.label, href: tab.href, active: tab.key === active, newTab: tab.newTab }));
 
   return (
-    <ContextTabsFrame label={label} sections={sections} trailing={trailing}>
+    <ContextTabsFrame label={label} sections={sections} trailing={trailing} lead={lead}>
       {shown.map((tab) => (
         <Link
           navSource="tab"

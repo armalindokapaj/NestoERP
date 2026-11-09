@@ -37,7 +37,8 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
  * the table draws with need no width at all, so crossing a breakpoint (a
  * rotation) changes nothing but the control's labels — no refetch, no
  * remount (MW-16). `leading` is drawn at the start of the control's row (the
- * phone Sort control).
+ * phone Sort control). Below md the rows are cards, so the Columns control is
+ * not drawn there at all.
  */
 export function TableColumnsScope({
   listId,
@@ -94,12 +95,14 @@ export function TableColumnsScope({
     >
       {rules ? <style>{rules}</style> : null}
       {optional.length > 0 || leading ? (
-        <div className={cn("mb-2 flex flex-wrap items-center justify-end gap-2", optional.length === 0 && "md:hidden")}>
+        // Below md the table is cards, which have no columns to choose: the control is not drawn there, and a row
+        // that would hold nothing else is not drawn either.
+        <div className={cn("mb-2 flex flex-wrap items-center justify-end gap-2", optional.length === 0 && "md:hidden", !leading && "max-md:hidden")}>
           {leading}
           {optional.length > 0 ? (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="secondary" size="sm" className="ml-auto" aria-label={label ? t("columnsLabel", { label }) : t("columns")}>
+              <Button variant="secondary" size="sm" className="ml-auto max-md:hidden" aria-label={label ? t("columnsLabel", { label }) : t("columns")}>
                 <Columns3 aria-hidden="true" />
                 {t("columns")}
                 {hiddenHere.length > 0 ? (

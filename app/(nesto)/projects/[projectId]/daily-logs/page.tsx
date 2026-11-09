@@ -54,6 +54,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
   return (
     <div className="space-y-5">
       <RecordContextHeader
+        nameInLayout
         title={project.name}
         subtitle={project.code}
         status={project.status}

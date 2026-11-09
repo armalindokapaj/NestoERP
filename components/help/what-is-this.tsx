@@ -78,14 +78,35 @@ export type WhatIsThisProps = {
   className?: string;
   /** "popover": the panel opens over the page, below the trigger's end, for a row that cannot grow (a tab row). */
   placement?: "inline" | "popover";
+  /**
+   * On a phone (below md), a tip that sits on a row it shares: the trigger is
+   * the icon alone — its name is still "What is this?" — and the panel opens
+   * over the page under it, the width of the screen less the gutters, so the
+   * row never grows. From md it is drawn as `placement` says.
+   */
+  compact?: boolean;
 };
 
-export function WhatIsThis({ id, version = 1, label, title, children, link, className, placement = "inline" }: WhatIsThisProps) {
+/** The content gutter on a phone (styles/globals.css, `--nesto-gutter` below md). */
+const PHONE_GUTTER = 16;
+
+export function WhatIsThis({ id, version = 1, label, title, children, link, className, placement = "inline", compact = false }: WhatIsThisProps) {
   const t = useCommonTranslations();
   const panelId = React.useId();
   const [open, setOpen] = React.useState(false);
   const [dismissed, setDismissed] = React.useState(false);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  // Compact, on a phone: how far the tip's box starts from the screen's left gutter, so the panel can start at the gutter.
+  const [shift, setShift] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    if (!compact || !open) return;
+    const measure = () => setShift(Math.max(0, (rootRef.current?.getBoundingClientRect().left ?? PHONE_GUTTER) - PHONE_GUTTER));
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [compact, open]);
 
   // The identity is known only in the browser, after the shell's layout effect
   // has registered it — so storage is read in an effect, never during render.
@@ -96,26 +117,32 @@ export function WhatIsThis({ id, version = 1, label, title, children, link, clas
   if (dismissed) return null;
 
   return (
-    <div className={cn("text-table", placement === "popover" && "relative", className)} data-testid={`help-${id}`}>
+    <div ref={rootRef} className={cn("text-table", placement === "popover" && "relative", compact && "max-md:relative", className)} data-testid={`help-${id}`}>
       <button
         ref={triggerRef}
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 font-medium text-accent-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:min-h-11"
+        className={cn(
+          "inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 font-medium text-accent-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:min-h-11",
+          compact && "max-md:size-11 max-md:justify-center max-md:px-0",
+        )}
       >
-        <CircleHelp aria-hidden="true" className="size-4" />
-        {label ?? t("help.whatIsThis")}
+        <CircleHelp aria-hidden="true" className={cn("size-4", compact && "max-md:size-5")} />
+        {compact ? <span className="max-md:sr-only">{label ?? t("help.whatIsThis")}</span> : (label ?? t("help.whatIsThis"))}
       </button>
       <div
         id={panelId}
         role="region"
         aria-label={title}
         hidden={!open}
+        style={compact ? ({ "--what-is-this-shift": `${shift}px` } as React.CSSProperties) : undefined}
         className={cn(
           "rounded-lg border border-line p-3 text-fg-muted",
           placement === "popover" ? "absolute right-0 top-full z-50 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-surface shadow-lg" : "mt-2 max-w-prose bg-surface-muted",
+          compact &&
+            "max-md:absolute max-md:left-[calc(var(--what-is-this-shift,0px)*-1)] max-md:right-auto max-md:top-full max-md:z-50 max-md:mt-1 max-md:w-[calc(100vw-2rem)] max-md:max-w-none max-md:bg-surface max-md:shadow-lg",
         )}
       >
         <div className="flex items-start justify-between gap-3">

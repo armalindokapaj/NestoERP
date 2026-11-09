@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils/cn";
 
 /**
  * The one Export control (AUD-08 §7, §8; DT-14, DT-17).
@@ -168,7 +169,8 @@ export function ExportControl({
         <Download aria-hidden="true" />
         {preparing ? copy.preparing : label}
       </Button>
-      <p id={scopeId} className="max-w-xs text-meta text-fg-muted sm:text-right" data-testid={`${testId}-scope`}>
+      {/* The scope line names the columns, which a phone's cards do not show: below md it is the button's description only, unless it says why the export cannot run. */}
+      <p id={scopeId} className={cn("max-w-xs text-meta text-fg-muted sm:text-right", blocked === null && "max-md:sr-only")} data-testid={`${testId}-scope`}>
         {blocked ?? scopeLabel ?? copy.scope}
       </p>
       <p role="status" className="sr-only" data-testid={`${testId}-status`}>

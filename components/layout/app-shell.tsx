@@ -146,7 +146,7 @@ export async function AppShell({
               {/* A page's tab rows hand their sections to the top bar's section pill, below lg (components/layout/section-menu.tsx). */}
               <SectionStoreProvider>
               <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-                <Topbar context={context} navigation={navigation} core={core} />
+                <Topbar context={context} core={core} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
                 <BreadcrumbBar />
                 {/* Connectivity and sync, compact; nothing at all while online with nothing to send (MOB-09 §24, §116). */}

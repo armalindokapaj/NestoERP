@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { RegisterSections, SectionStoreProvider, useSectionLevels } from "@/components/navigation/section-registry";
-import { menuLevels, orderLevels, pillFor, SectionStore, type SectionAnchor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
+import { hasCurrentSection, menuLevels, orderLevels, pageNameFrom, pillFor, SectionStore, type SectionAnchor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
 
 /**
  * The section menu's store (mobile section pill): each tab row registers its
@@ -132,9 +132,35 @@ describe("menuLevels and pillFor", () => {
     expect(pillFor([project, unmarked])?.label).toBe("Units");
   });
 
-  it("where no level marks a section, falls back to the innermost level's name", () => {
+  it("where no level marks a section, names the page itself (a project's Media), and only without one the level", () => {
     const none: SectionLevel = { ...project, items: items(["overview", "units"]) };
+    expect(hasCurrentSection([none])).toBe(false);
+    expect(hasCurrentSection([project])).toBe(true);
+    expect(pillFor([none], "Project media")).toEqual({ label: "Project media", item: null });
+    expect(pillFor([none], "  ")).toEqual({ label: "Project sections", item: null });
     expect(pillFor([none])).toEqual({ label: "Project sections", item: null });
+    // A marked section wins over the page's name.
+    expect(pillFor([project], "Project media")?.label).toBe("Units");
+  });
+});
+
+describe("pageNameFrom", () => {
+  type Heading = { textContent: string | null; closest(selector: string): unknown };
+  const heading = (text: string, context = false): Heading => ({ textContent: text, closest: (selector) => (context && selector.includes("context") ? {} : null) });
+  const main = (...headings: Heading[]) => ({ querySelectorAll: () => headings });
+
+  it("takes the page header's title", () => {
+    expect(pageNameFrom(main(heading("  Project\n  media ")), "Riverside · Media · Projects · NESTO")).toBe("Project media");
+  });
+
+  it("skips a header that only names the record the page sits in, and falls back to the document's title", () => {
+    expect(pageNameFrom(main(heading("Riverside Residences", true)), "Work packages · Projects · NESTO")).toBe("Work packages");
+    expect(pageNameFrom(null, "Work packages · Projects · NESTO")).toBe("Work packages");
+  });
+
+  it("has no name for a page with neither", () => {
+    expect(pageNameFrom(main(), "NESTO")).toBeNull();
+    expect(pageNameFrom(null, "")).toBeNull();
   });
 });
 

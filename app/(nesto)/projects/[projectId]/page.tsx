@@ -117,7 +117,8 @@ export default async function ProjectOverviewPage({ params }: Params) {
 
       {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />{t("overview.archivedNotice")}</p> : null}
 
-      <h1 className="text-2xl font-semibold tracking-[-0.02em] text-fg sm:hidden">{project.name}</h1>
+      {/* A phone's heading: the project's compact header above (project-nav-bar.tsx) already shows the name, so this one is for screen readers. From sm the hero's is the heading. */}
+      <h1 className="sr-only sm:hidden">{project.name}</h1>
 
       {/* "On this page", where the ruler has no room: under the project's name on a phone (UI-02 §8.1). */}
       <PageSectionLinks />

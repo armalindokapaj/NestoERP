@@ -52,7 +52,7 @@ export default async function ProjectContractorsPage({ params }: Params) {
 
   return (
     <div className="space-y-6">
-      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader nameInLayout title={project.name} subtitle={project.code} status={project.status} />
       <MetricGrid className="xl:grid-cols-5">
         <Metric label={t("contractorsTab.activeContractors")} value={assignments.filter((row) => row.status === "ACTIVE").length} testId="metric-active-contractors" />
         <Metric label={t("contractorsTab.openWorkPackages")} value={packages.filter((row) => ["PLANNED", "ACTIVE", "AT_RISK", "ON_HOLD"].includes(row.status)).length} href={`/projects/${project.id}/work-packages`} />

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { db } from "../db";
 import { ENGINEERING_SEED, PROJECT, restoreContractorsEngineering } from "../engineering-fixtures";
-import { mainRegion, signIn } from "../fixtures";
+import { openSectionMenu, signIn } from "../fixtures";
 
 /**
  * Engineering review on a phone (PRD #46 §313, §317, §318): the engineer opens
@@ -24,6 +24,12 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
+/** Below 1024px the engineering sections are a group of the top bar's section pill, under the project's own. */
+async function openEngineeringSection(page: Page, name: string | RegExp) {
+  const menu = await openSectionMenu(page);
+  await menu.getByRole("group", { name: "Engineering sections" }).getByRole("link", { name }).click();
+}
+
 async function expectNoSidewaysScroll(page: Page) {
   const [scroll, client] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
   expect(scroll).toBeLessThanOrEqual(client + 1);
@@ -32,12 +38,11 @@ async function expectNoSidewaysScroll(page: Page) {
 test("the engineer answers an RFI and reviews a submittal from the phone", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, "ENGINEER", { to: `/projects/${PROJECT}/engineering` });
-  // Scoped to main: a streamed page briefly keeps a hidden copy of itself outside it (React Suspense reveal).
-  const nav = mainRegion(page).getByTestId("engineering-nav");
-  await expect(nav).toBeVisible();
+  // The section column is not drawn on a phone: its sections are in the section pill.
+  await expect(page.getByTestId("engineering-nav")).toBeHidden();
   await expectNoSidewaysScroll(page);
 
-  await nav.getByRole("link", { name: /^RFIs/ }).click();
+  await openEngineeringSection(page, /^RFIs/);
   await expect(page).toHaveURL(new RegExp(`/projects/${PROJECT}/engineering/rfis$`));
   await expect(page.getByTestId("rfi-row").first()).toBeHidden();
   await page.getByTestId("rfi-card").filter({ hasText: "RFI-001" }).click();
@@ -48,7 +53,7 @@ test("the engineer answers an RFI and reviews a submittal from the phone", async
   await expect(page.getByTestId("rfi-status")).toHaveText("Answered");
   await expect(page.getByTestId("rfi-response").last()).toContainText("U-bars at 200 centres");
 
-  await nav.getByRole("link", { name: "Submittals", exact: true }).click();
+  await openEngineeringSection(page, /^Submittals$/);
   await expect(page).toHaveURL(new RegExp(`/projects/${PROJECT}/engineering/submittals$`));
   await page.getByTestId("submittal-card").filter({ hasText: "SUB-002" }).click();
   await expect(page.getByTestId("submittal-status")).toHaveText("Submitted");

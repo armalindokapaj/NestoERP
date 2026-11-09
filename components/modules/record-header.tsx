@@ -64,6 +64,12 @@ export function RecordHeader({
 /**
  * Compact context header kept on record sub-pages, so a person never loses
  * track of which record they are inside (PRD #10 §139).
+ *
+ * `nameInLayout`: below `lg` the layout above already names this record in
+ * its own compact header (a project's sections: project-nav-bar.tsx), so the
+ * title, code and status are left to screen readers there — the page keeps its
+ * heading — and only the actions are drawn, at the row's end; a header with no
+ * actions then takes no room at all. From `lg` it is drawn as ever.
  */
 export function RecordContextHeader({
   breadcrumbs,
@@ -71,6 +77,7 @@ export function RecordContextHeader({
   subtitle,
   status,
   actions,
+  nameInLayout = false,
 }: {
   /** Absent under the project layout, which draws them (and the tabs) above the page. */
   breadcrumbs?: Crumb[];
@@ -78,6 +85,7 @@ export function RecordContextHeader({
   subtitle?: string;
   status?: string;
   actions?: React.ReactNode;
+  nameInLayout?: boolean;
 }) {
   return (
     <PageHeaderFrame
@@ -87,6 +95,8 @@ export function RecordContextHeader({
       subtitle={subtitle || undefined}
       status={status ? <StatusBadge status={status} /> : undefined}
       actions={actions || undefined}
+      className={nameInLayout ? (actions ? "max-lg:[&>div]:justify-end" : "max-lg:sr-only") : undefined}
+      textClassName={nameInLayout && actions ? "max-lg:sr-only" : undefined}
     />
   );
 }

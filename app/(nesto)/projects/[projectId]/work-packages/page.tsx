@@ -41,7 +41,7 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} actions={!archived && can(context, "work_package.create") ? <NewWorkPackageButton projectId={project.id} /> : null} />
+      <RecordContextHeader nameInLayout title={project.name} subtitle={project.code} status={project.status} actions={!archived && can(context, "work_package.create") ? <NewWorkPackageButton projectId={project.id} /> : null} />
       <ListToolbar
         searchPlaceholder={t("structurePages.workPackageSearch")}
         searchParam="q"

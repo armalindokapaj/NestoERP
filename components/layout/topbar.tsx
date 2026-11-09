@@ -7,7 +7,6 @@ import { WorkspaceSwitcher } from "@/components/layout/organization-workspace-he
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { AccountPanel } from "@/components/shell/account-panel";
 import { can, canAccessModule } from "@/lib/access/can";
-import type { NavigationGroup } from "@/config/navigation";
 import { getTranslations } from "@/lib/i18n/server";
 import { getDesignState } from "@/lib/layout/design-server";
 import type { UserContext } from "@/lib/context/types";
@@ -31,17 +30,15 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * Below `lg` (phones and tablets) the bell lives in the bottom bar, and the top
  * right is the page's section pill — "Sales ▾" — which opens the page's tabs as
  * a menu, as the tab rows are not drawn there (components/layout/section-menu.tsx).
- * On a phone the account lives in More (MOB-02 §39), and the development user
- * switcher moves into the navigation drawer's foot. The gutters include the
- * safe-area insets.
+ * The bottom bar's Menu is the only menu there: the top left carries no drawer
+ * trigger (mobile-header.tsx). On a phone the account lives in More (MOB-02
+ * §39). The gutters include the safe-area insets.
  */
 export async function Topbar({
   context,
-  navigation,
   core,
 }: {
   context: UserContext;
-  navigation: NavigationGroup[];
   core: ShellCoreDTO;
 }) {
   const t = await getTranslations("roles");
@@ -58,7 +55,7 @@ export async function Topbar({
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
     <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <MobileHeader navigation={navigation} isDemo={context.parentGroup.isDemo} />
+        <MobileHeader />
 
         {/* The navigation collapse control sits out here rather than in the
             sidebar: the rail header has one slot and the organization's mark

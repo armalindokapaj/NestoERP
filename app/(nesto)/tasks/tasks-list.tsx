@@ -143,7 +143,7 @@ export async function TasksList({
     <div className="space-y-4">
       {variant === "mine" ? (
         // The day's views of My Tasks: the same list narrowed by the canonical due filter (MOB-06 §13).
-        <nav aria-label={t("list.views.label")} className="flex gap-1" data-testid="my-tasks-views">
+        <nav aria-label={t("list.views.label")} className="flex flex-wrap gap-1" data-testid="my-tasks-views">
           {(
             [
               { key: "today", due: "today" },
@@ -178,12 +178,14 @@ export async function TasksList({
           { value: "title-asc", label: t("list.sort.titleAsc") },
           { value: "title-desc", label: t("list.sort.titleDesc") },
         ]}
+        help={
+          // What search and filters cover, stated once where people use them (AUD-05 §5, §7, UX-10, UX-15).
+          <WhatIsThis id="lists.search-filters" title={t("list.helpTitle")} compact>
+            <p>{t("list.helpSearch")}</p>
+            <p>{t("list.helpFilters")}</p>
+          </WhatIsThis>
+        }
       />
-      {/* What search and filters cover, stated once where people use them (AUD-05 §5, §7, UX-10, UX-15). */}
-      <WhatIsThis id="lists.search-filters" title={t("list.helpTitle")}>
-        <p>{t("list.helpSearch")}</p>
-        <p>{t("list.helpFilters")}</p>
-      </WhatIsThis>
 
       {result.data.length === 0 ? (
         hasFilters ? (

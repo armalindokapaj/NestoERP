@@ -72,6 +72,7 @@ export default async function ProjectFinancePage({ params }: Params) {
   return (
     <div className="space-y-5">
       <RecordContextHeader
+        nameInLayout
         title={project.name}
         subtitle={project.code}
         status={project.status}

@@ -505,32 +505,17 @@ test.describe("widths (§47-§49, §84, §85)", () => {
     await expect(workspaceSwitcher(page)).toHaveCount(0);
   });
 
-  test("a tablet: the navigation drawer's header switches the same way, and closes the drawer as the switch starts (§49)", async ({ page }) => {
+  test("a tablet: no navigation drawer; the top bar's company switcher switches, and the bottom bar's Menu is the only menu", async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 1180 });
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-    // From 768px the top bar carries the switcher too, beside + Create.
+    // From 768px the top bar carries the switcher, beside + Create; below 1024px there is no drawer trigger.
+    await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(0);
+    await expect(page.getByTestId("mobile-more")).toBeVisible();
     await expect(workspaceSwitcher(page)).toBeVisible();
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    const drawer = page.getByRole("dialog", { name: /navigation/i });
-    const header = drawer.getByTestId("organization-header");
-    await expect(header).toHaveRole("button");
-    await expect(header).toHaveAttribute("data-presentation", "popup");
-    await expect(header.getByTestId("workspace-label")).toHaveText("Aurelia Construction");
-    await expect(header.getByTestId("organization-name")).toHaveCount(0);
-    // The chevron is the phone's: the drawer's header has none in view.
-    await expect(header.locator("svg")).toBeHidden();
-
-    await header.click();
+    await workspaceSwitcher(page).click();
     const popup = workspacePanel(page);
     await expect(popup.getByTestId("workspace-option").first()).toBeVisible();
-    await landed(popup);
-    await expect(popup.locator(".nesto-popup-pointer")).toBeVisible();
-    const [control, box] = [(await header.boundingBox())!, (await popup.boundingBox())!];
-    expect(box.y).toBeGreaterThanOrEqual(control.y + control.height);
-    expect(box.y - (control.y + control.height)).toBeLessThanOrEqual(24);
-
     await popup.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
-    await expect(drawer).toBeHidden();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
     await expect(workspaceSwitcher(page)).toHaveAccessibleName("Switch workspace. Current workspace: Forma Engineering.");
   });

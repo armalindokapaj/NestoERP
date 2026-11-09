@@ -52,6 +52,23 @@ test("Project workspace: phone identity, tabs and Overview", async ({ page }) =>
   await expectNoPageOverflow(page);
 });
 
+test("Project section below 1024px: the project is named once, in the compact header (name, code, company, status)", async ({ page }) => {
+  await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a/tasks" });
+  const identity = page.getByTestId("project-phone-identity");
+  if (page.viewportSize()!.width < 1024) {
+    await expect(identity).toBeVisible();
+    await expect(identity.getByTestId("project-phone-code")).not.toBeEmpty();
+    await expect(identity.getByTestId("project-phone-company")).not.toBeEmpty();
+    await expect(identity.getByTestId("project-status")).toBeVisible();
+    // The section's own header keeps the page's heading for screen readers, and draws no second name.
+    const title = mainRegion(page).locator('[data-page-header="context"] [data-page-title]').first();
+    expect((await title.boundingBox())?.width ?? 0).toBeLessThanOrEqual(1);
+  } else {
+    await expect(identity).toBeHidden();
+  }
+  await expectNoPageOverflow(page);
+});
+
 test("Project workspace: a deep link opens the section and the switcher keeps it", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a/tasks" });
   await expect(page).toHaveURL(/\/projects\/project_a\/tasks/);

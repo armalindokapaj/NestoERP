@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { RegisterSections } from "@/components/navigation/section-registry";
 import { Boxes, CalendarClock, History, Loader2, Star, X } from "lucide-react";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
@@ -25,6 +26,12 @@ import { planFocusAfterRemoval } from "@/components/modules/focus-after-removal"
 import { FormSelect } from "@/components/ui/form-select";
 
 export type MyWorkQuery = { companyId?: string; module?: string; projectId?: string; q?: string; range?: string; from?: string; to?: string };
+
+/** My Work's two lists, in the row's order (§10). */
+const MY_WORK_TABS = [
+  ["recent", "myWork.recent", History],
+  ["favorites", "myWork.favorites", Star],
+] as const;
 
 const RANGES = [
   ["all", "myWork.anyTime"],
@@ -132,11 +139,10 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
 
   return (
     <div className="space-y-4">
-      <nav aria-label={t("myWork.nav")} className="flex items-center gap-1 border-b border-line">
-        {([
-          ["recent", "myWork.recent", History],
-          ["favorites", "myWork.favorites", Star],
-        ] as const).map(([key, label, Icon]) => (
+      {/* Recent work and Favorites are two lists, each its own page: below lg they are the top bar's section pill, and this row is not drawn. */}
+      <RegisterSections label={t("myWork.nav")} items={MY_WORK_TABS.map(([key, label]) => ({ key, label: t(label), href: href({ tab: key }), active: tab === key }))} />
+      <nav aria-label={t("myWork.nav")} className="flex items-center gap-1 border-b border-line max-lg:hidden">
+        {MY_WORK_TABS.map(([key, label, Icon]) => (
           <Link key={key} href={href({ tab: key })} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-table font-medium", tab === key ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg")} data-testid={`my-work-tab-${key}`}>
             <Icon aria-hidden="true" className="size-4" />
             {t(label)}

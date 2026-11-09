@@ -126,7 +126,9 @@ export function PageHeaderFrame({
   status,
   meta,
   actions,
+  help,
   className,
+  textClassName,
 }: {
   kind: PageHeaderKind;
   lead?: React.ReactNode;
@@ -138,7 +140,15 @@ export function PageHeaderFrame({
   /** Short key/value pairs shown under the title. */
   meta?: { label: string; value: React.ReactNode }[];
   actions?: React.ReactNode;
+  /**
+   * The page's Help entry: the last of the actions from `md`; on a phone it
+   * sits at the end of the title's line instead, so it never takes a row of
+   * its own and the actions keep theirs below the title.
+   */
+  help?: React.ReactNode;
   className?: string;
+  /** Extra classes for the block holding the title, its line, status and facts (a record named above it below lg). */
+  textClassName?: string;
 }) {
   const v1 = V1[kind];
   const v2 = kind === "context" ? V2_COMPACT : V2_FULL;
@@ -148,7 +158,7 @@ export function PageHeaderFrame({
     <div data-page-header={kind} className={cn(v1.root, v2.root, className)}>
       {lead}
       <div className={cn(v1.row, v2.row)}>
-        <div className={cn(v1.text, v2.text)}>
+        <div className={cn(v1.text, v2.text, help ? "max-md:flex-1" : null, textClassName)}>
           <h1 data-page-title className={cn(v1.title, v2.title)}>{title}</h1>
           {subtitle === null || subtitle === undefined ? null : <Subtitle className={cn(v1.subtitle, v2.subtitle)}>{subtitle}</Subtitle>}
           {status ? <div className={cn(v1.status, v2.status)}>{status}</div> : null}
@@ -163,7 +173,19 @@ export function PageHeaderFrame({
             </dl>
           ) : null}
         </div>
-        {actions ? <div data-page-actions className={headerActionsClass}>{actions}</div> : null}
+        {help ? (
+          /*
+           * From md the group is the actions, then Help, as one wrapping row. On a phone the group's
+           * wrappers become the row's own items: Help beside the title (order 1), the actions on a full
+           * line of their own under it (order 2). `contents` keeps the md-up drawing identical.
+           */
+          <div data-page-actions className={cn(headerActionsClass, "max-md:contents")}>
+            {actions ? <div className="contents max-md:order-2 max-md:flex max-md:basis-full max-md:flex-wrap max-md:items-center max-md:gap-2">{actions}</div> : null}
+            <div className="contents max-md:order-1 max-md:flex max-md:shrink-0 max-md:items-start">{help}</div>
+          </div>
+        ) : actions ? (
+          <div data-page-actions className={headerActionsClass}>{actions}</div>
+        ) : null}
       </div>
     </div>
   );

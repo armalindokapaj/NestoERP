@@ -57,7 +57,7 @@ export default async function ProjectUnitFinancePage({ params, searchParams }: P
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader nameInLayout title={project.name} subtitle={project.code} status={project.status} />
       <FinanceViews projectId={project.id} active="units" both={actions.canViewFinance} />
       {structure.totals.units === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="finance-units-empty">
