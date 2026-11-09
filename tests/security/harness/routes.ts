@@ -165,6 +165,8 @@ const SHAPED: Record<string, (idFor: (field: string) => string | undefined) => u
   installments: () => [[{ label: "Security sweep installment", type: "INSTALLMENT", amount: "1", dueDate: "2026-09-14" }]],
   allocations: (idFor) => [[{ installmentId: idFor("installmentId") ?? "sweep_unknown_id", amount: "1" }]],
   method: () => ["BANK_TRANSFER"],
+  // A project's price list (2026-11): many units' asking prices in one save.
+  prices: (idFor) => [[{ unitId: idFor("unitId") ?? "sweep_unknown_id", askingPrice: "1", priceBasis: "FIXED_UNIT_PRICE", expectedVersion: 0 }]],
 };
 
 export function candidateValues(field: string, messages: string[], idFor: (field: string) => string | undefined): unknown[] {

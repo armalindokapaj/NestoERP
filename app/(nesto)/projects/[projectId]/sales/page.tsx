@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
+import { Tags } from "lucide-react";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
+import Link from "@/components/navigation/nav-link";
 import { EMPTY_INVENTORY_FILTERS, SalesInventory, type InventoryFilters } from "@/components/sales/unit-sales/sales-inventory";
+import { Button } from "@/components/ui/button";
 import { AccessError } from "@/lib/access/guards";
 import { getProjectStructure } from "@/lib/modules/project-structure/structure.service";
 import * as projects from "@/lib/modules/projects/project.service";
@@ -34,6 +37,7 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
   const search = await searchParams;
   const { context, project } = await loadProject(projectId);
   const t = await getTranslations("projects");
+  const tSales = await getTranslations("sales");
   const actions = projects.projectActions(context);
   if (!actions.canViewUnitSales) redirect("/access-denied");
 
@@ -62,7 +66,21 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
 
   return (
     <div className="space-y-5">
-      <RecordContextHeader title={project.name} subtitle={project.code} status={project.status} />
+      <RecordContextHeader
+        title={project.name}
+        subtitle={project.code}
+        status={project.status}
+        actions={
+          caps.canManagePrice && structure.totals.units > 0 ? (
+            <Button asChild variant="secondary">
+              <Link href={`/projects/${project.id}/sales/prices`} data-testid="sales-prices-link">
+                <Tags aria-hidden="true" />
+                {tSales("priceList.open")}
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      />
       {structure.totals.units === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="sales-empty">
           {t("structurePages.salesNoUnits")}

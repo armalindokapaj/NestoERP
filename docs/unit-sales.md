@@ -211,6 +211,26 @@ reopened, added to and removed from a deal.
   agreed price and extensions; every reservation; the deals holding the unit;
   price and status history. A unit that is not published says so instead of
   offering the actions. `?action=reserve` or `?action=release` opens that dialog.
+- **Project → Sales → Prices** `/projects/:projectId/sales/prices` (2026-11) —
+  the project's price list, for readers who may set asking prices. One currency
+  and one area basis (saleable, gross or internal) for the page; each floor has a
+  **Price per m²** with **Apply to floor**, which fills every unit on the floor
+  that has that area with rate × area, exact to the cent; a **Parking** card has
+  one **Price per parking space** with **Apply to all parking** (units whose type
+  is in the Parking category, priced as a fixed price). Every unit's price stays
+  editable, a changed one can be undone, a sold one is frozen and never filled.
+  **Save prices** sends only the prices that changed, with one optional reason.
+  Nothing new is stored: the rate and the parking price only fill in the units'
+  own asking prices. The save (`savePriceList`,
+  `lib/modules/sales/units/unit-pricing.service.ts`, `PUT
+  /api/projects/:projectId/sales/prices`) is the one-unit price change done for
+  many units in one transaction: profiles created Not For Sale where missing,
+  locked together in id order, each checked against the version it was read at,
+  and the whole save refused if one is stale (`UNIT_SALES_STALE`), sold
+  (`UNIT_SOLD`) or not an active unit of the project
+  (`PRICE_LIST_UNIT_NOT_FOUND`). Each changed price writes its price history,
+  an activity line and a `UNIT_PRICE_CHANGED` audit event; the commercial
+  status never moves.
 - **The unit header** shows the commercial status beside the publication status
   for everyone who can open the unit; the unit list has a Sales column.
 - **The deal** `/sales/opportunities/:id` has a Units panel: each unit, its

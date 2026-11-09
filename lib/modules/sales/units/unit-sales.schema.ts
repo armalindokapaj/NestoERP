@@ -13,14 +13,14 @@ import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_COMMERCIAL_STATUSES, UNIT_PRICE
  * is also where "Select a Client before reserving this Unit" is said (§48).
  */
 
-const currency = z.enum(SUPPORTED_CURRENCIES as unknown as [string, ...string[]]);
+export const currency = z.enum(SUPPORTED_CURRENCIES as unknown as [string, ...string[]]);
 
 /**
  * A non-negative amount, two decimals at most, within DECIMAL(18,2); kept as a
  * string. Empty is "no amount" (null). Read by the shared decimal rule (AUD-09
  * §4, FV-06): `1,234` is refused as ambiguous, not read as 1.234.
  */
-const money = z
+export const money = z
   .unknown()
   .transform((value, ctx): string | null => {
     const text = typeof value === "number" && Number.isFinite(value) ? String(value) : value;
@@ -38,7 +38,7 @@ const money = z
   });
 
 const reason = z.string().trim().min(1, "Give a reason.").max(SALES_REASON_MAX, `Keep the reason under ${SALES_REASON_MAX.toLocaleString("en")} characters.`);
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z
     .string()
     .trim()
