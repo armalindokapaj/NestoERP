@@ -600,6 +600,23 @@ export const salesEn = {
     savedPrice: "Now {price}",
     notPriced: "No price yet",
   },
+  putOnSale: {
+    one: "Also put it on sale",
+    oneHint: "{unit} is not for sale yet. Untick to keep it back.",
+    newHint: "A new unit is not for sale yet. Untick to keep it back.",
+    many_one: "Also put it on sale",
+    many_other: "Also put them on sale",
+    manyHint_one: "{count} unit you are pricing is not for sale yet. Untick to keep it back.",
+    manyHint_other: "{count} units you are pricing are not for sale yet. Untick to keep them back.",
+    moved: "{unit} is now for sale.",
+    stayed: "{unit} kept its new price but stayed off sale.",
+    stayedReason: "{unit} kept its new price but stayed off sale: {reason}",
+    movedCount_one: "{count} unit went on sale.",
+    movedCount_other: "{count} units went on sale.",
+    stayedCount_one: "{count} priced unit stayed off sale:",
+    stayedCount_other: "{count} priced units stayed off sale:",
+  },
+
   tables: {
     opportunity: "Opportunity",
     company: "Company",

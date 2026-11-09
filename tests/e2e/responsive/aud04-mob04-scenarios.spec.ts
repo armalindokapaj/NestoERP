@@ -22,6 +22,12 @@ async function openFirstRecord(page: Page, role: DemoRole, list: string, hrefPat
     .first();
   await expect(link).toBeVisible();
   await link.click();
+  // A unit opens in the side panel first (2026-11-09); its Open full page is the detail.
+  const panel = page.getByTestId("unit-panel");
+  if (/\/units$/.test(new URL(page.url()).pathname)) {
+    await expect(panel).toBeVisible();
+    await panel.getByTestId("unit-panel-open-page").click();
+  }
   await page.waitForURL(hrefPattern);
   await expect(mainRegion(page).getByRole("heading", { level: 1 }).first()).toBeVisible();
 }

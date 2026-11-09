@@ -92,3 +92,55 @@ export function defaultExpiry(now: Date, days: number): Date {
 export function moneyText(value: { toFixed(digits: number): string } | null | undefined): string | null {
   return value === null || value === undefined ? null : value.toFixed(2);
 }
+
+/**
+ * Whether saving a price offers "Also put it on sale" (2026-11-09): the person
+ * may change the sale status, and the unit is not for sale — no sales record
+ * counts as not for sale — and can be offered, being in use and published.
+ * Ticked by default; unticked, the unit stays held back with its new price.
+ */
+export function putOnSaleWithPrice(unit: { canManageStatus: boolean; status: UnitCommercialStatus | null | undefined; sellable: boolean }): boolean {
+  return unit.canManageStatus && (unit.status ?? "NOT_FOR_SALE") === "NOT_FOR_SALE" && unit.sellable;
+}
+
+/** The sale-status changes a unit's Sales section and its side panel offer. */
+export type SaleStatusOffers = {
+  putOnSale: boolean;
+  takeOff: boolean;
+  hold: boolean;
+  releaseHold: boolean;
+  reserve: boolean;
+  extend: boolean;
+  release: boolean;
+  sold: boolean;
+  reopen: boolean;
+  correct: boolean;
+  price: boolean;
+};
+
+/**
+ * What a reader may do to a unit's sale now (E-05E §8, §19-§31): each change
+ * needs its grant and a status the commercial machine moves from; putting on
+ * sale and reserving also need a sellable unit. The server decides again.
+ */
+export function saleStatusOffers(sales: {
+  status: UnitCommercialStatus;
+  sellable: boolean;
+  hasReservation: boolean;
+  capabilities: { canManageStatus: boolean; canManagePrice: boolean; canReserve: boolean; canExtend: boolean; canRelease: boolean; canMarkSold: boolean; canReopen: boolean; canCorrect: boolean };
+}): SaleStatusOffers {
+  const { status, sellable, hasReservation, capabilities: caps } = sales;
+  return {
+    putOnSale: caps.canManageStatus && status === "NOT_FOR_SALE" && sellable,
+    takeOff: caps.canManageStatus && status === "FOR_SALE",
+    hold: caps.canManageStatus && status === "FOR_SALE",
+    releaseHold: caps.canManageStatus && status === "ON_HOLD",
+    reserve: caps.canReserve && (status === "FOR_SALE" || status === "ON_HOLD") && sellable,
+    extend: caps.canExtend && hasReservation,
+    release: caps.canRelease && hasReservation,
+    sold: caps.canMarkSold && status === "RESERVED",
+    reopen: caps.canReopen && status === "SOLD",
+    correct: caps.canCorrect && hasReservation,
+    price: caps.canManagePrice && status !== "SOLD",
+  };
+}

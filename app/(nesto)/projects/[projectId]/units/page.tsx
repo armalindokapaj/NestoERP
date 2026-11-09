@@ -31,7 +31,9 @@ function refuse(error: unknown): never {
  *
  * `?building=` or `?floor=` chooses where the page opens — which is how a unit
  * page's breadcrumb comes back to its floor. A choice that is not part of this
- * project is ignored rather than trusted (§117).
+ * project is ignored rather than trusted (§117). `?unit=` opens that unit in the
+ * side panel (2026-11-09); the panel reads it through the unit's own door,
+ * which refuses a unit the person may not open.
  */
 export default async function ProjectUnitsPage({ params, searchParams }: Params) {
   const { projectId } = await params;
@@ -64,7 +66,16 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
   return (
     <div className="space-y-5">
       <RecordContextHeader nameInLayout title={project.name} subtitle={project.code} status={project.status} />
-      <StructureWorkspace initial={structure} initialSelection={selection} initialFilters={filters} initialPage={units?.page ?? 1} initialUnits={units} initialTick={tick} />
+      <StructureWorkspace
+        initial={structure}
+        initialSelection={selection}
+        initialFilters={filters}
+        initialPage={units?.page ?? 1}
+        initialUnits={units}
+        initialTick={tick}
+        initialOpenUnit={one(search.unit)}
+        canViewSales={actions.canViewUnitSales}
+      />
     </div>
   );
 }

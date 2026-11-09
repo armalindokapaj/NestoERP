@@ -64,6 +64,12 @@ export type MobileRecordProps = {
    * the one way. Cards only, not compact rows.
    */
   swipe?: React.ReactNode;
+  /**
+   * A click on the card's link, before it navigates: a list that opens the
+   * record beside it (the unit side panel) takes a plain click here and lets a
+   * modified or middle click open the page.
+   */
+  onOpen?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
 
 function FactList({ facts, className }: { facts: RecordFact[]; className?: string }) {
@@ -91,7 +97,7 @@ function FactList({ facts, className }: { facts: RecordFact[]; className?: strin
 const titleClass = "min-w-0 flex-1 text-body font-medium text-fg [overflow-wrap:anywhere] [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal";
 const stretchedLink = "transition-colors after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] hover:text-accent focus-visible:outline-none";
 
-export function MobileRecordCard({ href, title, subtitle, status, value, leading, facts = [], details = [], actions, selection, label, selected, className, extra, data, swipe }: MobileRecordProps) {
+export function MobileRecordCard({ href, title, subtitle, status, value, leading, facts = [], details = [], actions, selection, label, selected, className, extra, data, swipe, onOpen }: MobileRecordProps) {
   const body = (
     <>
       <div className="flex items-start gap-3">
@@ -99,7 +105,7 @@ export function MobileRecordCard({ href, title, subtitle, status, value, leading
         {leading ? <div className="shrink-0">{leading}</div> : null}
         <div className={titleClass}>
           {href ? (
-            <Link href={href} data-card-link aria-label={label} className={stretchedLink}>
+            <Link href={href} data-card-link aria-label={label} className={stretchedLink} onClick={onOpen}>
               {title}
             </Link>
           ) : (

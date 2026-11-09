@@ -13,7 +13,10 @@ import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { fail, loadStructureProject } from "@/lib/modules/project-structure/structure.service";
 import { resolveUnitSalesSettings } from "@/lib/modules/settings/sales-settings.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
+import { skipFor, skipReasonOf } from "@/lib/modules/project-structure/unit-bulk.service";
+import type { BulkSkip } from "@/lib/modules/project-structure/unit-bulk.rules";
 import { PROFILE_SELECT, SALES_ACTIVITY_MODULE, salesCapabilities, UNIT_ENTITY } from "./unit-sales.core";
+import { changeSaleStatus } from "./unit-sales.service";
 import { moneyText } from "./unit-sales.rules";
 import type { PriceListSaveInput } from "./unit-pricing.schema";
 import type { PriceListDTO, PriceListSaveResult, UnitTypeCategoryKey } from "./unit-pricing.types";
@@ -28,7 +31,11 @@ import type { PriceListDTO, PriceListSaveResult, UnitTypeCategoryKey } from "./u
  * has none, locked, checked against the version the reader saw, and refused
  * whole if one is sold or stale. Every changed price keeps its history, an
  * activity line on the unit and an audit event, exactly as a single change
- * does (E-05E §10-§12). Commercial status never moves here.
+ * does (E-05E §10-§12). The prices never move a commercial status — but a save
+ * may ask for "Also put them on sale" (2026-11-09): once the prices are saved,
+ * each unit it priced that is not for sale goes through its own Put on sale,
+ * in its own transaction, and a unit that cannot go on sale keeps its new
+ * price and is named with the reason.
  */
 
 const SAVE_TIMEOUT_MS = 30_000;
@@ -80,6 +87,7 @@ export async function getPriceList(context: UserContext, projectId: string): Pro
     projectId: project.id,
     baseCurrency: settings.baseCurrency,
     canManagePrice: caps.canManagePrice,
+    canManageStatus: caps.canManageStatus,
     buildings: buildings.map((building) => ({
       id: building.id,
       name: building.name,
@@ -112,6 +120,8 @@ export async function savePriceList(context: UserContext, projectId: string, inp
   const project = await loadStructureProject(context, projectId);
   if (!salesCapabilities(context).canView) throw new AccessError("FORBIDDEN", "You cannot see this project's sales.");
   assertPermission(context, "project.unit.price.manage");
+  // Putting units on sale is its own grant, asked before anything is saved.
+  if (input.putOnSale) assertPermission(context, "project.unit.sales_status.manage");
 
   const ids = input.prices.map((price) => price.unitId);
   const units = await prisma.projectUnit.findMany({
@@ -136,6 +146,8 @@ export async function savePriceList(context: UserContext, projectId: string, inp
       const profileByUnit = new Map(profiles.map((profile) => [profile.unitId, profile]));
 
       let count = 0;
+      /** The units this save priced that are not for sale, with their new versions: the ones "Also put them on sale" moves. */
+      const offSale: Array<{ id: string; label: string; version: number }> = [];
       for (const change of input.prices) {
         const unit = unitById.get(change.unitId)!;
         const profile = profileByUnit.get(change.unitId)!;
@@ -192,11 +204,47 @@ export async function savePriceList(context: UserContext, projectId: string, inp
           { tx },
         );
         count += 1;
+        if (newPrice !== null && profile.status === "NOT_FOR_SALE") offSale.push({ id: unit.id, label, version: profile.version + 1 });
       }
-      return count;
+      return { count, offSale };
     },
     { timeout: SAVE_TIMEOUT_MS },
   );
 
-  return { saved, list: await getPriceList(context, project.id) };
+  const putOnSale = input.putOnSale ? await putPricedOnSale(context, saved.offSale) : undefined;
+  return { saved: saved.count, list: await getPriceList(context, project.id), ...(putOnSale ? { putOnSale } : {}) };
+}
+
+/** How many units go on sale at once after a price list save: each is its own transaction, as on its own page. */
+const PUT_ON_SALE_CONCURRENCY = 4;
+
+/**
+ * "Also put them on sale" after a price list save (2026-11-09): each unit's own
+ * Put on sale (`changeSaleStatus`), which checks its grant, its company, its
+ * version and that it can be offered — in use and published. A unit refused
+ * keeps the price just saved and is reported with the reason, in list order.
+ */
+async function putPricedOnSale(context: UserContext, units: Array<{ id: string; label: string; version: number }>): Promise<{ moved: string[]; skipped: BulkSkip[] }> {
+  const outcome = new Map<string, { moved: true } | { moved: false; skip: BulkSkip }>();
+  for (let start = 0; start < units.length; start += PUT_ON_SALE_CONCURRENCY) {
+    await Promise.all(
+      units.slice(start, start + PUT_ON_SALE_CONCURRENCY).map(async (unit) => {
+        try {
+          await changeSaleStatus(context, unit.id, { action: "put_on_sale", reason: null, expectedVersion: unit.version });
+          outcome.set(unit.id, { moved: true });
+        } catch (error) {
+          const { reason, message } = skipReasonOf(error);
+          outcome.set(unit.id, { moved: false, skip: skipFor(unit, reason, message) });
+        }
+      }),
+    );
+  }
+  const moved: string[] = [];
+  const skipped: BulkSkip[] = [];
+  for (const unit of units) {
+    const result = outcome.get(unit.id);
+    if (result?.moved) moved.push(unit.id);
+    else if (result) skipped.push(result.skip);
+  }
+  return { moved, skipped };
 }

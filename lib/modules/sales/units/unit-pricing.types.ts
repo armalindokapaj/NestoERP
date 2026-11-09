@@ -1,3 +1,4 @@
+import type { BulkSkip } from "@/lib/modules/project-structure/unit-bulk.rules";
 import type { UnitCommercialStatus, UnitPriceBasis } from "./unit-sales.types";
 
 /**
@@ -41,9 +42,16 @@ export type PriceListDTO = {
   baseCurrency: string;
   buildings: PriceListBuildingDTO[];
   canManagePrice: boolean;
+  /** Whether a save may also put the units it prices on sale (`project.unit.sales_status.manage`). */
+  canManageStatus: boolean;
 };
 
-export type PriceListSaveResult = { saved: number; list: PriceListDTO };
+/**
+ * What a save did: how many prices changed, the list as it is now, and — when
+ * the save also put the priced units on sale — which went on sale and which
+ * stayed off it, with the reason.
+ */
+export type PriceListSaveResult = { saved: number; list: PriceListDTO; putOnSale?: { moved: string[]; skipped: BulkSkip[] } };
 
 /** One save holds at most this many prices: a large project, never an unbounded request. */
 export const MAX_PRICE_LIST_CHANGES = 2000;

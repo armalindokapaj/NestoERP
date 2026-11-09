@@ -1,4 +1,5 @@
 import type { AreaField } from "@/lib/modules/project-structure/structure.types";
+import type { UnitTypeCategory } from "@/config/unit-types";
 
 /**
  * Selling a unit (E-05E). Client-safe: constants, labels and the shapes the API
@@ -183,6 +184,8 @@ export type InventoryRowDTO = {
   /** How the unit is named to people: its building's code and its own, "T-501". */
   label: string;
   unitType: string;
+  /** The type's category: which counts and areas the unit is expected to have (the panel's "Add" prompts). */
+  unitTypeCategory: UnitTypeCategory;
   building: string;
   floor: string;
   /** The area the unit is sold by: saleable when typed, otherwise gross (2026-11-09). */

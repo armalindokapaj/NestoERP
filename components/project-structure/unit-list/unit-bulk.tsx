@@ -7,6 +7,7 @@ import { selectClass } from "@/components/forms/record-form";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { useValuesEditor } from "@/components/project-planning/use-values-editor";
 import { useSalesTranslations } from "@/components/sales/sales-text";
+import { PutOnSaleTick } from "@/components/sales/unit-sales/put-on-sale";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -505,15 +506,7 @@ function BulkPriceDialog({ units, canPutOnSale, pending, onOpenChange, onSubmit 
             <Field label={t("unitList.price.reason")} htmlFor="bulk-price-reason">
               <Input id="bulk-price-reason" value={reason} maxLength={1000} onChange={(event) => setReason(event.target.value)} />
             </Field>
-            {canPutOnSale && offSale > 0 ? (
-              <label className="flex items-start gap-2 text-table text-fg" data-testid="bulk-price-put-on-sale">
-                <Checkbox className="mt-0.5" checked={putOnSale} onCheckedChange={(checked) => setPutOnSale(checked === true)} />
-                <span>
-                  <span className="font-medium">{t("unitList.price.putOnSale", { count: offSale })}</span>
-                  <span className="block text-meta text-fg-muted">{t("unitList.price.putOnSaleHint", { count: offSale })}</span>
-                </span>
-              </label>
-            ) : null}
+            {canPutOnSale && offSale > 0 ? <PutOnSaleTick checked={putOnSale} onChange={setPutOnSale} label={t("unitList.price.putOnSale", { count: offSale })} hint={t("unitList.price.putOnSaleHint", { count: offSale })} testId="bulk-price-put-on-sale" /> : null}
             {sold ? <p className="text-meta text-fg-muted">{t("unitList.price.soldSkipped", { count: sold })}</p> : null}
           </fieldset>
           <DialogFooter>
@@ -607,7 +600,8 @@ function BulkMoveDialog({ units, buildings, pending, onOpenChange, onSubmit }: {
 
 /* What a change did ------------------------------------------------------------- */
 
-function SkipList({ items }: { items: BulkSkip[] }) {
+/** Units a change left as they were, each with the reason; also the Prices page's units that stayed off sale. */
+export function SkipList({ items }: { items: BulkSkip[] }) {
   const t = useTranslations("projects");
   return (
     <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-line bg-surface-muted px-3 py-2 text-table" data-testid="bulk-skipped">

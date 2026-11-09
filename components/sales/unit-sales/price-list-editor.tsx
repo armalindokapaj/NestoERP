@@ -24,7 +24,10 @@ import { SALES_REASON_MAX, type UnitPriceBasis } from "@/lib/modules/sales/units
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
+import { SkipList } from "@/components/project-structure/unit-list/unit-bulk";
+import type { BulkSkip } from "@/lib/modules/project-structure/unit-bulk.rules";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
+import { PutOnSaleTick } from "./put-on-sale";
 
 /**
  * A project's price list (2026-11). A floor is priced at one rate per m² of
@@ -35,6 +38,11 @@ import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-sta
  * changed. A sold unit's price is frozen and never filled in. The server
  * decides again, keeps each change's history and refuses the whole save if
  * someone changed one of these units meanwhile.
+ *
+ * A save that prices units not for sale offers "Also put them on sale", one
+ * tick for the whole save, ticked by default (2026-11-09): the prices save,
+ * then each of those units goes on sale by its own Put on sale, and any that
+ * cannot is named under the bar with the reason.
  */
 
 type Draft = { price: string; basis: UnitPriceBasis };
@@ -105,11 +113,16 @@ export function PriceListEditor({ initial, canEditUnits = false }: { initial: Pr
   const [problem, setProblem] = React.useState<{ message: string; reload: boolean } | null>(null);
   const [pending, setPending] = React.useState(false);
   const [showParking, setShowParking] = React.useState(false);
+  const [putOnSale, setPutOnSale] = React.useState(true);
+  /** The units the last save priced that stayed off sale, with the reason. */
+  const [stayed, setStayed] = React.useState<BulkSkip[]>([]);
   const running = React.useRef(false);
 
   const parking = all.filter((unit) => unit.category === "PARKING");
   const changed = all.filter((unit) => drafts[unit.id] && isChanged(unit, drafts[unit.id]!));
   const dirty = changed.length > 0;
+  // The changed units that get a price and are not for sale: the ones "Also put them on sale" would move.
+  const offSale = list.canManageStatus ? changed.filter((unit) => unit.status === "NOT_FOR_SALE" && Boolean(canonical(drafts[unit.id]!.price))).length : 0;
 
   const editor = useUnsavedEditor({ module: "sales", saveKind: "save", label: () => t("priceList.title"), save: () => save() });
   const { setDirty, setSaving, setUnresolved, requestDismiss } = editor;
@@ -204,6 +217,7 @@ export function PriceListEditor({ initial, canEditUnits = false }: { initial: Pr
       return { unitId: unit.id, askingPrice: parsed.ok && parsed.value !== null ? twoDecimals(parsed.value) : null, priceBasis: draft.basis, expectedVersion: unit.version };
     });
     setErrors(found);
+    setStayed([]);
     if (parking.some((unit) => found[unit.id])) setShowParking(true);
     if (Object.keys(found).length) {
       setProblem({ message: t("priceList.invalid"), reload: false });
@@ -215,15 +229,18 @@ export function PriceListEditor({ initial, canEditUnits = false }: { initial: Pr
     setSaving(true);
     setProblem(null);
     try {
-      const result = await structureApi<PriceListSaveResult>(`/api/projects/${list.projectId}/sales/prices`, { method: "PUT", body: { currency, reason, prices } });
+      const result = await structureApi<PriceListSaveResult>(`/api/projects/${list.projectId}/sales/prices`, { method: "PUT", body: { currency, reason, prices, putOnSale: offSale > 0 && putOnSale } });
       setUnresolved(false);
       reset(result.list);
       setReason("");
       setNotes({});
       setRates({});
       setParkingPrice("");
+      setPutOnSale(true);
+      setStayed(result.putOnSale?.skipped ?? []);
       setDirty(false);
-      toast({ title: t("priceList.saved", { count: result.saved }), tone: "success" });
+      const moved = result.putOnSale?.moved.length ?? 0;
+      toast({ title: t("priceList.saved", { count: result.saved }), description: moved ? t("putOnSale.movedCount", { count: moved }) : undefined, tone: "success" });
       return { kind: "committed" };
     } catch (error) {
       if (!isFailure(error) || error.status === 0) {
@@ -480,6 +497,23 @@ export function PriceListEditor({ initial, canEditUnits = false }: { initial: Pr
             {pending ? t("priceList.saving") : t("priceList.save")}
           </Button>
         </div>
+        {offSale > 0 ? (
+          <PutOnSaleTick
+            checked={putOnSale}
+            onChange={setPutOnSale}
+            label={t("putOnSale.many", { count: offSale })}
+            hint={t("putOnSale.manyHint", { count: offSale })}
+            disabled={pending}
+            testId="price-put-on-sale"
+            className="flex w-full items-start gap-2 text-table text-fg touch:min-h-11"
+          />
+        ) : null}
+        {stayed.length ? (
+          <div role="status" className="w-full space-y-2" data-testid="price-stayed-off-sale">
+            <p className="text-table font-medium text-warning-strong">{t("putOnSale.stayedCount", { count: stayed.length })}</p>
+            <SkipList items={stayed} />
+          </div>
+        ) : null}
         {problem ? (
           <div role="alert" className="flex w-full flex-wrap items-center justify-between gap-2 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-table text-danger-strong">
             <span>{problem.message}</span>

@@ -1,3 +1,4 @@
+import type { UnitTypeCategory } from "@/config/unit-types";
 import type { UnitCommercialStatusKey, UnitDTO } from "@/lib/modules/project-structure/structure.types";
 import type { SelectedUnit } from "@/lib/modules/project-structure/unit-bulk.rules";
 import { saleArea, saleRate } from "@/lib/modules/sales/units/unit-pricing.rules";
@@ -15,6 +16,8 @@ export type UnitListRow = {
   /** "T-501": the building's code and the unit's own. */
   label: string;
   typeName: string;
+  /** What the type expects — bedrooms, an area — for the empty cells' "Add". */
+  category: UnitTypeCategory;
   floorId: string;
   floorName: string;
   bedrooms: number | null;
@@ -50,6 +53,7 @@ export function rowFromUnit(unit: UnitDTO): UnitListRow {
     unitCode: unit.unitCode,
     label: unit.label,
     typeName: unit.unitType.name,
+    category: unit.unitType.category,
     floorId: unit.floor.id,
     floorName: unit.floor.name,
     bedrooms: unit.bedrooms,
@@ -79,6 +83,7 @@ export function rowFromInventory(row: InventoryRowDTO): UnitListRow {
     unitCode: row.unitCode,
     label: row.label,
     typeName: row.unitType,
+    category: row.unitTypeCategory,
     floorId: row.floorId,
     floorName: row.floor,
     bedrooms: row.bedrooms,

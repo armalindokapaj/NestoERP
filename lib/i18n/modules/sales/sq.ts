@@ -594,6 +594,23 @@ export const salesSq: typeof salesEn = {
     savedPrice: "Tani {price}",
     notPriced: "Ende pa çmim",
   },
+  putOnSale: {
+    one: "Vendose edhe në shitje",
+    oneHint: "{unit} nuk është ende në shitje. Hiqni shenjën për ta mbajtur jashtë.",
+    newHint: "Një njësi e re nuk është ende në shitje. Hiqni shenjën për ta mbajtur jashtë.",
+    many_one: "Vendose edhe në shitje",
+    many_other: "Vendosi edhe në shitje",
+    manyHint_one: "{count} njësi që po i vini çmim nuk është ende në shitje. Hiqni shenjën për ta mbajtur jashtë.",
+    manyHint_other: "{count} njësi që po u vini çmim nuk janë ende në shitje. Hiqni shenjën për t'i mbajtur jashtë.",
+    moved: "{unit} është tani në shitje.",
+    stayed: "{unit} e mbajti çmimin e ri, por mbeti jashtë shitjes.",
+    stayedReason: "{unit} e mbajti çmimin e ri, por mbeti jashtë shitjes: {reason}",
+    movedCount_one: "{count} njësi u vu në shitje.",
+    movedCount_other: "{count} njësi u vunë në shitje.",
+    stayedCount_one: "{count} njësi me çmim mbeti jashtë shitjes:",
+    stayedCount_other: "{count} njësi me çmim mbetën jashtë shitjes:",
+  },
+
   tables: {
     opportunity: "Mundësia",
     company: "Kompania",
