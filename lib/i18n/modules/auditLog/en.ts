@@ -28,6 +28,8 @@ export const auditLogEn = {
     TEAM_MEMBER_ROLE_CHANGED: "Team member role changed",
     TEAM_MEMBER_PASSWORD_RESET: "Team member password reset",
     TEAM_MEMBER_DEPARTMENT_CHANGED: "Team member department changed",
+    TEAM_MEMBER_CEO_ACCESS_GRANTED: "Team member ceo access granted",
+    TEAM_MEMBER_CEO_ACCESS_REMOVED: "Team member ceo access removed",
     COMPANY_CREATED: "Company created",
     COMPANY_SETTINGS_UPDATED: "Company settings updated",
     COMPANY_RENAMED: "Company renamed",

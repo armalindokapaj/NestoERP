@@ -273,6 +273,8 @@ export const ACTIVITY_ACTION_KEYS: Readonly<Record<string, readonly string[]>> =
   MEETING_PARTICIPANT_ADDED: ["added {get}", "added {length} participants"],
   MEETING_SCHEDULED: ["scheduled the meeting", "scheduled {title}"],
   MEETING_STARTED: ["started the meeting"],
+  MEMBER_CEO_ACCESS_GRANTED: ["gave them CEO access"],
+  MEMBER_CEO_ACCESS_REMOVED: ["removed their CEO access"],
   MEMBER_DEACTIVATED: ["deactivated their company access"],
   MEMBER_DEPARTMENT_CHANGED: ["moved them to {name}", "removed them from their department"],
   MEMBER_INVITED: ["invited {email}"],

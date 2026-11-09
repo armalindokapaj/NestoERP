@@ -31,6 +31,8 @@ export const auditLogSq: En = {
     TEAM_MEMBER_ROLE_CHANGED: "Roli i anëtarit të ekipit u ndryshua",
     TEAM_MEMBER_PASSWORD_RESET: "Fjalëkalimi i anëtarit të ekipit u rivendos",
     TEAM_MEMBER_DEPARTMENT_CHANGED: "Departamenti i anëtarit të ekipit u ndryshua",
+    TEAM_MEMBER_CEO_ACCESS_GRANTED: "Anëtarit të ekipit iu dha qasja e CEO-s",
+    TEAM_MEMBER_CEO_ACCESS_REMOVED: "Anëtarit të ekipit iu hoq qasja e CEO-s",
     COMPANY_CREATED: "Kompania u krijua",
     COMPANY_SETTINGS_UPDATED: "Cilësimet e kompanisë u përditësuan",
     COMPANY_RENAMED: "Kompania u riemërtua",

@@ -1229,7 +1229,7 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     },
     // Promoting somebody to Owner is the one company action an Admin must not
     // be able to take on their own (PRD #14 §95, §96).
-    team: { extra: ["team.owner.assign", "team.group_role.assign"] },
+    team: { extra: ["team.owner.assign", "team.group_role.assign", "team.ceo_access.manage"] },
     // The Owner is the one role that may approve their own submission: in a
     // company where they are the only approver, the alternative is a record
     // nobody can ever decide (PRD #15 §19, PRD #17 §20).
@@ -1437,6 +1437,9 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
     procurement: { deny: ["procurement.request.create", "procurement.request.update"] },
     // The CEO may rename their company (user, 2026-10-02); nothing else on it.
     company: { extra: ["company.name.update"] },
+    // CEO access (2026-11): in a tenant of one company the CEO gives members
+    // their own rights on top of their role; every holder may do the same.
+    team: { extra: ["team.ceo_access.manage"] },
   },
   HR: {
     // The role the module exists for: everything on the ladder, plus pay

@@ -1,6 +1,7 @@
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import type { TableSortConfig } from "@/components/data/sort-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { adminRoleName } from "@/components/platform/admin-roles";
 import { Avatar } from "@/components/ui/avatar";
 import { formatDate } from "@/lib/i18n/format";
@@ -61,7 +62,16 @@ export async function TeamTable({
       key: "role",
       id: "role",
       label: t("table.role"),
-      render: (member) => <span className="text-fg-muted">{adminRoleName(tr, member.role.name)}</span>,
+      render: (member) => (
+        <span className="inline-flex flex-wrap items-center gap-1.5 text-fg-muted">
+          {adminRoleName(tr, member.role.name)}
+          {member.ceoAccess ? (
+            <Badge tone="info" data-testid="ceo-access-badge">
+              {t("member.ceoAccess")}
+            </Badge>
+          ) : null}
+        </span>
+      ),
     },
     {
       key: "department",

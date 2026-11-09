@@ -4379,7 +4379,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.view"]
+        "permissions": ["team.activity.view","team.ceo_access.manage","team.department.view","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.view"]
       },
       "organization": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["organization.company.view","organization.department.view","organization.view"] },
       "company": {
@@ -5799,7 +5799,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
+        "permissions": ["team.activity.view","team.ceo_access.manage","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
       },
       "organization": {
         "accessLevel": "MANAGE",
@@ -5954,7 +5954,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
+        "permissions": ["team.activity.view","team.ceo_access.manage","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
       },
       "organization": {
         "accessLevel": "MANAGE",
@@ -6074,7 +6074,7 @@
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["team.activity.view","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
+        "permissions": ["team.activity.view","team.ceo_access.manage","team.department.view","team.group_role.assign","team.invitation.cancel","team.invitation.resend","team.invitation.view","team.manage","team.member.deactivate","team.member.department.assign","team.member.invite","team.member.password.reset","team.member.reactivate","team.member.role.assign","team.member.security_metadata.view","team.member.suspend","team.member.unsuspend","team.member.update","team.member.view","team.owner.assign","team.view"]
       },
       "organization": {
         "accessLevel": "MANAGE",

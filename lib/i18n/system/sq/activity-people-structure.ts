@@ -97,6 +97,8 @@ export const rows = {
   "resent the invitation to {email}": "ridërgoi ftesën për {email}",
   "cancelled the invitation to {email}": "anuloi ftesën për {email}",
   "{firstName} {lastName} joined the company": "{firstName} {lastName} iu bashkua kompanisë",
+  "gave them CEO access": "i dha qasjen e CEO-s",
+  "removed their CEO access": "i hoqi qasjen e CEO-s",
   "changed the role from {name} to {name2}": { sq: "ndryshoi rolin nga “{name}” në “{name2}”", slots: { name: "role", name2: "role" } },
   "moved them to {name}": "e kaloi në departamentin {name}",
   "removed them from their department": "e hoqi nga departamenti",

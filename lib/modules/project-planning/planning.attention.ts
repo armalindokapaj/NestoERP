@@ -36,13 +36,14 @@ const ACTIVE_PROJECT = { archivedAt: null, status: "ACTIVE" as const };
 const OPEN_MILESTONE = { archivedAt: null, status: { notIn: ["COMPLETED", "CANCELLED"] as Array<"COMPLETED" | "CANCELLED"> } };
 
 /**
- * The CEO and Owner, when the company asked for them to hear about critical
+ * The CEO and Owner (and anyone given CEO access), when the company asked for them to hear about critical
  * committed milestones (§165, §253). Recipient targeting by role key, not
  * authorization: the dispatcher re-reads the milestone in each recipient's own
  * context before anything is delivered (PRD #47 §32).
  */
 export async function executiveMemberIds(tx: Tx | typeof prisma, companyId: string): Promise<string[]> {
-  const rows = await tx.companyMember.findMany({ where: { companyId, status: "ACTIVE", role: { key: { in: ["OWNER", "CEO"] } } }, select: { id: true } });
+  // Members given CEO access hear what the CEO hears (2026-11).
+  const rows = await tx.companyMember.findMany({ where: { companyId, status: "ACTIVE", OR: [{ role: { key: { in: ["OWNER", "CEO"] } } }, { ceoAccess: true, groupDerived: false }] }, select: { id: true } });
   return rows.map((row) => row.id);
 }
 

@@ -221,7 +221,12 @@ export function assembleContext(input: {
   // Position and delegated access are always this member's own (C-01 §33).
   const position: PositionLevel = positionFor(role, company.id, assignments);
   const grants = grantsInCompany(input.grants, company.parentGroupId, company.id);
-  const moduleAccess = buildModuleAccess(role, enabledModules, position, grants);
+  // CEO access lays the CEO's own rights over the member's role (2026-11).
+  // The CEO and the Owner already hold them, and a group-derived row never
+  // carries it.
+  const ceoAccess = holdsCeoAccess(membership, role);
+  const overlay = ceoAccess ? { role: "CEO" as const, position: positionFor("CEO", company.id, assignments) } : undefined;
+  const moduleAccess = buildModuleAccess(role, enabledModules, position, grants, overlay);
 
   // A permission for a module the company has switched off is not held at all,
   // so navigation, dashboards and guards all agree without special-casing.
@@ -274,6 +279,7 @@ export function assembleContext(input: {
 
     role,
     roleLabel: roleLabel(role),
+    ceoAccess,
     position,
     assignments,
     permissions,
@@ -467,14 +473,25 @@ export function resolveEnabledModules(companyId: string): Promise<ModuleKey[]> {
   });
 }
 
+/** Whether a membership carries CEO access the role does not already give. */
+export function holdsCeoAccess(membership: { ceoAccess: boolean; groupDerived: boolean }, role: RoleKey): boolean {
+  return membership.ceoAccess && !membership.groupDerived && role !== "CEO" && role !== "OWNER";
+}
+
 export function buildModuleAccess(
   role: RoleKey,
   enabledModules: readonly ModuleKey[],
   position: PositionLevel = "MEMBER",
   grants: readonly ContextGrant[] = [],
+  /**
+   * Another role's rights laid over this one, module by module (CEO access,
+   * 2026-11): the higher access level, the wider scope, both sets of
+   * permissions. A read-only role given them is read-only no longer.
+   */
+  overlay?: { role: RoleKey; position: PositionLevel },
 ): Record<ModuleKey, ModuleAccess> {
   const enabled = new Set(enabledModules);
-  const readOnly = Boolean(roles[role].readOnly);
+  const readOnly = Boolean(roles[role].readOnly) && !overlay;
 
   return Object.fromEntries(
     MODULE_KEYS.map((moduleKey) => {
@@ -484,6 +501,16 @@ export function buildModuleAccess(
       let accessLevel = preset.accessLevel;
       let scope = preset.scope;
       let permissions = preset.permissions as Permission[];
+
+      if (overlay) {
+        const over = defaultAccessFor(overlay.role, moduleKey, overlay.position);
+        if (over.accessLevel !== "NONE") {
+          // A module the role does not open at all takes the CEO's reach as it is.
+          scope = accessLevel === "NONE" ? over.scope : widestScope(scope, over.scope);
+          if (!accessAtLeast(accessLevel, over.accessLevel)) accessLevel = over.accessLevel;
+          permissions = [...new Set([...permissions, ...(over.permissions as Permission[])])].sort();
+        }
+      }
 
       // Delegated access raises a module to the grant's rung, company-wide or
       // group-wide as it was granted (E-06 §18). It never lowers anything, and a

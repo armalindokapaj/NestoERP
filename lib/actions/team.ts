@@ -14,6 +14,7 @@ import { placeMembership } from "@/lib/modules/organization/departments/placemen
 import * as invitations from "@/lib/modules/team/invitations/invite.service";
 import { acceptInviteSchema, inviteMemberSchema, updateMemberSchema } from "@/lib/modules/team/team.schema";
 import * as team from "@/lib/modules/team/team.service";
+import { setCeoAccess } from "@/lib/modules/team/ceo-access.service";
 
 /**
  * Server actions for the Team module (PRD #14 §144).
@@ -95,6 +96,20 @@ export async function memberStatusAction(
     else if (action === "reactivate") await team.reactivateMember(context, memberId);
     else if (action === "suspend") await team.suspendMember(context, memberId);
     else await team.unsuspendMember(context, memberId);
+  } catch (error) {
+    return toResult(error);
+  }
+
+  revalidateTeam(memberId);
+  return { ok: true };
+}
+
+/** CEO access on top of a member's role, in a tenant of one company (2026-11). */
+export async function memberCeoAccessAction(memberId: string, grant: boolean): Promise<TeamActionResult> {
+  const context = await requireCompanyContext();
+
+  try {
+    await setCeoAccess(context, memberId, grant);
   } catch (error) {
     return toResult(error);
   }

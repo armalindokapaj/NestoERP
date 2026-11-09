@@ -84,6 +84,12 @@ export type UserContext = {
   role: RoleKey;
   roleLabel: string;
   /**
+   * CEO access (2026-11): this member holds the CEO's rights on top of their own
+   * role, which `role` still names. Already folded into `moduleAccess` and
+   * `permissions`; read it only to say so. Absent on contexts built elsewhere.
+   */
+  ceoAccess?: boolean;
+  /**
    * How the role is held in this company: as a member, as its department
    * manager, or as the group's department head (E-06 §7). Resolved from live
    * department assignments on every request, like everything else here.

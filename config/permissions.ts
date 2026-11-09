@@ -1161,6 +1161,10 @@ export const PERMISSIONS = [
   // Group IT is group-level technical authority: a company's own
   // administrators (CEO, HR) cannot hand it out (CEO Users & Roles §23).
   "team.group_role.assign",
+  // Giving a member the CEO's rights on top of their own role, in a tenant of
+  // one company (2026-11). The CEO and the Owner hold it, and so does everyone
+  // they give CEO access to: the people with CEO access are equals.
+  "team.ceo_access.manage",
   // Last-login is security metadata, not directory data (PRD #14 §49).
   "team.member.security_metadata.view",
   "team.invitation.view",

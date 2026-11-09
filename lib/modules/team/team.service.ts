@@ -427,6 +427,11 @@ async function changeMembershipStatus(
   // Group IT is group authority: only those who may give it may take it away.
   if (existing.role.key === "GROUP_IT") assertPermission(context, "team.group_role.assign");
 
+  // The named CEO's access ends only through Remove CEO (PRD #12 §81, CEO access 2026-11).
+  if (existing.ceoOf && next !== "ACTIVE") {
+    throw new AccessError("CONFLICT", "This person is the company's CEO. Their access changes only through Change CEO or Remove CEO.", { code: "IS_COMPANY_CEO" });
+  }
+
   // A person removing their own access could lock themselves out of the
   // company by accident (PRD #14 §167).
   if (memberId === context.membershipId && next !== "ACTIVE") {
@@ -593,6 +598,10 @@ async function assertRoleChangeAllowed(
   if (nextRoleKey === "GROUP_IT" || existing.role.key === "GROUP_IT") {
     assertPermission(context, "team.group_role.assign");
   }
+  // The named CEO stays CEO here; Change CEO / Remove CEO moves them (PRD #12 §81, CEO access 2026-11).
+  if (existing.ceoOf && nextRoleKey !== existing.role.key) {
+    throw new AccessError("CONFLICT", "This person is the company's CEO. Their role changes only through Change CEO or Remove CEO.", { code: "IS_COMPANY_CEO" });
+  }
 
   if (existing.role.key === "OWNER" && nextRoleKey !== "OWNER") {
     const owners = await repository.activeOwnerCount(context.companyId);
@@ -703,6 +712,7 @@ export function toSummaryDTO(
     // and an invitee's is not this company's to read at all (PRD #47 §59).
     lastLoginAt: showSecurity && !invited ? (row.user.lastLoginAt?.toISOString() ?? null) : null,
     joinedAt: row.joinedAt?.toISOString() ?? null,
+    ceoAccess: row.ceoAccess && !row.groupDerived,
   };
 }
 
@@ -720,6 +730,11 @@ function toDetailDTO(
   const ownerLocked =
     (row.role.key === "OWNER" && !can(context, "team.owner.assign")) ||
     (row.role.key === "GROUP_IT" && !can(context, "team.group_role.assign"));
+  // The named CEO's role and access move only by Change CEO / Remove CEO (PRD #12 §81).
+  const isCompanyCeo = Boolean(row.ceoOf);
+  // CEO access (2026-11): for the company's own people who do not hold the CEO's rights by role.
+  const ceoAccessEligible = !row.groupDerived && row.role.key !== "CEO" && row.role.key !== "OWNER";
+  const mayManageCeoAccess = can(context, "team.ceo_access.manage") && ceoAccessEligible;
 
   return {
     id: row.id,
@@ -745,6 +760,8 @@ function toDetailDTO(
       joinedAt: row.joinedAt?.toISOString() ?? null,
       invitedAt: row.invitedAt?.toISOString() ?? null,
       deactivatedAt: row.deactivatedAt?.toISOString() ?? null,
+      ceoAccess: row.ceoAccess && ceoAccessEligible,
+      isCompanyCeo,
     },
     counts: { visibleProjects },
     ...(showSecurity
@@ -756,12 +773,13 @@ function toDetailDTO(
       : {}),
     capabilities: {
       canEditMembership: can(context, "team.member.update"),
-      canAssignRole: can(context, "team.member.role.assign") && !self && !ownerLocked,
+      canAssignRole: can(context, "team.member.role.assign") && !self && !ownerLocked && !isCompanyCeo,
       canAssignDepartment: can(context, "team.member.department.assign"),
       canDeactivate:
         can(context, "team.member.deactivate") &&
         !self &&
         !ownerLocked &&
+        !isCompanyCeo &&
         row.status !== "INACTIVE" &&
         !guards.lastActiveOwner,
       canReactivate:
@@ -770,11 +788,15 @@ function toDetailDTO(
         can(context, "team.member.suspend") &&
         !self &&
         !ownerLocked &&
+        !isCompanyCeo &&
         row.status === "ACTIVE" &&
         !guards.lastActiveOwner,
       canUnsuspend:
         can(context, "team.member.unsuspend") && !ownerLocked && row.status === "SUSPENDED",
       canViewActivity: can(context, "team.activity.view"),
+      // Given only while the tenant has one company; a holder keeps it, and it can be taken away, after a second.
+      canGiveCeoAccess: mayManageCeoAccess && context.parentGroup.standalone && row.status === "ACTIVE" && !row.ceoAccess,
+      canRemoveCeoAccess: mayManageCeoAccess && row.ceoAccess,
     },
     guards,
   };

@@ -33,6 +33,12 @@ export default async function MemberTabsLayout({ children, params }: Props) {
         badges={
           <>
             <Badge tone="neutral">{adminRoleName(tr, member.membership.role.name)}</Badge>
+            {member.membership.isCompanyCeo && member.membership.role.key !== "CEO" ? <Badge tone="info">{t("member.companyCeo")}</Badge> : null}
+            {member.membership.ceoAccess ? (
+              <Badge tone="info" data-testid="ceo-access-badge">
+                {t("member.ceoAccess")}
+              </Badge>
+            ) : null}
             {member.membership.department ? (
               <Badge tone="default">{member.membership.department.name}</Badge>
             ) : null}

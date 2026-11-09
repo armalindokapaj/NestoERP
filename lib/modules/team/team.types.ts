@@ -23,6 +23,8 @@ export type TeamMemberSummaryDTO = {
   /** Only present with team.member.security_metadata.view (PRD #14 §49). */
   lastLoginAt: string | null;
   joinedAt: string | null;
+  /** Holds the CEO's rights on top of their role (CEO access, 2026-11). */
+  ceoAccess: boolean;
 };
 
 export type TeamMemberDetailDTO = {
@@ -50,6 +52,10 @@ export type TeamMemberDetailDTO = {
     joinedAt: string | null;
     invitedAt: string | null;
     deactivatedAt: string | null;
+    /** Holds the CEO's rights on top of their role (CEO access, 2026-11). */
+    ceoAccess: boolean;
+    /** The company's named CEO (PRD #12); moved only by Change CEO / Remove CEO. */
+    isCompanyCeo: boolean;
   };
 
   counts: { visibleProjects: number };
@@ -70,6 +76,8 @@ export type TeamMemberDetailDTO = {
     canSuspend: boolean;
     canUnsuspend: boolean;
     canViewActivity: boolean;
+    canGiveCeoAccess: boolean;
+    canRemoveCeoAccess: boolean;
   };
 
   /**

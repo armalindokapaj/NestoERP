@@ -42,6 +42,9 @@ export const AuditAction = {
   /** An administrator issued a temporary password (PRD #50 §23). */
   TEAM_MEMBER_PASSWORD_RESET: "TEAM_MEMBER_PASSWORD_RESET",
   TEAM_MEMBER_DEPARTMENT_CHANGED: "TEAM_MEMBER_DEPARTMENT_CHANGED",
+  /** The CEO's rights given to, or taken from, a member on top of their role (2026-11). */
+  TEAM_MEMBER_CEO_ACCESS_GRANTED: "TEAM_MEMBER_CEO_ACCESS_GRANTED",
+  TEAM_MEMBER_CEO_ACCESS_REMOVED: "TEAM_MEMBER_CEO_ACCESS_REMOVED",
 
   // Configuration (PRD #28 §98)
   /** A company provisioned by the bootstrap CLI rather than a seed (PRD #38 §19). */
@@ -610,6 +613,9 @@ const POLICIES: AuditPolicy[] = [
   // Owner transfer is the single highest-risk access change there is (PRD #28 §97).
   { actionKey: AuditAction.TEAM_MEMBER_ROLE_CHANGED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["roleKey", "roleName"], required: true },
   { actionKey: AuditAction.TEAM_MEMBER_DEPARTMENT_CHANGED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["departmentId", "departmentName"], required: false },
+  // CEO access widens what a member may do as much as a role change does (2026-11).
+  { actionKey: AuditAction.TEAM_MEMBER_CEO_ACCESS_GRANTED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["ceoAccess", "roleKey"], required: true },
+  { actionKey: AuditAction.TEAM_MEMBER_CEO_ACCESS_REMOVED, moduleKey: "team", category: "ACCESS_CONTROL", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["ceoAccess", "roleKey"], required: true },
 
   /* Configuration -------------------------------------------------------- */
   { actionKey: AuditAction.COMPANY_CREATED, moduleKey: "settings", category: "CONFIGURATION", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["name", "slug", "ownerEmail", "modules"], required: true },

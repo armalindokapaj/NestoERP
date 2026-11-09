@@ -51,6 +51,8 @@ const SUMMARY_SELECT = {
   },
   role: { select: { id: true, key: true, name: true } },
   department: { select: { id: true, name: true } },
+  ceoAccess: true,
+  groupDerived: true,
 } satisfies Prisma.CompanyMemberSelect;
 
 export type TeamMemberRow = Prisma.CompanyMemberGetPayload<{ select: typeof SUMMARY_SELECT }>;
@@ -58,6 +60,8 @@ export type TeamMemberRow = Prisma.CompanyMemberGetPayload<{ select: typeof SUMM
 const DETAIL_SELECT = {
   ...SUMMARY_SELECT,
   deactivatedAt: true,
+  /** Set when this membership is the company's named CEO (PRD #12). */
+  ceoOf: { select: { id: true } },
   user: {
     select: {
       id: true,

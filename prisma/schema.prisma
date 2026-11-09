@@ -1844,6 +1844,15 @@ model CompanyMember {
 
   archivedAt DateTime?
 
+  /// CEO access (2026-11): in a tenant of one company, the CEO, or anyone
+  /// already holding it, may give a member the CEO's rights on top of their
+  /// own role; their role, department and title stay. It is only given while
+  /// the tenant has one company, and kept if a second one is added later.
+  /// Never on a group-derived row, the CEO's or an Owner's.
+  ceoAccess                  Boolean   @default(false)
+  ceoAccessGrantedAt         DateTime?
+  ceoAccessGrantedByMemberId String?
+
   /// True when this row exists only because a group seat's company access
   /// covers the company (PRD #10). The seat's policy owns it: it is created,
   /// ended and re-created with the policy. A row with this false is a direct
