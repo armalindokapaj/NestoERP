@@ -202,3 +202,22 @@ export type UnitCommercialStatusKey = "NOT_FOR_SALE" | "FOR_SALE" | "ON_HOLD" | 
 /** A proposed batch, checked against the project before anything is written (E-05B §44). */
 export type BatchConflict = { index: number; value: string; reason: "EXISTS" | "REPEATED" };
 export type BatchPreview = { count: number; conflicts: BatchConflict[] };
+
+/** A floor the building already has, as a range's preview shows it beside the floor the range would make. */
+export type ExistingFloorMatch = { id: string; name: string; isActive: boolean; unitCount: number; version: number };
+
+/**
+ * Why a floor in a range cannot be written as sent. EXISTS: the building has
+ * that floor and the batch says nothing about it. REPEATED: the batch names
+ * the same floor twice. CHANGED: the batch keeps or updates a floor that has
+ * since been changed, moved or removed — the preview is out of date.
+ */
+export type FloorBatchConflict = { index: number; value: string; reason: "EXISTS" | "REPEATED" | "CHANGED"; existing?: ExistingFloorMatch };
+
+/**
+ * A range of floors, previewed or written (E-05B §37-§39, §45). `matches` are
+ * the entries the building already has, by index; `created` and `updated` the
+ * floors a real run wrote. `count` is the entries sent on a preview and the
+ * floors created on a real run.
+ */
+export type FloorBatchResult = { count: number; conflicts: FloorBatchConflict[]; matches: Array<{ index: number; floor: ExistingFloorMatch }>; created: string[]; updated: string[] };

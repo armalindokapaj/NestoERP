@@ -20,6 +20,9 @@ import {
   type BatchConflict,
   type BatchPreview,
   type BuildingNodeDTO,
+  type ExistingFloorMatch,
+  type FloorBatchConflict,
+  type FloorBatchResult,
   type FloorLevelType,
   type FloorNodeDTO,
   type UnitListDTO,
@@ -37,6 +40,12 @@ import { FormSelect } from "@/components/ui/form-select";
  * the server answers which entries clash — with the project, or with each
  * other — and nothing is created while any clash remains. The server checks
  * again as it writes, and writes all or nothing.
+ *
+ * A range of floors is the exception to clashing: the floors the building
+ * already has join the review instead of stopping it. Each is kept as it is
+ * unless the person renames it to the range's name or makes it active again,
+ * and new floors can be left out — so floors 0, 1 and 5 never stop a range
+ * from -5 to 25.
  *
  * Each batch mounts when its dialog opens and registers with the tab's
  * unsaved-work coordinator (AUD-03 §5): closing it with a range, codes or
@@ -56,36 +65,73 @@ function ConflictBadge({ conflict }: { conflict: BatchConflict | undefined }) {
 
 /* Floors by range ------------------------------------------------------------ */
 
-export function BulkFloorsDialog({ open, onOpenChange, buildings, initialBuildingId, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; buildings: BuildingNodeDTO[]; initialBuildingId: string; onCreated: (buildingId: string) => void }) {
+export function BulkFloorsDialog({ open, onOpenChange, buildings, initialBuildingId, canUpdateFloors, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; buildings: BuildingNodeDTO[]; initialBuildingId: string; canUpdateFloors: boolean; onCreated: (buildingId: string) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <BulkFloorsBody buildings={buildings} initialBuildingId={initialBuildingId} onCreated={onCreated} onDone={() => onOpenChange(false)} />
+      <DialogContent className="max-w-3xl">
+        <BulkFloorsBody buildings={buildings} initialBuildingId={initialBuildingId} canUpdateFloors={canUpdateFloors} onCreated={onCreated} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { buildings: BuildingNodeDTO[]; initialBuildingId: string; onCreated: (buildingId: string) => void; onDone: () => void }) {
+/**
+ * One floor of the range under review. A floor the building already has
+ * (`match`) is kept as it is unless the person renames it or makes it active
+ * again; `proposed` is the name the range gave it, `name` the name a rename
+ * would set. A new floor can be left out.
+ */
+type RangeRow = FloorDraft & { proposed: string; include: boolean; match: ExistingFloorMatch | null; rename: boolean; reactivate: boolean };
+type RangeEntry = FloorDraft & { existing?: { floorId: string; expectedVersion: number; reactivate: boolean } };
+
+const differs = (row: RangeRow) => row.match !== null && row.proposed.trim() !== row.match.name;
+
+/** What a row asks the server for: a new floor, a change to an existing one, or nothing (an existing floor kept, a new one left out). */
+function entryOf(row: RangeRow): RangeEntry | null {
+  const draft = { number: row.number, levelType: row.levelType };
+  if (!row.match) return row.include ? { ...draft, name: row.name } : null;
+  const name = row.rename ? row.name.trim() : row.match.name;
+  const reactivate = row.reactivate && !row.match.isActive;
+  if (name === row.match.name && !reactivate) return null;
+  return { ...draft, name, existing: { floorId: row.match.id, expectedVersion: row.match.version, reactivate } };
+}
+
+/** The batch to send, and which row each entry came from: the server answers by entry. */
+function batchOf(rows: RangeRow[]) {
+  const floors: RangeEntry[] = [];
+  const sources: number[] = [];
+  rows.forEach((row, index) => {
+    const entry = entryOf(row);
+    if (!entry) return;
+    floors.push(entry);
+    sources.push(index);
+  });
+  return { floors, sources };
+}
+
+function AttentionBadge({ reason }: { reason: FloorBatchConflict["reason"] | undefined }) {
+  const t = useTranslations("projects");
+  if (!reason) return null;
+  return reason === "REPEATED" ? <Badge tone="danger">{t("bulk.repeated")}</Badge> : <Badge tone="warning">{t("bulk.changedSincePreview")}</Badge>;
+}
+
+/** `canUpdateFloors`: without the right to edit floors, existing floors can only be kept — the choice to rename or reactivate is not offered. */
+function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreated, onDone }: { buildings: BuildingNodeDTO[]; initialBuildingId: string; canUpdateFloors: boolean; onCreated: (buildingId: string) => void; onDone: () => void }) {
   const t = useTranslations("projects");
   const toast = useToast();
   const [step, setStep] = React.useState(0);
   const [buildingId, setBuildingId] = React.useState(initialBuildingId);
   const [from, setFrom] = React.useState("0");
   const [to, setTo] = React.useState("5");
-  const [drafts, setDrafts] = React.useState<FloorDraft[]>([]);
-  const [conflicts, setConflicts] = React.useState<BatchConflict[]>([]);
+  const [rows, setRows] = React.useState<RangeRow[]>([]);
+  /** Rows the server stopped on, by row: changed after the preview, or repeated. */
+  const [attention, setAttention] = React.useState<Record<number, FloorBatchConflict["reason"]>>({});
   const [confirmLarge, setConfirmLarge] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const building = buildings.find((candidate) => candidate.id === buildingId);
-  const editor = useValuesEditor({ buildingId, from, to, drafts, confirmLarge }, { module: "units", saveKind: "none", workflow: t("bulk.createFloors"), label: t("bulk.newFloors") });
-
-  async function check(list: FloorDraft[]) {
-    const preview = await structureApi<BatchPreview>(`/api/project-buildings/${buildingId}/floors/bulk`, { body: { floors: list, dryRun: true } });
-    setConflicts(preview.conflicts);
-    return preview;
-  }
+  const editor = useValuesEditor({ buildingId, from, to, rows, confirmLarge }, { module: "units", saveKind: "none", workflow: t("bulk.createFloors"), label: t("bulk.newFloors") });
+  const url = `/api/project-buildings/${buildingId}/floors/bulk`;
 
   async function next(event: React.FormEvent) {
     event.preventDefault();
@@ -99,8 +145,11 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
     setPending(true);
     setError(null);
     try {
-      await check(list);
-      setDrafts(list);
+      const preview = await structureApi<FloorBatchResult>(url, { body: { floors: list, dryRun: true } });
+      const matches = new Map(preview.matches.map((match) => [match.index, match.floor]));
+      setRows(list.map((draft, index) => ({ ...draft, proposed: draft.name, include: true, match: matches.get(index) ?? null, rename: false, reactivate: false })));
+      setAttention(Object.fromEntries(preview.conflicts.filter((conflict) => conflict.reason !== "EXISTS").map((conflict) => [conflict.index, conflict.reason])));
+      setConfirmLarge(false);
       setStep(1);
     } catch (failure) {
       setError(failureMessage(failure, t("bulk.floorsCheckFailed")));
@@ -109,30 +158,86 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
     }
   }
 
+  /**
+   * The server stopped the batch: a floor appeared, changed or went away after
+   * the preview. The rows take the building's floors as they are now — a new
+   * floor that turned out to exist becomes one to keep — and are flagged for a
+   * second look; nothing was written.
+   */
+  function review(conflicts: FloorBatchConflict[], sources: number[]) {
+    const byRow = new Map(conflicts.map((conflict) => [sources[conflict.index], conflict]));
+    setRows((current) =>
+      current.map((row, index) => {
+        const conflict = byRow.get(index);
+        if (!conflict || conflict.reason === "REPEATED") return row;
+        if (conflict.existing) return { ...row, name: row.match ? row.name : row.proposed, match: conflict.existing, rename: row.match ? row.rename : false, reactivate: row.reactivate && !conflict.existing.isActive };
+        return { ...row, match: null, include: true, rename: false, reactivate: false };
+      }),
+    );
+    setAttention(Object.fromEntries(conflicts.map((conflict) => [sources[conflict.index], conflict.reason])));
+    setError(t("bulk.floorsChanged"));
+  }
+
   async function create() {
+    const { floors, sources } = batchOf(rows);
+    if (!floors.length) return;
     setPending(true);
     setError(null);
     try {
-      const preview = await check(drafts);
-      if (preview.conflicts.length) return setError(t("bulk.floorsClash"));
-      const result = await editor.track(() => structureApi<{ count: number }>(`/api/project-buildings/${buildingId}/floors/bulk`, { body: { floors: drafts, confirmLarge } }));
-      toast({ title: t("bulk.floorsAdded", { floors: t("counts.floors", { count: result.count }), building: building?.name ?? t("bulk.theBuilding") }) });
+      const check = await structureApi<FloorBatchResult>(url, { body: { floors, dryRun: true } });
+      if (check.conflicts.length) return review(check.conflicts, sources);
+      const result = await editor.track(() => structureApi<FloorBatchResult>(url, { body: { floors, confirmLarge } }));
+      const existing = rows.filter((row) => row.match).length;
+      const kept = existing - result.updated.length;
+      const where = building?.name ?? t("bulk.theBuilding");
+      const details = [kept ? t("bulk.existingKept", { count: kept }) : null, result.count && result.updated.length ? t("bulk.existingUpdated", { count: result.updated.length }) : null].filter(Boolean).join(" · ");
+      toast({
+        title: result.count ? t("bulk.floorsAdded", { floors: t("counts.floors", { count: result.count }), building: where }) : t("bulk.floorsUpdatedIn", { floors: t("counts.floors", { count: result.updated.length }), building: where }),
+        ...(details ? { description: details } : {}),
+      });
       onCreated(buildingId);
       onDone();
     } catch (failure) {
-      const details = (failure as { details?: { conflicts?: BatchConflict[] } }).details;
-      if (details?.conflicts) setConflicts(details.conflicts);
-      setError(failureMessage(failure, t("bulk.floorsCreateFailed")));
+      const conflicts = (failure as { details?: { conflicts?: FloorBatchConflict[] } }).details?.conflicts;
+      if (conflicts?.length) review(conflicts, sources);
+      else setError(failureMessage(failure, t("bulk.floorsCreateFailed")));
     } finally {
       setPending(false);
     }
   }
 
-  const edit = (index: number, patch: Partial<FloorDraft>) => {
-    setDrafts((current) => current.map((draft, position) => (position === index ? { ...draft, ...patch } : draft)));
-    setConflicts([]);
+  const edit = (index: number, patch: Partial<RangeRow>) => {
+    setRows((current) => current.map((row, position) => (position === index ? { ...row, ...patch } : row)));
+    setAttention((current) => {
+      if (!(index in current)) return current;
+      const rest = { ...current };
+      delete rest[index];
+      return rest;
+    });
   };
-  const large = drafts.length > CONFIRM_FLOORS_ABOVE;
+  /** Keep every existing floor's name, or take the range's name for each that differs. */
+  const renameAll = (rename: boolean) => setRows((current) => current.map((row) => (differs(row) ? { ...row, rename, name: row.proposed } : row)));
+  const back = () => {
+    setError(null);
+    setStep(0);
+  };
+
+  const newRows = rows.filter((row) => !row.match);
+  const created = newRows.filter((row) => row.include).length;
+  const existingRows = rows.filter((row) => row.match);
+  const different = existingRows.filter(differs).length;
+  const updates = rows.filter((row) => row.match && entryOf(row)).length;
+  const issues = Object.keys(attention).length;
+  const large = created > CONFIRM_FLOORS_ABOVE;
+  const nothing = created + updates === 0;
+  const blankName = rows.some((row) => entryOf(row) && !row.name.trim());
+  const action = nothing
+    ? t("bulk.nothingToCreate")
+    : created && updates
+      ? t("bulk.createAndUpdate", { what: t("counts.floors", { count: created }), count: updates })
+      : created
+        ? t("bulk.create", { what: t("counts.floors", { count: created }) })
+        : t("bulk.updateExisting", { what: t("counts.floors", { count: updates }) });
 
   return (
     <>
@@ -171,43 +276,108 @@ function BulkFloorsBody({ buildings, initialBuildingId, onCreated, onDone }: { b
           </DialogFooter>
         </form>
       ) : (
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-3">
           <FormError message={error} />
-          <p className="text-table text-fg-muted">
-            {t("counts.floors", { count: drafts.length })} {t("bulk.in")} <span className="font-medium text-fg">{building?.name}</span>
-            {conflicts.length ? <span className="text-danger-strong"> · {t("bulk.clashes", { count: conflicts.length })}</span> : null}
+          <p className="text-table text-fg-muted" data-testid="bulk-floor-summary">
+            {t("counts.floors", { count: rows.length })} {t("bulk.in")} <span className="font-medium text-fg">{building?.name}</span>
+            {existingRows.length ? (
+              <>
+                {" · "}
+                {t("bulk.summaryNew", { count: newRows.length })} · {t("bulk.summaryExisting", { count: existingRows.length })}
+                {different ? ` · ${t("bulk.summaryDifferent", { count: different })}` : null}
+              </>
+            ) : null}
+            {issues ? <span className="text-danger-strong"> · {t("bulk.clashes", { count: issues })}</span> : null}
           </p>
+          {different && canUpdateFloors ? (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-table text-fg-muted">
+              <span>{t("bulk.existingChoice")}</span>
+              <Button type="button" size="sm" variant="secondary" onClick={() => renameAll(false)}>
+                {t("bulk.keepAllNames")}
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => renameAll(true)}>
+                {t("bulk.useAllNames")}
+              </Button>
+            </div>
+          ) : null}
           <ol className="max-h-[45dvh] divide-y divide-line overflow-y-auto rounded-md border border-line" data-testid="bulk-floor-preview">
-            {drafts.map((draft, index) => {
-              const conflict = conflictFor(conflicts, index);
+            {rows.map((row, index) => {
+              const reason = attention[index];
+              const highlight = reason === "REPEATED" ? "bg-danger-soft/40" : reason ? "bg-warning-soft/40" : null;
+              const number = row.number ?? "";
+              if (!row.match) {
+                return (
+                  <li key={index} data-state="new" className={cn("grid grid-cols-[1.25rem_2.5rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2", !row.include && "text-fg-subtle", highlight)}>
+                    <Checkbox aria-label={t("bulk.includeFloor", { number })} checked={row.include} onCheckedChange={(value) => edit(index, { include: value === true })} />
+                    <span className="text-table tabular-nums text-fg-muted">{row.number}</span>
+                    <FormSelect aria-label={t("bulk.levelOf", { number })} className={cn(selectClass, "h-9")} value={row.levelType} disabled={!row.include} onChange={(event) => edit(index, { levelType: event.target.value as FloorLevelType })}>
+                      {FLOOR_LEVEL_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {t(`floorLevel.${type}`)}
+                        </option>
+                      ))}
+                    </FormSelect>
+                    <Input aria-label={t("bulk.nameOf", { number })} className="h-9" value={row.name} disabled={!row.include} onChange={(event) => edit(index, { name: event.target.value })} maxLength={120} />
+                    <span className="flex justify-end">
+                      <AttentionBadge reason={reason} />
+                    </span>
+                  </li>
+                );
+              }
+              const match = row.match;
+              const choose = canUpdateFloors && differs(row);
+              const caption = [
+                choose ? (row.rename ? t("bulk.nowNamed", { name: match.name }) : t("bulk.rangeName", { name: row.proposed })) : null,
+                t("counts.units", { count: match.unitCount }),
+                match.isActive ? null : t("bulk.inactive"),
+              ]
+                .filter(Boolean)
+                .join(" · ");
               return (
-                <li key={index} className={cn("grid grid-cols-[3rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2", conflict && "bg-danger-soft/40")}>
-                  <span className="text-table tabular-nums text-fg-muted">{draft.number}</span>
-                  <FormSelect aria-label={t("bulk.levelOf", { number: draft.number ?? "" })} className={cn(selectClass, "h-9")} value={draft.levelType} onChange={(event) => edit(index, { levelType: event.target.value as FloorLevelType })}>
-                    {FLOOR_LEVEL_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {t(`floorLevel.${type}`)}
-                      </option>
-                    ))}
-                  </FormSelect>
-                  <Input aria-label={t("bulk.nameOf", { number: draft.number ?? "" })} className="h-9" value={draft.name} onChange={(event) => edit(index, { name: event.target.value })} maxLength={120} />
-                  <ConflictBadge conflict={conflict} />
+                <li key={index} data-state="existing" className={cn("grid grid-cols-[1.25rem_2.5rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-2 bg-surface-muted/50 px-3 py-2", highlight)}>
+                  <span aria-hidden />
+                  <span className="text-table tabular-nums text-fg-muted">{row.number}</span>
+                  <span className="text-table text-fg-muted">{t(`floorLevel.${row.levelType}`)}</span>
+                  <div className="min-w-0">
+                    {row.rename ? (
+                      <Input aria-label={t("bulk.nameOf", { number })} className="h-9" value={row.name} onChange={(event) => edit(index, { name: event.target.value })} maxLength={120} />
+                    ) : (
+                      <p className="truncate text-table font-medium text-fg">{match.name}</p>
+                    )}
+                    <p className="truncate text-meta text-fg-muted">{caption}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {choose ? (
+                      <FormSelect aria-label={t("bulk.choiceOf", { number })} className={cn(selectClass, "h-9 w-auto")} value={row.rename ? "rename" : "keep"} onChange={(event) => edit(index, { rename: event.target.value === "rename", name: row.proposed })}>
+                        <option value="keep">{t("bulk.keepName")}</option>
+                        <option value="rename">{t("bulk.rename")}</option>
+                      </FormSelect>
+                    ) : null}
+                    {match.isActive || !canUpdateFloors ? null : (
+                      <label className="flex items-center gap-1.5 text-table text-fg">
+                        <Checkbox aria-label={t("bulk.makeActiveOf", { number })} checked={row.reactivate} onCheckedChange={(value) => edit(index, { reactivate: value === true })} />
+                        {t("bulk.makeActive")}
+                      </label>
+                    )}
+                    {reason ? <AttentionBadge reason={reason} /> : <Badge>{t("bulk.alreadyExists")}</Badge>}
+                  </div>
                 </li>
               );
             })}
           </ol>
+          {nothing ? <p className="text-table text-fg-muted">{t("bulk.nothingToCreateBody")}</p> : null}
           {large ? (
             <label className="flex items-center gap-2 text-table text-fg">
               <Checkbox checked={confirmLarge} onCheckedChange={(value) => setConfirmLarge(value === true)} />
-              {t("bulk.confirmLarge", { count: drafts.length })}
+              {t("bulk.confirmLarge", { count: created })}
             </label>
           ) : null}
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setStep(0)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={back} disabled={pending}>
               {t("bulk.back")}
             </Button>
-            <Button type="button" onClick={() => void create()} disabled={pending || (large && !confirmLarge) || drafts.some((draft) => !draft.name.trim())}>
-              {pending ? t("bulk.creating") : t("bulk.create", { what: t("counts.floors", { count: drafts.length }) })}
+            <Button type="button" onClick={() => void create()} disabled={pending || nothing || (large && !confirmLarge) || blankName}>
+              {pending ? t("bulk.creating") : action}
             </Button>
           </DialogFooter>
         </div>

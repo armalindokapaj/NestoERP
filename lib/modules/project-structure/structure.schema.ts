@@ -95,8 +95,19 @@ export const createFloorSchema = z.object({ ...floorFields, elevation: metres("E
 export const updateFloorSchema = z
   .object({ ...floorFields, elevation: metres("Enter the elevation in metres, with at most two decimals."), description: optionalText(TEXT_MAX), isActive: z.boolean(), expectedVersion })
   .superRefine(numbered);
+/**
+ * An entry of a range that the building already has: the floor it is, the
+ * version the preview saw, and whether to make it active again. The entry's
+ * name is the name the floor ends with — its own name to keep it, another to
+ * rename it. An entry that only keeps a floor as it is is not sent at all.
+ */
+const existingFloor = z.object({ floorId: idSchema, expectedVersion, reactivate: z.boolean().optional().default(false) });
+
 export const bulkFloorsSchema = z.object({
-  floors: z.array(z.object(floorFields).superRefine(numbered)).min(1, "Add at least one floor.").max(MAX_BULK_FLOORS, `Create at most ${MAX_BULK_FLOORS} floors at once.`),
+  floors: z
+    .array(z.object({ ...floorFields, existing: existingFloor.optional() }).superRefine(numbered))
+    .min(1, "Add at least one floor.")
+    .max(MAX_BULK_FLOORS, `Create at most ${MAX_BULK_FLOORS} floors at once.`),
   confirmLarge: z.boolean().optional().default(false),
   dryRun,
 });

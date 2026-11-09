@@ -72,9 +72,29 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   await expect(preview.getByRole("listitem")).toHaveCount(5);
   await expect(preview.getByLabel("Name of floor -1")).toHaveValue("Basement 1");
   await expect(preview.getByLabel("Name of floor 0")).toHaveValue("Ground Floor");
+  await preview.getByLabel("Name of floor 0").fill("Lobby");
   await floors.getByRole("button", { name: "Create 5 floors" }).click();
   await expect(floors).toBeHidden();
-  await expect(tree(page).getByTestId("tree-floor")).toHaveText([/Basement 1/, /Ground Floor/, /Floor 1/, /Floor 2/, /Floor 3/]);
+  await expect(tree(page).getByTestId("tree-floor")).toHaveText([/Basement 1/, /Lobby/, /Floor 1/, /Floor 2/, /Floor 3/]);
+
+  // A wider range over floors the building already has: they join the review instead of stopping it.
+  await mainRegion(page).getByRole("button", { name: "Create floors" }).first().click();
+  const wider = page.getByRole("dialog", { name: "Create floors" });
+  await wider.getByLabel(/^From floor/).fill("-2");
+  await wider.getByLabel(/^To floor/).fill("5");
+  await wider.getByRole("button", { name: "Preview names" }).click();
+  const review = wider.getByTestId("bulk-floor-preview");
+  await expect(review.locator('li[data-state="existing"]')).toHaveCount(5);
+  await expect(review.locator('li[data-state="new"]')).toHaveCount(3);
+  await expect(wider.getByTestId("bulk-floor-summary")).toContainText("3 new · 5 already exist · 1 named differently");
+  // Existing floors are kept by default; the ground floor's own name differs, so it offers the range's name.
+  await expect(wider.getByRole("button", { name: "Create 3 floors" })).toBeEnabled();
+  await review.getByLabel("Name of existing floor 0").selectOption("rename");
+  await expect(review.getByLabel("Name of floor 0")).toHaveValue("Ground Floor");
+  await review.getByLabel("Create floor 5").uncheck();
+  await wider.getByRole("button", { name: "Create 2 floors · update 1" }).click();
+  await expect(wider).toBeHidden();
+  await expect(tree(page).getByTestId("tree-floor")).toHaveText([/Basement 2/, /Basement 1/, /Ground Floor/, /Floor 1/, /Floor 2/, /Floor 3/, /Floor 4/]);
 
   // Units by code pattern with shared details (§41-§43).
   await chooseFloor(page, "Floor 1");

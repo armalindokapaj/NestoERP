@@ -672,6 +672,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
           onOpenChange={(open) => !open && setDialog(null)}
           buildings={structure.buildings}
           initialBuildingId={dialog.buildingId}
+          canUpdateFloors={caps.canUpdateFloor}
           onCreated={(buildingId) => {
             void reloadAll();
             choose({ buildingId, floorId: null });

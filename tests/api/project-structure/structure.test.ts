@@ -346,7 +346,7 @@ describe("floors (§11-§15, §53, §57, §147)", () => {
     const id = await building(`${T} Tower`);
     const drafts = planFloorRange(-2, 12);
     const preview = await bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: drafts, dryRun: true }));
-    expect(preview).toEqual({ count: 15, conflicts: [], created: [] });
+    expect(preview).toEqual({ count: 15, conflicts: [], matches: [], created: [], updated: [] });
     expect(await prisma.projectFloor.count({ where: { buildingId: id } })).toBe(0);
 
     const result = await bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: drafts }));
@@ -361,17 +361,20 @@ describe("floors (§11-§15, §53, §57, §147)", () => {
     expect(await prisma.auditEvent.count({ where: { entityId: { in: result.created }, actionKey: "PROJECT_FLOOR_CREATED" } })).toBe(0);
   });
 
-  it("previews clashes without writing, and a batch with one clash creates nothing", async () => {
+  it("previews the floors a range shares with the building, and a batch that says nothing about one creates nothing", async () => {
     const id = await building(`${T} Tower`);
-    await floor(id, 1);
+    const first = await floor(id, 1);
     const drafts = [...planFloorRange(0, 2), { number: 2, levelType: "STANDARD" as const, name: "Floor 2" }];
 
     const preview = await bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: drafts, dryRun: true }));
+    const match = { id: first, name: "Floor 1", isActive: true, unitCount: 0, version: 1 };
     expect(preview).toEqual({
       count: 4,
       created: [],
+      updated: [],
+      matches: [{ index: 1, floor: match }],
       conflicts: [
-        { index: 1, value: "Floor 1", reason: "EXISTS" },
+        { index: 1, value: "Floor 1", reason: "EXISTS", existing: match },
         { index: 3, value: "Floor 2", reason: "REPEATED" },
       ],
     });
@@ -380,6 +383,66 @@ describe("floors (§11-§15, §53, §57, §147)", () => {
     const error = await refused(bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: planFloorRange(0, 3) })), "CONFLICT", "FLOORS_CONFLICT");
     expect(error.details).toMatchObject({ conflicts: [{ index: 1, value: "Floor 1", reason: "EXISTS" }] });
     expect(await floorNames(id)).toEqual(["Floor 1"]);
+    expect((await audits(id, "PROJECT_FLOORS_BULK_CREATED")).length).toBe(0);
+  });
+
+  it("creates only the missing floors of a range, keeping, renaming or reactivating the ones the building has", async () => {
+    const id = await building(`${T} Tower`);
+    const ground = await floor(id, 0, pm, "GROUND", "Lobby");
+    const first = await floor(id, 1);
+    const fifth = await floor(id, 5);
+    await unit(ground, `${T}-L1`);
+    await editFloor(fifth, { isActive: false });
+    const range = planFloorRange(-2, 8);
+
+    const preview = await bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: range, dryRun: true }));
+    expect(preview.matches).toEqual([
+      { index: 2, floor: { id: ground, name: "Lobby", isActive: true, unitCount: 1, version: 1 } },
+      { index: 3, floor: { id: first, name: "Floor 1", isActive: true, unitCount: 0, version: 1 } },
+      { index: 7, floor: { id: fifth, name: "Floor 5", isActive: false, unitCount: 0, version: 2 } },
+    ]);
+
+    // The ground floor takes the range's name, floor 5 comes back into use, floor 1 is kept (not sent) and floor 8 is left out.
+    const batch = range.flatMap((draft) => {
+      if (draft.number === 0) return [{ ...draft, existing: { floorId: ground, expectedVersion: 1 } }];
+      if (draft.number === 5) return [{ ...draft, existing: { floorId: fifth, expectedVersion: 2, reactivate: true } }];
+      if (draft.number === 1 || draft.number === 8) return [];
+      return [draft];
+    });
+    const result = await bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: batch }));
+    for (const floorId of result.created) made.floors.add(floorId);
+    expect(result).toMatchObject({ count: 7, conflicts: [], updated: [ground, fifth] });
+    expect(await floorNames(id)).toEqual(["Basement 2", "Basement 1", "Ground Floor", "Floor 1", "Floor 2", "Floor 3", "Floor 4", "Floor 5", "Floor 6", "Floor 7"]);
+
+    // Existing floors keep their ids, units and everything the range does not touch.
+    expect(await prisma.projectFloor.findUniqueOrThrow({ where: { id: ground } })).toMatchObject({ name: "Ground Floor", isActive: true, version: 2 });
+    expect(await prisma.projectFloor.findUniqueOrThrow({ where: { id: fifth } })).toMatchObject({ name: "Floor 5", isActive: true, version: 3 });
+    expect(await floorVersion(first)).toBe(1);
+    expect(await prisma.projectUnit.count({ where: { floorId: ground } })).toBe(1);
+
+    const [bulk] = await audits(id, "PROJECT_FLOORS_BULK_CREATED");
+    expect(bulk.metadataJson).toMatchObject({ floorIds: result.created, updatedFloorIds: [ground, fifth] });
+    const renamed = await audits(ground, "PROJECT_FLOOR_UPDATED");
+    expect(renamed).toHaveLength(1);
+    expect(renamed[0].metadataJson).toMatchObject({ batchId: (bulk.metadataJson as { batchId: string }).batchId });
+  });
+
+  it("stops a range when a floor changed or appeared after its preview, writing nothing", async () => {
+    const id = await building(`${T} Tower`);
+    const ground = await floor(id, 0, pm, "GROUND", "Lobby");
+    // Somebody renames the ground floor after the preview: the rename the batch carries is out of date.
+    await editFloor(ground, { name: "Reception" });
+    const stale = [{ ...planFloorRange(0, 0)[0], existing: { floorId: ground, expectedVersion: 1 } }, ...planFloorRange(1, 2)];
+    const error = await refused(bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: stale })), "CONFLICT", "FLOORS_CONFLICT");
+    expect(error.details).toMatchObject({ conflicts: [{ index: 0, reason: "CHANGED", existing: { id: ground, name: "Reception", version: 2 } }] });
+
+    // Somebody adds floor 2 after the preview: the batch would create it again.
+    await floor(id, 2);
+    const late = await refused(bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: planFloorRange(1, 2) })), "CONFLICT", "FLOORS_CONFLICT");
+    expect(late.details).toMatchObject({ conflicts: [{ index: 1, reason: "EXISTS" }] });
+
+    expect(await floorNames(id)).toEqual(["Reception", "Floor 2"]);
+    expect(await floorVersion(ground)).toBe(2);
     expect((await audits(id, "PROJECT_FLOORS_BULK_CREATED")).length).toBe(0);
   });
 
@@ -393,6 +456,17 @@ describe("floors (§11-§15, §53, §57, §147)", () => {
     for (const floorId of result.created) made.floors.add(floorId);
     expect(result.count).toBe(60);
     expect((await getProjectStructure(pm, SITE)).buildings.find((row) => row.id === id)?.floorCount).toBe(60);
+
+    // Only new floors count: seventy entries that keep sixty floors as they are create ten, unconfirmed.
+    const existing = await prisma.projectFloor.findMany({ where: { buildingId: id }, select: { id: true, number: true, version: true } });
+    const byNumber = new Map(existing.map((row) => [row.number, row]));
+    const longer = planFloorRange(1, 70).map((draft) => {
+      const row = byNumber.get(draft.number);
+      return row ? { ...draft, existing: { floorId: row.id, expectedVersion: row.version } } : draft;
+    });
+    const more = await bulkCreateFloors(pm, id, bulkFloorsSchema.parse({ floors: longer }));
+    for (const floorId of more.created) made.floors.add(floorId);
+    expect(more).toMatchObject({ count: 10, updated: [] });
   });
 
   it("deletes a floor only once its units are gone, and closes the gap in the order", async () => {

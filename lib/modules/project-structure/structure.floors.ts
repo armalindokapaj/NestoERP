@@ -14,7 +14,7 @@ import { FLOOR_ENTITY, MODULE, readableFloorWhere, structureProjectDoor } from "
 import { floorKeyOf, placeFloors, type FloorDraft } from "./structure.rules";
 import type { BulkFloorsInput, CreateFloorInput, UpdateFloorInput } from "./structure.schema";
 import { fail, STRUCTURE_PROJECT_SELECT } from "./structure.service";
-import { CONFIRM_FLOORS_ABOVE, type BatchConflict, type BatchPreview } from "./structure.types";
+import { CONFIRM_FLOORS_ABOVE, type ExistingFloorMatch, type FloorBatchConflict, type FloorBatchResult } from "./structure.types";
 import { refreshUnpublishedChanges } from "./unit-publishing.state";
 
 /**
@@ -106,85 +106,162 @@ export async function createFloor(context: UserContext, buildingId: string, inpu
   });
 }
 
-function floorConflicts(drafts: FloorDraft[], existingKeys: Set<string>): BatchConflict[] {
+const RANGE_FLOOR_SELECT = { ...FLOOR_SELECT, isActive: true, version: true, _count: { select: { units: true } } } satisfies Prisma.ProjectFloorSelect;
+type RangeFloorRow = Prisma.ProjectFloorGetPayload<{ select: typeof RANGE_FLOOR_SELECT }>;
+
+function matchOf(row: RangeFloorRow): ExistingFloorMatch {
+  return { id: row.id, name: row.name, isActive: row.isActive, unitCount: row._count.units, version: row.version };
+}
+
+type RangeUpdate = { index: number; row: RangeFloorRow; name: string; reactivate: boolean };
+
+/**
+ * Sorts a range against the building's floors (§37, §45): the floors to
+ * create, the existing floors to rename or make active again, and whatever
+ * stops the batch. An entry the building already has must name that floor and
+ * the version its preview saw; an entry that keeps a floor as it is is not
+ * sent. So a floor somebody added, changed or removed after the preview stops
+ * the batch rather than being merged unseen.
+ */
+function planRange(drafts: BulkFloorsInput["floors"], rows: RangeFloorRow[]) {
+  const byKey = new Map(rows.map((row) => [row.floorKey, row]));
+  const byId = new Map(rows.map((row) => [row.id, row]));
   const seen = new Set<string>();
-  const conflicts: BatchConflict[] = [];
+  const conflicts: FloorBatchConflict[] = [];
+  const matches: FloorBatchResult["matches"] = [];
+  const creates: FloorDraft[] = [];
+  const updates: RangeUpdate[] = [];
   drafts.forEach((draft, index) => {
     const key = floorKeyOf(draft.levelType, draft.number, draft.name);
-    if (existingKeys.has(key)) conflicts.push({ index, value: draft.name, reason: "EXISTS" });
-    else if (seen.has(key)) conflicts.push({ index, value: draft.name, reason: "REPEATED" });
+    const match = byKey.get(key);
+    if (match) matches.push({ index, floor: matchOf(match) });
+    if (seen.has(key)) {
+      conflicts.push({ index, value: draft.name, reason: "REPEATED" });
+      return;
+    }
     seen.add(key);
+    if (draft.existing) {
+      const row = byId.get(draft.existing.floorId);
+      if (!row || row.floorKey !== key || row.version !== draft.existing.expectedVersion) {
+        conflicts.push({ index, value: draft.name, reason: "CHANGED", ...(match ? { existing: matchOf(match) } : {}) });
+        return;
+      }
+      const reactivate = draft.existing.reactivate && !row.isActive;
+      if (draft.name !== row.name || reactivate) updates.push({ index, row, name: draft.name, reactivate });
+      return;
+    }
+    if (match) conflicts.push({ index, value: draft.name, reason: "EXISTS", existing: matchOf(match) });
+    else creates.push({ number: draft.number, name: draft.name, levelType: draft.levelType });
   });
-  return conflicts;
+  return { conflicts, matches, creates, updates };
 }
 
 /**
  * Floors by range, previewed and then written (§37-§39, §45). `dryRun` answers
- * what would clash without writing; the real run checks again inside the
- * transaction and writes all or nothing. More than fifty floors must be
+ * which entries the building already has and what would stop the batch,
+ * without writing. Floors the building already has are kept as they are
+ * unless an entry renames one or makes it active again; their units, order and
+ * other details never change. The real run checks again inside the
+ * transaction and writes all or nothing. More than fifty new floors must be
  * confirmed, because that many is more often a typo than a tower.
  */
-export async function bulkCreateFloors(context: UserContext, buildingId: string, input: BulkFloorsInput): Promise<BatchPreview & { created: string[] }> {
+export async function bulkCreateFloors(context: UserContext, buildingId: string, input: BulkFloorsInput): Promise<FloorBatchResult> {
   const building = await findReadableBuilding(context, buildingId);
   assertPermission(context, "project.floor.create");
+  if (input.floors.some((draft) => draft.existing)) assertPermission(context, "project.floor.update");
 
-  const keysNow = async (client: Tx | typeof prisma) =>
-    new Set((await client.projectFloor.findMany({ where: { companyId: context.companyId, buildingId: building.id }, select: { floorKey: true } })).map((row) => row.floorKey));
+  const floorsNow = (client: Tx | typeof prisma) =>
+    client.projectFloor.findMany({ where: { companyId: context.companyId, buildingId: building.id }, orderBy: { sortOrder: "asc" }, select: RANGE_FLOOR_SELECT });
 
   if (input.dryRun) {
-    const conflicts = floorConflicts(input.floors, await keysNow(prisma));
-    return { count: input.floors.length, conflicts, created: [] };
-  }
-  if (input.floors.length > CONFIRM_FLOORS_ABOVE && !input.confirmLarge) {
-    throw fail("FLOORS_CONFIRM_REQUIRED", `Confirm that you want to create ${input.floors.length} floors.`, "VALIDATION_ERROR", { count: input.floors.length });
+    const { conflicts, matches } = planRange(input.floors, await floorsNow(prisma));
+    return { count: input.floors.length, conflicts, matches, created: [], updated: [] };
   }
 
   const batchId = randomUUID();
   return runInTransaction("structure.floors.bulk", async (tx) => {
     await lockBuilding(tx, building.id);
-    const conflicts = floorConflicts(input.floors, await keysNow(tx));
+    const existing = await floorsNow(tx);
+    const { conflicts, matches, creates, updates } = planRange(input.floors, existing);
     if (conflicts.length) throw fail("FLOORS_CONFLICT", conflictMessage(conflicts, `${building.name} already has`), "CONFLICT", { conflicts });
+    if (creates.length > CONFIRM_FLOORS_ABOVE && !input.confirmLarge) {
+      throw fail("FLOORS_CONFIRM_REQUIRED", `Confirm that you want to create ${creates.length} floors.`, "VALIDATION_ERROR", { count: creates.length });
+    }
 
-    const existing = await tx.projectFloor.findMany({ where: { companyId: context.companyId, buildingId: building.id }, orderBy: { sortOrder: "asc" }, select: FLOOR_SELECT });
-    const created = await tx.projectFloor.createManyAndReturn({
-      data: input.floors.map((draft, index) => ({
-        companyId: context.companyId,
-        projectId: building.projectId,
-        buildingId: building.id,
-        number: draft.number,
-        name: draft.name,
-        levelType: draft.levelType,
-        floorKey: floorKeyOf(draft.levelType, draft.number, draft.name),
-        sortOrder: existing.length + index + 1,
-        createdBy: context.userId,
-      })),
-      select: { id: true, number: true, levelType: true, sortOrder: true },
-    });
-    await renumber(tx, context.companyId, placeFloors(existing, created));
-    await recordActivity(tx, context, { module: MODULE, entityType: FLOOR_ENTITY, entityId: building.id, action: "FLOORS_BULK_CREATED", message: `added ${created.length} floors to ${building.name}`, metadata: { projectId: building.projectId, buildingId: building.id, batchId } });
-    await recordUserAction(
-      context,
-      {
-        actionKey: AuditAction.PROJECT_FLOORS_BULK_CREATED,
-        entity: { type: "ProjectBuilding", id: building.id, label: building.name },
-        projectId: building.projectId,
-        after: { buildingId: building.id, count: created.length },
-        metadata: { batchId, buildingId: building.id, floorIds: created.map((floor) => floor.id), names: input.floors.map((draft) => draft.name) },
-      },
-      { tx },
-    );
-    return { count: created.length, conflicts: [], created: created.map((floor) => floor.id) };
+    const created = creates.length
+      ? await tx.projectFloor.createManyAndReturn({
+          data: creates.map((draft, index) => ({
+            companyId: context.companyId,
+            projectId: building.projectId,
+            buildingId: building.id,
+            number: draft.number,
+            name: draft.name,
+            levelType: draft.levelType,
+            floorKey: floorKeyOf(draft.levelType, draft.number, draft.name),
+            sortOrder: existing.length + index + 1,
+            createdBy: context.userId,
+          })),
+          select: { id: true, number: true, levelType: true, sortOrder: true },
+        })
+      : [];
+    if (created.length) {
+      await renumber(tx, context.companyId, placeFloors(existing, created));
+      await recordActivity(tx, context, { module: MODULE, entityType: FLOOR_ENTITY, entityId: building.id, action: "FLOORS_BULK_CREATED", message: `added ${created.length} floors to ${building.name}`, metadata: { projectId: building.projectId, buildingId: building.id, batchId } });
+      await recordUserAction(
+        context,
+        {
+          actionKey: AuditAction.PROJECT_FLOORS_BULK_CREATED,
+          entity: { type: "ProjectBuilding", id: building.id, label: building.name },
+          projectId: building.projectId,
+          after: { buildingId: building.id, count: created.length },
+          metadata: { batchId, buildingId: building.id, floorIds: created.map((floor) => floor.id), names: creates.map((draft) => draft.name), updatedFloorIds: updates.map((update) => update.row.id) },
+        },
+        { tx },
+      );
+    }
+
+    // An existing floor changes only its name or comes back into use; it keeps its key, so its place in the order holds.
+    for (const update of updates) {
+      const isActive = update.reactivate ? true : update.row.isActive;
+      const changed = await tx.projectFloor.updateMany({
+        where: { companyId: context.companyId, id: update.row.id, version: update.row.version },
+        data: { name: update.name, isActive, updatedBy: context.userId, version: { increment: 1 } },
+      });
+      if (!changed.count) {
+        throw fail("FLOORS_CONFLICT", `${update.row.name} was changed by another user. Nothing was created.`, "CONFLICT", { conflicts: [{ index: update.index, value: update.name, reason: "CHANGED" }] });
+      }
+      await recordUserAction(
+        context,
+        {
+          actionKey: AuditAction.PROJECT_FLOOR_UPDATED,
+          entity: { type: FLOOR_ENTITY, id: update.row.id, label: `${building.name} / ${update.name}` },
+          projectId: building.projectId,
+          before: { name: update.row.name, isActive: update.row.isActive },
+          after: { name: update.name, isActive },
+          metadata: { batchId, buildingId: building.id },
+        },
+        { tx },
+      );
+    }
+
+    return { count: created.length, conflicts: [], matches, created: created.map((floor) => floor.id), updated: updates.map((update) => update.row.id) };
   }).catch((error: unknown) => {
     if (uniqueTarget(error)) throw fail("FLOORS_CONFLICT", "Another change added one of these floors a moment ago. Refresh and try again.", "CONFLICT", { conflicts: [] });
     throw error;
   });
 }
 
-export function conflictMessage(conflicts: BatchConflict[], existsPrefix: string): string {
-  const exists = conflicts.filter((conflict) => conflict.reason === "EXISTS").map((conflict) => conflict.value);
-  const repeated = conflicts.filter((conflict) => conflict.reason === "REPEATED").map((conflict) => conflict.value);
-  const list = (values: string[]) => (values.length > 3 ? `${values.slice(0, 3).join(", ")} and ${values.length - 3} more` : values.join(", "));
-  const parts = [...(exists.length ? [`${existsPrefix} ${list(exists)}`] : []), ...(repeated.length ? [`${list(repeated)} ${repeated.length === 1 ? "appears" : "appear"} twice in this batch`] : [])];
+export function conflictMessage(conflicts: Array<{ value: string; reason: string }>, existsPrefix: string): string {
+  const values = (reason: string) => conflicts.filter((conflict) => conflict.reason === reason).map((conflict) => conflict.value);
+  const exists = values("EXISTS");
+  const repeated = values("REPEATED");
+  const changed = values("CHANGED");
+  const list = (items: string[]) => (items.length > 3 ? `${items.slice(0, 3).join(", ")} and ${items.length - 3} more` : items.join(", "));
+  const parts = [
+    ...(exists.length ? [`${existsPrefix} ${list(exists)}`] : []),
+    ...(repeated.length ? [`${list(repeated)} ${repeated.length === 1 ? "appears" : "appear"} twice in this batch`] : []),
+    ...(changed.length ? [`${list(changed)} changed after the preview`] : []),
+  ];
   return `${parts.join("; ")}. Nothing was created.`;
 }
 
