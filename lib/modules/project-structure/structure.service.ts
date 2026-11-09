@@ -254,7 +254,7 @@ export async function getUnitDetail(context: UserContext, unitId: string, routeP
   return {
     ...toUnitDTO(row),
     project: { id: row.project.id, name: row.project.name, code: row.project.code },
-    capabilities: { canUpdateUnit: capabilities.canUpdateUnit, canDeleteUnit: capabilities.canDeleteUnit, canMoveUnit: capabilities.canMoveUnit },
+    capabilities: { canUpdateUnit: capabilities.canUpdateUnit, canDeleteUnit: capabilities.canDeleteUnit, canMoveUnit: capabilities.canMoveUnit, canManagePrice: capabilities.canManagePrice },
   };
 }
 

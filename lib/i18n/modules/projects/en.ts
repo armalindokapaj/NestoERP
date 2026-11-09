@@ -1025,6 +1025,14 @@ export const projectsEn = {
     cancel: "Cancel",
     saving: "Saving…",
     save: "Save unit",
+    price: "Price",
+    priceHint: "Saved to Sales as the unit's asking price.",
+    priceLoading: "Loading the price…",
+    priceNeedsGross: "Fill in the areas above to work out the total.",
+    priceRateNeedsGross: "Add the unit's areas to price it per m², or enter the total.",
+    priceWas: "was {total}",
+    priceSold: "Sold at an asking price of {price}. The price can't change until the sale is reopened.",
+    priceNotSaved: "{code} was saved, but its price was not.",
   },
 
   structureDialogs: {

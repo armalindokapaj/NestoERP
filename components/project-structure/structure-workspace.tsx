@@ -681,7 +681,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
         />
       ) : null}
       {dialog?.kind === "moveFloor" ? <MoveFloorDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} buildings={structure.buildings} onMoved={() => { void reloadAll(); choose({ buildingId: null, floorId: null }); toast({ title: t("workspace.floorMoved", { name: floorName(dialog.floor.name, locale) }) }); }} /> : null}
-      {dialog?.kind === "unit" ? <UnitDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} unit={dialog.unit} types={structure.unitTypes} onSaved={() => void reloadAll()} /> : null}
+      {dialog?.kind === "unit" ? <UnitDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} unit={dialog.unit} types={structure.unitTypes} canManagePrice={caps.canManagePrice} onSaved={() => void reloadAll()} /> : null}
       {dialog?.kind === "bulkUnits" ? <BulkUnitsDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} buildingName={dialog.buildingName} types={structure.unitTypes} onCreated={() => void reloadAll()} /> : null}
       {dialog?.kind === "copy" ? <CopyFloorDialog open onOpenChange={(open) => !open && setDialog(null)} projectId={projectId} floor={dialog.floor} buildings={structure.buildings} onCreated={() => void reloadAll()} /> : null}
       {dialog?.kind === "moveUnit" ? (
