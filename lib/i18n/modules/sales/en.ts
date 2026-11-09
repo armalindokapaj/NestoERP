@@ -633,6 +633,9 @@ export const salesEn = {
     skippedNoArea_other: "{count} units have no gross area and kept their prices.",
     invalid: "Check the highlighted prices.",
     saveFailed: "The prices could not be saved.",
+    /** A unit's card on a phone: the saved asking price beside the field that changes it. */
+    savedPrice: "Now {price}",
+    notPriced: "No price yet",
   },
   tables: {
     opportunity: "Opportunity",

@@ -898,30 +898,107 @@ html[data-unsaved-masked] [data-experience-editor] {
 }
 
 /*
- * Tables that opt in with `stack` read as cards on a phone (Table, `stack`):
+ * Tables that opt in with `stack` read as cards on a phone (Table, `stack`; a
+ * table built by hand sets `data-stack` and puts TableStackLabels after it):
  * the heading row is kept for screen readers, each row is one card, its first
- * cell the title and the others "label  value" lines. No sideways scroll.
+ * cell (a `td`, or a row heading `th`) the title and the others "label  value"
+ * lines — the value at the end, under its label when it is too long to sit
+ * beside it. A footer row (totals) is one "label  value" line. No sideways scroll:
+ * a minimum width the table sets for its desktop columns no longer applies.
+ * `data-stack="lg"` keeps the cards on a tablet too (768–1023px); `data-flush`
+ * (a table inside a card's own padding) drops the cards' side inset. A cell
+ * hidden at that width (`max-md:hidden`…) stays hidden: the card's display
+ * rules would otherwise win over the utility, which sits in a layer.
+ * The two blocks are the same rules for the two widths.
  */
 @media (max-width: 767.98px) {
-  table[data-stack] { display: block; }
+  table[data-stack] { display: block; width: 100%; min-width: 0; }
   table[data-stack] thead {
     position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
-  table[data-stack] tbody { display: block; }
-  table[data-stack] tr {
-    display: block; position: relative; padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-line);
+  table[data-stack] :is(tbody, tfoot) { display: block; }
+  table[data-stack] :is(tbody, tfoot) tr {
+    display: block; position: relative; padding: 0.75rem 1rem; border-top: 0; border-bottom: 1px solid var(--color-line);
   }
-  table[data-stack] tr:last-child { border-bottom: 0; }
-  table[data-stack] td {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
-    height: auto; min-height: 0; padding: 0.125rem 0; text-align: right;
+  table[data-stack] :is(tbody, tfoot) tr:last-child { border-bottom: 0; }
+  table[data-stack][data-flush] :is(tbody, tfoot) tr { padding-inline: 0; }
+  table[data-stack] :is(tbody, tfoot) :is(td, th) {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 0.125rem 1rem;
+    width: auto; max-width: none; height: auto; min-height: 0; padding: 0.125rem 0; text-align: right;
   }
-  table[data-stack] td:first-child { display: block; padding-bottom: 0.25rem; text-align: left; font-size: var(--text-card, 1rem); }
-  table[data-stack] td[data-label]:not([data-label=""])::before {
-    content: attr(data-label); flex: none; text-align: left; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-fg-subtle);
+  table[data-stack] tbody :is(td, th):first-child { display: block; padding-bottom: 0.25rem; text-align: left; font-size: var(--text-card, 1rem); }
+  table[data-stack] tbody :is(td, th)[data-label]:not([data-label=""])::before {
+    content: attr(data-label); flex: none; margin-right: auto; text-align: left; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-fg-subtle);
   }
+  table[data-stack] tfoot { border-top: 1px solid var(--color-line); }
+  table[data-stack] tfoot tr { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; }
+  table[data-stack] tfoot :is(td, th) { display: block; text-align: left; }
+  table[data-stack] tfoot :is(td, th):last-child { margin-left: auto; text-align: right; }
   /* Wide cells (a record's description, an id) wrap inside the card rather than push it sideways. */
-  table[data-stack] td > * { min-width: 0; overflow-wrap: anywhere; }
+  table[data-stack] :is(td, th) > * { min-width: 0; overflow-wrap: anywhere; }
+  /* A cell the page hides at this width (an arrow between two values, a column shown from md) stays hidden in the card. */
+  table[data-stack] :is(tbody, tfoot) :is(td, th):is(.hidden, .max-md\:hidden, .max-lg\:hidden) { display: none; }
+}
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  table[data-stack="lg"] { display: block; width: 100%; min-width: 0; }
+  table[data-stack="lg"] thead {
+    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  table[data-stack="lg"] :is(tbody, tfoot) { display: block; }
+  table[data-stack="lg"] :is(tbody, tfoot) tr {
+    display: block; position: relative; padding: 0.75rem 1rem; border-top: 0; border-bottom: 1px solid var(--color-line);
+  }
+  table[data-stack="lg"] :is(tbody, tfoot) tr:last-child { border-bottom: 0; }
+  table[data-stack="lg"][data-flush] :is(tbody, tfoot) tr { padding-inline: 0; }
+  table[data-stack="lg"] :is(tbody, tfoot) :is(td, th) {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 0.125rem 1rem;
+    width: auto; max-width: none; height: auto; min-height: 0; padding: 0.125rem 0; text-align: right;
+  }
+  table[data-stack="lg"] tbody :is(td, th):first-child { display: block; padding-bottom: 0.25rem; text-align: left; font-size: var(--text-card, 1rem); }
+  table[data-stack="lg"] tbody :is(td, th)[data-label]:not([data-label=""])::before {
+    content: attr(data-label); flex: none; margin-right: auto; text-align: left; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-fg-subtle);
+  }
+  table[data-stack="lg"] tfoot { border-top: 1px solid var(--color-line); }
+  table[data-stack="lg"] tfoot tr { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; }
+  table[data-stack="lg"] tfoot :is(td, th) { display: block; text-align: left; }
+  table[data-stack="lg"] tfoot :is(td, th):last-child { margin-left: auto; text-align: right; }
+  table[data-stack="lg"] :is(td, th) > * { min-width: 0; overflow-wrap: anywhere; }
+  table[data-stack="lg"] :is(tbody, tfoot) :is(td, th):is(.max-lg\:hidden, .hidden:not(.md\:table-cell)) { display: none; }
+}
+
+/*
+ * Scroll hints (ScrollRegion, Table `stickyFirst`). Below lg, where a wide
+ * matrix scrolls sideways, the edge with more content past it fades out, and a
+ * table that keeps its first column in place shows a shadow beside that
+ * column once something has scrolled under it — so it is plain that the
+ * region scrolls and where its rows' names are. From lg nothing changes.
+ */
+@media (max-width: 1023.98px) {
+  [data-scroll-region][data-more-after]:is(:not([data-more-before]), :has(> table[data-sticky-first])) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+    mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+  }
+  [data-scroll-region][data-more-before]:not([data-more-after]):not(:has(> table[data-sticky-first])) {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+    mask-image: linear-gradient(to left, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+  }
+  [data-scroll-region][data-more-before][data-more-after]:not(:has(> table[data-sticky-first])) {
+    -webkit-mask-image: linear-gradient(to right, rgb(0 0 0 / 0.2), #000 2.5rem, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+    mask-image: linear-gradient(to right, rgb(0 0 0 / 0.2), #000 2.5rem, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+  }
+}
+
+/* Layered, so a table that already pins and colours its first column itself (the timesheet grid) keeps its own classes. */
+@layer components {
+  @media (max-width: 1023.98px) {
+    table[data-sticky-first] > :is(thead, tbody, tfoot) > tr > :first-child {
+      position: sticky; left: 0; z-index: 1; background-color: var(--color-surface);
+    }
+    table[data-sticky-first] > tfoot > tr > :first-child { background-color: var(--color-surface-muted); }
+    [data-more-before] > table[data-sticky-first] > :is(thead, tbody, tfoot) > tr > :first-child {
+      box-shadow: 6px 0 8px -6px rgb(0 0 0 / 0.22);
+    }
+  }
 }
 
 /* Admin on a phone: fields are thumb-sized and 16px, so iOS does not zoom the page on focus. */

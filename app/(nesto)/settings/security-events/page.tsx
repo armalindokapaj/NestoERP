@@ -28,7 +28,7 @@ export default async function SecurityEventsPage() {
         <EmptyState title={t("admin.events.none")} />
       ) : (
         <section className="nesto-card p-5">
-          <Table flush aria-label={t("admin.events.title")}>
+          <Table stack flush aria-label={t("admin.events.title")}>
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("admin.events.columns.when")}</TableHeaderCell>

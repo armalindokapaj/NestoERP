@@ -41,6 +41,7 @@ import { getDepartmentActivity, getDepartmentDetail, getDepartmentTeam, listDepa
 import { teamQuerySchema } from "@/lib/modules/organization/departments/department.schema";
 import type { DepartmentCompanyRowDTO, DepartmentDetailDTO, PositionDTO, TeamMemberDTO } from "@/lib/modules/organization/departments/department.types";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("organization"))("department.metaTitle") };
@@ -384,7 +385,7 @@ async function Access({ context, department }: { context: UserContext; departmen
           <EmptyState title={t("department.nothingDelegated")} description={t("department.nobodyDelegated", { department: department.name })} />
         ) : (
           <ScrollRegion label={t("department.delegatedAccess")} className="nesto-card">
-            <table className="w-full text-left text-table" aria-label={t("department.delegatedAccess")}>
+            <table className="w-full text-left text-table" aria-label={t("department.delegatedAccess")} data-stack="">
               <thead className="text-meta text-fg-subtle">
                 <tr>
                   <th className="px-4 py-2 font-medium">{t("common.person")}</th>
@@ -408,6 +409,7 @@ async function Access({ context, department }: { context: UserContext; departmen
                 ))}
               </tbody>
             </table>
+            <TableStackLabels />
           </ScrollRegion>
         )
       ) : null}

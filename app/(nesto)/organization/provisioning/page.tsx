@@ -69,7 +69,7 @@ export default async function ProvisioningPage({ searchParams }: Props) {
           <EmptyState title={t("provisioning.empty")} description={t("provisioning.emptyDescription")} />
         ) : (
           <section className="nesto-card p-0">
-            <Table flush aria-label={t("provisioning.requests")}>
+            <Table stack stackInset flush aria-label={t("provisioning.requests")}>
               <TableHead>
                 <TableRow>
                   <TableHeaderCell>{t("common.person")}</TableHeaderCell>

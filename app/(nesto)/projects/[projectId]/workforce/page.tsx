@@ -81,7 +81,7 @@ export default async function ProjectWorkforcePage({ params }: Params) {
         {assigned.length === 0 ? (
           <p className="px-5 py-6 text-table text-fg-muted">{t("workforceTab.nobody")}</p>
         ) : (
-          <Table flush aria-label={t("workforceTab.workingHere")}>
+          <Table stack stackInset flush aria-label={t("workforceTab.workingHere")}>
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("workforceTab.name")}</TableHeaderCell>

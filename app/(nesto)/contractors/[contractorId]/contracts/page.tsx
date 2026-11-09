@@ -46,7 +46,7 @@ export default async function ContractorContractsPage({ params }: Params) {
         {summary.contracts.length === 0 ? (
           <EmptyNote>{t("contractsPage.noContracts")}</EmptyNote>
         ) : (
-          <Table flush>
+          <Table stack flush>
             <TableHead>
               <TableRow>
                 <TableHeaderCell scope="col">{t("contractsPage.contract")}</TableHeaderCell>

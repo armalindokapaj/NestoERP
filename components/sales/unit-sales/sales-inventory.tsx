@@ -161,8 +161,9 @@ export function SalesInventory({
 
   return (
     <div className="space-y-3">
+      {/* A phone pans the status chips; a tablet wraps them, as the row is wider than the page there (mobile audit 2d). */}
       <div className="-mx-1 overflow-x-auto">
-        <div className="flex min-w-max gap-1.5 px-1" role="group" aria-label={t("inventory.statusGroup")}>
+        <div className="flex min-w-max gap-1.5 px-1 md:max-lg:min-w-0 md:max-lg:flex-wrap" role="group" aria-label={t("inventory.statusGroup")}>
           {QUICK.map((status) => {
             const pressed = filters.commercialStatus === status;
             return (
@@ -238,7 +239,8 @@ export function SalesInventory({
       ) : (
         <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
           {active ? <p className="mb-2 text-table text-fg-muted">{t("inventory.unitCount", { count: list.total })}</p> : null}
-          <div className="hidden md:block">
+          {/* The table from lg; below it the cards, which carry every column — at 768–1023px the table needed ~1170px (mobile audit 2d). */}
+          <div className="hidden lg:block">
             <Table label={t("inventory.table")} data-testid="sales-table">
               <TableHead>
                 <tr>
@@ -296,7 +298,7 @@ export function SalesInventory({
             </Table>
           </div>
 
-          <ul className="space-y-2 md:hidden" data-testid="sales-cards">
+          <ul className="space-y-2 lg:hidden" data-testid="sales-cards">
             {list.items.map((row) => (
               <li key={row.id} className={cn("nesto-card p-3", COMMERCIAL_CARD_TINT[row.status])} data-testid="sales-card" data-unit-code={row.unitCode} data-status={row.status}>
                 <Link href={href(row)} className="block min-w-0">

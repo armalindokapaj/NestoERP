@@ -84,7 +84,7 @@ export default async function TransmittalPage({ params }: Params) {
             {item.items.length === 0 ? (
               <p className="text-table text-fg-muted">{t("transmittalPage.noDocuments")}</p>
             ) : (
-              <Table flush label={t("transmittalPage.tableLabel")}>
+              <Table stack flush label={t("transmittalPage.tableLabel")}>
                 <TableHead>
                   <TableRow>
                     <TableHeaderCell scope="col">{t("columns.document")}</TableHeaderCell>

@@ -87,7 +87,7 @@ export default async function MobileDevicesPage({ searchParams }: Params) {
         <EmptyState title={t("admin.devices.empty")} />
       ) : (
         <section className="nesto-card p-5">
-          <Table flush aria-label={t("admin.devices.title")}>
+          <Table stack flush aria-label={t("admin.devices.title")}>
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("admin.devices.columns.user")}</TableHeaderCell>

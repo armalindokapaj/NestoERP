@@ -27,6 +27,7 @@ const WORK_LOCATION_TYPES = ["OFFICE", "SITE", "REMOTE", "HYBRID", "OTHER"] as c
 import type { EmployeeDetailDTO } from "@/lib/modules/hr/hr.types";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 const selectClass =
   "h-10 w-full rounded-md border border-line bg-surface px-3 text-body text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/20";
@@ -446,7 +447,8 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
         <div className="mt-4 space-y-4">
           {/* Values wrap inside the dialog at 320px; a very long one pans in its own region (AUD-04 §6, D-07-09, MW-10). */}
           <ScrollRegion label={t("changes.beforeAfter")}>
-          <table className="w-full text-table [overflow-wrap:anywhere]" aria-label={t("changes.beforeAfter")}>
+          {/* On a phone each field is a card: its name, then "Now" and the new value labelled (mobile audit 2b). */}
+          <table className="w-full text-table [overflow-wrap:anywhere]" aria-label={t("changes.beforeAfter")} data-stack="" data-flush="">
             <thead>
               <tr className="text-left text-meta text-fg-subtle">
                 <th className="pb-2 font-medium">&nbsp;</th>
@@ -464,7 +466,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
                     {row.label}
                   </th>
                   <td className="py-2">{row.from ?? "—"}</td>
-                  <td className="py-2 text-fg-subtle">
+                  <td className="py-2 text-fg-subtle max-md:hidden">
                     <ArrowRight aria-hidden="true" className="size-3.5" />
                   </td>
                   <td className={row.from !== row.to ? "py-2 font-medium text-fg" : "py-2"}>{row.to ?? "—"}</td>
@@ -472,6 +474,7 @@ function ChangeDialogBody({ action, employee, options, today, onClose }: ChangeD
               ))}
             </tbody>
           </table>
+          <TableStackLabels />
           </ScrollRegion>
           <TimingNote timing={timing} effective={effective} />
           {highImpact ? (

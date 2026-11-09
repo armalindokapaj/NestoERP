@@ -140,7 +140,8 @@ export function QuoteComparison({
       ) : null}
 
       <ScrollRegion label={t("comparison.quotesLabel", { number: rfq.rfqNumber })} className="nesto-card hidden md:block">
-        <table className="w-full text-table">
+        {/* `data-sticky-first`: on a tablet the region shows a shadow beside the pinned supplier column once prices scroll under it (mobile audit 2b). */}
+        <table className="w-full text-table" data-sticky-first="">
           <caption className="sr-only">
             {t("comparison.caption", { number: rfq.rfqNumber })}
           </caption>

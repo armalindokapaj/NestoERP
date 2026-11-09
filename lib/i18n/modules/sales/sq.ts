@@ -628,6 +628,8 @@ export const salesSq: typeof salesEn = {
     skippedNoArea_other: "{count} njësi nuk kanë sipërfaqe bruto dhe i mbajtën çmimet.",
     invalid: "Kontrollo çmimet e shënuara.",
     saveFailed: "Çmimet nuk mund të ruheshin.",
+    savedPrice: "Tani {price}",
+    notPriced: "Ende pa çmim",
   },
   tables: {
     opportunity: "Mundësia",

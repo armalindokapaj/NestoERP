@@ -16,6 +16,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { orDash } from "@/lib/utils/format";
 import { loadEmployee } from "../../employee-context";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 type Params = { params: Promise<{ employeeId: string }> };
 
@@ -101,7 +102,8 @@ export default async function EmploymentHistoryPage({ params }: Params) {
         </h2>
         {/* The tables pan in labelled regions; headings stay put (AUD-04 §5, D-07-15, MW-19). */}
         <ScrollRegion label={t("history.positions")} className="mt-3">
-        <table className="w-full min-w-[720px] text-table">
+        {/* Both histories are a card per row on a phone (mobile audit 2b). */}
+        <table className="w-full min-w-[720px] text-table" data-stack="" data-flush="">
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
               <th className="py-2 pr-3 font-medium">{t("history.period")}</th>
@@ -154,6 +156,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
             ))}
           </tbody>
         </table>
+        <TableStackLabels />
         </ScrollRegion>
       </section>
 
@@ -162,7 +165,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
           {t("columns.status")}
         </h2>
         <ScrollRegion label={t("history.statusHistory")} className="mt-3">
-        <table className="w-full min-w-[560px] text-table">
+        <table className="w-full min-w-[560px] text-table" data-stack="" data-flush="">
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
               <th className="py-2 pr-3 font-medium">{t("history.period")}</th>
@@ -197,6 +200,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
             ))}
           </tbody>
         </table>
+        <TableStackLabels />
         </ScrollRegion>
       </section>
 

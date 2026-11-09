@@ -152,6 +152,8 @@ export async function BudgetTable({ budgets, listId = "finance.budgets", sort }:
       records={budgets}
       rowKey={(budget) => budget.id}
       rowHref={grouped ? undefined : (budget) => `/finance/budgets/${budget.id}`}
+      // Eight columns of figures need ~1150px: a portrait tablet reads the cards (mobile audit 2d).
+      cardsBelow="lg"
     />
   );
 }

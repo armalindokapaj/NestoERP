@@ -20,6 +20,7 @@ import type {
 import { formatDate } from "@/lib/i18n/format";
 import type { ReceiptDTO } from "@/lib/modules/procurement/procurement.types";
 import { useProcurementServerText, useProcurementTranslations } from "./procurement-text";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 /**
  * What the Inventory handoff needs to offer a mapping (PRD #20 §11).
@@ -110,7 +111,8 @@ export function ReceiptList({
 
             {/* Bounded: a long line or "1250.5000 tonne" pans here instead of widening the page (AUD-04 §5, MW-05). */}
             <ScrollRegion label={t("receipts.linesOn", { number: receipt.receiptNumber })} className="mt-4">
-            <table className="w-full text-table">
+            {/* A card per line on a phone (mobile audit 2b). */}
+            <table className="w-full text-table" data-stack="" data-flush="">
               <caption className="sr-only">{t("receipts.linesOn", { number: receipt.receiptNumber })}</caption>
               <thead>
                 <tr className="text-left text-meta text-fg-subtle">
@@ -141,6 +143,7 @@ export function ReceiptList({
                 ))}
               </tbody>
             </table>
+            <TableStackLabels />
             </ScrollRegion>
 
             {qualityGate?.[receipt.id] ? (

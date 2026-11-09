@@ -18,6 +18,7 @@ import * as rfqs from "@/lib/modules/procurement/rfqs/rfq.service";
 import { selectableSuppliers } from "@/lib/modules/procurement/suppliers/supplier.service";
 import { rfqSupplierStatusLabels } from "@/lib/modules/procurement/procurement.status";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 type Params = { params: Promise<{ rfqId: string }> };
 
@@ -91,7 +92,8 @@ export default async function RfqDetailPage({ params }: Params) {
               </p>
             </div>
             <ScrollRegion label={t("rfqs.linesLabel")}>
-              <table className="w-full text-table">
+              {/* A card per line on a phone (mobile audit 2b). */}
+              <table className="w-full text-table" data-stack="">
                 <caption className="sr-only">{t("rfqs.linesLabel")}</caption>
                 <thead>
                   <tr className="border-y border-line text-left text-meta text-fg-subtle">
@@ -115,6 +117,7 @@ export default async function RfqDetailPage({ params }: Params) {
                   ))}
                 </tbody>
               </table>
+              <TableStackLabels />
             </ScrollRegion>
           </section>
 

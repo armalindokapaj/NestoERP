@@ -40,6 +40,8 @@ export function RegisterExportButton({
       label={t("exportCsv")}
       blocked={blocked}
       testId="register-export"
+      // It sits in the register's summary row, beside the count it exports, not in the page header: it stays there at every width.
+      inPageMenu={false}
       readyLabel={(count) => t("exportDone", { count })}
       failedLabel={t("exportFailed")}
       retryLabel={t("exportRetry")}

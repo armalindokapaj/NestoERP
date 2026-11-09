@@ -154,8 +154,9 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
         ))}
       </section>
 
+      {/* A phone pans the status chips; a tablet wraps them, as the row is wider than the page there (mobile audit 2d). */}
       <div className="-mx-1 overflow-x-auto">
-        <div className="flex min-w-max gap-1.5 px-1" role="group" aria-label={t("inventory.financialStatus")}>
+        <div className="flex min-w-max gap-1.5 px-1 md:max-lg:min-w-0 md:max-lg:flex-wrap" role="group" aria-label={t("inventory.financialStatus")}>
           {QUICK.map((status) => {
             const pressed = filters.financialStatus === status;
             return (

@@ -88,7 +88,7 @@ export default async function OrganizationPage() {
             <h2 id="organization-departments" className="text-card font-semibold text-fg">
               {t("common.departments")}
             </h2>
-            <Table flush className="mt-3" aria-labelledby="organization-departments">
+            <Table stack flush className="mt-3" aria-labelledby="organization-departments">
               <TableHead>
                 <TableRow>
                   <TableHeaderCell>{t("overview.groupDepartment")}</TableHeaderCell>

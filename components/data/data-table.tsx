@@ -130,6 +130,7 @@ export function DataTable<T>({
   sort,
   mobile,
   selectable,
+  cardsBelow = "md",
 }: {
   columns: TableColumn<T>[];
   records: T[];
@@ -161,6 +162,13 @@ export function DataTable<T>({
    * `actions` are client components reading `useSelection()`, e.g. `BulkAction`.
    */
   selectable?: { actions?: React.ReactNode };
+  /**
+   * Where the cards give way to the table: `md` (the default) or `lg`, for a
+   * table whose figures cannot fit a portrait tablet (768–1023px) — there it
+   * reads as the phone's cards, with every value, instead of scrolling
+   * sideways (mobile audit 2d). From `lg` it is the table either way.
+   */
+  cardsBelow?: "md" | "lg";
 }) {
   const primary = columns.find((column) => column.primary) ?? columns[0];
   const secondary = columns.filter((column) => column !== primary);
@@ -178,14 +186,15 @@ export function DataTable<T>({
   // alike and can call no hook. It is handed the sortable columns' label, sort
   // stem and value type only; a renderer cannot cross to a Client Component.
   const sortable = columns.filter((column) => column.sortKey).map(({ label, sortKey, valueType }) => ({ label, sortKey, valueType }));
-  const sortControl = sortChoices(sortable, sort?.keys).length > 0 ? <TableSortSelect columns={sortable} sort={sort ?? {}} label={caption} /> : null;
+  const sortControl = sortChoices(sortable, sort?.keys).length > 0 ? <TableSortSelect columns={sortable} sort={sort ?? {}} label={caption} cardsBelow={cardsBelow} /> : null;
+  const toLg = cardsBelow === "lg";
 
   const table = (
     <>
-      {!listId && sortControl ? <div className="mb-2 flex md:hidden [:root:has([data-list-sort-control])_&]:hidden">{sortControl}</div> : null}
+      {!listId && sortControl ? <div className={cn("mb-2 flex [:root:has([data-list-sort-control])_&]:hidden", toLg ? "lg:hidden" : "md:hidden")}>{sortControl}</div> : null}
 
       {/* Desktop and tablet: a real table with semantic headers. */}
-      <div className="nesto-card hidden overflow-hidden md:block">
+      <div className={cn("nesto-card hidden overflow-hidden", toLg ? "lg:block" : "md:block")}>
         <Table label={caption}>
           {caption ? <caption className="sr-only">{caption}</caption> : null}
           <TableHead>
@@ -264,8 +273,8 @@ export function DataTable<T>({
       </div>
 
       {/* Mobile: record cards or compact rows (PRD #7 §86, AUD-04 §5, MOB-03). */}
-      {selectable ? <SelectModeToggle className="mb-2 flex justify-end md:hidden" /> : null}
-      <ul className={cn("md:hidden", mobile?.variant === "row" ? "nesto-card overflow-hidden" : "space-y-2")}>
+      {selectable ? <SelectModeToggle className={cn("mb-2 flex justify-end", toLg ? "lg:hidden" : "md:hidden")} /> : null}
+      <ul className={cn(toLg ? "lg:hidden" : "md:hidden", mobile?.variant === "row" ? "nesto-card overflow-hidden" : "space-y-2")}>
         {records.map((record) => {
           const id = rowKey(record);
           const asFact = (column: TableColumn<T>): RecordFact => ({
@@ -308,7 +317,7 @@ export function DataTable<T>({
   );
 
   const scoped = listId ? (
-    <TableColumnsScope listId={listId} columns={columnMetaOf(columns)} label={caption} leading={sortControl}>
+    <TableColumnsScope listId={listId} columns={columnMetaOf(columns)} label={caption} leading={sortControl} cardsBelow={cardsBelow}>
       {table}
     </TableColumnsScope>
   ) : (

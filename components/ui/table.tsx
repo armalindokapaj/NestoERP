@@ -31,6 +31,8 @@ export function Table({
   className,
   flush = false,
   stack = false,
+  stackInset = !flush,
+  stickyFirst = false,
   label,
   ...props
 }: React.ComponentProps<"table"> & {
@@ -39,16 +41,31 @@ export function Table({
    * On a phone each row becomes a card: the first cell is its title, the rest
    * are "label  value" lines taken from the column headings. Above `md` it is
    * the table. Same rows, same links, no separate mobile list (globals.css,
-   * `table[data-stack]`).
+   * `table[data-stack]`). `"lg"` keeps the cards on a tablet too, for a table
+   * too wide for 768–1023px; from `lg` it is the table either way.
    */
-  stack?: boolean;
+  stack?: boolean | "lg";
+  /**
+   * Whether the stacked cards keep a side inset of their own. By default only
+   * a table that is not `flush` does (a `flush` table sits in a card's own
+   * padding); a `flush` table in a card without padding (`p-0`) passes `true`.
+   */
+  stackInset?: boolean;
+  /**
+   * A matrix that scrolls sideways below `lg` (a report, a grid): its first
+   * column stays in place while the rest scrolls under it, so every row keeps
+   * its name. From `lg` the table is drawn as ever.
+   */
+  stickyFirst?: boolean;
   /** The scroll region's accessible name. */
   label?: string;
 }) {
   return (
     <TableScrollRegion label={label ?? props["aria-label"]}>
       <table
-        data-stack={stack ? "" : undefined}
+        data-stack={stack === "lg" ? "lg" : stack ? "" : undefined}
+        data-flush={stack && !stackInset ? "" : undefined}
+        data-sticky-first={stickyFirst ? "" : undefined}
         className={cn(
           "w-full border-collapse text-table",
           /* Inside a card the outer columns align to the card's own padding

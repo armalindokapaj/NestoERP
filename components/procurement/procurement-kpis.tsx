@@ -7,6 +7,7 @@ import type {
 } from "@/lib/modules/procurement/procurement.types";
 import { totalsLabel } from "./procurement-format";
 import { ScrollRegion } from "@/components/ui/scroll-region";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 /**
  * The Procurement KPI row (PRD #19 §22).
@@ -130,7 +131,8 @@ export async function ProcurementCompanyBreakdown({ companies }: { companies: Pr
     <section className="nesto-card p-5" data-testid="procurement-company-breakdown">
       <h2 className="text-card font-semibold text-fg">{t("kpis.byCompany")}</h2>
       <ScrollRegion label={t("kpis.figuresByCompany")} className="mt-3">
-        <table className="w-full text-table">
+        {/* A card per company on a phone, each figure labelled (mobile audit 2b). */}
+        <table className="w-full text-table" data-stack="" data-flush="">
           <caption className="sr-only">{t("kpis.figuresByCompany")}</caption>
           <thead>
             <tr className="text-left text-meta text-fg-subtle">
@@ -153,6 +155,7 @@ export async function ProcurementCompanyBreakdown({ companies }: { companies: Pr
             ))}
           </tbody>
         </table>
+        <TableStackLabels />
       </ScrollRegion>
     </section>
   );

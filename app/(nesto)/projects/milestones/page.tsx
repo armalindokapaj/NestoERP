@@ -23,6 +23,7 @@ import { resolvePlanningSettings } from "@/lib/modules/project-planning/planning
 import { MILESTONE_STATUSES } from "@/lib/modules/project-planning/planning.types";
 import { cn } from "@/lib/utils/cn";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("projects"))("report.title") };
@@ -265,7 +266,8 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             <h2 id="portfolio" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.portfolio")}</h2>
             <p className="px-5 text-meta text-fg-muted">{t("report.portfolioBody")}</p>
             <ScrollRegion label={t("report.portfolio")} className="mt-2">
-            <table className="w-full min-w-[560px] border-collapse text-table" data-testid="planning-portfolio">
+            {/* This and the two summaries below are a card per project (phase) on a phone (mobile audit 2b). */}
+            <table className="w-full min-w-[560px] border-collapse text-table" data-testid="planning-portfolio" data-stack="">
               <thead>
                 <tr className="border-b border-line text-left text-meta text-fg-muted">
                   <th scope="col" className="px-5 py-2 font-medium">{t("report.project")}</th>
@@ -302,6 +304,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                 ))}
               </tbody>
             </table>
+            <TableStackLabels />
             </ScrollRegion>
             <div className="h-3" />
           </section>
@@ -334,7 +337,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             <section className="nesto-card min-w-0" aria-labelledby="by-project">
               <h2 id="by-project" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.byProject")}</h2>
               <ScrollRegion label={t("report.byProject")} className="mt-2">
-              <table className="w-full min-w-[480px] border-collapse text-table">
+              <table className="w-full min-w-[480px] border-collapse text-table" data-stack="">
                 <thead>
                   <tr className="border-b border-line text-left text-meta text-fg-muted">
                     <th scope="col" className="px-5 py-2 font-medium">{t("report.project")}</th>
@@ -360,6 +363,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                   ))}
                 </tbody>
               </table>
+              <TableStackLabels />
               </ScrollRegion>
               <div className="h-3" />
             </section>
@@ -367,7 +371,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
               <section className="nesto-card min-w-0" aria-labelledby="by-phase">
                 <h2 id="by-phase" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.byPhase")}</h2>
                 <ScrollRegion label={t("report.byPhase")} className="mt-2">
-                <table className="w-full min-w-[400px] border-collapse text-table">
+                <table className="w-full min-w-[400px] border-collapse text-table" data-stack="">
                   <thead>
                     <tr className="border-b border-line text-left text-meta text-fg-muted">
                       <th scope="col" className="px-5 py-2 font-medium">{t("report.phase")}</th>
@@ -387,6 +391,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                     ))}
                   </tbody>
                 </table>
+                <TableStackLabels />
                 </ScrollRegion>
                 <div className="h-3" />
               </section>

@@ -116,7 +116,7 @@ function period(t: Translate<"workforce">, row: { startDate: string; endDate: st
 
 function Crews({ t, rows, employeeId, name }: { t: Translate<"workforce">; rows: CrewMembershipDTO[]; employeeId: string; name: string }) {
   return (
-    <Table flush aria-label={t("worker.crews")}>
+    <Table stack stackInset flush aria-label={t("worker.crews")}>
       <TableHead>
         <TableRow>
           <TableHeaderCell>{t("worker.crew")}</TableHeaderCell>
@@ -148,7 +148,7 @@ function Crews({ t, rows, employeeId, name }: { t: Translate<"workforce">; rows:
 
 function Assignments({ t, rows, employeeId, name }: { t: Translate<"workforce">; rows: ProjectAssignmentDTO[]; employeeId: string; name: string }) {
   return (
-    <Table flush aria-label={t("worker.projectAssignments")}>
+    <Table stack stackInset flush aria-label={t("worker.projectAssignments")}>
       <TableHead>
         <TableRow>
           <TableHeaderCell>{t("worker.project")}</TableHeaderCell>

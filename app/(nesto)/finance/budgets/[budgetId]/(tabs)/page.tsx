@@ -12,6 +12,7 @@ import { ScrollRegion } from "@/components/ui/scroll-region";
 import { formatDate } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { budgetLabel, loadBudget } from "../budget-context";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 type Params = { params: Promise<{ budgetId: string }> };
 
@@ -59,7 +60,7 @@ export default async function BudgetDetailPage({ params }: Params) {
           <h2 className="text-card font-semibold text-fg">{t("lines.budgetLines")}</h2>
 
           <ScrollRegion label={t("lines.budgetLines")} className="mt-4">
-            <table className="w-full text-table">
+            <table className="w-full text-table" data-stack="" data-flush="">
               <caption className="sr-only">{t("lines.budgetLines")}</caption>
               <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
                 <tr>
@@ -88,6 +89,7 @@ export default async function BudgetDetailPage({ params }: Params) {
                 ))}
               </tbody>
             </table>
+            <TableStackLabels />
           </ScrollRegion>
 
           <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">

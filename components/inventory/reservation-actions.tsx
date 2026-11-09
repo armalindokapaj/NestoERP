@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
+import { FoldIntoPageMenu } from "@/components/navigation/page-menu";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -94,35 +95,39 @@ export function ReservationRowActions({ reservation }: { reservation: Reservatio
   );
 }
 
-/** Releases everything past its expiry date in one go (PRD #20 §163). */
+/**
+ * Releases everything past its expiry date in one go (PRD #20 §163). A
+ * secondary header action: below lg it is an item of the page's ⋯ (mobile
+ * audit 2c), and either way the outcome is a toast.
+ */
 export function ExpireReservationsButton() {
   const router = useRouter();
   const toast = useToast();
   const t = useInventoryTranslations();
   const [pending, startTransition] = React.useTransition();
 
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          const result = await expireReservationsAction();
-          if (result.ok) {
-            const released = result.count ?? 0;
-            toast({
-              title: released === 0 ? t("reservationActions.nothingExpired") : t("reservationActions.expiredReleased", { count: released }),
-              tone: "success",
-            });
-            router.refresh();
-          } else {
-            toast({ title: result.error, tone: "danger" });
-          }
-        })
+  function release() {
+    if (pending) return;
+    startTransition(async () => {
+      const result = await expireReservationsAction();
+      if (result.ok) {
+        const released = result.count ?? 0;
+        toast({
+          title: released === 0 ? t("reservationActions.nothingExpired") : t("reservationActions.expiredReleased", { count: released }),
+          tone: "success",
+        });
+        router.refresh();
+      } else {
+        toast({ title: result.error, tone: "danger" });
       }
-    >
-      {pending ? t("reservationActions.releasing") : t("reservationActions.releaseExpired")}
-    </Button>
+    });
+  }
+
+  return (
+    <FoldIntoPageMenu item={{ kind: "action", label: t("reservationActions.releaseExpired"), onSelect: release }}>
+      <Button variant="secondary" size="sm" disabled={pending} onClick={release}>
+        {pending ? t("reservationActions.releasing") : t("reservationActions.releaseExpired")}
+      </Button>
+    </FoldIntoPageMenu>
   );
 }

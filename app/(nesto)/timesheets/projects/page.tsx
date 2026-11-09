@@ -21,6 +21,7 @@ import { dayLabel, formatMinutes, weekLabel } from "@/lib/modules/timesheets/tim
 import { TIMESHEET_STATUS_LABELS, WORK_LOG_TYPE_LABELS } from "@/lib/modules/timesheets/timesheet.types";
 import { cn } from "@/lib/utils/cn";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("timesheets"))("meta.projectTime") };
@@ -209,7 +210,8 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
               </div>
               {/* The entries pan in a labelled region, the heading stays put (AUD-04 §5, D-07-15, MW-19). */}
               <ScrollRegion label={t("common.entries")} className="mt-2">
-              <table className="w-full min-w-[720px] border-collapse text-table" data-testid="project-entries">
+              {/* A card per entry on a phone (mobile audit 2b). */}
+              <table className="w-full min-w-[720px] border-collapse text-table" data-testid="project-entries" data-stack="">
                 <thead>
                   <tr className="border-b border-line text-left text-meta text-fg-muted">
                     <th scope="col" className="px-5 py-2 font-medium">{t("projects.date")}</th>
@@ -243,6 +245,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
                   ))}
                 </tbody>
               </table>
+              <TableStackLabels />
               </ScrollRegion>
               {summary.entriesTruncated ? <p className="px-5 py-3 text-meta text-fg-muted">{t("projects.truncated")}</p> : <div className="h-2" />}
             </section>

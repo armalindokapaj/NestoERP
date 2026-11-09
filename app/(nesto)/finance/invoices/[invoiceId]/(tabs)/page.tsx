@@ -12,6 +12,8 @@ import type { Locale } from "@/lib/i18n/config";
 import { formatDate, formatDateTime, numberText } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { loadInvoice } from "../invoice-context";
+import { ScrollRegion } from "@/components/ui/scroll-region";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 type Params = { params: Promise<{ invoiceId: string }> };
 
@@ -51,9 +53,9 @@ export default async function InvoiceDetailPage({ params }: Params) {
         <section className="nesto-card p-5 lg:col-span-2">
           <h2 className="text-card font-semibold text-fg">{t("lines.lineItems")}</h2>
 
-          {/* A labelled, keyboard-scrollable region: five figures a line do not fit a phone (AUD-04 §5, D-02-10). */}
-          <div className="mt-4 overflow-x-auto" role="region" aria-label={t("invoices.lineItems")} tabIndex={0}>
-            <table className="w-full min-w-[32rem] text-table">
+          {/* From md a labelled, keyboard-scrollable region (AUD-04 §5, D-02-10); on a phone each line is a card with its quantity, price, tax and total labelled (mobile audit 2b). */}
+          <ScrollRegion label={t("invoices.lineItems")} className="mt-4">
+            <table className="w-full min-w-[32rem] text-table" data-stack="" data-flush="">
               <caption className="sr-only">{t("invoices.lineItems")}</caption>
               <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
                 <tr>
@@ -95,7 +97,8 @@ export default async function InvoiceDetailPage({ params }: Params) {
                 ))}
               </tbody>
             </table>
-          </div>
+            <TableStackLabels />
+          </ScrollRegion>
 
           <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-table">
             <SummaryRow label={t("lines.subtotal")}>

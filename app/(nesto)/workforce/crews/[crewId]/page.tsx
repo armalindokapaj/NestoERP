@@ -98,7 +98,7 @@ function Members({ t, accountLabel, title, members, manage, empty }: { t: Transl
       {members.length === 0 ? (
         <p className="px-5 py-6 text-table text-fg-muted">{empty}</p>
       ) : (
-        <Table flush aria-label={title}>
+        <Table stack stackInset flush aria-label={title}>
           <TableHead>
             <TableRow>
               <TableHeaderCell>{t("crew.name")}</TableHeaderCell>

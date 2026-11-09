@@ -45,10 +45,13 @@ export function TableColumnsScope({
   columns,
   label,
   leading,
+  cardsBelow = "md",
   children,
 }: {
   listId: string;
   columns: ColumnMeta[];
+  /** Where the table's cards give way to the table (DataTable `cardsBelow`): the Columns control is drawn only from there. */
+  cardsBelow?: "md" | "lg";
   /** The table's name, for the control's accessible label. */
   label?: string;
   /** Drawn at the start of the control's row (AUD-04: the phone Sort control). */
@@ -97,12 +100,18 @@ export function TableColumnsScope({
       {optional.length > 0 || leading ? (
         // Below md the table is cards, which have no columns to choose: the control is not drawn there, and a row
         // that would hold nothing else is not drawn either.
-        <div className={cn("mb-2 flex flex-wrap items-center justify-end gap-2", optional.length === 0 && "md:hidden", !leading && "max-md:hidden")}>
+        <div
+          className={cn(
+            "mb-2 flex flex-wrap items-center justify-end gap-2",
+            optional.length === 0 && (cardsBelow === "lg" ? "lg:hidden" : "md:hidden"),
+            !leading && (cardsBelow === "lg" ? "max-lg:hidden" : "max-md:hidden"),
+          )}
+        >
           {leading}
           {optional.length > 0 ? (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="secondary" size="sm" className="ml-auto max-md:hidden" aria-label={label ? t("columnsLabel", { label }) : t("columns")}>
+              <Button variant="secondary" size="sm" className={cn("ml-auto", cardsBelow === "lg" ? "max-lg:hidden" : "max-md:hidden")} aria-label={label ? t("columnsLabel", { label }) : t("columns")}>
                 <Columns3 aria-hidden="true" />
                 {t("columns")}
                 {hiddenHere.length > 0 ? (

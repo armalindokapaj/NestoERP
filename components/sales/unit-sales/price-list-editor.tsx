@@ -267,58 +267,75 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     const rate = price === undefined ? null : grossRate(unit, price, draft.basis);
     const area = unit.grossArea;
     const inputId = `price-${unit.id}`;
+    const undo = (className?: string) =>
+      unitChanged && !sold ? (
+        <Button variant="ghost" size="icon-sm" className={className} aria-label={t("priceList.undo", { unit: unit.unitCode })} title={t("priceList.undo", { unit: unit.unitCode })} onClick={() => setDraft(unit.id, baseline(unit))} disabled={pending}>
+          <RotateCcw aria-hidden="true" />
+        </Button>
+      ) : null;
     return (
-      <tr key={unit.id} className={cn("border-t border-line", unitChanged && "bg-accent-soft/40")} data-testid="price-row" data-unit-code={unit.unitCode} data-changed={unitChanged ? "true" : "false"}>
-        <td className="px-3 py-2 font-medium text-fg">{unit.unitCode}</td>
+      <tr key={unit.id} className={cn("border-t border-line", CARD.row, unitChanged && "bg-accent-soft/40")} data-testid="price-row" data-unit-code={unit.unitCode} data-changed={unitChanged ? "true" : "false"}>
+        <td className={cn("px-3 py-2 font-medium text-fg", CARD.code)}>{unit.unitCode}</td>
         {options.showLocation ? (
-          <td className="px-3 py-2 text-fg-muted">
+          <td className={cn("px-3 py-2 text-fg-muted", CARD.location)}>
             {unit.building} · {floorName(unit.floor, locale)}
           </td>
         ) : (
-          <td className="px-3 py-2 text-fg-muted">{unitTypeName(unit.unitType, locale)}</td>
+          <td className={cn("px-3 py-2 text-fg-muted", CARD.type)}>{unitTypeName(unit.unitType, locale)}</td>
         )}
-        {options.showLocation ? null : <td className="px-3 py-2 text-right tabular-nums text-fg-muted">{areaText(area, locale)}</td>}
-        <td className="px-3 py-2">
+        {options.showLocation ? null : <td className={cn("px-3 py-2 text-right tabular-nums text-fg-muted", CARD.area)}>{areaText(area, locale)}</td>}
+        <td className={cn("px-3 py-2", CARD.status)}>
           <CommercialStatusBadge status={unit.status} />
         </td>
-        <td className="px-3 py-2">
+        <td className={cn("px-3 py-2", CARD.price)}>
+          {/* A phone's card names the field and shows the saved price beside it: its table heading is not drawn there. */}
+          <span className="min-w-0 md:hidden">
+            <span className="block text-meta font-medium text-fg-muted" aria-hidden="true">
+              {t("priceList.price")} ({currency})
+            </span>
+            <span className="block text-meta tabular-nums text-fg-subtle">
+              {unit.askingPrice === null ? t("priceList.notPriced") : t("priceList.savedPrice", { price: moneyLabel(unit.askingPrice, unit.currency, locale) })}
+              {/* A sold unit has no field: its price per m² goes on this line. */}
+              {sold && !options.showLocation ? ` · ${perSqmLabel(rate, currency, locale)}` : null}
+            </span>
+          </span>
           {sold ? (
-            <span className="block text-right tabular-nums text-fg-muted" title={t("priceList.soldLocked")}>
+            <span className="block text-right tabular-nums text-fg-muted max-md:hidden" title={t("priceList.soldLocked")}>
               {moneyLabel(unit.askingPrice, unit.currency, locale)}
             </span>
           ) : (
-            <div className="flex flex-col items-end gap-0.5">
-              <label htmlFor={inputId} className="sr-only">
-                {t("priceList.priceFor", { unit: unit.unitCode })}
-              </label>
-              <Input
-                id={inputId}
-                inputMode="decimal"
-                className={cn("h-8 w-36 text-right tabular-nums", errors[unit.id] && "border-danger")}
-                value={draft.price}
-                onChange={(event) => typed(unit, event.target.value)}
-                aria-invalid={errors[unit.id] ? true : undefined}
-                aria-describedby={errors[unit.id] ? `${inputId}-error` : undefined}
-                placeholder={!options.showLocation && area === null ? t("priceList.noArea") : undefined}
-                disabled={pending}
-                data-testid="price-input"
-              />
-              {errors[unit.id] ? (
-                <span id={`${inputId}-error`} className="text-meta text-danger-strong">
-                  {errors[unit.id]}
-                </span>
-              ) : null}
+            <div className="flex items-start justify-end gap-1">
+              <div className="flex flex-col items-end gap-0.5">
+                <label htmlFor={inputId} className="sr-only">
+                  {t("priceList.priceFor", { unit: unit.unitCode })}
+                </label>
+                <Input
+                  id={inputId}
+                  inputMode="decimal"
+                  className={cn("h-8 w-36 text-right tabular-nums max-md:w-32", errors[unit.id] && "border-danger")}
+                  value={draft.price}
+                  onChange={(event) => typed(unit, event.target.value)}
+                  aria-invalid={errors[unit.id] ? true : undefined}
+                  aria-describedby={errors[unit.id] ? `${inputId}-error` : undefined}
+                  placeholder={!options.showLocation && area === null ? t("priceList.noArea") : undefined}
+                  disabled={pending}
+                  data-testid="price-input"
+                />
+                {errors[unit.id] ? (
+                  <span id={`${inputId}-error`} className="text-meta text-danger-strong">
+                    {errors[unit.id]}
+                  </span>
+                ) : null}
+                {/* On a phone the typed price per m² of gross area sits under the field; from md it has its own column. */}
+                {options.showLocation ? null : <span className="text-meta tabular-nums text-fg-subtle md:hidden">{perSqmLabel(rate, currency, locale)}</span>}
+              </div>
+              {/* On a phone Undo sits beside the field; the table's own column is not drawn there. */}
+              {undo("md:hidden")}
             </div>
           )}
         </td>
-        {options.showLocation ? null : <td className="px-3 py-2 text-right tabular-nums text-fg-muted" data-testid="price-per-sqm">{perSqmLabel(rate, currency, locale)}</td>}
-        <td className="w-10 px-1 py-2 text-right">
-          {unitChanged && !sold ? (
-            <Button variant="ghost" size="icon-sm" aria-label={t("priceList.undo", { unit: unit.unitCode })} title={t("priceList.undo", { unit: unit.unitCode })} onClick={() => setDraft(unit.id, baseline(unit))} disabled={pending}>
-              <RotateCcw aria-hidden="true" />
-            </Button>
-          ) : null}
-        </td>
+        {options.showLocation ? null : <td className="px-3 py-2 text-right tabular-nums text-fg-muted max-md:hidden" data-testid="price-per-sqm">{perSqmLabel(rate, currency, locale)}</td>}
+        <td className="w-10 px-1 py-2 text-right max-md:hidden">{undo()}</td>
       </tr>
     );
   };
@@ -534,6 +551,23 @@ function RateControl({
   );
 }
 
+/*
+ * Below md each unit is a card rather than a table row (mobile audit 2a): its
+ * code and status on the first line, its type and gross area (a parking
+ * space's location) under them, then its price field across the card with the
+ * saved price beside it. The same cells and the same field, placed by CSS, so
+ * nothing scrolls sideways; from md it is the table.
+ */
+const CARD = {
+  row: "max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto] max-md:items-center max-md:gap-x-3 max-md:gap-y-1 max-md:px-4 max-md:py-3",
+  code: "max-md:col-start-1 max-md:row-start-1 max-md:p-0 max-md:text-body",
+  status: "max-md:col-start-2 max-md:row-start-1 max-md:justify-self-end max-md:p-0",
+  type: "max-md:col-start-1 max-md:row-start-2 max-md:p-0 max-md:text-meta",
+  area: "max-md:col-start-2 max-md:row-start-2 max-md:p-0 max-md:text-meta",
+  location: "max-md:col-span-2 max-md:row-start-2 max-md:p-0 max-md:text-meta",
+  price: "max-md:col-span-2 max-md:row-start-3 max-md:flex max-md:items-center max-md:justify-between max-md:gap-3 max-md:p-0 max-md:pt-1",
+};
+
 /** Fixed widths, so every floor's columns line up under the one above. */
 type Column = { width: string; numeric?: boolean };
 const FLOOR_COLUMNS: Column[] = [{ width: "w-[14%]" }, { width: "w-[18%]" }, { width: "w-[12%]", numeric: true }, { width: "w-[16%]" }, { width: "w-[22%]", numeric: true }, { width: "w-[14%]", numeric: true }];
@@ -542,8 +576,8 @@ const PARKING_COLUMNS: Column[] = [{ width: "w-[14%]" }, { width: "w-[30%]" }, {
 function PriceTable({ columns, headings, children }: { columns: Column[]; headings: string[]; children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[44rem] table-fixed text-table">
-        <thead>
+      <table className="w-full table-fixed text-table max-md:block md:min-w-[44rem]">
+        <thead className="max-md:sr-only">
           <tr className="text-left text-meta text-fg-muted">
             {headings.map((heading, index) => (
               <th key={heading} scope="col" className={cn("px-3 py-2 font-medium", columns[index]?.width, columns[index]?.numeric && "text-right")}>
@@ -555,7 +589,7 @@ function PriceTable({ columns, headings, children }: { columns: Column[]; headin
             </th>
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody className="max-md:block">{children}</tbody>
       </table>
     </div>
   );

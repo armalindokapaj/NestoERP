@@ -50,11 +50,16 @@ function MobileCard({ href, number, title, status, lines, testId }: { href: stri
 
 const numberCell = "whitespace-nowrap font-mono text-table text-fg";
 
+/*
+ * Every register is a table from lg and its cards below it: on a portrait
+ * tablet the drawing and RFI registers needed 1000–1140px (mobile audit 2d).
+ */
+
 export function RfiRegister({ items, showProject = false, showAssignee = true, emptyTitle = <T k="registers.noRfis" /> }: { items: RfiRowDTO[]; showProject?: boolean; showAssignee?: boolean; emptyTitle?: React.ReactNode }) {
   if (!items.length) return <EmptyState icon={<MessageSquareText />} title={emptyTitle} description={<T k="registers.rfisEmptyBody" />} />;
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <Table>
           <TableHead>
             <TableRow>
@@ -116,7 +121,7 @@ export function RfiRegister({ items, showProject = false, showAssignee = true, e
           </TableBody>
         </Table>
       </div>
-      <ul className="space-y-2 md:hidden">
+      <ul className="space-y-2 lg:hidden">
         {items.map((row) => (
           <MobileCard
             key={row.id}
@@ -137,7 +142,7 @@ export function SubmittalRegister({ items, showProject = false, emptyTitle = <T 
   if (!items.length) return <EmptyState icon={<FileStack />} title={emptyTitle} description={<T k="registers.submittalsEmptyBody" />} />;
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <Table>
           <TableHead>
             <TableRow>
@@ -187,7 +192,7 @@ export function SubmittalRegister({ items, showProject = false, emptyTitle = <T 
           </TableBody>
         </Table>
       </div>
-      <ul className="space-y-2 md:hidden">
+      <ul className="space-y-2 lg:hidden">
         {items.map((row) => (
           <MobileCard
             key={row.id}
@@ -208,7 +213,7 @@ export function DocumentRegister({ items, drawings = false, showProject = false,
   if (!items.length) return <EmptyState icon={<DraftingCompass />} title={emptyTitle ?? (drawings ? <T k="registers.noDrawings" /> : <T k="registers.noDocuments" />)} description={<T k="registers.documentsEmptyBody" />} />;
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <Table>
           <TableHead>
             <TableRow>
@@ -263,7 +268,7 @@ export function DocumentRegister({ items, drawings = false, showProject = false,
           </TableBody>
         </Table>
       </div>
-      <ul className="space-y-2 md:hidden">
+      <ul className="space-y-2 lg:hidden">
         {items.map((row) => (
           <MobileCard
             key={row.id}
@@ -284,7 +289,7 @@ export function TransmittalRegister({ items, showProject = false }: { items: Tra
   if (!items.length) return <EmptyState icon={<Send />} title={<T k="registers.noTransmittals" />} description={<T k="registers.transmittalsEmptyBody" />} />;
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <Table>
           <TableHead>
             <TableRow>
@@ -334,7 +339,7 @@ export function TransmittalRegister({ items, showProject = false }: { items: Tra
           </TableBody>
         </Table>
       </div>
-      <ul className="space-y-2 md:hidden">
+      <ul className="space-y-2 lg:hidden">
         {items.map((row) => (
           <MobileCard key={row.id} testId="transmittal-card" href={row.href} number={row.transmittalNumber} title={row.subject ?? <EngineeringLabel group="purpose" value={row.purpose} fallback={TRANSMITTAL_PURPOSE_LABELS[row.purpose]} />} status={<ReviewBadge status={row.status} />} lines={[showProject ? <span key="p">{row.projectName}</span> : null, <span key="d"><EngineeringLabel group="direction" value={row.direction} fallback={TRANSMITTAL_DIRECTION_LABELS[row.direction]} /></span>, <span key="n"><T k="ui.documentsCount" values={{ count: row.itemCount }} /></span>, row.contractor ? <span key="c">{row.contractor.label}</span> : null, <span key="i">{row.issuedAt ? <><T k="ui.issued" /> <Due date={row.issuedAt} /></> : <T k="ui.notIssued" />}</span>]} />
         ))}

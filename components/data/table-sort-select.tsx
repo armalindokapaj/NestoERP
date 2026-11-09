@@ -32,7 +32,18 @@ import { FormSelect } from "@/components/ui/form-select";
  * sortOptions`, marked `data-list-sort-control`), this one stays out of the
  * way, so a phone never shows two.
  */
-export function TableSortSelect({ columns, sort, label }: { columns: SortableColumn[]; sort: TableSortConfig; label?: string }) {
+export function TableSortSelect({
+  columns,
+  sort,
+  label,
+  cardsBelow = "md",
+}: {
+  columns: SortableColumn[];
+  sort: TableSortConfig;
+  label?: string;
+  /** Where the table's cards give way to its header: the select is drawn only below it (DataTable `cardsBelow`). */
+  cardsBelow?: "md" | "lg";
+}) {
   const t = useTranslations("ui");
   const tCommon = useCommonTranslations();
   const router = useRouter();
@@ -58,7 +69,7 @@ export function TableSortSelect({ columns, sort, label }: { columns: SortableCol
 
   return (
     <div
-      className={cn("flex min-w-0 flex-1 items-center gap-2 md:hidden", "[:root:has([data-list-sort-control])_&]:hidden")}
+      className={cn("flex min-w-0 flex-1 items-center gap-2", cardsBelow === "lg" ? "lg:hidden" : "md:hidden", "[:root:has([data-list-sort-control])_&]:hidden")}
       data-table-sort
       data-pending={pending || undefined}
     >

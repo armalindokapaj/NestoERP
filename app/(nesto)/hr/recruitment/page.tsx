@@ -95,7 +95,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
           )
         ) : (
           <section className="nesto-card p-0">
-            <Table flush aria-label={t("recruitment.candidates")}>
+            <Table stack stackInset flush aria-label={t("recruitment.candidates")}>
               <TableHead>
                 <TableRow>
                   <TableHeaderCell>{t("recruitment.candidate")}</TableHeaderCell>

@@ -17,6 +17,7 @@ import {
 import { qaqcLabel } from "@/components/qaqc/qaqc-labels";
 import type { CorrectiveActionStatus, NCRCategory } from "@prisma/client";
 import type { Translate } from "@/lib/i18n/translator";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 /** The report service's aging buckets, named by their English label. */
 const AGING_KEYS: Record<string, "underWeek" | "weeks" | "months" | "overMonths"> = {
@@ -184,7 +185,7 @@ export default async function QaqcReportsPage() {
             <p className="mt-1 text-meta text-fg-subtle">{t("reports.bySupplierBody")}</p>
 
             <ScrollRegion label={t("reports.bySupplier")} className="mt-4">
-              <table className="w-full text-table">
+              <table className="w-full text-table" data-stack="" data-flush="">
                 <caption className="sr-only">{t("reports.bySupplierCaption")}</caption>
                 <thead>
                   <tr className="border-b border-line text-left text-meta text-fg-subtle">
@@ -213,6 +214,7 @@ export default async function QaqcReportsPage() {
                   ))}
                 </tbody>
               </table>
+              <TableStackLabels />
             </ScrollRegion>
           </section>
         ) : null}

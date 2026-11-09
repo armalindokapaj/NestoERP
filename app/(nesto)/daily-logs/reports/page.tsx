@@ -18,6 +18,7 @@ import { dateLabel, formatDuration, shortDayLabel } from "@/lib/modules/daily-lo
 import { DELAY_CATEGORY_LABELS, DELAY_IMPACT_LABELS } from "@/lib/modules/daily-logs/daily-log.types";
 import { cn } from "@/lib/utils/cn";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("dailyLogs"))("meta.reports") };
@@ -156,7 +157,8 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
 
         <section className="nesto-card overflow-x-auto" aria-labelledby="by-project">
           <h2 id="by-project" className="px-5 pt-4 text-card font-semibold text-fg">{t("reports.byProject")}</h2>
-          <table className="mt-2 w-full min-w-[640px] border-collapse text-table">
+          {/* A card per project on a phone, each figure labelled (mobile audit 2b). */}
+          <table className="mt-2 w-full min-w-[640px] border-collapse text-table" data-stack="">
             <thead>
               <tr className="border-b border-line text-left text-meta text-fg-muted">
                 <th scope="col" className="px-5 py-2 font-medium">{t("common.project")}</th>
@@ -184,6 +186,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
               ))}
             </tbody>
           </table>
+          <TableStackLabels />
           <div className="h-3" />
         </section>
       </div>

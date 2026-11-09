@@ -18,6 +18,7 @@ import type { RFQStatus } from "@prisma/client";
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { procurementLabel } from "@/lib/i18n/modules/procurement/labels";
 import type { Translate } from "@/lib/i18n/translator";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("procurement");
@@ -78,7 +79,7 @@ export default async function ReportsPage() {
               <p className="mt-4 text-table text-fg-subtle">{t("reports.deliveryEmpty")}</p>
             ) : (
               <ScrollRegion label={t("reports.onTimeBySupplier")} className="mt-4">
-              <table className="w-full text-table">
+              <table className="w-full text-table" data-stack="" data-flush="">
                 <caption className="sr-only">{t("reports.onTimeBySupplier")}</caption>
                 <thead>
                   <tr className="text-left text-meta text-fg-subtle">
@@ -105,6 +106,7 @@ export default async function ReportsPage() {
                   ))}
                 </tbody>
               </table>
+              <TableStackLabels />
               </ScrollRegion>
             )}
           </section>

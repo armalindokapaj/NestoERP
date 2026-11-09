@@ -102,9 +102,9 @@ export default async function ProposalPage({ params }: Params) {
           </p>
         </div>
 
-        {/* The Table primitive is the labelled scroll region itself (AUD-04 §5, SP-02). */}
+        {/* The Table primitive is the labelled scroll region itself (AUD-04 §5, SP-02); on a phone each line is a card (mobile audit 2b). */}
         <div className="mt-4">
-          <Table label={t("detail.proposalLines")}>
+          <Table stack label={t("detail.proposalLines")}>
             <TableHead>
               <tr>
                 <TableHeaderCell scope="col">{t("detail.description")}</TableHeaderCell>

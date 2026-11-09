@@ -26,6 +26,7 @@ import type {
 import { ReleaseBadge } from "./qaqc-format";
 import { useQaqcTranslations } from "./qaqc-text";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 /**
  * Deciding what happens to delivered material (PRD #21 §90, §91, §96, §98).
@@ -111,10 +112,11 @@ export function MaterialPanel({
   return (
     <div className="space-y-4">
       {decisions.length > 0 ? (
-        // Five figures and Remove need ~560px: they pan inside a labelled region
-        // instead of being clipped by the card (AUD-04 §5, D-04-01, MW-05).
+        // Five figures and Remove need ~560px: from md they pan inside a labelled region
+        // instead of being clipped by the card (AUD-04 §5, D-04-01, MW-05); on a phone each
+        // decision is a card with its figures labelled (mobile audit 2b).
         <ScrollRegion label={t("material.decisions")} className="nesto-card">
-          <table className="w-full min-w-[34rem] text-table">
+          <table className="w-full min-w-[34rem] text-table" data-stack="">
             <caption className="sr-only">{t("material.decisionsCaption")}</caption>
             <thead>
               <tr className="border-b border-line text-left text-meta text-fg-subtle">
@@ -167,6 +169,7 @@ export function MaterialPanel({
               ))}
             </tbody>
           </table>
+          <TableStackLabels />
         </ScrollRegion>
       ) : (
         <p className="nesto-card p-5 text-table text-fg-subtle">

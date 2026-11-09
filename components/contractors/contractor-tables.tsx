@@ -16,6 +16,10 @@ import { getTranslations } from "@/lib/i18n/server";
  * Contractor registers (PRD #46 §161, §163): the directory, a project's
  * assignments and work packages. Counts read as numbers, alerts in amber and
  * red, and every name opens its record.
+ *
+ * Each is a table from lg and its cards below it: on a portrait tablet the
+ * tables needed 860–1240px (mobile audit 2d), and the cards carry every
+ * column's value.
  */
 
 function Count({ value, tone }: { value: number; tone?: "warning" | "danger" }) {
@@ -37,7 +41,7 @@ export async function ContractorTable({ items, canCreate = false }: { items: Con
     );
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <Table label={t("tables.contractors")}>
           <TableHead>
             <TableRow>
@@ -92,7 +96,7 @@ export async function ContractorTable({ items, canCreate = false }: { items: Con
           </TableBody>
         </Table>
       </div>
-      <ul className="space-y-2 md:hidden">
+      <ul className="space-y-2 lg:hidden">
         {items.map((row) => (
           <li key={row.id}>
             <Link href={row.href} className="block rounded-lg border border-line bg-surface p-4" data-testid="contractor-card">
@@ -134,7 +138,7 @@ export async function AssignmentTable({ items, view }: { items: AssignmentDTO[];
     ) : null;
   return (
     <>
-    <ul className="space-y-2 md:hidden" aria-label={t("tables.assignments")}>
+    <ul className="space-y-2 lg:hidden" aria-label={t("tables.assignments")}>
       {items.map((row) => (
         <li key={row.id} className={cn("space-y-1.5 rounded-lg border border-line bg-surface p-4", row.status === "TERMINATED" && "opacity-70")} data-testid="assignment-card">
           <div className="flex items-start justify-between gap-3">
@@ -158,7 +162,7 @@ export async function AssignmentTable({ items, view }: { items: AssignmentDTO[];
         </li>
       ))}
     </ul>
-    <div className="hidden md:block">
+    <div className="hidden lg:block">
     <Table label={t("tables.assignments")}>
       <TableHead>
         <TableRow>
@@ -254,7 +258,7 @@ export async function WorkPackageTable({ items, showProject = false, emptyText }
   return (
     <>
     {/* A card per work package on a phone, every column's value on it (AUD-04 §5, D-09-12, MW-05). */}
-    <ul className="space-y-2 md:hidden" aria-label={t("tables.workPackages")}>
+    <ul className="space-y-2 lg:hidden" aria-label={t("tables.workPackages")}>
       {items.map((row) => (
         <li key={row.id}>
           <Link href={row.href} className="block space-y-1 rounded-lg border border-line bg-surface p-4" data-testid="work-package-card">
@@ -276,7 +280,7 @@ export async function WorkPackageTable({ items, showProject = false, emptyText }
         </li>
       ))}
     </ul>
-    <div className="hidden md:block">
+    <div className="hidden lg:block">
     <Table label={t("tables.workPackages")}>
       <TableHead>
         <TableRow>

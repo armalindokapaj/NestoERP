@@ -173,8 +173,9 @@ async function AgingReport({ context }: { context: UserContext }) {
       <p className="text-meta text-fg-subtle">
         {t("reports.agingHint")}
       </p>
+      {/* Report matrices scroll sideways below lg with their first column kept in place (mobile audit 2b). */}
       <ScrollRegion label={t("reports.tab.aging")} className="nesto-card">
-        <table className="w-full text-table">
+        <table className="w-full text-table" data-sticky-first="">
           <caption className="sr-only">{t("reports.tab.aging")}</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
             <tr>
@@ -396,7 +397,7 @@ async function CashflowReport({
         />
       ) : (
         <ScrollRegion label={t("reports.cashflowSummary")} className="nesto-card">
-          <table className="w-full text-table">
+          <table className="w-full text-table" data-sticky-first="">
             <caption className="sr-only">{t("reports.cashflowSummary")}</caption>
             <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
               <tr>

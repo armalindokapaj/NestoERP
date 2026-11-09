@@ -21,6 +21,7 @@ import { failureMessage, isFailure, timesheetApi } from "./timesheet-api";
 import { useTimesheetsTranslations } from "./timesheets-text";
 import { timesheetsLabel } from "@/lib/i18n/modules/timesheets/labels";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 
 /**
@@ -242,7 +243,8 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
       </div>
       {/* A labelled, keyboard-reachable scroll region (AUD-04 §5, D-07-15, MW-19). */}
       <ScrollRegion label={t("settings.approvers")} className="mt-3">
-        <table className="w-full min-w-[640px] border-collapse text-table" data-testid="approver-assignments">
+        {/* A card per person on a phone (mobile audit 2b). */}
+        <table className="w-full min-w-[640px] border-collapse text-table" data-testid="approver-assignments" data-stack="">
           <thead>
             <tr className="border-y border-line text-left text-meta text-fg-muted">
               <th scope="col" className="px-5 py-2 font-medium">{t("common.person")}</th>
@@ -291,6 +293,7 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
             ))}
           </tbody>
         </table>
+        <TableStackLabels />
       </ScrollRegion>
     </section>
   );

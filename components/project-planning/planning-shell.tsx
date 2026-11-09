@@ -24,6 +24,7 @@ import { failureMessage, planningApi } from "./planning-api";
 import { defaultZoom, PlanningTimeline, type TimelineZoom } from "./planning-timeline";
 import { Kpi, MilestoneStatusBadge, OwnerName, ProgressBar, Variance } from "./planning-ui";
 import { FormSelect } from "@/components/ui/form-select";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 /**
  * The planning workspace (PRD #44 §6, §8, §96, §104, §116, §120, §124-§128,
@@ -573,7 +574,8 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
             <section className="nesto-card overflow-hidden" data-testid="dependency-table">
               {plan.dependencies.length ? (
                 <ScrollRegion label={t("planning.dependenciesLabel")}>
-                  <table className="w-full min-w-[640px] text-left">
+                  {/* A card per dependency on a phone: the predecessor its title, the successor, lag and status labelled under it (mobile audit 2b). */}
+                  <table className="w-full min-w-[640px] text-left" data-stack="">
                     <caption className="sr-only">{t("planning.dependenciesLabel")}</caption>
                     <thead>
                       <tr className="border-b border-line text-meta text-fg-muted">
@@ -598,7 +600,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                                 </button>
                                 <span className="block text-meta text-fg-muted">{predecessor ? `${t(`milestoneStatus.${predecessor.status}`)} · ${dateLabel(predecessor.displayDate, locale)}` : ""}</span>
                               </td>
-                              <td className="px-3 py-2.5 text-fg-subtle" aria-hidden="true">→</td>
+                              <td className="px-3 py-2.5 text-fg-subtle max-md:hidden" aria-hidden="true">→</td>
                               <td className="px-3 py-2.5">
                                 <button type="button" className="text-table font-medium text-fg hover:text-accent-strong" onClick={() => successor && open(successor.id)}>
                                   {successor?.name}
@@ -614,6 +616,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                         })}
                     </tbody>
                   </table>
+                  <TableStackLabels />
                 </ScrollRegion>
               ) : (
                 <p className="px-4 py-8 text-center text-table text-fg-subtle">{t("planning.noDependencies")}</p>

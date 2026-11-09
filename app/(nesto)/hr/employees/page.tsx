@@ -2,9 +2,11 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
+import { Upload } from "lucide-react";
 
 import { HrExportLink } from "@/components/hr/export-link";
 import { ModulePage } from "@/components/modules/module-page";
+import { FoldIntoPageMenu } from "@/components/navigation/page-menu";
 import { Button } from "@/components/ui/button";
 import { SkeletonTable } from "@/components/ui/loading-state";
 import { can } from "@/lib/access/can";
@@ -53,12 +55,15 @@ export default async function EmployeesPage({
       experience={experience}
       activeSection="employees"
       actions={
-        <div className="flex items-center gap-2">
+        // Below lg Export and Import are items of the page's ⋯; Add employment record stays the one button (mobile audit 2c).
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {can(context, "hr.export") ? <HrExportLink type="employees" /> : null}
           {can(context, "hr.employee.import") ? (
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/hr/employees/import">{t("employees.import")}</Link>
-            </Button>
+            <FoldIntoPageMenu item={{ kind: "action", label: t("employees.import"), icon: <Upload aria-hidden="true" />, href: "/hr/employees/import" }}>
+              <Button asChild size="sm" variant="secondary">
+                <Link href="/hr/employees/import">{t("employees.import")}</Link>
+              </Button>
+            </FoldIntoPageMenu>
           ) : null}
           {can(context, "hr.employee.create_profile") ? (
             <Button asChild size="sm">

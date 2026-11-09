@@ -36,8 +36,9 @@ export async function GroupAgingReport({ context }: { context: UserContext }) {
   return (
     <div className="space-y-3">
       <p className="text-meta text-fg-subtle">{t("reports.groupAgingHint")} {t("reports.currencyNote")}</p>
+      {/* Report matrices scroll sideways below lg with the company column kept in place (mobile audit 2b). */}
       <ScrollRegion label={t("reports.agingByCompany")} className="nesto-card">
-        <table className="w-full text-table">
+        <table className="w-full text-table" data-sticky-first="">
           <caption className="sr-only">{t("reports.agingByCompany")}</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
             <tr>
@@ -143,7 +144,7 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
     <div className="space-y-3">
       <DataTable caption={t("reports.budgetByCompany")} columns={columns} records={rows} rowKey={(row) => `${row.company.id}-${row.projectId}`} />
       <ScrollRegion label={t("reports.budgetTotals")} className="nesto-card">
-        <table className="w-full text-table">
+        <table className="w-full text-table" data-sticky-first="">
           <caption className="sr-only">{t("reports.budgetTotals")}</caption>
           <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
             <tr>
@@ -262,7 +263,7 @@ export async function GroupCashflowReport({ context, period }: { context: UserCo
         />
       ) : (
         <ScrollRegion label={t("reports.cashflowByCompany")} className="nesto-card">
-          <table className="w-full text-table">
+          <table className="w-full text-table" data-sticky-first="">
             <caption className="sr-only">{t("reports.cashflowByCompany")}</caption>
             <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
               <tr>

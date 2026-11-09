@@ -307,7 +307,7 @@ async function Projects({ context, profile, t }: { context: UserContext; profile
     <div className="space-y-3">
       {assign ? <div className="flex justify-end">{assign}</div> : null}
       <div className="nesto-card p-0">
-        <Table flush aria-label={t("projects.label")}>
+        <Table stack stackInset flush aria-label={t("projects.label")}>
           <TableHead>
             <TableRow>
               <TableHeaderCell>{t("projects.project")}</TableHeaderCell>
@@ -541,7 +541,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
         {access.memberships.length === 0 ? (
           <p className="mt-2 text-table text-fg-subtle">{t("access.noCompany")}</p>
         ) : (
-          <Table flush aria-label={t("access.companyAccess")} className="mt-2">
+          <Table stack flush aria-label={t("access.companyAccess")} className="mt-2">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("access.company")}</TableHeaderCell>

@@ -226,7 +226,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
           * A card per requirement on a phone, with Renew / Waive / Archive on
           * the card instead of past the right edge of the table (AUD-04 §5, D-09-12, MW-05).
           */}
-        <ul className="space-y-2 md:hidden" aria-label={t("compliance.title")}>
+        <ul className="space-y-2 lg:hidden" aria-label={t("compliance.title")}>
           {items.map((item) => (
             <li key={item.id} className={cn("space-y-1.5 rounded-lg border border-line bg-surface p-4", highlight === item.id && "bg-accent-soft/40", item.archived && "opacity-60")} data-testid="compliance-card" data-status={item.status}>
               <div className="flex items-start justify-between gap-3">
@@ -252,7 +252,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
             </li>
           ))}
         </ul>
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
         <Table label={t("compliance.title")}>
           <TableHead>
             <TableRow>

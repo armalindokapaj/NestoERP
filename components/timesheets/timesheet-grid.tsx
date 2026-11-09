@@ -180,7 +180,8 @@ export function TimesheetGrid({
         * (AUD-04 §5, D-07-02, D-07-15, MW-05).
         */}
       <ScrollRegion label={t("grid.region")}>
-        <table className="w-full min-w-[860px] border-collapse text-table">
+        {/* `data-sticky-first`: below lg the scroll region shows a shadow beside the pinned day-row names once the days scroll under them (mobile audit 2b). */}
+        <table className="w-full min-w-[860px] border-collapse text-table" data-sticky-first="">
           <caption className="sr-only">{t("grid.caption", { name: week.member.name })}</caption>
           <thead>
             <tr className="border-b border-line bg-surface-muted/60">

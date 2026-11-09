@@ -17,6 +17,7 @@ import { recordTypeName } from "@/lib/i18n/modules/common/labels";
 import type { MessageKey, Translate } from "@/lib/i18n/translator";
 import { requireSettingsSection } from "../settings-access";
 import { listPageRedirect, pageHref } from "@/lib/modules/shared/list-query";
+import { TableStackLabels } from "@/components/ui/table-stack-labels";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -104,7 +105,8 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
         <>
           {/* A labelled, keyboard-reachable scroll region (AUD-04 §5, D-07-15, MW-19). */}
           <ScrollRegion label={t("sections.audit.label")} className="nesto-card">
-            <table className="w-full min-w-[52rem]">
+            {/* A card per event on a phone (mobile audit 2b). */}
+            <table className="w-full min-w-[52rem]" data-stack="">
               <thead>
                 <tr className="border-b border-line text-meta text-fg-subtle">
                   <th scope="col" className="px-5 py-2 text-left font-medium">{t("audit.when")}</th>
@@ -147,6 +149,7 @@ export default async function AuditSettingsPage({ searchParams }: Params) {
                 ))}
               </tbody>
             </table>
+            <TableStackLabels />
           </ScrollRegion>
           {/* Page links keep the severity and the search: paging used to drop them (AUD-08 §3). */}
           <Pagination meta={pagination} buildHref={(next) => pageHref("/settings/audit", params, next)} />

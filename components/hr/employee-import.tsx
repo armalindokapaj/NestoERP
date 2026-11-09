@@ -179,7 +179,7 @@ export function EmployeeImport({ template }: { template: string }) {
               </button>
             ))}
           </nav>
-          <Table flush aria-label={t("import.rowsInFile")}>
+          <Table stack stackInset flush aria-label={t("import.rowsInFile")}>
             <TableHead>
               <TableRow>
                 <TableHeaderCell>{t("import.row")}</TableHeaderCell>

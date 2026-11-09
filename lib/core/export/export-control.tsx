@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Download } from "lucide-react";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
+import { FoldIntoPageMenu, usePageMenuInline } from "@/components/navigation/page-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
@@ -27,6 +28,13 @@ import { cn } from "@/lib/utils/cn";
  *
  * Nothing here decides what may leave: the endpoint re-checks permission,
  * scope and every filter on each request.
+ *
+ * Below `lg` it is a secondary page action (mobile audit 2c): the button is an
+ * item of the page's ⋯ at the end of the title row (`FoldIntoPageMenu`,
+ * components/navigation/page-menu.tsx), and only what it has to say —
+ * Preparing, the download started, a failure with Try again — is drawn where
+ * it sat. A blocked export stays a button, so its reason is on screen, and a
+ * control outside a page header passes `inPageMenu={false}`.
  */
 
 type State =
@@ -81,6 +89,8 @@ export type ExportControlProps = {
   failedLabel?: string;
   retryLabel?: string;
   testId?: string;
+  /** Below lg the button is an item of the page's ⋯ (the default, for a page header's Export); false keeps it where it is. */
+  inPageMenu?: boolean;
 };
 
 export function ExportControl({
@@ -95,6 +105,7 @@ export function ExportControl({
   failedLabel,
   retryLabel,
   testId = "export",
+  inPageMenu = true,
 }: ExportControlProps) {
   const locale = useLocale();
   const base = COPY[locale === "sq" ? "sq" : "en"];
@@ -104,6 +115,7 @@ export function ExportControl({
   const [state, setState] = React.useState<State>({ kind: "idle" });
   const running = React.useRef(false);
   const scopeId = React.useId();
+  const inline = usePageMenuInline();
 
   function href(): string {
     const params = new URLSearchParams(searchParams.toString());
@@ -151,9 +163,11 @@ export function ExportControl({
 
   const preparing = state.kind === "preparing";
   const unavailable = blocked !== null || preparing;
+  // Folded into the page's ⋯ below lg; a blocked export stays a button there, its reason beside it.
+  const fold = inPageMenu && blocked === null;
 
-  return (
-    <div className="flex min-w-0 flex-col items-start gap-1 sm:items-end" data-testid={`${testId}-control`}>
+  const control = (
+    <>
       <Button
         type="button"
         variant="secondary"
@@ -173,22 +187,38 @@ export function ExportControl({
       <p id={scopeId} className={cn("max-w-xs text-meta text-fg-muted sm:text-right", blocked === null && "max-md:sr-only")} data-testid={`${testId}-scope`}>
         {blocked ?? scopeLabel ?? copy.scope}
       </p>
+    </>
+  );
+
+  return (
+    <>
+      {/* Below lg, while the folded button has nothing to say, the block takes no room in the header row. */}
+      <div className={cn("flex min-w-0 flex-col items-start gap-1 sm:items-end", fold && !inline && state.kind === "idle" && "max-lg:hidden")} data-testid={`${testId}-control`}>
+        {fold ? <FoldIntoPageMenu item={{ kind: "action", label, icon: <Download aria-hidden="true" />, onSelect: () => void run() }}>{control}</FoldIntoPageMenu> : control}
+        {/* What the folded button would say while it prepares; from lg the button says it. */}
+        {fold && !inline && preparing ? (
+          <p className="text-meta text-fg-muted lg:hidden" aria-hidden="true">
+            {copy.preparing}
+          </p>
+        ) : null}
+        {state.kind === "ready" ? (
+          <p className="max-w-xs text-meta text-fg-muted sm:text-right" aria-hidden="true" data-testid={`${testId}-ready`}>
+            {copy.ready(state.count)}
+          </p>
+        ) : null}
+        {state.kind === "failed" ? (
+          <div role="alert" data-testid={`${testId}-error`} className="flex max-w-xs flex-wrap items-center gap-2 text-meta text-danger-strong sm:justify-end">
+            <span>{state.message}</span>
+            <Button type="button" variant="ghost" size="sm" onClick={run}>
+              {copy.retry}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      {/* Outside the block, so it is announced at every width, folded or not. */}
       <p role="status" className="sr-only" data-testid={`${testId}-status`}>
         {preparing ? copy.preparing : state.kind === "ready" ? copy.ready(state.count) : ""}
       </p>
-      {state.kind === "ready" ? (
-        <p className="max-w-xs text-meta text-fg-muted sm:text-right" aria-hidden="true" data-testid={`${testId}-ready`}>
-          {copy.ready(state.count)}
-        </p>
-      ) : null}
-      {state.kind === "failed" ? (
-        <div role="alert" data-testid={`${testId}-error`} className="flex max-w-xs flex-wrap items-center gap-2 text-meta text-danger-strong sm:justify-end">
-          <span>{state.message}</span>
-          <Button type="button" variant="ghost" size="sm" onClick={run}>
-            {copy.retry}
-          </Button>
-        </div>
-      ) : null}
-    </div>
+    </>
   );
 }

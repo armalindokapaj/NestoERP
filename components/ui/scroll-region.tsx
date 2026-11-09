@@ -19,6 +19,13 @@ import { cn } from "@/lib/utils/cn";
  * a measurement shows nothing to scroll: the markup is the same on both sides
  * of hydration. `data-overflowing` is set while there is something to scroll.
  *
+ * Below `lg` the region also shows that it scrolls (globals.css, "Scroll
+ * hints"): `data-more-after` and `data-more-before` say there is content past
+ * the right or the left edge, and the edge with more fades out. A table that
+ * keeps its first column in place (`data-sticky-first`, Table `stickyFirst`)
+ * shows a shadow beside that column instead of a fade on its side. Set on the
+ * DOM as the region scrolls, so scrolling never re-renders the content.
+ *
  * Use it for every hand-rolled `overflow-x-auto` wrapper (RC-6); the Table
  * primitive already does.
  */
@@ -43,13 +50,27 @@ export function ScrollRegion({
   React.useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const measure = () => setOverflowing(element.scrollWidth > element.clientWidth + 1);
+    const edges = () => {
+      // scrollLeft is negative in a right-to-left region: measure from the start edge either way.
+      const start = Math.abs(element.scrollLeft);
+      const room = element.scrollWidth - element.clientWidth;
+      element.toggleAttribute("data-more-before", start > 1);
+      element.toggleAttribute("data-more-after", room - start > 1);
+    };
+    const measure = () => {
+      setOverflowing(element.scrollWidth > element.clientWidth + 1);
+      edges();
+    };
     measure();
-    if (typeof ResizeObserver === "undefined") return;
+    element.addEventListener("scroll", edges, { passive: true });
+    if (typeof ResizeObserver === "undefined") return () => element.removeEventListener("scroll", edges);
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     for (const child of Array.from(element.children)) observer.observe(child);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      element.removeEventListener("scroll", edges);
+    };
   }, []);
 
   return (
@@ -57,6 +78,7 @@ export function ScrollRegion({
       ref={ref}
       role="region"
       aria-label={label}
+      data-scroll-region=""
       tabIndex={overflowing ? 0 : undefined}
       data-overflowing={overflowing || undefined}
       className={cn(

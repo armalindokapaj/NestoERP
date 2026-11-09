@@ -1187,6 +1187,7 @@ export const en = {
     goBack: "Go back",
     switchTo: "Switch {label}",
     moreSections: "More",
+    pageMenu: "More options",
     goForward: "Go forward",
     back: "Back",
     forward: "Forward",

@@ -188,7 +188,8 @@ export function PageHeaderFrame({
  * the ⋯ follows it, and the other actions wrap onto the next line, left to
  * right. From lg nothing here applies: the actions and the ⋯ are drawn as ever.
  */
-const PAGE_MENU_ROW = "group/page-header-row max-lg:has-[[data-page-menu]]:justify-start max-lg:[&_[data-page-menu]]:order-1";
+// `flex flex-wrap`: a settings header's row is a plain block in version 1, which would put its ⋯ on a line of its own.
+const PAGE_MENU_ROW = "group/page-header-row max-lg:has-[[data-page-menu]]:flex max-lg:has-[[data-page-menu]]:flex-wrap max-lg:has-[[data-page-menu]]:justify-start max-lg:[&_[data-page-menu]]:order-1";
 const PAGE_MENU_TEXT = "max-lg:group-has-[[data-page-menu]]/page-header-row:min-w-0 max-lg:group-has-[[data-page-menu]]/page-header-row:flex-[1_1_calc(100%_-_4.5rem)]";
 const PAGE_MENU_ACTIONS = "max-lg:group-has-[[data-page-menu]]/page-header-row:contents max-lg:group-has-[[data-page-menu]]/page-header-row:[&>:not([data-page-menu])]:order-3";
 
