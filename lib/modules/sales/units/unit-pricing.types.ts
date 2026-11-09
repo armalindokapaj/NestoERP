@@ -17,6 +17,8 @@ export type UnitTypeCategoryKey = "RESIDENTIAL" | "COMMERCIAL" | "PARKING" | "ST
 export type PriceListUnitDTO = {
   id: string;
   unitCode: string;
+  /** How the unit is named to people: its building's code and its own, "T-501". */
+  label: string;
   unitType: string;
   category: UnitTypeCategoryKey;
   saleableArea: string | null;

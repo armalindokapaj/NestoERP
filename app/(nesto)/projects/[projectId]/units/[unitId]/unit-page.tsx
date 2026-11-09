@@ -22,6 +22,7 @@ import * as projects from "@/lib/modules/projects/project.service";
 import { legalCapabilities } from "@/lib/modules/contracts/units/sale-contract";
 import { financeCapabilities } from "@/lib/modules/finance/units/unit-finance.core";
 import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
+import { saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
 import { loadProject } from "../../project-context";
 
 /**
@@ -99,14 +100,15 @@ export async function UnitShell({ page, active, children }: { page: Page; active
           { label: project.name, href: `/projects/${project.id}` },
           { label: unit.building.name, href: `${units}?building=${unit.building.id}` },
           { label: floorName(unit.floor.name, locale), href: `${units}?floor=${unit.floor.id}` },
-          active === "overview" ? { label: unit.unitCode } : { label: unit.unitCode, href: base },
+          // Named by the code every list shows, "T-501" (2026-11-09).
+          active === "overview" ? { label: unit.label } : { label: unit.label, href: base },
         ]}
-        title={unit.unitCode}
+        title={unit.label}
         subtitle={unitTypeName(unit.unitType.name, locale)}
         badges={
           <>
             <PublicationBadge status={publishing.status} versionNumber={publishing.currentPublication?.versionNumber} />
-            <CommercialStatusBadge status={unit.commercialStatus} />
+            <CommercialStatusBadge status={saleStatusOf(unit.commercialStatus, unit.askingPrice?.amount ?? null)} />
             {publishing.status !== "PUBLISHED" && publishing.currentPublication ? <Badge tone="default">{t("unitPage.lastPublished", { version: publishing.currentPublication.versionNumber })}</Badge> : null}
             {unit.isActive ? null : <Badge>{t("unitPage.inactive")}</Badge>}
           </>
@@ -120,12 +122,12 @@ export async function UnitShell({ page, active, children }: { page: Page; active
         actions={
           <>
             <RecordFavorite context={page.context} entityType="project_unit" entityId={unit.id} />
-            <PublishingActions unitId={unit.id} unitCode={unit.unitCode} version={unit.version} publishing={publishing} />
+            <PublishingActions unitId={unit.id} unitCode={unit.label} version={unit.version} publishing={publishing} />
             {structure ? <UnitActions unit={unit} types={structure.unitTypes} buildings={structure.buildings} /> : null}
           </>
         }
       />
-      <ContextTabsFrame label={t("unitPage.sectionsLabel", { code: unit.unitCode })} sections={sections}>
+      <ContextTabsFrame label={t("unitPage.sectionsLabel", { code: unit.label })} sections={sections}>
           {sections.map((section) => (
             <Link
                 key={section.key}

@@ -16,7 +16,7 @@ import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { formatDate } from "@/lib/i18n/format";
 import { COUNT_CHOICES, ORIENTATION_LABELS, UNIT_ORIENTATIONS, type UnitOrientation } from "@/lib/modules/project-structure/structure.types";
 import type { InventorySort } from "@/lib/modules/sales/units/unit-sales.schema";
-import { UNIT_COMMERCIAL_STATUS_LABELS, type InventoryDTO, type InventoryRowDTO, type UnitCommercialStatus } from "@/lib/modules/sales/units/unit-sales.types";
+import { UNIT_SALE_STATUS_LABELS, type InventoryDTO, type InventoryRowDTO, type UnitSaleStatus } from "@/lib/modules/sales/units/unit-sales.types";
 import { cn } from "@/lib/utils/cn";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
@@ -28,9 +28,16 @@ import { FormSelect } from "@/components/ui/form-select";
  *
  * The canonical units — no copy — filtered, searched and sorted by the server a
  * page at a time. The quick filters say how many units each would show under
- * every other filter. A row opens the unit's one page; on a phone each unit is a
- * card with what decides a sale, and the reserve and release actions the reader
- * may take land on that page's Sales section with the dialog open.
+ * every other filter; a unit nobody has priced reads Not Priced and has its
+ * own (2026-11-09). A row opens the unit's Sales section; on a phone each unit
+ * is a card with what decides a sale, and the reserve and release actions the
+ * reader may take land on that section with the dialog open.
+ *
+ * The same words as the Units table (2026-11-09): the unit is named "T-501",
+ * its building's code and its own, so the Floor column carries no building;
+ * the area is the sale area — saleable when typed, else gross, and the column
+ * says which; Client, Deal and Expires appear once a unit on screen is
+ * reserved or sold, or the Reserved or Sold filter is chosen.
  */
 
 export type InventoryFilters = {
@@ -54,7 +61,7 @@ export type InventoryFilters = {
 export const EMPTY_INVENTORY_FILTERS: InventoryFilters = { q: "", commercialStatus: "", buildingId: "", floorId: "", unitTypeId: "", orientation: "", bedrooms: "", bathrooms: "", areaMin: "", areaMax: "", priceMin: "", priceMax: "", pricePerSqmMin: "", pricePerSqmMax: "", sort: "structure" };
 
 const PANEL_KEYS = ["buildingId", "floorId", "unitTypeId", "orientation", "bedrooms", "bathrooms", "areaMin", "areaMax", "priceMin", "priceMax", "pricePerSqmMin", "pricePerSqmMax"] as const;
-const QUICK: Array<UnitCommercialStatus | ""> = ["", "FOR_SALE", "ON_HOLD", "RESERVED", "SOLD", "NOT_FOR_SALE"];
+const QUICK: Array<UnitSaleStatus | ""> = ["", "FOR_SALE", "NOT_PRICED", "ON_HOLD", "RESERVED", "SOLD", "NOT_FOR_SALE"];
 const SORT_LABELS: Record<InventorySort, string> = {
   structure: "Building and floor",
   code: "Unit code",
@@ -155,6 +162,11 @@ export function SalesInventory({
 
   const nav = useFeedbackRouter();
   const href = (row: InventoryRowDTO) => `/projects/${projectId}/units/${row.id}`;
+  // Sales opens the unit where it is sold: its Sales section, not its Overview (2026-11-09).
+  const salesHref = (row: InventoryRowDTO) => `${href(row)}/sales`;
+  // The reservation's columns, only once there is something to show in them — or the reader asked for reserved or sold units.
+  const showDeal = filters.commercialStatus === "RESERVED" || filters.commercialStatus === "SOLD" || list.items.some((row) => row.status === "RESERVED" || row.status === "SOLD");
+  const areaWord = (row: InventoryRowDTO) => (row.saleArea === null ? null : row.saleAreaBasis === "SALEABLE_AREA" ? t("inventory.areaSaleable") : t("inventory.areaGross"));
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
   const first = list.total ? (list.page - 1) * list.pageSize + 1 : 0;
   const last = Math.min(list.page * list.pageSize, list.total);
@@ -176,7 +188,7 @@ export function SalesInventory({
                 onClick={() => setFilter({ commercialStatus: status })}
                 className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
               >
-                {status ? salesLabel(t, "commercialStatus", status, UNIT_COMMERCIAL_STATUS_LABELS[status]) : t("inventory.all")}
+                {status ? salesLabel(t, "commercialStatus", status, UNIT_SALE_STATUS_LABELS[status]) : t("inventory.all")}
                 <span className={cn("tabular-nums", pressed ? "opacity-90" : "text-fg-subtle")}>{list.counts[status || "ALL"]}</span>
               </button>
             );
@@ -219,8 +231,8 @@ export function SalesInventory({
           <FilterSelect label={t("inventory.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={COUNT_CHOICES.bedrooms.map((value) => ({ value: String(value), label: String(value) }))} />
           <FilterSelect label={t("inventory.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={COUNT_CHOICES.bathrooms.map((value) => ({ value: String(value), label: String(value) }))} />
           <FilterSelect label={t("inventory.orientation")} value={filters.orientation} onChange={(orientation) => setFilter({ orientation })} options={UNIT_ORIENTATIONS.map((value) => ({ value, label: salesLabel(t, "orientation", value, ORIENTATION_LABELS[value]) }))} />
-          <RangeFilter label={t("inventory.saleableArea")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
-          <RangeFilter label={t("inventory.askingPrice")} min={filters.priceMin} max={filters.priceMax} onChange={(priceMin, priceMax) => setFilter({ priceMin, priceMax })} />
+          <RangeFilter label={t("inventory.areaRange")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
+          <RangeFilter label={t("inventory.totalPrice")} min={filters.priceMin} max={filters.priceMax} onChange={(priceMin, priceMax) => setFilter({ priceMin, priceMax })} />
           <RangeFilter label={t("inventory.pricePerSqm")} min={filters.pricePerSqmMin} max={filters.pricePerSqmMax} onChange={(pricePerSqmMin, pricePerSqmMax) => setFilter({ pricePerSqmMin, pricePerSqmMax })} />
         </div>
       ) : null}
@@ -245,16 +257,16 @@ export function SalesInventory({
               <TableHead>
                 <tr>
                   <TableHeaderCell>{t("inventory.unit")}</TableHeaderCell>
-                  <TableHeaderCell>{t("inventory.location")}</TableHeaderCell>
-                  <TableHeaderCell className="text-right">{t("inventory.saleable")}</TableHeaderCell>
-                  <TableHeaderCell className="text-right">{t("inventory.beds")}</TableHeaderCell>
+                  <TableHeaderCell>{t("inventory.floor")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.area")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.bedrooms")}</TableHeaderCell>
                   <TableHeaderCell className="hidden 2xl:table-cell">{t("inventory.orientation")}</TableHeaderCell>
                   <TableHeaderCell>{t("inventory.status")}</TableHeaderCell>
-                  <TableHeaderCell className="text-right">{t("inventory.askingPrice")}</TableHeaderCell>
+                  <TableHeaderCell className="text-right">{t("inventory.totalPrice")}</TableHeaderCell>
                   <TableHeaderCell className="text-right">{t("inventory.pricePerSqm")}</TableHeaderCell>
-                  {list.canSeeClients ? <TableHeaderCell>{t("inventory.client")}</TableHeaderCell> : null}
-                  {list.canSeeDeals ? <TableHeaderCell>{t("inventory.deal")}</TableHeaderCell> : null}
-                  <TableHeaderCell>{t("inventory.expires")}</TableHeaderCell>
+                  {showDeal && list.canSeeClients ? <TableHeaderCell>{t("inventory.client")}</TableHeaderCell> : null}
+                  {showDeal && list.canSeeDeals ? <TableHeaderCell>{t("inventory.deal")}</TableHeaderCell> : null}
+                  {showDeal ? <TableHeaderCell>{t("inventory.expires")}</TableHeaderCell> : null}
                 </tr>
               </TableHead>
               <TableBody>
@@ -263,35 +275,35 @@ export function SalesInventory({
                     key={row.id}
                     data-testid="sales-row"
                     data-unit-code={row.unitCode}
-                    data-status={row.status}
+                    data-status={row.saleStatus}
                     interactive
                     className={COMMERCIAL_ROW_TINT[row.status]}
                     onClick={(event) => {
-                      // Anywhere on the row opens the unit, as on the Units table; the client and deal links keep their own targets.
-                      if (opensRow(event)) nav.push(href(row));
+                      // Anywhere on the row opens the unit's Sales section; the client and deal links keep their own targets.
+                      if (opensRow(event)) nav.push(salesHref(row));
                     }}
                   >
                     <TableCell className="whitespace-nowrap">
-                      <Link href={href(row)} className="font-medium text-fg hover:text-accent-strong">
-                        {row.unitCode}
+                      <Link href={salesHref(row)} className="font-medium text-fg hover:text-accent-strong">
+                        {row.label}
                       </Link>
                       <span className="block text-meta text-fg-subtle">{unitTypeName(row.unitType, locale)}</span>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {row.building}
-                      <span className="block text-meta text-fg-subtle">{floorName(row.floor, locale)}</span>
+                    <TableCell className="whitespace-nowrap">{floorName(row.floor, locale)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums" data-testid="sales-area" data-basis={row.saleAreaBasis}>
+                      {areaText(row.saleArea, locale)}
+                      {areaWord(row) ? <span className="block text-meta text-fg-subtle">{areaWord(row)}</span> : null}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{areaText(row.saleableArea, locale)}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.bedrooms ?? "—"}</TableCell>
                     <TableCell className="hidden text-fg-muted 2xl:table-cell">{row.orientation ? salesLabel(t, "orientation", row.orientation, ORIENTATION_LABELS[row.orientation as UnitOrientation]) : "—"}</TableCell>
                     <TableCell>
-                      <CommercialStatusBadge status={row.status} />
+                      <CommercialStatusBadge status={row.saleStatus} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">{moneyLabel(row.askingPrice, row.currency, locale)}</TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums text-fg-muted">{perSqmLabel(row.pricePerSqm, row.currency, locale)}</TableCell>
-                    {list.canSeeClients ? <TableCell className="max-w-[10rem] truncate">{row.client ? <Link href={`/clients/${row.client.id}`} className="hover:underline">{row.client.name}</Link> : "—"}</TableCell> : null}
-                    {list.canSeeDeals ? <TableCell className="max-w-[10rem] truncate">{row.deal ? <Link href={`/sales/opportunities/${row.deal.id}`} className="hover:underline">{row.deal.name}</Link> : "—"}</TableCell> : null}
-                    <TableCell className="whitespace-nowrap text-fg-muted">{row.reservationExpiresAt ? formatDate(row.reservationExpiresAt, locale) : "—"}</TableCell>
+                    {showDeal && list.canSeeClients ? <TableCell className="max-w-[10rem] truncate">{row.client ? <Link href={`/clients/${row.client.id}`} className="hover:underline">{row.client.name}</Link> : "—"}</TableCell> : null}
+                    {showDeal && list.canSeeDeals ? <TableCell className="max-w-[10rem] truncate">{row.deal ? <Link href={`/sales/opportunities/${row.deal.id}`} className="hover:underline">{row.deal.name}</Link> : "—"}</TableCell> : null}
+                    {showDeal ? <TableCell className="whitespace-nowrap text-fg-muted">{row.reservationExpiresAt ? formatDate(row.reservationExpiresAt, locale) : "—"}</TableCell> : null}
                   </TableRow>
                 ))}
               </TableBody>
@@ -300,15 +312,16 @@ export function SalesInventory({
 
           <ul className="space-y-2 lg:hidden" data-testid="sales-cards">
             {list.items.map((row) => (
-              <li key={row.id} className={cn("nesto-card p-3", COMMERCIAL_CARD_TINT[row.status])} data-testid="sales-card" data-unit-code={row.unitCode} data-status={row.status}>
-                <Link href={href(row)} className="block min-w-0">
+              <li key={row.id} className={cn("nesto-card p-3", COMMERCIAL_CARD_TINT[row.status])} data-testid="sales-card" data-unit-code={row.unitCode} data-status={row.saleStatus}>
+                <Link href={salesHref(row)} className="block min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-body font-semibold text-fg">{row.unitCode}</span>
-                    <CommercialStatusBadge status={row.status} />
+                    <span className="text-body font-semibold text-fg">{row.label}</span>
+                    <CommercialStatusBadge status={row.saleStatus} />
                     <span className="ml-auto text-body font-medium tabular-nums text-fg">{moneyLabel(row.askingPrice, row.currency, locale)}</span>
                   </span>
                   <span className="mt-0.5 block text-meta text-fg-subtle">
-                    {row.building} · {floorName(row.floor, locale)} · {areaText(row.saleableArea, locale)}
+                    {floorName(row.floor, locale)} · {areaText(row.saleArea, locale)}
+                    {areaWord(row) ? ` ${areaWord(row)}` : null}
                     {row.pricePerSqm !== null ? ` · ${perSqmLabel(row.pricePerSqm, row.currency, locale)}` : null}
                   </span>
                   {row.client || row.reservationExpiresAt ? (
@@ -321,7 +334,7 @@ export function SalesInventory({
                 </Link>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button asChild variant="secondary" size="sm">
-                    <Link href={href(row)}>{t("inventory.open")}</Link>
+                    <Link href={salesHref(row)}>{t("inventory.open")}</Link>
                   </Button>
                   {/* The table's Deal column, so a phone reaches the unit's deal too (AUD-04 §5, MW-05). */}
                   {list.canSeeDeals && row.deal ? (
@@ -333,12 +346,12 @@ export function SalesInventory({
                   ) : null}
                   {actions.canReserve && (row.status === "FOR_SALE" || row.status === "ON_HOLD") && row.publicationStatus === "PUBLISHED" ? (
                     <Button asChild size="sm">
-                      <Link href={`${href(row)}/sales?action=reserve`}>{t("inventory.reserve")}</Link>
+                      <Link href={`${salesHref(row)}?action=reserve`}>{t("inventory.reserve")}</Link>
                     </Button>
                   ) : null}
                   {actions.canRelease && row.status === "RESERVED" ? (
                     <Button asChild variant="secondary" size="sm">
-                      <Link href={`${href(row)}/sales?action=release`}>{t("inventory.release")}</Link>
+                      <Link href={`${salesHref(row)}?action=release`}>{t("inventory.release")}</Link>
                     </Button>
                   ) : null}
                 </div>

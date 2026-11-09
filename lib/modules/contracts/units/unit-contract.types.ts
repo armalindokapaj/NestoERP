@@ -54,7 +54,8 @@ export type PartyRef = { id: string; name: string } | null;
 export type ContractRequestDTO = {
   id: string;
   status: ContractRequestStatusKey;
-  unit: { id: string; unitCode: string; projectId: string; projectName: string; building: string; floor: string };
+  /** `label` names the unit to people: its building's code and its own, "T-501". */
+  unit: { id: string; unitCode: string; label: string; projectId: string; projectName: string; building: string; floor: string };
   client: PartyRef;
   deal: PartyRef;
   agreedPrice: string | null;
@@ -93,18 +94,20 @@ export type UnitContractDTO = {
   updatedBy: { memberId: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
-  units: Array<{ unitId: string; unitCode: string; value: string | null; valueNote: string | null; released: boolean; releaseReason: string | null }>;
+  units: Array<{ unitId: string; unitCode: string; label: string; value: string | null; valueNote: string | null; released: boolean; releaseReason: string | null }>;
   pendingApproval: boolean;
   documentCount: number;
   actions: UnitContractAction[];
 };
 
-export type ContractCandidateDTO = { unitId: string; unitCode: string; unitType: string; agreedPrice: string | null; currency: string | null; hasOpenRequest: boolean };
+export type ContractCandidateDTO = { unitId: string; unitCode: string; label: string; unitType: string; agreedPrice: string | null; currency: string | null; hasOpenRequest: boolean };
 
 export type UnitLegalDTO = {
   unitId: string;
   projectId: string;
   unitCode: string;
+  /** How the unit is named to people: "T-501". */
+  unitLabel: string;
   contract: UnitContractDTO | null;
   history: UnitContractDTO[];
   openRequest: ContractRequestDTO | null;

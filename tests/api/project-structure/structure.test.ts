@@ -18,7 +18,7 @@ import {
   updateUnitSchema,
 } from "@/lib/modules/project-structure/structure.schema";
 import { getProjectStructure, getUnitDetail, listProjectUnits, projectStructureSummary } from "@/lib/modules/project-structure/structure.service";
-import type { FloorLevelType, UnitDTO } from "@/lib/modules/project-structure/structure.types";
+import type { FloorLevelType, StructureCapabilities, UnitDTO } from "@/lib/modules/project-structure/structure.types";
 import { bulkCreateUnits, copyUnits, createUnit, deleteUnit, moveUnit, reorderUnits, updateUnit } from "@/lib/modules/project-structure/structure.units";
 import { STRUCTURE_SEED } from "../../../prisma/seed/structure";
 import { cleanupSessions, COMPANY, loginAs, loginAsMembership, PROJECT, prisma } from "../../helpers";
@@ -924,7 +924,7 @@ describe("reading the structure (§46-§50, §65, §66, §82, §88-§90, §107-�
     for (const node of tree.buildings.flatMap((row) => row.floors)) expect(node).not.toHaveProperty("units");
     expect(JSON.stringify(tree)).not.toContain("A-101");
     expect(tree.unitTypes.map((type) => type.code)).toEqual(expect.arrayContaining(["APARTMENT", "PENTHOUSE", "VILLA", "OFFICE", "SHOP", "PARKING", "GARAGE", "STORAGE", "LAND", "OTHER"]));
-    expect(Object.values(tree.capabilities).every(Boolean)).toBe(true);
+    expect(Object.values(structureWrites(tree.capabilities)).every(Boolean)).toBe(true);
     expect(await projectStructureSummary(pm, RIVERSIDE)).toEqual({ buildings: 3, floors: 31, units: 126 });
   });
 
@@ -939,11 +939,17 @@ describe("reading the structure (§46-§50, §65, §66, §82, §88-§90, §107-�
     expect(await total({ orientation: "NE" })).toBe(24);
     expect(await total({ bedrooms: "3" })).toBe(24);
     expect(await total({ buildingId: S.buildings.a, bedrooms: "2" })).toBe(8);
-    expect(await total({ saleableAreaMin: "100", saleableAreaMax: "120" })).toBe(24);
+    // The area filter is the sale area: saleable when typed, else gross (2026-11-09); every seeded unit has a saleable area.
+    expect(await total({ areaMin: "100", areaMax: "120" })).toBe(24);
     expect(await total({ internalAreaMin: "100" })).toBe(24);
-    expect(await total({ saleableAreaMax: "12.50" })).toBe(24);
+    expect(await total({ areaMax: "12.50" })).toBe(24);
     // Search looks at the code and the type's name, whatever the case; a unit has no name (2026-11).
     expect(await codes({ q: "a-10" })).toEqual(["A-101", "A-102", "A-103", "A-104"]);
+    // The code as the lists show it, with or without the dash (2026-11-09): building A's code is already in "A-101".
+    expect(await codes({ q: "A101" })).toEqual(["A-101"]);
+    expect(await codes({ q: "a 101" })).toEqual(["A-101"]);
+    // A pattern's own characters are taken literally.
+    expect(await total({ q: "%" })).toBe(0);
     expect(await total({ q: "shop" })).toBe(6);
     expect(await total({ q: "PARKING" })).toBe(18);
     // Nothing of another company answers a filter or a search.
@@ -953,20 +959,51 @@ describe("reading the structure (§46-§50, §65, §66, §82, §88-§90, §107-�
     expect(await total({ q: "OF-00" })).toBe(0);
   });
 
-  it("sorts by saleable area and pages fifty at a time with the total", async () => {
-    const first = await units(pm, RIVERSIDE, { sort: "-saleableArea" });
+  it("sorts by the sale area and pages fifty at a time with the total", async () => {
+    const first = await units(pm, RIVERSIDE, { sort: "-area" });
     expect(first).toMatchObject({ page: 1, pageSize: 50, total: 126 });
     expect(first.items).toHaveLength(50);
     const areas = first.items.map((row) => Number(row.areas.saleableArea));
     expect(areas[0]).toBe(142.3);
     expect([...areas].sort((a, b) => b - a)).toEqual(areas);
 
-    const last = await units(pm, RIVERSIDE, { sort: "-saleableArea", page: "3" });
+    const last = await units(pm, RIVERSIDE, { sort: "-area", page: "3" });
     expect(last.items).toHaveLength(26);
     expect(last.items.at(-1)?.areas.saleableArea).toBe("6.00");
-    const seen = new Set([...first.items, ...(await units(pm, RIVERSIDE, { sort: "-saleableArea", page: "2" })).items, ...last.items].map((row) => row.id));
+    const seen = new Set([...first.items, ...(await units(pm, RIVERSIDE, { sort: "-area", page: "2" })).items, ...last.items].map((row) => row.id));
     expect(seen.size).toBe(126);
     expect((await units(pm, RIVERSIDE, { sort: "code" })).items[0]?.unitCode).toBe("A-101");
+  });
+
+  it("sorts by the table's own columns: gross area, bedrooms and total price, each way (2026-11-09)", async () => {
+    const byGross = (await units(pm, RIVERSIDE, { sort: "-gross", limit: "100" })).items.map((row) => row.areas.grossArea);
+    const known = byGross.filter((area): area is string => area !== null).map(Number);
+    expect([...known].sort((a, b) => b - a)).toEqual(known);
+    // Units without the value come last whichever way it sorts.
+    expect(byGross.indexOf(null) === -1 || byGross.slice(byGross.indexOf(null)).every((area) => area === null)).toBe(true);
+
+    for (const sort of ["bedrooms", "-bedrooms"] as const) {
+      const beds = (await units(pm, RIVERSIDE, { sort, limit: "100" })).items.map((row) => row.bedrooms);
+      const counted = beds.filter((value): value is number => value !== null);
+      expect([...counted].sort((a, b) => (sort === "bedrooms" ? a - b : b - a))).toEqual(counted);
+      expect(beds.slice(counted.length).every((value) => value === null)).toBe(true);
+    }
+    const prices = (await units(pm, RIVERSIDE, { sort: "-price", limit: "100" })).items.map((row) => row.askingPrice?.amount ?? null);
+    const priced = prices.filter((value): value is string => value !== null).map(Number);
+    expect([...priced].sort((a, b) => b - a)).toEqual(priced);
+    expect(prices.slice(priced.length).every((value) => value === null)).toBe(true);
+  });
+
+  it("names a unit by its building's code and its own, and finds it by T-501, T501 or 501 (2026-11-09)", async () => {
+    const tower = await building(`${T} Label Tower`, pm, SITE, `${T}T`);
+    const level = await floor(tower, 5);
+    const { id } = await unit(level, "501");
+    const label = `${T}T-501`;
+    expect((await getUnitDetail(pm, id, SITE)).label).toBe(label);
+    for (const q of [label, `${T}T501`, label.toLowerCase(), "501"]) {
+      expect((await units(pm, SITE, { q })).items.map((row) => row.id), q).toContain(id);
+    }
+    expect((await units(pm, SITE, { q: `${T}T-502` })).items.map((row) => row.id)).not.toContain(id);
   });
 
   it("opens a unit only under its own project", async () => {
@@ -988,6 +1025,14 @@ async function riversideProbe() {
 }
 
 /** Everything a structure keeper does, start to finish, on one project. */
+/**
+ * The structure's own write grants. Setting prices is Sales' grant and archiving
+ * is publishing's (E-05D), so neither decides whether a role keeps the structure.
+ */
+function structureWrites(capabilities: StructureCapabilities): Partial<StructureCapabilities> {
+  return Object.fromEntries(Object.entries(capabilities).filter(([key]) => key !== "canManagePrice" && key !== "canArchiveUnit"));
+}
+
 async function keepStructure(context: UserContext, projectId: string, label: string) {
   const buildingId = await building(`${T} Works ${label}`, context, projectId);
   const first = await floor(buildingId, 1, context);
@@ -1000,7 +1045,7 @@ async function keepStructure(context: UserContext, projectId: string, label: str
   await moveUnit(context, id, { floorId: second, expectedVersion: 2 });
   await reorderUnits(context, second, [id, ...created]);
   await reorderFloors(context, buildingId, [second, first]);
-  expect(Object.values((await getProjectStructure(context, projectId)).capabilities).every(Boolean), label).toBe(true);
+  expect(Object.values(structureWrites((await getProjectStructure(context, projectId)).capabilities)).every(Boolean), label).toBe(true);
   for (const unitId of [id, ...created]) await deleteUnit(context, unitId);
   await deleteFloor(context, first);
   await deleteFloor(context, second);
@@ -1040,7 +1085,7 @@ describe("permissions (§58, §59, §78-§82, §117, §138, §140, §150)", () =
     for (const [label, context] of [["Engineer", engineer], ["Sales", sales], ["Finance", finance], ["Viewer", viewer]] as const) {
       const tree = await getProjectStructure(context, RIVERSIDE);
       expect(tree.totals, label).toEqual({ buildings: 4, floors: 33, units: 127 });
-      expect(Object.values(tree.capabilities).some(Boolean), label).toBe(false);
+      expect(Object.values(structureWrites(tree.capabilities)).some(Boolean), label).toBe(false);
       expect((await units(context, RIVERSIDE, { floorId: S.floors.a1 })).total, label).toBe(4);
       expect(await getUnitDetail(context, S.units.a101, RIVERSIDE), label).toMatchObject({ unitCode: "A-101", capabilities: { canUpdateUnit: false, canDeleteUnit: false, canMoveUnit: false } });
       expect(await listBuildingFloors(context, S.buildings.a), label).toHaveLength(11);

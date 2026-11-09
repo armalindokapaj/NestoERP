@@ -1,5 +1,5 @@
 import type { UnitPublicationStatusKey } from "@/lib/modules/project-structure/structure.types";
-import { PRICE_BASIS_AREA, type SoldCheck, type UnitCommercialStatus, type UnitPriceBasis, type UnitSoldRule } from "./unit-sales.types";
+import { PRICE_BASIS_AREA, type UnitSaleStatus, type SoldCheck, type UnitCommercialStatus, type UnitPriceBasis, type UnitSoldRule } from "./unit-sales.types";
 
 /**
  * The selling rules the unit page previews and the server enforces (E-05E §6,
@@ -21,6 +21,16 @@ export function pricePerSqm(askingPrice: string | null, basis: UnitPriceBasis, a
   if (!Number.isFinite(cents) || !Number.isFinite(centiMetres) || centiMetres <= 0) return null;
   // (cents / 100) / (cm / 100) = cents / cm, in currency units; round half up to cents.
   return (Math.round((cents * 100) / centiMetres) / 100).toFixed(2);
+}
+
+/**
+ * How a unit's sale reads on screen (2026-11-09): Not Priced while it has no
+ * asking price and is not for sale (no sales record counts as Not For Sale);
+ * otherwise its commercial status.
+ */
+export function saleStatusOf(status: UnitCommercialStatus | null | undefined, askingPrice: string | null | undefined): UnitSaleStatus {
+  const current = status ?? "NOT_FOR_SALE";
+  return current === "NOT_FOR_SALE" && (askingPrice === null || askingPrice === undefined) ? "NOT_PRICED" : current;
 }
 
 /** Whether a unit may be put on sale or reserved (§6): active and technically Published. */

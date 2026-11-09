@@ -13,7 +13,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { useValuesEditor } from "@/components/project-planning/use-values-editor";
-import { generateUnitCodes, planFloorRange, suggestCopiedCode, type FloorDraft } from "@/lib/modules/project-structure/structure.rules";
+import { generateUnitCodes, planFloorRange, suggestCopiedCode, unitLabel, type FloorDraft } from "@/lib/modules/project-structure/structure.rules";
 import {
   CONFIRM_FLOORS_ABOVE,
   FLOOR_LEVEL_TYPES,
@@ -392,17 +392,17 @@ function BulkFloorsBody({ buildings, initialBuildingId, canUpdateFloors, onCreat
 
 /* Units by code pattern ------------------------------------------------------ */
 
-export function BulkUnitsDialog({ open, onOpenChange, floor, buildingName, types, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; floor: FloorNodeDTO; buildingName: string; types: UnitTypeOption[]; onCreated: () => void }) {
+export function BulkUnitsDialog({ open, onOpenChange, floor, buildingName, buildingCode = null, types, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; floor: FloorNodeDTO; buildingName: string; /** Shown before the codes, as every list names the units ("T-501"). */ buildingCode?: string | null; types: UnitTypeOption[]; onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <BulkUnitsBody floor={floor} buildingName={buildingName} types={types} onCreated={onCreated} onDone={() => onOpenChange(false)} />
+        <BulkUnitsBody floor={floor} buildingName={buildingName} buildingCode={buildingCode} types={types} onCreated={onCreated} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floor: FloorNodeDTO; buildingName: string; types: UnitTypeOption[]; onCreated: () => void; onDone: () => void }) {
+function BulkUnitsBody({ floor, buildingName, buildingCode, types, onCreated, onDone }: { floor: FloorNodeDTO; buildingName: string; buildingCode: string | null; types: UnitTypeOption[]; onCreated: () => void; onDone: () => void }) {
   const t = useTranslations("projects");
   const locale = useLocale();
   const toast = useToast();
@@ -423,6 +423,8 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
   const pattern = { prefix, start: Number(start), end: Number(end), padding: Number(padding) || 0, suffix };
   const valid = Number.isInteger(pattern.start) && Number.isInteger(pattern.end) && pattern.start >= 0 && pattern.end >= pattern.start && pattern.end - pattern.start < MAX_BULK_UNITS && pattern.padding >= 0 && pattern.padding <= 8;
   const codes = valid ? generateUnitCodes(pattern) : [];
+  // How the lists will name the first and last unit, when the building's code goes before them.
+  const shown = codes.length && unitLabel(buildingCode, codes[0]!) !== codes[0] ? { first: unitLabel(buildingCode, codes[0]!), last: unitLabel(buildingCode, codes[codes.length - 1]!) } : null;
 
   async function preview() {
     const result = await structureApi<BatchPreview & { warnings: string[] }>(`/api/project-floors/${floor.id}/units/bulk`, { body: { units: codes.map((unitCode) => ({ unitCode })), defaults: technicalBody(technical), dryRun: true } });
@@ -510,6 +512,7 @@ function BulkUnitsBody({ floor, buildingName, types, onCreated, onDone }: { floo
                   </>
                 ) : null}{" "}
                 <span className="text-fg-muted">· {t("counts.units", { count: codes.length })}</span>
+                {shown ? <span className="block text-meta text-fg-muted">{codes.length > 1 ? t("bulk.shownAsRange", shown) : t("bulk.shownAs", { label: shown.first })}</span> : null}
               </>
             ) : (
               <span className="text-fg-muted">{t("bulk.enterRange")}</span>

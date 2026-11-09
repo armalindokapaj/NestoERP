@@ -163,6 +163,8 @@ export type UnitFinanceDTO = {
 export type FinanceInventoryRowDTO = {
   id: string;
   unitCode: string;
+  /** How the unit is named to people: its building's code and its own, "T-501". */
+  label: string;
   unitType: string;
   building: string;
   floor: string;

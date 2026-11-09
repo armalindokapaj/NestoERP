@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { permissionsForRole } from "@/config/role-defaults";
 import { ROLE_KEYS, type RoleKey } from "@/config/roles";
-import { attributesFor, defaultFloorName, findCodeConflicts, floorKeyOf, floorRank, generateUnitCodes, levelTypeForNumber, placeFloors, planFloorRange, structureKey, suggestCopiedCode, unitLabel, unitWarnings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
+import { attributesFor, codeSearchKey, defaultFloorName, findCodeConflicts, floorKeyOf, floorRank, generateUnitCodes, levelTypeForNumber, placeFloors, planFloorRange, structureKey, suggestCopiedCode, unitLabel, unitWarnings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
 import { bulkFloorsSchema, createFloorSchema, createUnitSchema, parseUnitListQuery, updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
 import type { FloorLevelType } from "@/lib/modules/project-structure/structure.types";
 
@@ -150,6 +150,26 @@ describe("the Units table's unit label (2026-11)", () => {
   });
 });
 
+describe("searching a unit by its code (2026-11-09)", () => {
+  it("folds the search to letters and digits, so T-501, t 501 and T501 read alike", () => {
+    expect(codeSearchKey("T-501")).toBe("T501");
+    expect(codeSearchKey(" t 501 ")).toBe("T501");
+    expect(codeSearchKey("T501")).toBe("T501");
+    expect(codeSearchKey("501")).toBe("501");
+    expect(codeSearchKey("B2-05/01")).toBe("B20501");
+    expect(codeSearchKey("--")).toBe("");
+  });
+
+  it("finds a label's folded form inside the building's code and the unit's folded together", () => {
+    // What the database compares: upper(building code || unit code) with only letters and digits.
+    const folded = (buildingCode: string, unitCode: string) => codeSearchKey(`${buildingCode}${unitCode}`);
+    for (const typed of ["T-501", "T501", "t-501", "501"]) expect(folded("T", "501").includes(codeSearchKey(typed))).toBe(true);
+    // A code that already starts with the building's is named as it is ("A-101"), and still found by it.
+    expect(folded("A", "A-101").includes(codeSearchKey(unitLabel("A", "A-101")))).toBe(true);
+    expect(folded("T", "502").includes(codeSearchKey("T-501"))).toBe(false);
+  });
+});
+
 describe("worked-out areas (2026-11)", () => {
   const none = { internalArea: null, balconyArea: null, terraceArea: null, commonAreaAllocation: null, grossArea: null };
 
@@ -222,7 +242,7 @@ describe("validation (§72, §73, §124-§126)", () => {
 
   it("reads the unit list query, dropping junk instead of failing (§66)", () => {
     const query = parseUnitListQuery(
-      new URLSearchParams("q=%20%20A-9%20&floorId=flr_riverside_a_1&buildingId=../etc&orientation=UP&bedrooms=two&bathrooms=1&saleableAreaMin=80&saleableAreaMax=abc&sort=weird&page=0&limit=500&unknown=1"),
+      new URLSearchParams("q=%20%20A-9%20&floorId=flr_riverside_a_1&buildingId=../etc&orientation=UP&bedrooms=two&bathrooms=1&areaMin=80&areaMax=abc&sort=weird&page=0&limit=500&unknown=1"),
     );
     expect(query).toEqual({
       q: "A-9",
@@ -234,14 +254,17 @@ describe("validation (§72, §73, §124-§126)", () => {
       bathrooms: 1,
       internalAreaMin: undefined,
       internalAreaMax: undefined,
-      saleableAreaMin: "80",
-      saleableAreaMax: undefined,
+      areaMin: "80",
+      areaMax: undefined,
       sort: undefined,
       page: 1,
       limit: 50,
     });
-    const fromRecord = parseUnitListQuery({ orientation: ["NE", "SW"], sort: "-saleableArea", page: "3", bedrooms: "" });
-    expect(fromRecord).toMatchObject({ orientation: "NE", sort: "-saleableArea", page: 3, limit: 50 });
+    const fromRecord = parseUnitListQuery({ orientation: ["NE", "SW"], sort: "-area", page: "3", bedrooms: "" });
+    expect(fromRecord).toMatchObject({ orientation: "NE", sort: "-area", page: 3, limit: 50 });
+    // The table's own columns sort too (2026-11-09); the retired saleable-only sort is dropped, not refused.
+    for (const sort of ["gross", "-gross", "bedrooms", "-bedrooms", "price", "-price"]) expect(parseUnitListQuery({ sort }).sort).toBe(sort);
+    expect(parseUnitListQuery({ sort: "-saleableArea" }).sort).toBeUndefined();
     expect(fromRecord.bedrooms).toBeUndefined();
   });
 });

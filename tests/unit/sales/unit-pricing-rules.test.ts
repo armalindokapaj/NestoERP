@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { convertPriceEntry, grossPriceBasis, grossRate, hasGrossArea, prevailingPrice, prevailingRate, priceFromRate, priceToSave, rateFromPrice, switchPriceEntry, unitRate, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
-import { pricePerSqm } from "@/lib/modules/sales/units/unit-sales.rules";
+import { convertPriceEntry, hasSaleArea, prevailingPrice, prevailingRate, priceFromRate, priceToSave, rateFromPrice, saleArea, saleRate, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { pricePerSqm, saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
 import { priceListSaveSchema } from "@/lib/modules/sales/units/unit-pricing.schema";
 import { MAX_PRICE_LIST_CHANGES } from "@/lib/modules/sales/units/unit-pricing.types";
 
@@ -33,23 +33,23 @@ describe("priceFromRate", () => {
 
   it("gives back the rate as the unit's price per m²", () => {
     const price = priceFromRate("1234.56", "85.37")!;
-    expect(unitRate(unit({ saleableArea: "85.37" }), price, "SALEABLE_AREA")).toBe("1234.56");
-    expect(unitRate(unit(), "250000.00", "FIXED_UNIT_PRICE")).toBeNull();
+    expect(saleRate(unit({ saleableArea: "85.37" }), price)).toBe("1234.56");
+    expect(saleRate(unit({ saleableArea: null }), "250000.00")).toBeNull();
   });
 });
 
 describe("what a floor and the parking are priced at", () => {
-  it("takes the rate most of a floor's units share on the basis, and none on a tie", () => {
+  it("takes the rate most of a floor's units priced by area share, each on its own sale area, and none on a tie", () => {
     const floor = [
       unit({ saleableArea: "80.00", askingPrice: "96000.00" }), // 1200
-      unit({ saleableArea: "100.00", askingPrice: "120000.00" }), // 1200
+      unit({ saleableArea: null, grossArea: "100.00", askingPrice: "120000.00", priceBasis: "GROSS_AREA" }), // 1200 on gross
       unit({ saleableArea: "100.00", askingPrice: "135000.00" }), // 1350, priced by hand
-      unit({ saleableArea: "100.00", askingPrice: "140000.00", priceBasis: "FIXED_UNIT_PRICE" }),
+      unit({ saleableArea: "100.00", askingPrice: "140000.00", priceBasis: "FIXED_UNIT_PRICE" }), // by the unit, not a rate
       unit({ saleableArea: "100.00" }),
     ];
-    expect(prevailingRate(floor, "SALEABLE_AREA")).toBe("1200.00");
-    expect(prevailingRate(floor, "GROSS_AREA")).toBeNull();
-    expect(prevailingRate([unit({ askingPrice: "120000.00" }), unit({ askingPrice: "130000.00" })], "SALEABLE_AREA")).toBeNull();
+    expect(prevailingRate(floor)).toBe("1200.00");
+    expect(prevailingRate([unit({ askingPrice: "120000.00" }), unit({ askingPrice: "130000.00" })])).toBeNull();
+    expect(prevailingRate([unit({ askingPrice: "140000.00", priceBasis: "FIXED_UNIT_PRICE" })])).toBeNull();
   });
 
   it("takes the parking price most spaces ask", () => {
@@ -59,7 +59,47 @@ describe("what a floor and the parking are priced at", () => {
   });
 });
 
-describe("a unit's price typed as a total or per m² of gross area", () => {
+describe("the area a unit is sold by (2026-11-09)", () => {
+  it("is the saleable area when it is typed and above zero, else the gross area", () => {
+    expect(saleArea({ saleableArea: "95.00", grossArea: "105.00" })).toEqual({ area: "95.00", basis: "SALEABLE_AREA" });
+    expect(saleArea({ saleableArea: null, grossArea: "80.66" })).toEqual({ area: "80.66", basis: "GROSS_AREA" });
+    expect(saleArea({ saleableArea: "0.00", grossArea: "80.66" })).toEqual({ area: "80.66", basis: "GROSS_AREA" });
+    expect(saleArea({ saleableArea: "95.00", grossArea: null })).toEqual({ area: "95.00", basis: "SALEABLE_AREA" });
+  });
+
+  it("is none — a fixed price — without either", () => {
+    expect(saleArea({ saleableArea: null, grossArea: null })).toEqual({ area: null, basis: "FIXED_UNIT_PRICE" });
+    expect(saleArea({ saleableArea: "0.00", grossArea: "0.00" })).toEqual({ area: null, basis: "FIXED_UNIT_PRICE" });
+    expect(hasSaleArea({ saleableArea: null, grossArea: null })).toBe(false);
+    expect(hasSaleArea({ saleableArea: null, grossArea: "0.01" })).toBe(true);
+  });
+
+  it("gives the price per m² on that area, whatever basis the price was saved on", () => {
+    // Priced on gross before a saleable area was typed: the rate now reads on the saleable area.
+    expect(saleRate({ saleableArea: "95.00", grossArea: "105.00" }, "200000.00")).toBe("2105.26");
+    expect(saleRate({ saleableArea: null, grossArea: "80.66" }, "161320.00")).toBe("2000.00");
+    expect(saleRate({ saleableArea: null, grossArea: null }, "15000.00")).toBeNull();
+    expect(saleRate({ saleableArea: "95.00", grossArea: null }, null)).toBeNull();
+  });
+});
+
+describe("how a unit's sale reads on screen", () => {
+  it("is Not Priced while it has no price and is not for sale, or has no sales record yet", () => {
+    expect(saleStatusOf(null, null)).toBe("NOT_PRICED");
+    expect(saleStatusOf(undefined, undefined)).toBe("NOT_PRICED");
+    expect(saleStatusOf("NOT_FOR_SALE", null)).toBe("NOT_PRICED");
+  });
+
+  it("keeps Not For Sale for a priced unit held back, and every other status as it is", () => {
+    expect(saleStatusOf("NOT_FOR_SALE", "120000.00")).toBe("NOT_FOR_SALE");
+    expect(saleStatusOf("FOR_SALE", null)).toBe("FOR_SALE");
+    expect(saleStatusOf("ON_HOLD", "1.00")).toBe("ON_HOLD");
+    expect(saleStatusOf("RESERVED", null)).toBe("RESERVED");
+    expect(saleStatusOf("SOLD", "1.00")).toBe("SOLD");
+  });
+});
+
+describe("a unit's price typed as a total or per m² of its sale area", () => {
   it("works a total out at a rate, rounding half up to the cent as the price per m² does", () => {
     expect(rateFromPrice("226000.00", "113.00")).toBe("2000.00");
     expect(rateFromPrice("185000", "113.00")).toBe("1637.17"); // 1,637.168…
@@ -72,18 +112,9 @@ describe("a unit's price typed as a total or per m² of gross area", () => {
     }
   });
 
-  it("has no rate without a gross area, or with a zero one", () => {
+  it("has no rate without an area, or with a zero one", () => {
     expect(rateFromPrice("210000", null)).toBeNull();
     expect(rateFromPrice("210000", "0.00")).toBeNull();
-    expect(hasGrossArea(null)).toBe(false);
-    expect(hasGrossArea("0.00")).toBe(false);
-    expect(hasGrossArea("0.01")).toBe(true);
-  });
-
-  it("saves a price on the gross area when the unit has one, else as a fixed price", () => {
-    expect(grossPriceBasis("113.00")).toBe("GROSS_AREA");
-    expect(grossPriceBasis(null)).toBe("FIXED_UNIT_PRICE");
-    expect(grossPriceBasis("0.00")).toBe("FIXED_UNIT_PRICE");
   });
 
   it("turns the value in the box into the other kind when the entry switches", () => {
@@ -162,36 +193,29 @@ describe("switching how the price is typed", () => {
 describe("what a single unit's price is sent with", () => {
   const legacy = { askingPrice: "200000.00", currency: "EUR", priceBasis: "SALEABLE_AREA" as const };
   const unpriced = { askingPrice: null, currency: null, priceBasis: "SALEABLE_AREA" as const };
+  const gross = { saleableArea: null, grossArea: "105.00" };
+  const saleable = { saleableArea: "95.00", grossArea: "105.00" };
+  const none = { saleableArea: null, grossArea: null };
 
   it("sends an unchanged price exactly as saved, on the basis it was saved on", () => {
-    expect(priceToSave("200000.00", "EUR", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("200000.00", "EUR", legacy, gross)).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
     // The same amount written differently is the same price.
-    expect(priceToSave("200000", "EUR", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
-    expect(priceToSave("200 000,0", "EUR", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("200000", "EUR", legacy, gross)).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("200 000,0", "EUR", legacy, gross)).toEqual({ askingPrice: "200000.00", priceBasis: "SALEABLE_AREA" });
     // No price before and none now: only the notes or the reason changed.
-    expect(priceToSave("", "EUR", unpriced, "105.00")).toEqual({ askingPrice: "", priceBasis: "SALEABLE_AREA" });
-    expect(priceToSave("  ", "ALL", unpriced, null)).toEqual({ askingPrice: "", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("", "EUR", unpriced, gross)).toEqual({ askingPrice: "", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("  ", "ALL", unpriced, none)).toEqual({ askingPrice: "", priceBasis: "SALEABLE_AREA" });
   });
 
-  it("sends a new price on the gross area, or as a fixed price without one", () => {
-    expect(priceToSave("210000", "EUR", legacy, "105.00")).toEqual({ askingPrice: "210000", priceBasis: "GROSS_AREA" });
-    expect(priceToSave("210000", "EUR", unpriced, null)).toEqual({ askingPrice: "210000", priceBasis: "FIXED_UNIT_PRICE" });
-    expect(priceToSave("", "EUR", legacy, "105.00")).toEqual({ askingPrice: "", priceBasis: "GROSS_AREA" });
+  it("sends a new price on the area it was worked out on: saleable when typed, else gross, else fixed", () => {
+    expect(priceToSave("210000", "EUR", legacy, saleable)).toEqual({ askingPrice: "210000", priceBasis: "SALEABLE_AREA" });
+    expect(priceToSave("210000", "EUR", legacy, gross)).toEqual({ askingPrice: "210000", priceBasis: "GROSS_AREA" });
+    expect(priceToSave("210000", "EUR", unpriced, none)).toEqual({ askingPrice: "210000", priceBasis: "FIXED_UNIT_PRICE" });
+    expect(priceToSave("", "EUR", legacy, gross)).toEqual({ askingPrice: "", priceBasis: "GROSS_AREA" });
     // The same amount in another currency is a new price.
-    expect(priceToSave("200000.00", "USD", legacy, "105.00")).toEqual({ askingPrice: "200000.00", priceBasis: "GROSS_AREA" });
+    expect(priceToSave("200000.00", "USD", legacy, gross)).toEqual({ askingPrice: "200000.00", priceBasis: "GROSS_AREA" });
     // What the server will refuse goes as typed, for the server to say why.
-    expect(priceToSave("1,200", "EUR", legacy, "105.00")).toEqual({ askingPrice: "1,200", priceBasis: "GROSS_AREA" });
-  });
-});
-
-describe("the price per m² a price list row shows", () => {
-  it("is per m² of gross area, whatever basis an older price was saved on, and none for a fixed price", () => {
-    const row = unit({ saleableArea: "95.00", grossArea: "105.00" });
-    expect(grossRate(row, "200000.00", "SALEABLE_AREA")).toBe("1904.76");
-    expect(grossRate(row, "200000.00", "GROSS_AREA")).toBe("1904.76");
-    expect(grossRate(row, "15000.00", "FIXED_UNIT_PRICE")).toBeNull();
-    expect(grossRate(unit({ grossArea: null }), "200000.00", "GROSS_AREA")).toBeNull();
-    expect(grossRate(row, null, "GROSS_AREA")).toBeNull();
+    expect(priceToSave("1,200", "EUR", legacy, gross)).toEqual({ askingPrice: "1,200", priceBasis: "GROSS_AREA" });
   });
 });
 

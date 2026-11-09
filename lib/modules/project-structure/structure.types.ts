@@ -106,7 +106,12 @@ export const MAX_BULK_FLOORS = 200;
 export const CONFIRM_FLOORS_ABOVE = 50;
 export const MAX_BULK_UNITS = 500;
 
-export const UNIT_SORTS = ["structure", "code", "-code", "floor", "type", "saleableArea", "-saleableArea", "internalArea", "-internalArea"] as const;
+/**
+ * How the unit list sorts. `area` is the sale area — the saleable area when
+ * typed, else the gross (2026-11-09) — and the table's own columns sort too:
+ * gross area, bedrooms and total price.
+ */
+export const UNIT_SORTS = ["structure", "code", "-code", "floor", "type", "gross", "-gross", "bedrooms", "-bedrooms", "price", "-price", "area", "-area", "internalArea", "-internalArea"] as const;
 export type UnitSort = (typeof UNIT_SORTS)[number];
 
 export const UNIT_SORT_LABELS: Record<UnitSort, string> = {
@@ -115,8 +120,14 @@ export const UNIT_SORT_LABELS: Record<UnitSort, string> = {
   "-code": "Unit code Z–A",
   floor: "Floor",
   type: "Type",
-  saleableArea: "Saleable area, smallest first",
-  "-saleableArea": "Saleable area, largest first",
+  gross: "Gross area, smallest first",
+  "-gross": "Gross area, largest first",
+  bedrooms: "Bedrooms, fewest first",
+  "-bedrooms": "Bedrooms, most first",
+  price: "Total price, lowest first",
+  "-price": "Total price, highest first",
+  area: "Sale area, smallest first",
+  "-area": "Sale area, largest first",
   internalArea: "Internal area, smallest first",
   "-internalArea": "Internal area, largest first",
 };
@@ -133,6 +144,8 @@ export type StructureCapabilities = {
   canUpdateUnit: boolean;
   canDeleteUnit: boolean;
   canMoveUnit: boolean;
+  /** Archive and restore a unit (`project.unit.archive`): the one way a unit leaves use (2026-11). */
+  canArchiveUnit: boolean;
   /**
    * Whether the unit dialogs also carry the asking price (2026-11-09). The
    * price belongs to Sales and is saved through its door; this mirrors Sales'
@@ -183,6 +196,8 @@ export type UnitDTO = {
   id: string;
   projectId: string;
   unitCode: string;
+  /** How the unit is named to people on every screen: its building's code and its own, "T-501" (2026-11-09). */
+  label: string;
   unitType: UnitTypeOption;
   building: { id: string; name: string; code: string | null };
   floor: { id: string; name: string; number: number | null; levelType: FloorLevelType };

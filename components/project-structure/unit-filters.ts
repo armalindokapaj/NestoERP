@@ -13,11 +13,12 @@ export type UnitFilters = {
   bathrooms: string;
   internalAreaMin: string;
   internalAreaMax: string;
-  saleableAreaMin: string;
-  saleableAreaMax: string;
+  /** The sale area: saleable when typed, else gross (2026-11-09). */
+  areaMin: string;
+  areaMax: string;
   /** Publishing (E-05D §13): PUBLISHED or ARCHIVED, or "" for both. */
   publication: string;
   sort: UnitSort;
 };
 
-export const EMPTY_FILTERS: UnitFilters = { q: "", unitTypeId: "", orientation: "", bedrooms: "", bathrooms: "", internalAreaMin: "", internalAreaMax: "", saleableAreaMin: "", saleableAreaMax: "", publication: "", sort: "structure" };
+export const EMPTY_FILTERS: UnitFilters = { q: "", unitTypeId: "", orientation: "", bedrooms: "", bathrooms: "", internalAreaMin: "", internalAreaMax: "", areaMin: "", areaMax: "", publication: "", sort: "structure" };

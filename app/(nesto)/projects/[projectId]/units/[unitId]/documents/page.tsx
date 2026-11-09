@@ -21,7 +21,7 @@ export default async function UnitDocumentsPage({ params }: Params) {
   const files = await listUnitFiles(page.context, page.unit.id);
   return (
     <UnitShell page={page} active="documents">
-      <UnitDocuments unitId={page.unit.id} unitCode={page.unit.unitCode} files={files} />
+      <UnitDocuments unitId={page.unit.id} unitCode={page.unit.label} files={files} />
     </UnitShell>
   );
 }

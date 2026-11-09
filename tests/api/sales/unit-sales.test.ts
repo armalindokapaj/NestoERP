@@ -36,6 +36,7 @@ import { cleanupSessions, DEMO_EMAIL, loginAs, loginAsEmail, loginAsMembership, 
 const COMPANY_A = "company_demo_a";
 const RIVERSIDE = PROJECT.a;
 const T = "E05E";
+const BLOCK = `${T}S`;
 const ACME = "client_acme";
 const ACME_DEAL = "opportunity_001"; // Riverside phase 2, NEGOTIATION, ACME
 const NOVA_DEAL = "opportunity_006"; // Nova Living block A, PROPOSAL, Nova
@@ -134,7 +135,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  const building = await prisma.projectBuilding.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, name: `${T} Sales Block`, nameKey: `${T} SALES BLOCK`, sortOrder: 90, createdBy: "test" } });
+  // Its code goes before every unit's in what people see: "E05ES-E05E-001" (2026-11-09).
+  const building = await prisma.projectBuilding.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, name: `${T} Sales Block`, nameKey: `${T} SALES BLOCK`, code: BLOCK, codeKey: BLOCK, sortOrder: 90, createdBy: "test" } });
   floorId = (await prisma.projectFloor.create({ data: { companyId: COMPANY_A, projectId: RIVERSIDE, buildingId: building.id, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "test" } })).id;
 });
 
@@ -157,7 +159,7 @@ describe("asking price and commercial status (§7-§12, §58)", () => {
     await updateCommercialDetails(sales, unit.id, commercialDetailsSchema.parse({ askingPrice: "285000", currency: "EUR", priceBasis: "SALEABLE_AREA" }));
     await updateCommercialDetails(sales, unit.id, commercialDetailsSchema.parse({ askingPrice: "280000.00", currency: "EUR", priceBasis: "SALEABLE_AREA", reason: "Market review" }));
     const view = await getUnitSales(sales, unit.id);
-    expect(view).toMatchObject({ askingPrice: "280000.00", currency: "EUR", pricePerSqm: "2477.88", basisArea: "113.00" });
+    expect(view).toMatchObject({ askingPrice: "280000.00", currency: "EUR", pricePerSqm: "2477.88", saleArea: "113.00", saleAreaBasis: "SALEABLE_AREA", saleStatus: "NOT_FOR_SALE" });
     expect(view.priceHistory.map((row) => [row.oldPrice, row.newPrice, row.reason])).toEqual([
       ["285000.00", "280000.00", "Market review"],
       [null, "285000.00", null],
@@ -165,8 +167,22 @@ describe("asking price and commercial status (§7-§12, §58)", () => {
     // Saving the same price again records nothing (§12).
     await updateCommercialDetails(sales, unit.id, commercialDetailsSchema.parse({ askingPrice: "280000.00", currency: "EUR", priceBasis: "SALEABLE_AREA", salesNotes: "Corner, sea view" }));
     expect(await prisma.unitPriceHistory.count({ where: { unitId: unit.id } })).toBe(2);
+    // The price per m² is always the total over the sale area, whatever basis it was saved on (2026-11-09).
     await updateCommercialDetails(sales, unit.id, commercialDetailsSchema.parse({ askingPrice: "280000.00", currency: "EUR", priceBasis: "FIXED_UNIT_PRICE" }));
-    expect((await getUnitSales(sales, unit.id)).pricePerSqm).toBeNull();
+    expect((await getUnitSales(sales, unit.id)).pricePerSqm).toBe("2477.88");
+  });
+
+  it("reads Not Priced until a price is set, sells by the saleable area, else the gross area (2026-11-09)", async () => {
+    const unit = await newUnit();
+    await prisma.projectUnit.update({ where: { id: unit.id }, data: { saleableArea: null, grossArea: "80.66" } });
+    const before = await getUnitSales(sales, unit.id);
+    expect(before).toMatchObject({ status: "NOT_FOR_SALE", saleStatus: "NOT_PRICED", saleArea: "80.66", saleAreaBasis: "GROSS_AREA", pricePerSqm: null });
+    expect(before.unitLabel).toBe(`${BLOCK}-${unit.unitCode}`);
+    await updateCommercialDetails(sales, unit.id, commercialDetailsSchema.parse({ askingPrice: "161320", currency: "EUR", priceBasis: "GROSS_AREA" }));
+    expect(await getUnitSales(sales, unit.id)).toMatchObject({ saleStatus: "NOT_FOR_SALE", pricePerSqm: "2000.00" });
+    // A saleable area typed later is the one the price per m² reads on; the saved total does not move.
+    await prisma.projectUnit.update({ where: { id: unit.id }, data: { saleableArea: "75.00" } });
+    expect(await getUnitSales(sales, unit.id)).toMatchObject({ askingPrice: "161320.00", saleArea: "75.00", saleAreaBasis: "SALEABLE_AREA", pricePerSqm: "2150.93" });
   });
 
   it("offers only a published, active unit for sale, holds with a reason, and moves back", async () => {
@@ -232,7 +248,7 @@ describe("reservations (§19-§27, §47-§50, §60)", () => {
     await onSale(unit.id, "190000.00");
     const result = await reserve(sales, unit.id, { newClient: { name: `${T} Jane Doe`, type: "INDIVIDUAL", email: "jane@example.test" }, newDeal: {}, agreedPrice: "185000" });
     const deal = await prisma.opportunity.findUniqueOrThrow({ where: { id: result.opportunityId } });
-    expect(deal).toMatchObject({ clientId: result.clientId, stage: "NEGOTIATION", ownerMemberId: sales.membershipId, name: `${unit.unitCode} — ${T} Jane Doe` });
+    expect(deal).toMatchObject({ clientId: result.clientId, stage: "NEGOTIATION", ownerMemberId: sales.membershipId, name: `${BLOCK}-${unit.unitCode} — ${T} Jane Doe` });
     expect(deal.estimatedValue.toFixed(2)).toBe("185000.00");
 
     // A client the company already has is offered back rather than created twice (§16, §62).
@@ -391,7 +407,11 @@ describe("access (§32, §38, §39, §46, §67)", () => {
 
     const all = await inventory({});
     expect(all.items.map((row) => row.id)).toEqual([cheap.id, dear.id, idle.id]);
-    expect(all.counts).toMatchObject({ ALL: 3, FOR_SALE: 1, RESERVED: 1, NOT_FOR_SALE: 1 });
+    // A unit nobody has priced reads Not Priced, with a quick filter of its own (2026-11-09).
+    expect(all.counts).toMatchObject({ ALL: 3, FOR_SALE: 1, RESERVED: 1, NOT_PRICED: 1, NOT_FOR_SALE: 0 });
+    expect(all.items.map((row) => row.saleStatus)).toEqual(["FOR_SALE", "RESERVED", "NOT_PRICED"]);
+    expect((await inventory({ commercialStatus: "NOT_PRICED" })).items.map((row) => row.id)).toEqual([idle.id]);
+    expect((await inventory({ commercialStatus: "NOT_FOR_SALE" })).items).toEqual([]);
     expect((await inventory({ commercialStatus: "RESERVED" })).items.map((row) => row.id)).toEqual([dear.id]);
     expect((await inventory({ pricePerSqmMin: "2000" })).items.map((row) => row.id)).toEqual([dear.id]);
     expect((await inventory({ sort: "-price" })).items[0]!.id).toBe(dear.id);
@@ -399,9 +419,39 @@ describe("access (§32, §38, §39, §46, §67)", () => {
     expect(row).toMatchObject({ pricePerSqm: "4000.00", client: { name: "ACME Developments" } });
     expect((await listSalesInventory(sales, RIVERSIDE, parseInventoryQuery({ q: "ACME Dev" }))).items.map((item) => item.id)).toContain(dear.id);
 
+    // Priced but held back is Not For Sale, not Not Priced.
+    await updateCommercialDetails(sales, idle.id, commercialDetailsSchema.parse({ askingPrice: "90000", currency: "EUR", priceBasis: "SALEABLE_AREA" }));
+    expect((await inventory({})).counts).toMatchObject({ NOT_PRICED: 0, NOT_FOR_SALE: 1 });
+
     const noClients = { ...sales, permissions: sales.permissions.filter((permission) => permission !== "client.view") };
     expect((await listSalesInventory(noClients, RIVERSIDE, parseInventoryQuery({ q: "ACME Dev" }))).items.map((item) => item.id)).not.toContain(dear.id);
     await refused(listSalesInventory(architect, RIVERSIDE, parseInventoryQuery({})), "FORBIDDEN");
+  });
+
+  it("names units T-501 and finds them so; areas, filters and sorts read the sale area (2026-11-09)", async () => {
+    const saleable = await newUnit({ saleableArea: "90.00" });
+    const gross = await newUnit();
+    await prisma.projectUnit.update({ where: { id: gross.id }, data: { saleableArea: null, grossArea: "120.00" } });
+    await onSale(saleable.id, "180000.00");
+    await updateCommercialDetails(sales, gross.id, commercialDetailsSchema.parse({ askingPrice: "240000", currency: "EUR", priceBasis: "GROSS_AREA" }));
+    const inventory = (query: Record<string, string>) => listSalesInventory(sales, RIVERSIDE, parseInventoryQuery({ q: T, ...query }));
+
+    const rows = (await inventory({})).items;
+    const bySale = rows.find((row) => row.id === saleable.id)!;
+    const byGross = rows.find((row) => row.id === gross.id)!;
+    expect(bySale).toMatchObject({ saleArea: "90.00", saleAreaBasis: "SALEABLE_AREA", pricePerSqm: "2000.00" });
+    expect(byGross).toMatchObject({ saleArea: "120.00", saleAreaBasis: "GROSS_AREA", pricePerSqm: "2000.00" });
+    expect(byGross).not.toHaveProperty("name");
+    // The area filter and sort take the gross area where no saleable area is typed.
+    expect((await inventory({ areaMin: "110" })).items.map((row) => row.id)).toEqual([gross.id]);
+    expect((await inventory({ sort: "-area" })).items[0]!.id).toBe(gross.id);
+
+    // The label, with or without its dash, finds the unit; so does the unit's own code.
+    const label = byGross.label;
+    expect(label).toBe(`${BLOCK}-${gross.unitCode}`);
+    for (const q of [label, label.replace(/-/g, ""), label.toLowerCase(), gross.unitCode]) {
+      expect((await listSalesInventory(sales, RIVERSIDE, parseInventoryQuery({ q }))).items.map((row) => row.id), q).toContain(gross.id);
+    }
   });
 
   it("uses the company's reservation length, which only company settings may change (§24)", async () => {

@@ -21,7 +21,7 @@ export default async function UnitMediaPage({ params }: Params) {
   const files = await listUnitFiles(page.context, page.unit.id);
   return (
     <UnitShell page={page} active="media">
-      <UnitMediaGallery unitId={page.unit.id} unitCode={page.unit.unitCode} files={files} />
+      <UnitMediaGallery unitId={page.unit.id} unitCode={page.unit.label} files={files} />
     </UnitShell>
   );
 }

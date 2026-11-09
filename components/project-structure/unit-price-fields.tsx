@@ -9,24 +9,25 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { compareDecimal, parseDecimalInput } from "@/lib/forms/decimal";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
-import { hasGrossArea, PRICE_ENTRIES, priceFromRate, priceToSave, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { PRICE_ENTRIES, priceFromRate, priceToSave, saleArea, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch, type SaleAreas } from "@/lib/modules/sales/units/unit-pricing.rules";
 import type { UnitPriceBasis, UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import { cn } from "@/lib/utils/cn";
 import { areaText, Field, failureMessage, numberText, structureApi } from "./structure-ui";
 
 /**
  * The unit's asking price, typed in the New unit and Edit unit dialogs
- * (2026-11-09): per m² of the gross area the dialog works out, or as a total.
+ * (2026-11-09): per m² of the unit's sale area — the saleable area typed in
+ * the dialog, else the gross area it works out — or as a total.
  *
  * It is the Sales Price dialog's price, saved the same way and through the same
  * door (`PATCH /api/project-units/:id/sales`, `project.unit.price.manage`),
- * after the unit itself is saved. Only the total is kept, on the gross-area
- * basis (fixed without a gross area); the rate is never stored.
+ * after the unit itself is saved. Only the total is kept, on the basis of the
+ * area used (saleable or gross; fixed without either); the rate is never stored.
  *
  * It opens on Per m², the way prices are set on the floor price list. A total
- * opened as its rate stands for that exact total while the rate and the gross
- * area are left as they were; change the areas in the same dialog and the
- * total follows gross × rate, with the saved total shown beside it.
+ * opened as its rate stands for that exact total while the rate and the area
+ * are left as they were; change the areas in the same dialog and the total
+ * follows area × rate, with the saved total shown beside it.
  */
 
 type Saved = {
@@ -36,7 +37,7 @@ type Saved = {
   salesNotes: string | null;
   version: number;
   sold: boolean;
-  grossArea: string | null;
+  areas: SaleAreas;
   defaultCurrency: string;
 };
 
@@ -62,7 +63,9 @@ type UnitPriceView = {
   error: { message: string } | null;
   currency: string | null;
   saved: string | null;
-  grossArea: string | null;
+  /** The area a rate is typed against and which one it is: saleable, gross, or none (fixed). */
+  area: string | null;
+  basis: UnitPriceBasis;
   inputRef: React.RefObject<HTMLInputElement | null>;
   setText: (text: string) => void;
   chooseEntry: (entry: PriceEntry) => void;
@@ -74,7 +77,7 @@ type UnitPriceView = {
 
 const INITIAL_ENTRY: PriceEntry = "PER_SQM";
 
-export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; enabled: boolean; grossArea: string | null }): UnitPrice {
+export function useUnitPrice({ unitId, enabled, areas }: { unitId?: string; enabled: boolean; areas: SaleAreas }): UnitPrice {
   const ts = useSalesTranslations();
   const t = useTranslations("projects");
   const toast = useToast();
@@ -82,7 +85,7 @@ export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; 
   const [saved, setSaved] = React.useState<Saved | null>(null);
   const [entry, setEntry] = React.useState<PriceEntry>(INITIAL_ENTRY);
   const [text, setTextState] = React.useState("");
-  /** The last switch of the box, and the gross area it was made on. */
+  /** The last switch of the box, and the area it was made on. */
   const [last, setLast] = React.useState<PriceEntrySwitch | null>(null);
   const [convertedOn, setConvertedOn] = React.useState<string | null>(null);
   const [touched, setTouched] = React.useState(false);
@@ -107,17 +110,18 @@ export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; 
           salesNotes: sales.salesNotes,
           version: sales.version,
           sold: sales.status === "SOLD",
-          grossArea: sales.grossArea,
+          areas: { saleableArea: sales.saleableArea, grossArea: sales.grossArea },
           defaultCurrency: sales.defaults.currency,
         };
         setSaved(next);
-        if (next.askingPrice !== null && hasGrossArea(next.grossArea)) {
+        const area = saleArea(next.areas).area;
+        if (next.askingPrice !== null && area !== null) {
           // Opens on the rate; left as it is, it stands for the exact saved total.
-          const switched = switchPriceEntry(next.askingPrice, next.grossArea, "TOTAL", "PER_SQM", null);
+          const switched = switchPriceEntry(next.askingPrice, area, "TOTAL", "PER_SQM", null);
           setEntry("PER_SQM");
           setTextState(switched.text);
           setLast(switched.last);
-          setConvertedOn(next.grossArea);
+          setConvertedOn(area);
         } else if (next.askingPrice !== null) {
           setEntry("TOTAL");
           setTextState(next.askingPrice);
@@ -136,17 +140,18 @@ export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; 
     inputRef.current.focus();
   }, [error]);
 
-  const sameGross = convertedOn !== null && grossArea !== null && compareDecimal(convertedOn, grossArea) === 0;
+  const { area, basis } = saleArea(areas);
+  const sameArea = convertedOn !== null && area !== null && compareDecimal(convertedOn, area) === 0;
   const perSqm = entry === "PER_SQM";
-  const grossOk = hasGrossArea(grossArea);
+  const areaOk = area !== null;
   const rateRule = { label: ts("unitDialogs.ratePerSqm"), ...MONEY_RULE };
   const totalRule = { label: ts("unitDialogs.askingPrice"), ...MONEY_RULE };
   const typedRate = perSqm && text.trim() !== "" ? parseDecimalInput(text, rateRule) : null;
   const rate = typedRate?.ok && compareDecimal(typedRate.value, "0") > 0 ? typedRate.value : null;
-  // A rate converted from the saved total, unedited and on the same gross area, is that total.
-  const kept = perSqm && sameGross ? untouchedTotal(text, entry, last) : null;
+  // A rate converted from the saved total, unedited and on the same area, is that total.
+  const kept = perSqm && sameArea ? untouchedTotal(text, entry, last) : null;
   const typedTotal = !perSqm && text.trim() !== "" ? parseDecimalInput(text, totalRule) : null;
-  const total = perSqm ? (rate !== null && grossOk ? (kept ?? priceFromRate(rate, grossArea)) : null) : typedTotal?.ok ? typedTotal.value : null;
+  const total = perSqm ? (rate !== null && areaOk ? (kept ?? priceFromRate(rate, area)) : null) : typedTotal?.ok ? typedTotal.value : null;
   const currency = saved ? (saved.currency ?? saved.defaultCurrency) : null;
   const sold = saved?.sold ?? false;
   const shown = load !== "unavailable";
@@ -159,11 +164,11 @@ export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; 
 
   function chooseEntry(next: PriceEntry) {
     if (next === entry) return;
-    // A switch made on another gross area no longer holds: convert afresh on this one.
-    const switched = switchPriceEntry(text, grossArea, entry, next, sameGross ? last : null);
+    // A switch made on another area no longer holds: convert afresh on this one.
+    const switched = switchPriceEntry(text, area, entry, next, sameArea ? last : null);
     setTextState(switched.text);
     setLast(switched.last);
-    setConvertedOn(grossArea);
+    setConvertedOn(area);
     setEntry(next);
     setTouched(true);
     setError(null);
@@ -176,7 +181,7 @@ export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; 
         setError({ message: typedRate && !typedRate.ok ? typedRate.message : ts("unitDialogs.rateAboveZero") });
         return false;
       }
-      if (!grossOk) {
+      if (!areaOk) {
         setError({ message: t("unitDialog.priceRateNeedsGross") });
         return false;
       }
@@ -193,7 +198,7 @@ export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; 
     if (!shown || load !== "ready" || sold) return;
     const typed = text.trim() === "" ? "" : perSqm ? (total ?? "") : (typedTotal?.ok ? typedTotal.value : text);
     if (!saved && typed === "") return;
-    const { askingPrice, priceBasis } = priceToSave(typed, currency ?? "", saved ?? { askingPrice: null, currency: null, priceBasis: "FIXED_UNIT_PRICE" }, grossArea);
+    const { askingPrice, priceBasis } = priceToSave(typed, currency ?? "", saved ?? { askingPrice: null, currency: null, priceBasis: "FIXED_UNIT_PRICE" }, areas);
     // Nothing changed: send nothing, so no price history is written.
     if (saved && askingPrice === (saved.askingPrice ?? "") && priceBasis === saved.priceBasis) return;
     try {
@@ -218,7 +223,7 @@ export function useUnitPrice({ unitId, enabled, grossArea }: { unitId?: string; 
     touched,
     check,
     save,
-    view: { load, sold, entry, text, error, currency, saved: saved?.askingPrice ?? null, grossArea, inputRef, setText, chooseEntry, total, rate },
+    view: { load, sold, entry, text, error, currency, saved: saved?.askingPrice ?? null, area, basis, inputRef, setText, chooseEntry, total, rate },
   };
 }
 
@@ -227,7 +232,7 @@ export function UnitPriceFields({ price }: { price: UnitPrice }) {
   const t = useTranslations("projects");
   const locale = useLocale();
   if (!price.shown) return null;
-  const { load, sold, entry, text, error, currency, saved, grossArea, inputRef, setText, chooseEntry, total, rate } = price.view;
+  const { load, sold, entry, text, error, currency, saved, area, basis, inputRef, setText, chooseEntry, total, rate } = price.view;
   const perSqm = entry === "PER_SQM";
   const changed = saved !== null && total !== null && compareDecimal(total, saved) !== 0;
 
@@ -265,7 +270,7 @@ export function UnitPriceFields({ price }: { price: UnitPrice }) {
             ))}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={perSqm ? ts("unitDialogs.ratePerSqm") : ts("unitDialogs.askingPrice")} htmlFor="unit-asking-price" error={error?.message}>
+            <Field label={perSqm ? rateLabel(ts, basis) : ts("unitDialogs.askingPrice")} htmlFor="unit-asking-price" error={error?.message}>
               <Input
                 ref={inputRef}
                 id="unit-asking-price"
@@ -281,11 +286,11 @@ export function UnitPriceFields({ price }: { price: UnitPrice }) {
           </div>
           <p id="unit-price-line" className="text-meta tabular-nums text-fg-muted" aria-live="polite" data-testid="unit-price-line">
             {perSqm
-              ? !hasGrossArea(grossArea)
+              ? area === null
                 ? t("unitDialog.priceNeedsGross")
                 : total === null || rate === null
-                  ? ts("unitDialogs.perSqmFormula", { area: areaText(grossArea, locale) })
-                  : ts("unitDialogs.perSqmTotal", { area: areaText(grossArea, locale), rate: moneyLabel(rate, currency, locale), total: moneyLabel(total, currency, locale) })
+                  ? ts("unitDialogs.perSqmFormula", { area: areaText(area, locale), kind: areaKind(ts, basis) })
+                  : ts("unitDialogs.perSqmTotal", { area: areaText(area, locale), kind: areaKind(ts, basis), rate: moneyLabel(rate, currency, locale), total: moneyLabel(total, currency, locale) })
               : t("unitDialog.priceHint")}
             {changed ? <span className="text-fg-subtle"> · {t("unitDialog.priceWas", { total: moneyLabel(saved, currency, locale) })}</span> : null}
           </p>
@@ -294,4 +299,16 @@ export function UnitPriceFields({ price }: { price: UnitPrice }) {
       )}
     </fieldset>
   );
+}
+
+type SalesText = ReturnType<typeof useSalesTranslations>;
+
+/** The rate field's name, saying which area it is per m² of (2026-11-09): saleable or gross. */
+export function rateLabel(t: SalesText, basis: UnitPriceBasis): string {
+  return basis === "SALEABLE_AREA" ? t("unitDialogs.ratePerSqmOf.SALEABLE_AREA") : basis === "GROSS_AREA" ? t("unitDialogs.ratePerSqmOf.GROSS_AREA") : t("unitDialogs.ratePerSqm");
+}
+
+/** "saleable" or "gross", for the line that works the total out. */
+export function areaKind(t: SalesText, basis: UnitPriceBasis): string {
+  return basis === "SALEABLE_AREA" ? t("unitDialogs.areaKind.SALEABLE_AREA") : t("unitDialogs.areaKind.GROSS_AREA");
 }

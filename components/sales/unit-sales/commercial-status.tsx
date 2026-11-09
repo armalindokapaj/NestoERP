@@ -2,15 +2,19 @@ import { Badge } from "@/components/ui/badge";
 import { SalesLabel } from "@/components/sales/sales-text";
 import type { Locale } from "@/lib/i18n/config";
 import { numberText } from "@/lib/i18n/format";
-import { UNIT_COMMERCIAL_STATUS_LABELS, type UnitCommercialStatus } from "@/lib/modules/sales/units/unit-sales.types";
+import { cn } from "@/lib/utils/cn";
+import { UNIT_SALE_STATUS_LABELS, type UnitCommercialStatus, type UnitSaleStatus } from "@/lib/modules/sales/units/unit-sales.types";
 
 /**
  * Where a unit stands commercially, in words beside every colour (E-05E §7).
  * Never the publication badge: a published unit can be Not For Sale, and a unit
- * waiting for review can still be Reserved (§6, §35).
+ * waiting for review can still be Reserved (§6, §35). A unit nobody has priced
+ * or put on sale reads Not Priced (2026-11-09), drawn with a dashed edge: work
+ * still to do, not a decision to hold it back.
  */
 
-const TONES: Record<UnitCommercialStatus, "default" | "info" | "success" | "warning" | "neutral"> = {
+const TONES: Record<UnitSaleStatus, "default" | "info" | "success" | "warning" | "neutral"> = {
+  NOT_PRICED: "default",
   NOT_FOR_SALE: "default",
   FOR_SALE: "success",
   ON_HOLD: "warning",
@@ -18,10 +22,10 @@ const TONES: Record<UnitCommercialStatus, "default" | "info" | "success" | "warn
   SOLD: "neutral",
 };
 
-export function CommercialStatusBadge({ status, className }: { status: UnitCommercialStatus; className?: string }) {
+export function CommercialStatusBadge({ status, className }: { status: UnitSaleStatus; className?: string }) {
   return (
-    <Badge tone={TONES[status]} className={className} data-testid="commercial-status" data-status={status}>
-      <SalesLabel group="commercialStatus" value={status} fallback={UNIT_COMMERCIAL_STATUS_LABELS[status]} />
+    <Badge tone={TONES[status]} className={cn(status === "NOT_PRICED" && "border-dashed border-line-strong", className)} data-testid="commercial-status" data-status={status}>
+      <SalesLabel group="commercialStatus" value={status} fallback={UNIT_SALE_STATUS_LABELS[status]} />
     </Badge>
   );
 }
@@ -54,6 +58,13 @@ export const COMMERCIAL_ROW_TINT: Partial<Record<UnitCommercialStatus, string>> 
   RESERVED: "bg-warning/20 hover:bg-warning/30",
   SOLD: "bg-danger/20 hover:bg-danger/30",
 };
+
+/** The statuses the colour key under the Units table names, in its order, with the dot each row tint goes with. */
+export const COMMERCIAL_KEY: Array<{ status: UnitCommercialStatus; dot: string }> = [
+  { status: "FOR_SALE", dot: "bg-success" },
+  { status: "RESERVED", dot: "bg-warning" },
+  { status: "SOLD", dot: "bg-danger" },
+];
 
 /** The same tints for a phone card: `.nesto-card` paints its own surface, so these must win over it. */
 export const COMMERCIAL_CARD_TINT: Partial<Record<UnitCommercialStatus, string>> = {

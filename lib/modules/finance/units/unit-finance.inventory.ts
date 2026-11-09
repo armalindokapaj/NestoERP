@@ -6,7 +6,8 @@ import type { UserContext } from "@/lib/context/types";
 import { sqlTimestamp } from "@/lib/database/clock";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { pageWindow } from "@/lib/modules/shared/list-query";
-import { loadStructureProject } from "@/lib/modules/project-structure/structure.service";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
+import { containsPattern, loadStructureProject, unitCodeMatch } from "@/lib/modules/project-structure/structure.service";
 import { businessDateString } from "../finance.fields";
 import { companyToday, financeCapabilities } from "./unit-finance.core";
 import { UNIT_FINANCIAL_STATUSES, type FinanceInventoryDTO, type FinanceInventoryRowDTO, type UnitFinancialStatus } from "./unit-finance.types";
@@ -113,6 +114,7 @@ function orderBy(sort: FinanceInventoryQuery["sort"]): Prisma.Sql {
 type Row = {
   id: string;
   unitCode: string;
+  buildingCode: string | null;
   unitType: string;
   building: string;
   floor: string;
@@ -153,8 +155,9 @@ export async function listFinanceInventory(context: UserContext, projectId: stri
   if (query.outstandingMin) filters.push(Prisma.sql`f."outstanding" >= ${new Prisma.Decimal(query.outstandingMin)}`);
   const q = query.q?.trim();
   if (q) {
-    const like = `%${q.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
-    const matches = [Prisma.sql`u."unitCode" ILIKE ${like}`, Prisma.sql`u."name" ILIKE ${like}`];
+    const like = containsPattern(q);
+    // The unit by its code as the lists show it — "T-501", "T501" or "501" (2026-11-09).
+    const matches = [unitCodeMatch(q)];
     if (canSeeClients) matches.push(Prisma.sql`cl."name" ILIKE ${like}`);
     matches.push(Prisma.sql`f."contractNumber" ILIKE ${like}`);
     if (caps.canSeeInvoices) matches.push(Prisma.sql`EXISTS (SELECT 1 FROM "invoices" inv WHERE inv."contractId" = f."contractId" AND inv."invoiceNumber" ILIKE ${like})`);
@@ -186,7 +189,7 @@ export async function listFinanceInventory(context: UserContext, projectId: stri
       const matching = counts.reduce((sum, row) => sum + (!query.financialStatus || row.status === query.financialStatus ? Number(row.count) : 0), 0);
       const window = pageWindow(matching, query.page, query.limit);
       const rows = await tx.$queryRaw<Row[]>`${cte}
-        SELECT u."id", u."unitCode", t."name" AS "unitType", b."name" AS "building", fl."name" AS "floor",
+        SELECT u."id", u."unitCode", b."code" AS "buildingCode", t."name" AS "unitType", b."name" AS "building", fl."name" AS "floor",
           f."contractId", f."contractNumber", f."contractStatus", f."currency", f."clientId", cl."name" AS "clientName",
           f."value", f."paid", f."outstanding", f."overdue", f."nextDueDate", f."nextDueAmount", ${STATUS} AS "status"
         ${from} ${where} ${statusFilter}
@@ -204,6 +207,7 @@ export async function listFinanceInventory(context: UserContext, projectId: stri
   const items = rows.map((row): FinanceInventoryRowDTO => ({
     id: row.id,
     unitCode: row.unitCode,
+    label: unitLabel(row.buildingCode, row.unitCode),
     unitType: row.unitType,
     building: row.building,
     floor: row.floor,

@@ -359,7 +359,7 @@ export function MoveUnitDialog({ open, onOpenChange, unit, buildings, onMoved }:
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>{t("structureDialogs.moveUnitTitle", { code: unit.unitCode })}</DialogTitle>
+        <DialogTitle>{t("structureDialogs.moveUnitTitle", { code: unit.label })}</DialogTitle>
         <DialogDescription>{t("structureDialogs.moveUnitBody")}</DialogDescription>
         <MoveUnitForm unit={unit} buildings={buildings} onMoved={onMoved} onDone={() => onOpenChange(false)} />
       </DialogContent>
@@ -367,7 +367,8 @@ export function MoveUnitDialog({ open, onOpenChange, unit, buildings, onMoved }:
   );
 }
 
-type MovableUnit = { id: string; unitCode: string; version: number; floorId: string; buildingId: string };
+/** `label` is how the unit is named to people, "T-501". */
+type MovableUnit = { id: string; label: string; version: number; floorId: string; buildingId: string };
 type MoveTargets = Array<{ id: string; name: string; floors: Array<{ id: string; name: string }> }>;
 
 function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit; buildings: MoveTargets; onMoved: (floorId: string) => void; onDone: () => void }) {
@@ -378,7 +379,7 @@ function MoveUnitForm({ unit, buildings, onMoved, onDone }: { unit: MovableUnit;
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const floors = buildings.find((building) => building.id === buildingId)?.floors ?? [];
-  const editor = useValuesEditor({ buildingId, floorId }, { module: "units", saveKind: "none", workflow: t("structureDialogs.moveUnit"), label: t("structureDialogs.moving", { name: unit.unitCode }) });
+  const editor = useValuesEditor({ buildingId, floorId }, { module: "units", saveKind: "none", workflow: t("structureDialogs.moveUnit"), label: t("structureDialogs.moving", { name: unit.label }) });
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();

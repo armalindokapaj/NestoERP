@@ -61,7 +61,7 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link href={unitHref} className="text-body font-semibold text-fg hover:underline">
-                      {row.unit.unitCode}
+                      {row.unit.label}
                     </Link>
                     <Badge tone={row.status === "OPEN" ? "warning" : row.status === "FULFILLED" ? "success" : "default"}>{contractsLabel(t, "requestStatus", row.status, CONTRACT_REQUEST_STATUS_LABELS[row.status])}</Badge>
                     <span className="text-meta text-fg-subtle">
@@ -108,7 +108,7 @@ export function ContractRequestQueue({ items, view, canCreate, canDecline }: { i
         </ul>
       )}
       {declining ? (
-        <FieldsDialog open onClose={() => setDeclining(null)} title={t("requests.declineTitle", { unit: declining.unit.unitCode })} description={t("requests.declineDescription")} confirmLabel={t("common.decline")} url={`/api/contracts/requests/${declining.id}/decline`} fields={[{ name: "reason", label: t("common.reason"), kind: "textarea", required: true }]} success={t("requests.declined")} submit={submit} module="contracts" />
+        <FieldsDialog open onClose={() => setDeclining(null)} title={t("requests.declineTitle", { unit: declining.unit.label })} description={t("requests.declineDescription")} confirmLabel={t("common.decline")} url={`/api/contracts/requests/${declining.id}/decline`} fields={[{ name: "reason", label: t("common.reason"), kind: "textarea", required: true }]} success={t("requests.declined")} submit={submit} module="contracts" />
       ) : null}
     </div>
   );

@@ -5,7 +5,7 @@ import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
 
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { idSchema } from "@/lib/modules/project-structure/structure.schema";
-import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_COMMERCIAL_STATUSES, UNIT_PRICE_BASES } from "./unit-sales.types";
+import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_PRICE_BASES, UNIT_SALE_STATUSES } from "./unit-sales.types";
 
 /**
  * Unit sales validation (E-05E §45, §47). Ids are shapes only; whether a client or
@@ -106,7 +106,8 @@ export const inventoryQuerySchema = z.object({
   buildingId: optionalId,
   floorId: optionalId,
   unitTypeId: optionalId,
-  commercialStatus: z.enum(UNIT_COMMERCIAL_STATUSES).optional().catch(undefined),
+  // The status as shown, Not Priced included (2026-11-09).
+  commercialStatus: z.enum(UNIT_SALE_STATUSES).optional().catch(undefined),
   areaMin: optionalAmount,
   areaMax: optionalAmount,
   bedrooms: optionalCount,

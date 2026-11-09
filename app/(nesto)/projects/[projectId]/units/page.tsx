@@ -57,8 +57,8 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
     bathrooms: query.bathrooms === undefined ? "" : String(query.bathrooms),
     internalAreaMin: query.internalAreaMin ?? "",
     internalAreaMax: query.internalAreaMax ?? "",
-    saleableAreaMin: query.saleableAreaMin ?? "",
-    saleableAreaMax: query.saleableAreaMax ?? "",
+    areaMin: query.areaMin ?? "",
+    areaMax: query.areaMax ?? "",
     publication: query.publicationStatus ?? "",
     sort: query.sort ?? "structure",
   };

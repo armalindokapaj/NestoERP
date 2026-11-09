@@ -16,6 +16,17 @@ export const UNIT_COMMERCIAL_STATUS_LABELS: Record<UnitCommercialStatus, string>
   SOLD: "Sold",
 };
 
+/**
+ * How a unit's sale reads on screen (2026-11-09): its commercial status, except
+ * that a unit nobody has priced and nobody put on sale — Not For Sale, or no
+ * sales record yet — is Not Priced. Derived, never stored: "Not For Sale" is
+ * kept for a unit someone priced but held back or took off sale.
+ */
+export const UNIT_SALE_STATUSES = ["FOR_SALE", "NOT_PRICED", "ON_HOLD", "RESERVED", "SOLD", "NOT_FOR_SALE"] as const;
+export type UnitSaleStatus = (typeof UNIT_SALE_STATUSES)[number];
+
+export const UNIT_SALE_STATUS_LABELS: Record<UnitSaleStatus, string> = { ...UNIT_COMMERCIAL_STATUS_LABELS, NOT_PRICED: "Not Priced" };
+
 export const UNIT_PRICE_BASES = ["SALEABLE_AREA", "INTERNAL_AREA", "GROSS_AREA", "FIXED_UNIT_PRICE"] as const;
 export type UnitPriceBasis = (typeof UNIT_PRICE_BASES)[number];
 
@@ -119,14 +130,20 @@ export type UnitSalesDTO = {
   unitId: string;
   projectId: string;
   unitCode: string;
+  /** How the unit is named to people: its building's code and its own, "T-501". */
+  unitLabel: string;
   status: UnitCommercialStatus;
   statusChangedAt: string | null;
   askingPrice: string | null;
   currency: string | null;
+  /** The basis the price was saved on; a new price is saved on the sale area's. */
   priceBasis: UnitPriceBasis;
+  /** The asking price over the sale area, whatever basis it was saved on. */
   pricePerSqm: string | null;
-  basisArea: string | null;
-  /** The unit's gross area: what a price per m² is typed against in the price dialog. */
+  /** The area the unit is sold by — saleable, else gross — and which one it is; null without either. */
+  saleArea: string | null;
+  saleAreaBasis: UnitPriceBasis;
+  saleableArea: string | null;
   grossArea: string | null;
   holdReason: string | null;
   holdUntil: string | null;
@@ -134,6 +151,8 @@ export type UnitSalesDTO = {
   heldByMemberId: string | null;
   salesNotes: string | null;
   version: number;
+  /** The status as shown: Not Priced for a unit with no price that is not for sale. */
+  saleStatus: UnitSaleStatus;
   /** Whether the unit may be put on sale or reserved now (§6): active and Published. */
   sellable: boolean;
   sellableReason: string | null;
@@ -155,15 +174,20 @@ export type UnitSalesDTO = {
 export type InventoryRowDTO = {
   id: string;
   unitCode: string;
-  name: string | null;
+  /** How the unit is named to people: its building's code and its own, "T-501". */
+  label: string;
   unitType: string;
   building: string;
   floor: string;
-  saleableArea: string | null;
+  /** The area the unit is sold by: saleable when typed, otherwise gross (2026-11-09). */
+  saleArea: string | null;
+  saleAreaBasis: UnitPriceBasis;
   bedrooms: number | null;
   bathrooms: number | null;
   orientation: string | null;
   status: UnitCommercialStatus;
+  /** The status as shown, with Not Priced. */
+  saleStatus: UnitSaleStatus;
   publicationStatus: string;
   askingPrice: string | null;
   currency: string | null;
@@ -178,8 +202,8 @@ export type InventoryDTO = {
   page: number;
   pageSize: number;
   total: number;
-  /** Units per commercial status for the quick filters, under every other filter (§14). */
-  counts: Record<UnitCommercialStatus, number> & { ALL: number };
+  /** Units per status as shown, for the quick filters, under every other filter (§14). */
+  counts: Record<UnitSaleStatus, number> & { ALL: number };
   canSeeClients: boolean;
   canSeeDeals: boolean;
 };

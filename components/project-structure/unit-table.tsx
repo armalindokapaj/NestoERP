@@ -4,7 +4,7 @@ import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "lucide-react";
 
 import { MobileRecordCard } from "@/components/data/mobile-record";
 import { RecordActionSheet, SheetActionButton, SheetActionLink } from "@/components/data/record-action-sheet";
@@ -14,10 +14,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { opensRow, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { SalesLabel } from "@/components/sales/sales-text";
-import { COMMERCIAL_CARD_TINT, COMMERCIAL_ROW_TINT, moneyLabel } from "@/components/sales/unit-sales/commercial-status";
-import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
+import { COMMERCIAL_CARD_TINT, COMMERCIAL_KEY, COMMERCIAL_ROW_TINT, moneyLabel } from "@/components/sales/unit-sales/commercial-status";
 import { type UnitDTO, type UnitListDTO } from "@/lib/modules/project-structure/structure.types";
-import { UNIT_COMMERCIAL_STATUS_LABELS } from "@/lib/modules/sales/units/unit-sales.types";
+import { saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
+import { UNIT_SALE_STATUS_LABELS } from "@/lib/modules/sales/units/unit-sales.types";
 import { cn } from "@/lib/utils/cn";
 import { areaText, countText } from "./structure-ui";
 import { pageWindow } from "@/lib/modules/shared/list-query";
@@ -28,7 +28,9 @@ import { pageWindow } from "@/lib/modules/shared/list-query";
  * area and Total price — the asking price. Where a unit stands
  * commercially is the row's colour: green for sale, orange reserved, red sold;
  * Not for sale and On hold stay plain. The colour is also said in words to a
- * screen reader. The whole row opens the unit; the menu at its end does not.
+ * screen reader — Not Priced for a unit nobody has priced yet — and a key under
+ * the table names the three colours. The whole row opens the unit; the menu at
+ * its end does not, and holds Archive beside Delete (2026-11-09).
  *
  * The table fits its column without scrolling sideways down to the narrowest
  * desktop window (1024px, beside the structure tree, which narrows there): the
@@ -42,11 +44,28 @@ const FIT = "[&_td]:px-3 [&_th]:px-3 [&_td:last-child]:px-2 [&_th:last-child]:px
 
 
 function StatusWords({ unit }: { unit: UnitDTO }) {
+  const status = saleStatusOf(unit.commercialStatus, unit.askingPrice?.amount ?? null);
   return (
     <span className="sr-only">
       {" "}
-      (<SalesLabel group="commercialStatus" value={unit.commercialStatus} fallback={UNIT_COMMERCIAL_STATUS_LABELS[unit.commercialStatus]} />)
+      (<SalesLabel group="commercialStatus" value={status} fallback={UNIT_SALE_STATUS_LABELS[status]} />)
     </span>
+  );
+}
+
+/** One line under the table naming the row colours (2026-11-09): For sale, Reserved, Sold. Other rows stay plain. */
+function ColourKey() {
+  const t = useTranslations("projects");
+  return (
+    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-fg-muted" data-testid="unit-colour-key">
+      <span className="sr-only">{t("unitTable.colourKey")}</span>
+      {COMMERCIAL_KEY.map((entry) => (
+        <span key={entry.status} className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className={cn("size-2.5 rounded-full", entry.dot)} />
+          <SalesLabel group="commercialStatus" value={entry.status} fallback={UNIT_SALE_STATUS_LABELS[entry.status]} />
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -54,22 +73,32 @@ export type UnitRowActions = {
   canUpdate: boolean;
   canMove: boolean;
   canDelete: boolean;
+  /** Archive, or Restore an archived unit (`project.unit.archive`). */
+  canArchive: boolean;
   /** Only inside one floor, in the structure order, for somebody who orders the structure (§51). */
   canReorder: boolean;
   onEdit: (unit: UnitDTO) => void;
   onMove: (unit: UnitDTO) => void;
   onDelete: (unit: UnitDTO) => void;
+  onArchive: (unit: UnitDTO) => void;
+  onRestore: (unit: UnitDTO) => void;
   onReorder: (unit: UnitDTO, offset: -1 | 1) => void;
 };
+
+/** Whether the person may do anything to a unit beyond opening it. */
+function hasActions(actions: UnitRowActions): boolean {
+  return actions.canUpdate || actions.canMove || actions.canDelete || actions.canArchive || actions.canReorder;
+}
 
 function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: string; index: number; count: number; actions: UnitRowActions }) {
   // A reader with nothing to do but open the unit already has the link.
   const t = useTranslations("projects");
-  if (!actions.canUpdate && !actions.canMove && !actions.canDelete && !actions.canReorder) return null;
+  if (!hasActions(actions)) return null;
+  const archived = unit.publication.status === "ARCHIVED";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={t("unitTable.actionsFor", { code: unit.unitCode })}>
+        <Button variant="ghost" size="icon-sm" aria-label={t("unitTable.actionsFor", { code: unit.label })}>
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
@@ -104,6 +133,19 @@ function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: s
             </DropdownMenuItem>
           </>
         ) : null}
+        {actions.canArchive ? (
+          archived ? (
+            <DropdownMenuItem onSelect={() => actions.onRestore(unit)}>
+              <ArchiveRestore aria-hidden="true" />
+              {t("publishing.restore")}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onSelect={() => actions.onArchive(unit)}>
+              <Archive aria-hidden="true" />
+              {t("publishing.archive")}
+            </DropdownMenuItem>
+          )
+        ) : null}
         {actions.canDelete ? (
           <DropdownMenuItem className="text-danger-strong" onSelect={() => actions.onDelete(unit)}>
             <Trash2 aria-hidden="true" />
@@ -118,9 +160,10 @@ function RowMenu({ unit, href, index, count, actions }: { unit: UnitDTO; href: s
 /** The phone's row actions: one bottom sheet with the same actions the desktop menu offers, and only those this person holds. */
 function UnitActionSheet({ unit, href, index, count, actions }: { unit: UnitDTO; href: string; index: number; count: number; actions: UnitRowActions }) {
   const t = useTranslations("projects");
-  if (!actions.canUpdate && !actions.canMove && !actions.canDelete && !actions.canReorder) return null;
+  if (!hasActions(actions)) return null;
+  const archived = unit.publication.status === "ARCHIVED";
   return (
-    <RecordActionSheet name={unit.unitCode}>
+    <RecordActionSheet name={unit.label}>
       <SheetActionLink href={href} icon={<ExternalLink aria-hidden="true" />}>{t("unitTable.openUnit")}</SheetActionLink>
       {actions.canUpdate ? <SheetActionButton onSelect={() => actions.onEdit(unit)} icon={<Pencil aria-hidden="true" />}>{t("unitTable.edit")}</SheetActionButton> : null}
       {actions.canMove ? <SheetActionButton onSelect={() => actions.onMove(unit)} icon={<MoveRight aria-hidden="true" />}>{t("unitTable.moveToFloor")}</SheetActionButton> : null}
@@ -129,6 +172,13 @@ function UnitActionSheet({ unit, href, index, count, actions }: { unit: UnitDTO;
           <SheetActionButton disabled={index === 0} onSelect={() => actions.onReorder(unit, -1)} icon={<ArrowUp aria-hidden="true" />}>{t("workspace.moveUp")}</SheetActionButton>
           <SheetActionButton disabled={index === count - 1} onSelect={() => actions.onReorder(unit, 1)} icon={<ArrowDown aria-hidden="true" />}>{t("workspace.moveDown")}</SheetActionButton>
         </>
+      ) : null}
+      {actions.canArchive ? (
+        archived ? (
+          <SheetActionButton onSelect={() => actions.onRestore(unit)} icon={<ArchiveRestore aria-hidden="true" />}>{t("publishing.restore")}</SheetActionButton>
+        ) : (
+          <SheetActionButton onSelect={() => actions.onArchive(unit)} icon={<Archive aria-hidden="true" />}>{t("publishing.archive")}</SheetActionButton>
+        )
       ) : null}
       {actions.canDelete ? <SheetActionButton destructive onSelect={() => actions.onDelete(unit)} icon={<Trash2 aria-hidden="true" />}>{t("unitTable.delete")}</SheetActionButton> : null}
     </RecordActionSheet>
@@ -139,7 +189,7 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
   const locale = useLocale();
   const nav = useFeedbackRouter();
   const href = (unit: UnitDTO) => `/projects/${projectId}/units/${unit.id}`;
-  const label = (unit: UnitDTO) => unitLabel(unit.building.code, unit.unitCode);
+  const label = (unit: UnitDTO) => unit.label;
   const price = (unit: UnitDTO) => moneyLabel(unit.askingPrice?.amount ?? null, unit.askingPrice?.currency ?? null, locale);
   const t = useTranslations("projects");
   // "1–50 of 73", "0 results", and a count on a single page too (AUD-08 §4, DT-05).
@@ -234,6 +284,8 @@ export function UnitTable({ projectId, list, actions, onPage, loading }: { proje
           );
         })}
       </ul>
+
+      <ColourKey />
 
       {pages > 1 ? (
         <nav aria-label={t("unitTable.pagination")} className="mt-3 flex flex-wrap items-center justify-between gap-3">

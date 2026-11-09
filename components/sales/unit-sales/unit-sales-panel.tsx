@@ -19,7 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import { FieldsDialog } from "@/components/finance/unit-finance/fields-dialog";
 import { UnitContractStatusBadge } from "@/components/finance/unit-finance/finance-status";
 import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/i18n/format";
-import { COMMERCIAL_SOURCE_LABELS, UNIT_COMMERCIAL_STATUS_LABELS, UNIT_SOLD_RULE_LABELS, UNIT_PRICE_BASIS_LABELS, UNIT_RESERVATION_STATUS_LABELS, type ReservationDTO, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
+import { COMMERCIAL_SOURCE_LABELS, UNIT_COMMERCIAL_STATUS_LABELS, UNIT_SOLD_RULE_LABELS, UNIT_RESERVATION_STATUS_LABELS, type ReservationDTO, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import { failureMessage } from "@/components/project-structure/structure-ui";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
@@ -98,7 +98,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
   async function markSold() {
     setPending(true);
     try {
-      await submit(`/api/project-units/${sales.unitId}/mark-sold`, sales.version > 0 ? { expectedVersion: sales.version } : {}, t("unitSales.isSold", { unit: sales.unitCode }));
+      await submit(`/api/project-units/${sales.unitId}/mark-sold`, sales.version > 0 ? { expectedVersion: sales.version } : {}, t("unitSales.isSold", { unit: sales.unitLabel }));
       setOpen(null);
     } catch (error) {
       setOpen(null);
@@ -118,7 +118,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
             <h2 id="unit-sales-summary" className="text-card font-semibold text-fg">
               {t("unitSales.sales")}
             </h2>
-            <CommercialStatusBadge status={status} />
+            <CommercialStatusBadge status={sales.saleStatus} />
             {sales.statusChangedAt ? <span className="text-meta text-fg-subtle">{t("unitSales.since", { date: formatDate(sales.statusChangedAt, locale) })}</span> : null}
           </div>
 
@@ -132,8 +132,9 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
             className="mt-4"
             items={[
               { label: t("unitSales.askingPrice"), value: <span className="tabular-nums" data-testid="asking-price">{moneyLabel(sales.askingPrice, sales.currency, locale)}</span> },
-              { label: t("unitSales.pricePerSqm"), value: <span className="tabular-nums" data-testid="price-per-sqm">{sales.priceBasis === "FIXED_UNIT_PRICE" ? "—" : perSqmLabel(sales.pricePerSqm, sales.currency, locale)}</span> },
-              { label: t("unitSales.priceBasis"), value: `${salesLabel(t, "priceBasis", sales.priceBasis, UNIT_PRICE_BASIS_LABELS[sales.priceBasis])}${sales.basisArea ? ` · ${areaText(sales.basisArea, locale)}` : ""}` },
+              // Per m² of the sale area — saleable when typed, else gross — whatever basis the price was saved on (2026-11-09).
+              { label: t("unitSales.pricePerSqm"), value: <span className="tabular-nums" data-testid="price-per-sqm">{perSqmLabel(sales.pricePerSqm, sales.currency, locale)}</span> },
+              { label: t("unitSales.saleArea"), value: <span data-testid="sale-area">{sales.saleArea === null ? "—" : `${areaText(sales.saleArea, locale)} · ${sales.saleAreaBasis === "SALEABLE_AREA" ? t("unitSales.saleAreaSaleable") : t("unitSales.saleAreaGross")}`}</span> },
               ...(status === "ON_HOLD"
                 ? [
                     {
@@ -340,21 +341,21 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
 
       <PriceDialog open={open === "price"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       {/* A sale's approval, where the company's Sold rule asks for one (E-05F §42). */}
-      <FieldsDialog open={open === "requestApproval"} onClose={() => setOpen(null)} title={t("unitSales.requestTitle", { unit: sales.unitCode })} description={t("unitSales.requestDescription")} confirmLabel={t("unitSales.askForApproval")} url={`/api/project-units/${sales.unitId}/sale-approval`} fields={[{ name: "note", label: t("unitSales.noteForApprover"), kind: "textarea" }]} success={t("unitSales.requestSuccess")} submit={submit} testId="request-sale-approval-dialog" />
-      <FieldsDialog open={open === "approveSale"} onClose={() => setOpen(null)} title={t("unitSales.approveTitle", { unit: sales.unitCode })} description={t("unitSales.approveDescription")} confirmLabel={t("unitSales.approve")} url={`/api/project-units/${sales.unitId}/sale-approval/approve`} fields={[{ name: "note", label: t("unitSales.note"), kind: "textarea" }]} success={t("unitSales.approveSuccess")} submit={submit} />
-      <FieldsDialog open={open === "rejectSale"} onClose={() => setOpen(null)} title={t("unitSales.rejectTitle", { unit: sales.unitCode })} confirmLabel={t("unitSales.reject")} url={`/api/project-units/${sales.unitId}/sale-approval/reject`} fields={[{ name: "note", label: t("unitSales.reason"), kind: "textarea", required: true }]} success={t("unitSales.rejectSuccess")} submit={submit} />
+      <FieldsDialog open={open === "requestApproval"} onClose={() => setOpen(null)} title={t("unitSales.requestTitle", { unit: sales.unitLabel })} description={t("unitSales.requestDescription")} confirmLabel={t("unitSales.askForApproval")} url={`/api/project-units/${sales.unitId}/sale-approval`} fields={[{ name: "note", label: t("unitSales.noteForApprover"), kind: "textarea" }]} success={t("unitSales.requestSuccess")} submit={submit} testId="request-sale-approval-dialog" />
+      <FieldsDialog open={open === "approveSale"} onClose={() => setOpen(null)} title={t("unitSales.approveTitle", { unit: sales.unitLabel })} description={t("unitSales.approveDescription")} confirmLabel={t("unitSales.approve")} url={`/api/project-units/${sales.unitId}/sale-approval/approve`} fields={[{ name: "note", label: t("unitSales.note"), kind: "textarea" }]} success={t("unitSales.approveSuccess")} submit={submit} />
+      <FieldsDialog open={open === "rejectSale"} onClose={() => setOpen(null)} title={t("unitSales.rejectTitle", { unit: sales.unitLabel })} confirmLabel={t("unitSales.reject")} url={`/api/project-units/${sales.unitId}/sale-approval/reject`} fields={[{ name: "note", label: t("unitSales.reason"), kind: "textarea", required: true }]} success={t("unitSales.rejectSuccess")} submit={submit} />
       <ReserveDialog open={open === "reserve"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <ReopenDialog open={open === "reopen"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <CorrectDialog open={open === "correct"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <ReasonDialog
         open={open === "hold"}
         onClose={() => setOpen(null)}
-        title={t("unitSales.holdTitle", { unit: sales.unitCode })}
+        title={t("unitSales.holdTitle", { unit: sales.unitLabel })}
         description={t("unitSales.holdDescription")}
         confirmLabel={t("unitSales.hold")}
         url={`/api/project-units/${sales.unitId}/sales/status`}
         body={{ action: "hold", ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }}
-        success={t("unitSales.holdSuccess", { unit: sales.unitCode })}
+        success={t("unitSales.holdSuccess", { unit: sales.unitLabel })}
         submit={submit}
         date={{ label: t("unitSales.reviewHoldOn"), field: "holdUntil", required: false, min: dateValue(new Date()) }}
         testId="hold-dialog"
@@ -364,12 +365,12 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
           <ReasonDialog
             open={open === "extend"}
             onClose={() => setOpen(null)}
-            title={t("unitSales.extendTitle", { unit: sales.unitCode })}
+            title={t("unitSales.extendTitle", { unit: sales.unitLabel })}
             description={t("unitSales.extendDescription", { date: formatDate(reservation.expiresAt, locale) })}
             confirmLabel={t("unitSales.extend")}
             url={`/api/unit-reservations/${reservation.id}/extend`}
             body={{ expectedVersion: reservation.version }}
-            success={t("unitSales.extendSuccess", { unit: sales.unitCode })}
+            success={t("unitSales.extendSuccess", { unit: sales.unitLabel })}
             submit={submit}
             date={{ label: t("unitSales.newExpiry"), field: "expiresAt", required: true, initial: dateValue(new Date(new Date(reservation.expiresAt).getTime() + sales.defaults.reservationDays * 86_400_000)), min: dateValue(reservation.expiresAt) }}
             testId="extend-dialog"
@@ -377,25 +378,25 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
           <ReasonDialog
             open={open === "release"}
             onClose={() => setOpen(null)}
-            title={t("unitSales.releaseTitle", { unit: sales.unitCode })}
+            title={t("unitSales.releaseTitle", { unit: sales.unitLabel })}
             description={t("unitSales.releaseDescription")}
             confirmLabel={t("unitSales.release")}
             url={`/api/unit-reservations/${reservation.id}/release`}
             body={{ expectedVersion: reservation.version }}
-            success={t("unitSales.releaseSuccess", { unit: sales.unitCode })}
+            success={t("unitSales.releaseSuccess", { unit: sales.unitLabel })}
             submit={submit}
             testId="release-dialog"
           />
         </>
       ) : null}
 
-      <ConfirmDialog open={open === "putOnSale"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.putOnSaleTitle", { unit: sales.unitCode })} description={t("unitSales.putOnSaleDescription")} confirmLabel={t("unitSales.putOnSale")} destructive={false} pending={pending} onConfirm={() => void quick("put_on_sale", t("unitSales.forSale", { unit: sales.unitCode }))} />
-      <ConfirmDialog open={open === "takeOff"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.takeOffTitle", { unit: sales.unitCode })} description={t("unitSales.takeOffDescription")} confirmLabel={t("unitSales.takeOffSale")} pending={pending} onConfirm={() => void quick("take_off_sale", t("unitSales.noLongerForSale", { unit: sales.unitCode }))} />
-      <ConfirmDialog open={open === "releaseHold"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.releaseHoldTitle", { unit: sales.unitCode })} description={t("unitSales.releaseHoldDescription")} confirmLabel={t("unitSales.releaseHold")} destructive={false} pending={pending} onConfirm={() => void quick("release_hold", t("unitSales.forSaleAgain", { unit: sales.unitCode }))} />
+      <ConfirmDialog open={open === "putOnSale"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.putOnSaleTitle", { unit: sales.unitLabel })} description={t("unitSales.putOnSaleDescription")} confirmLabel={t("unitSales.putOnSale")} destructive={false} pending={pending} onConfirm={() => void quick("put_on_sale", t("unitSales.forSale", { unit: sales.unitLabel }))} />
+      <ConfirmDialog open={open === "takeOff"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.takeOffTitle", { unit: sales.unitLabel })} description={t("unitSales.takeOffDescription")} confirmLabel={t("unitSales.takeOffSale")} pending={pending} onConfirm={() => void quick("take_off_sale", t("unitSales.noLongerForSale", { unit: sales.unitLabel }))} />
+      <ConfirmDialog open={open === "releaseHold"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.releaseHoldTitle", { unit: sales.unitLabel })} description={t("unitSales.releaseHoldDescription")} confirmLabel={t("unitSales.releaseHold")} destructive={false} pending={pending} onConfirm={() => void quick("release_hold", t("unitSales.forSaleAgain", { unit: sales.unitLabel }))} />
       <ConfirmDialog
         open={open === "sold"}
         onOpenChange={(value) => !value && setOpen(null)}
-        title={t("unitSales.soldTitle", { unit: sales.unitCode })}
+        title={t("unitSales.soldTitle", { unit: sales.unitLabel })}
         description={t("unitSales.soldDescription", { client: reservation?.client?.name ?? t("unitSales.theClient"), price: moneyLabel(reservation?.agreedPrice ?? null, reservation?.currency ?? null, locale) })}
         confirmLabel={t("unitSales.markSold")}
         destructive={false}
@@ -404,7 +405,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
       />
       <Dialog open={open === "notSold"} onOpenChange={(value) => !value && setOpen(null)}>
         <DialogContent className="max-w-md" data-testid="not-sellable-dialog">
-          <DialogTitle>{t("unitSales.cannotSellTitle", { unit: sales.unitCode })}</DialogTitle>
+          <DialogTitle>{t("unitSales.cannotSellTitle", { unit: sales.unitLabel })}</DialogTitle>
           <DialogDescription>{t("unitSales.cannotSellDescription", { rule: salesLabel(t, "soldRule", sales.soldCheck.rule, UNIT_SOLD_RULE_LABELS[sales.soldCheck.rule]).toLowerCase() })}</DialogDescription>
           <ul className="mt-3 space-y-2">
             {sales.soldCheck.missing.map((item) => (

@@ -1539,11 +1539,12 @@ const DEFINITIONS: RecordDefinition[] = [
       const { readableUnitWhere } = await import("@/lib/modules/project-structure/structure.permissions");
       const row = await prisma.projectUnit.findFirst({
         where: { AND: [readableUnitWhere(context), { id }] },
-        select: { id: true, companyId: true, projectId: true, unitCode: true, isActive: true, publicationStatus: true, project: { select: { name: true, archivedAt: true, status: true, projectManagerMemberId: true } } },
+        select: { id: true, companyId: true, projectId: true, unitCode: true, isActive: true, publicationStatus: true, project: { select: { name: true, archivedAt: true, status: true, projectManagerMemberId: true } }, floor: { select: { building: { select: { code: true } } } } },
       });
+      const { unitLabel } = await import("@/lib/modules/project-structure/structure.rules");
       return row && {
         type: "project_unit", id: row.id, companyId: row.companyId,
-        label: `${row.unitCode} · ${row.project.name}`,
+        label: `${unitLabel(row.floor.building.code, row.unitCode)} · ${row.project.name}`,
         href: `/projects/${row.projectId}/units/${row.id}`,
         projectId: row.projectId,
         archived: row.publicationStatus === "ARCHIVED" || Boolean(row.project.archivedAt) || row.project.status === "ARCHIVED",

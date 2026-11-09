@@ -1,13 +1,15 @@
-import { Prisma, type UnitCommercialStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
-import { loadStructureProject } from "@/lib/modules/project-structure/structure.service";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
+import { containsPattern, loadStructureProject, SALE_AREA_SQL, unitCodeMatch } from "@/lib/modules/project-structure/structure.service";
+import { saleArea, saleRate } from "./unit-pricing.rules";
 import { salesCapabilities } from "./unit-sales.core";
-import { moneyText, pricePerSqm } from "./unit-sales.rules";
+import { moneyText, saleStatusOf } from "./unit-sales.rules";
 import type { InventoryQuery } from "./unit-sales.schema";
-import { UNIT_COMMERCIAL_STATUSES, type InventoryDTO, type InventoryRowDTO } from "./unit-sales.types";
+import { UNIT_SALE_STATUSES, type InventoryDTO, type InventoryRowDTO, type UnitSaleStatus } from "./unit-sales.types";
 
 /**
  * The Sales inventory of a project (E-05E §13, §14, §45, §56).
@@ -18,14 +20,17 @@ import { UNIT_COMMERCIAL_STATUSES, type InventoryDTO, type InventoryRowDTO } fro
  * one query with their commercial profile and active reservation, so a page costs
  * the same at 50 units as at 10,000 (§56). Client and deal names are searched and
  * shown only for readers who may open clients and deals (§14, §32).
+ *
+ * The area is the sale area — the saleable area when typed, else the gross
+ * (2026-11-09) — and the price per m² is the asking price over it, whatever
+ * basis the price was saved on. A unit with no price that is not for sale reads
+ * Not Priced, with a quick filter of its own.
  */
 
 const STATUS = Prisma.sql`COALESCE(p."status", 'NOT_FOR_SALE'::"UnitCommercialStatus")`;
-const PRICE_PER_SQM = Prisma.sql`(CASE p."priceBasis"
-  WHEN 'SALEABLE_AREA' THEN p."askingPrice" / NULLIF(u."saleableArea", 0)
-  WHEN 'INTERNAL_AREA' THEN p."askingPrice" / NULLIF(u."internalArea", 0)
-  WHEN 'GROSS_AREA' THEN p."askingPrice" / NULLIF(u."grossArea", 0)
-  ELSE NULL END)`;
+/** The status as shown: Not Priced for a unit with no asking price that is not for sale (`saleStatusOf`). */
+const SALE_STATUS = Prisma.sql`(CASE WHEN ${STATUS} = 'NOT_FOR_SALE' AND p."askingPrice" IS NULL THEN 'NOT_PRICED' ELSE ${STATUS}::text END)`;
+const PRICE_PER_SQM = Prisma.sql`(p."askingPrice" / ${SALE_AREA_SQL})`;
 
 function orderBy(sort: InventoryQuery["sort"]): Prisma.Sql {
   const structure = Prisma.sql`b."sortOrder" ASC, f."sortOrder" ASC, u."sortOrder" ASC, u."unitCodeKey" ASC, u."id" ASC`;
@@ -41,9 +46,9 @@ function orderBy(sort: InventoryQuery["sort"]): Prisma.Sql {
     case "-pricePerSqm":
       return Prisma.sql`${PRICE_PER_SQM} DESC NULLS LAST, ${structure}`;
     case "area":
-      return Prisma.sql`u."saleableArea" ASC NULLS LAST, ${structure}`;
+      return Prisma.sql`${SALE_AREA_SQL} ASC NULLS LAST, ${structure}`;
     case "-area":
-      return Prisma.sql`u."saleableArea" DESC NULLS LAST, ${structure}`;
+      return Prisma.sql`${SALE_AREA_SQL} DESC NULLS LAST, ${structure}`;
     case "expiry":
       return Prisma.sql`r."expiresAt" ASC NULLS LAST, ${structure}`;
     default:
@@ -63,16 +68,17 @@ export async function listSalesInventory(context: UserContext, projectId: string
   if (query.orientation) filters.push(Prisma.sql`u."orientation" = ${query.orientation}::"UnitOrientation"`);
   if (query.bedrooms !== undefined) filters.push(Prisma.sql`u."bedrooms" = ${query.bedrooms}`);
   if (query.bathrooms !== undefined) filters.push(Prisma.sql`u."bathrooms" = ${query.bathrooms}`);
-  if (query.areaMin) filters.push(Prisma.sql`u."saleableArea" >= ${new Prisma.Decimal(query.areaMin)}`);
-  if (query.areaMax) filters.push(Prisma.sql`u."saleableArea" <= ${new Prisma.Decimal(query.areaMax)}`);
+  if (query.areaMin) filters.push(Prisma.sql`${SALE_AREA_SQL} >= ${new Prisma.Decimal(query.areaMin)}`);
+  if (query.areaMax) filters.push(Prisma.sql`${SALE_AREA_SQL} <= ${new Prisma.Decimal(query.areaMax)}`);
   if (query.priceMin) filters.push(Prisma.sql`p."askingPrice" >= ${new Prisma.Decimal(query.priceMin)}`);
   if (query.priceMax) filters.push(Prisma.sql`p."askingPrice" <= ${new Prisma.Decimal(query.priceMax)}`);
   if (query.pricePerSqmMin) filters.push(Prisma.sql`${PRICE_PER_SQM} >= ${new Prisma.Decimal(query.pricePerSqmMin)}`);
   if (query.pricePerSqmMax) filters.push(Prisma.sql`${PRICE_PER_SQM} <= ${new Prisma.Decimal(query.pricePerSqmMax)}`);
   const q = query.q?.trim();
   if (q) {
-    const like = `%${q.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
-    const matches = [Prisma.sql`u."unitCode" ILIKE ${like}`, Prisma.sql`u."name" ILIKE ${like}`];
+    // The unit by its code as the lists show it — "T-501", "T501" or "501" (2026-11-09).
+    const like = containsPattern(q);
+    const matches = [unitCodeMatch(q)];
     if (caps.canSeeClients) matches.push(Prisma.sql`c."name" ILIKE ${like}`);
     if (caps.canSeeDeals) matches.push(Prisma.sql`o."name" ILIKE ${like}`);
     filters.push(Prisma.sql`(${Prisma.join(matches, " OR ")})`);
@@ -86,12 +92,12 @@ export async function listSalesInventory(context: UserContext, projectId: string
     LEFT JOIN "clients" c ON c."id" = r."clientId"
     LEFT JOIN "opportunities" o ON o."id" = r."opportunityId"`;
   const where = Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`;
-  const statusFilter = query.commercialStatus ? Prisma.sql`AND ${STATUS} = ${query.commercialStatus}::"UnitCommercialStatus"` : Prisma.empty;
+  const statusFilter = query.commercialStatus ? Prisma.sql`AND ${SALE_STATUS} = ${query.commercialStatus}` : Prisma.empty;
 
   const [page, counts] = await Promise.all([
     prisma.$queryRaw<Array<{ id: string }>>`SELECT u."id" ${from} ${where} ${statusFilter} ORDER BY ${orderBy(query.sort)} LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}`,
     // The quick filters' counts ignore the status filter itself, so every chip says what it would show (§14).
-    prisma.$queryRaw<Array<{ status: UnitCommercialStatus; count: bigint }>>`SELECT ${STATUS} AS status, COUNT(*) AS count ${from} ${where} GROUP BY 1`,
+    prisma.$queryRaw<Array<{ status: UnitSaleStatus; count: bigint }>>`SELECT ${SALE_STATUS} AS status, COUNT(*) AS count ${from} ${where} GROUP BY 1`,
   ]);
 
   const ids = page.map((row) => row.id);
@@ -101,17 +107,15 @@ export async function listSalesInventory(context: UserContext, projectId: string
         select: {
           id: true,
           unitCode: true,
-          name: true,
           saleableArea: true,
-          internalArea: true,
           grossArea: true,
           bedrooms: true,
           bathrooms: true,
           orientation: true,
           publicationStatus: true,
           unitType: { select: { name: true } },
-          floor: { select: { name: true, building: { select: { name: true } } } },
-          commercialProfile: { select: { status: true, askingPrice: true, currency: true, priceBasis: true } },
+          floor: { select: { name: true, building: { select: { name: true, code: true } } } },
+          commercialProfile: { select: { status: true, askingPrice: true, currency: true } },
           reservations: { where: { status: "ACTIVE" }, take: 1, select: { expiresAt: true, clientId: true, opportunityId: true, client: { select: { name: true } }, opportunity: { select: { name: true } } } },
         },
       })
@@ -123,30 +127,34 @@ export async function listSalesInventory(context: UserContext, projectId: string
     const profile = row.commercialProfile;
     const reservation = row.reservations[0] ?? null;
     const asking = moneyText(profile?.askingPrice);
+    const areas = { saleableArea: moneyText(row.saleableArea), grossArea: moneyText(row.grossArea) };
+    const sale = saleArea(areas);
     return {
       id: row.id,
       unitCode: row.unitCode,
-      name: row.name,
+      label: unitLabel(row.floor.building.code, row.unitCode),
       unitType: row.unitType.name,
       building: row.floor.building.name,
       floor: row.floor.name,
-      saleableArea: moneyText(row.saleableArea),
+      saleArea: sale.area,
+      saleAreaBasis: sale.basis,
       bedrooms: row.bedrooms,
       bathrooms: row.bathrooms,
       orientation: row.orientation,
       status: profile?.status ?? "NOT_FOR_SALE",
+      saleStatus: saleStatusOf(profile?.status, asking),
       publicationStatus: row.publicationStatus,
       askingPrice: asking,
       currency: profile?.currency ?? null,
-      pricePerSqm: pricePerSqm(asking, profile?.priceBasis ?? "SALEABLE_AREA", { saleableArea: moneyText(row.saleableArea), internalArea: moneyText(row.internalArea), grossArea: moneyText(row.grossArea) }),
+      pricePerSqm: saleRate(areas, asking),
       client: reservation && caps.canSeeClients ? { id: reservation.clientId, name: reservation.client.name } : null,
       deal: reservation && caps.canSeeDeals ? { id: reservation.opportunityId, name: reservation.opportunity.name } : null,
       reservationExpiresAt: reservation?.expiresAt.toISOString() ?? null,
     };
   });
 
-  const tally = Object.fromEntries(UNIT_COMMERCIAL_STATUSES.map((status) => [status, 0])) as Record<UnitCommercialStatus, number>;
-  for (const row of counts) tally[row.status] = Number(row.count);
+  const tally = Object.fromEntries(UNIT_SALE_STATUSES.map((status) => [status, 0])) as Record<UnitSaleStatus, number>;
+  for (const row of counts) if (row.status in tally) tally[row.status] = Number(row.count);
   const all = Object.values(tally).reduce((sum, value) => sum + value, 0);
   return {
     items,

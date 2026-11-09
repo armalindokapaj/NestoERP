@@ -16,7 +16,8 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { compareDecimal, parseDecimalInput } from "@/lib/forms/decimal";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
-import { hasGrossArea, PRICE_ENTRIES, priceFromRate, priceToSave, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { PRICE_ENTRIES, priceFromRate, priceToSave, saleArea, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { areaKind, rateLabel } from "@/components/project-structure/unit-price-fields";
 import { SALES_NOTES_MAX, SALES_REASON_MAX, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
@@ -300,14 +301,16 @@ function CurrencySelect({ id, value, onChange }: { id: string; value: string; on
 /* Price (§10-§12) --------------------------------------------------------------------- */
 
 /**
- * The asking price, typed as a total or as a price per m² of the unit's gross
- * area (2026-11-09). Only the total is saved — gross area × rate, rounded half
- * up to the cent, exactly as the price list fills a floor — on the gross-area
- * basis, or as a fixed price when the unit has no gross area. The rate is not
- * kept: a later change to the area leaves the saved total as it is.
+ * The asking price, typed as a total or as a price per m² of the unit's sale
+ * area — its saleable area when typed, else its gross area (2026-11-09). Only
+ * the total is saved — area × rate, rounded half up to the cent, exactly as the
+ * price list fills a floor — on the basis of the area used, or as a fixed price
+ * when the unit has neither. The rate is not kept: a later change to the area
+ * leaves the saved total as it is.
  *
- * Switching only to look at the rate never moves the total: the rounded rate
- * a total was turned into stands for that total until it is edited, and
+ * It opens on Per m², as the unit form does, with a saved total shown as its
+ * rate. Switching only to look at the rate never moves the total: the rounded
+ * rate a total was turned into stands for that total until it is edited, and
  * switching back restores it. A price that did not change is sent exactly as
  * saved, on its saved basis, so a notes-only save records no price change.
  */
@@ -315,9 +318,10 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
   const request = useDialogRequest(submit);
   const t = useSalesTranslations();
   const locale = useLocale();
-  const grossArea = sales.grossArea;
-  const perSqmAllowed = hasGrossArea(grossArea);
-  const [entry, setEntry] = React.useState<PriceEntry>("TOTAL");
+  const areas = { saleableArea: sales.saleableArea, grossArea: sales.grossArea };
+  const { area, basis } = saleArea(areas);
+  const perSqmAllowed = area !== null;
+  const [entry, setEntry] = React.useState<PriceEntry>(perSqmAllowed ? "PER_SQM" : "TOTAL");
   const [price, setPrice] = React.useState("");
   /** The last switch of the box, so switching back unedited restores what was there. */
   const [lastSwitch, setLastSwitch] = React.useState<PriceEntrySwitch | null>(null);
@@ -329,9 +333,17 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
   const priceInput = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
     if (!open) return;
-    setEntry("TOTAL");
-    setPrice(sales.askingPrice ?? "");
-    setLastSwitch(null);
+    // Opens on Per m² when the unit has an area: a saved total shows as its rate and, left as it is, stands for that total.
+    if (perSqmAllowed) {
+      const switched = sales.askingPrice === null ? { text: "", last: null } : switchPriceEntry(sales.askingPrice, area, "TOTAL", "PER_SQM", null);
+      setEntry("PER_SQM");
+      setPrice(switched.text);
+      setLastSwitch(switched.last);
+    } else {
+      setEntry("TOTAL");
+      setPrice(sales.askingPrice ?? "");
+      setLastSwitch(null);
+    }
     setCurrency(sales.currency ?? sales.defaults.currency);
     setNotes(sales.salesNotes ?? "");
     setReason("");
@@ -353,11 +365,11 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
   const rate = typedRate?.ok && compareDecimal(typedRate.value, "0") > 0 ? typedRate.value : null;
   // A rate converted from the total and left as it was stands for that total.
   const kept = perSqm ? untouchedTotal(price, entry, lastSwitch) : null;
-  const total = rate === null ? null : (kept ?? priceFromRate(rate, grossArea));
+  const total = rate === null ? null : (kept ?? priceFromRate(rate, area));
 
   function chooseEntry(next: PriceEntry) {
     if (next === entry || (next === "PER_SQM" && !perSqmAllowed)) return;
-    const switched = switchPriceEntry(price, grossArea, entry, next, lastSwitch);
+    const switched = switchPriceEntry(price, area, entry, next, lastSwitch);
     setPrice(switched.text);
     setLastSwitch(switched.last);
     setEntry(next);
@@ -373,19 +385,19 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
         setRateError({ message: typed.ok ? t("unitDialogs.rateAboveZero") : typed.message });
         return null;
       }
-      typedTotal = untouchedTotal(price, entry, lastSwitch) ?? priceFromRate(typed.value, grossArea)!;
+      typedTotal = untouchedTotal(price, entry, lastSwitch) ?? priceFromRate(typed.value, area)!;
     }
     setRateError(null);
-    const { askingPrice, priceBasis } = priceToSave(typedTotal, currency, sales, grossArea);
+    const { askingPrice, priceBasis } = priceToSave(typedTotal, currency, sales, areas);
     return { askingPrice, currency, priceBasis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) };
   }
-  const send = (payload: Record<string, unknown>) => request.send(`/api/project-units/${sales.unitId}/sales`, payload, t("unitDialogs.priceSaved", { unit: sales.unitCode }));
+  const send = (payload: Record<string, unknown>) => request.send(`/api/project-units/${sales.unitId}/sales`, payload, t("unitDialogs.priceSaved", { unit: sales.unitLabel }));
 
   return (
     <FormDialog
       open={open}
       onClose={onClose}
-      title={t("unitDialogs.priceTitle", { unit: sales.unitCode })}
+      title={t("unitDialogs.priceTitle", { unit: sales.unitLabel })}
       description={t("unitDialogs.priceDescription")}
       confirmLabel={t("unitDialogs.savePrice")}
       pending={request.pending}
@@ -437,13 +449,13 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
         </div>
         {perSqmAllowed ? null : (
           <p id="sales-price-entry-hint" className="text-meta text-fg-subtle">
-            {t("unitDialogs.perSqmNeedsGross")}
+            {t("unitDialogs.perSqmNeedsArea")}
           </p>
         )}
       </fieldset>
       <div className="space-y-1">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-          <Field label={perSqm ? t("unitDialogs.ratePerSqm") : t("unitDialogs.askingPrice")} htmlFor="sales-asking-price" error={rateError?.message ?? request.fields.askingPrice ?? request.fields.priceBasis}>
+          <Field label={perSqm ? rateLabel(t, basis) : t("unitDialogs.askingPrice")} htmlFor="sales-asking-price" error={rateError?.message ?? request.fields.askingPrice ?? request.fields.priceBasis}>
             <Input
               ref={priceInput}
               id="sales-asking-price"
@@ -465,8 +477,8 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
         {perSqm ? (
           <p id="sales-price-total" className="text-meta tabular-nums text-fg-muted" aria-live="polite" data-testid="price-per-sqm-total">
             {total === null
-              ? t("unitDialogs.perSqmFormula", { area: areaText(grossArea, locale) })
-              : t("unitDialogs.perSqmTotal", { area: areaText(grossArea, locale), rate: moneyLabel(rate, currency, locale), total: moneyLabel(total, currency, locale) })}
+              ? t("unitDialogs.perSqmFormula", { area: areaText(area, locale), kind: areaKind(t, basis) })
+              : t("unitDialogs.perSqmTotal", { area: areaText(area, locale), kind: areaKind(t, basis), rate: moneyLabel(rate, currency, locale), total: moneyLabel(total, currency, locale) })}
           </p>
         ) : null}
       </div>
@@ -581,7 +593,7 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
     <FormDialog
       open={open}
       onClose={onClose}
-      title={t("unitDialogs.reopenTitle", { unit: sales.unitCode })}
+      title={t("unitDialogs.reopenTitle", { unit: sales.unitLabel })}
       description={t("unitDialogs.reopenDescription")}
       confirmLabel={t("unitDialogs.reopenSale")}
       pending={request.pending}
@@ -593,7 +605,7 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
         setTouched(true);
         if (blank) return;
         void request
-          .send(`/api/project-units/${sales.unitId}/reopen-sale`, { to, reason, ...(to === "RESERVED" && endOfDay(day) ? { expiresAt: endOfDay(day) } : {}), ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, t("unitDialogs.reopened", { unit: sales.unitCode }))
+          .send(`/api/project-units/${sales.unitId}/reopen-sale`, { to, reason, ...(to === "RESERVED" && endOfDay(day) ? { expiresAt: endOfDay(day) } : {}), ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, t("unitDialogs.reopened", { unit: sales.unitLabel }))
           .then((failed) => (failed ? null : onClose()));
       }}
     >
@@ -646,14 +658,14 @@ export function CorrectDialog({ open, onClose, sales, submit }: { open: boolean;
   const correct = async (): Promise<unknown> => {
     setTouched(true);
     if (blank) return { code: "VALIDATION_ERROR", message: t("unitDialogs.giveReason") };
-    return request.send(`/api/unit-reservations/${reservation.id}/correct`, { agreedPrice: price, currency, notes, reason, expectedVersion: reservation.version }, t("unitDialogs.corrected", { unit: sales.unitCode }));
+    return request.send(`/api/unit-reservations/${reservation.id}/correct`, { agreedPrice: price, currency, notes, reason, expectedVersion: reservation.version }, t("unitDialogs.corrected", { unit: sales.unitLabel }));
   };
 
   return (
     <FormDialog
       open={open}
       onClose={onClose}
-      title={t("unitDialogs.correctTitle", { unit: sales.unitCode })}
+      title={t("unitDialogs.correctTitle", { unit: sales.unitLabel })}
       description={t("unitDialogs.correctDescription")}
       confirmLabel={t("unitDialogs.saveCorrection")}
       pending={request.pending}
@@ -781,7 +793,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
       notes,
       ...(sales.version > 0 ? { expectedVersion: sales.version } : {}),
     };
-    const failed = await request.send(`/api/project-units/${sales.unitId}/reservations`, body, t("unitDialogs.reserved", { unit: sales.unitCode }));
+    const failed = await request.send(`/api/project-units/${sales.unitId}/reservations`, body, t("unitDialogs.reserved", { unit: sales.unitLabel }));
     if (!failed) return onClose();
     // A similar client already exists: offer it back instead of creating a second (§16).
     if (isFailure(failed) && failed.code === "CONFLICT" && Array.isArray(failed.details)) {
@@ -791,7 +803,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
   }
 
   return (
-    <FormDialog open={open} onClose={onClose} title={t("unitDialogs.reserveTitle", { unit: sales.unitCode })} description={t("unitDialogs.reserveDescription")} confirmLabel={t("unitDialogs.reserve")} pending={request.pending} error={request.error} onSubmit={() => void reserve()} testId="reserve-dialog" wide dirty={changed && !request.done} unresolved={request.unresolved}>
+    <FormDialog open={open} onClose={onClose} title={t("unitDialogs.reserveTitle", { unit: sales.unitLabel })} description={t("unitDialogs.reserveDescription")} confirmLabel={t("unitDialogs.reserve")} pending={request.pending} error={request.error} onSubmit={() => void reserve()} testId="reserve-dialog" wide dirty={changed && !request.done} unresolved={request.unresolved}>
       <fieldset className="space-y-2">
         <legend className="text-meta font-medium text-fg-muted">
           {t("unitDialogs.client")} <span aria-hidden="true">*</span>
@@ -902,7 +914,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
         )}
       </Field>
       {creatingDeal ? (
-        <Field label={t("unitDialogs.dealName")} htmlFor="reserve-deal-name" hint={t("unitDialogs.dealNameHint", { unit: sales.unitCode })}>
+        <Field label={t("unitDialogs.dealName")} htmlFor="reserve-deal-name" hint={t("unitDialogs.dealNameHint", { unit: sales.unitLabel })}>
           <Input id="reserve-deal-name" value={dealName} onChange={(event) => setDealName(event.target.value)} maxLength={200} />
         </Field>
       ) : null}

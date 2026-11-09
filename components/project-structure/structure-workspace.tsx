@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
-import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, RotateCcw, SlidersHorizontal, Tags, Trash2 } from "lucide-react";
+import Link from "@/components/navigation/nav-link";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { BulkFloorsDialog, BulkUnitsDialog, CopyFloorDialog } from "./bulk-dialogs";
 import { BuildingDialog, FloorDialog, MoveFloorDialog, MoveUnitDialog } from "./structure-dialogs";
+import { AddUnitsDialog, splitFloors } from "./add-units-dialog";
 import { areaRule, failureMessage, numberText, structureApi } from "./structure-ui";
 import { parseOptionalDecimal } from "@/lib/forms/decimal";
 import { UnitDialog } from "./unit-dialog";
@@ -43,6 +45,13 @@ import { FormSelect } from "@/components/ui/form-select";
  * a page at a time for the choice, filtered and sorted by the server. On a
  * phone the tree becomes two dropdowns (§33). The URL carries the choice and
  * the filters, so a unit page's breadcrumb lands back on its floor.
+ *
+ * The tree lists a building's floors that have units; the empty ones fold
+ * behind one "N empty floors" row, which opens on a click and by itself when
+ * an empty floor is chosen (2026-11-09). The counts are said once: the tree
+ * carries them from lg, so the heading's line keeps only the floor's details
+ * there. "Add units" is the main button whenever there is a floor to add to;
+ * it asks for the building and floor itself. "Add building" is the tree's +.
  */
 
 type Selection = { buildingId: string | null; floorId: string | null };
@@ -52,14 +61,16 @@ type DialogState =
   | { kind: "floor"; building: BuildingNodeDTO; floor?: FloorNodeDTO }
   | { kind: "bulkFloors"; buildingId: string }
   | { kind: "moveFloor"; floor: FloorNodeDTO }
-  | { kind: "unit"; floor: { id: string; name: string; buildingName: string }; unit?: UnitDTO }
-  | { kind: "bulkUnits"; floor: FloorNodeDTO; buildingName: string }
+  | { kind: "addUnits" }
+  | { kind: "unit"; floor: { id: string; name: string; buildingName: string; buildingCode: string | null }; unit?: UnitDTO }
+  | { kind: "bulkUnits"; floor: FloorNodeDTO; buildingName: string; buildingCode: string | null }
   | { kind: "copy"; floor: FloorNodeDTO }
   | { kind: "moveUnit"; unit: UnitDTO }
+  | { kind: "archive" | "restore"; unit: UnitDTO }
   | { kind: "delete"; target: { type: "building"; building: BuildingNodeDTO } | { type: "floor"; floor: FloorNodeDTO } | { type: "unit"; unit: UnitDTO } }
   | null;
 
-const FILTER_KEYS = ["unitTypeId", "orientation", "bedrooms", "bathrooms", "internalAreaMin", "internalAreaMax", "saleableAreaMin", "saleableAreaMax"] as const;
+const FILTER_KEYS = ["unitTypeId", "orientation", "bedrooms", "bathrooms", "internalAreaMin", "internalAreaMax", "areaMin", "areaMax"] as const;
 
 function queryString(selection: Selection, filters: UnitFilters, page: number): string {
   const params = new URLSearchParams();
@@ -113,6 +124,11 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
   const [filtersOpen, setFiltersOpen] = React.useState(FILTER_KEYS.some((key) => initialFilters[key]));
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set(initial.buildings.length <= 3 ? initial.buildings.map((building) => building.id) : initialSelection.buildingId ? [initialSelection.buildingId] : []));
   const [treeFilter, setTreeFilter] = React.useState("");
+  /** Which buildings show their empty floors; one opens by itself when an empty floor of it is chosen. */
+  const [emptyOpen, setEmptyOpen] = React.useState<Record<string, boolean>>(() => {
+    const owner = initial.buildings.find((candidate) => candidate.floors.some((level) => level.id === initialSelection.floorId && level.unitCount === 0));
+    return owner ? { [owner.id]: true } : {};
+  });
   const [dialog, setDialog] = React.useState<DialogState>(null);
   const [pending, setPending] = React.useState(false);
   const firstLoad = React.useRef(true);
@@ -185,6 +201,23 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
     setSelection(next);
     setPage(1);
     if (next.buildingId) setExpanded((current) => new Set(current).add(next.buildingId!));
+    // An empty floor lives behind its building's "empty floors" row: choosing one opens it.
+    const owner = next.buildingId ? structure.buildings.find((candidate) => candidate.id === next.buildingId) : undefined;
+    if (owner && owner.floors.some((level) => level.id === next.floorId && level.unitCount === 0)) setEmptyOpen((current) => ({ ...current, [owner.id]: true }));
+  }
+
+  /** After units are added somewhere the list is not showing, show that floor. */
+  function showFloor(target: { buildingId: string; floorId: string }) {
+    const shown = selection.floorId ? selection.floorId === target.floorId : selection.buildingId ? selection.buildingId === target.buildingId : true;
+    if (!shown) choose(target);
+  }
+
+  async function changeArchive() {
+    if (dialog?.kind !== "archive" && dialog?.kind !== "restore") return;
+    const { unit, kind } = dialog;
+    // The unit page's own request (publishing-actions.tsx); a refusal is a toast, as a failed delete is.
+    await send(`/api/project-units/${unit.id}/${kind}`, { expectedVersion: unit.version }, t("publishing.failed", { label: kind === "archive" ? t("publishing.archiving") : t("publishing.restoring") }), kind === "archive" ? t("publishing.archived", { code: unit.label }) : t("publishing.restored", { code: unit.label }));
+    setDialog(null);
   }
 
   function setFilter(patch: Partial<UnitFilters>) {
@@ -216,7 +249,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
   async function confirmDelete() {
     if (dialog?.kind !== "delete") return;
     const target = dialog.target;
-    const [url, label] = target.type === "building" ? [`/api/project-buildings/${target.building.id}`, target.building.name] : target.type === "floor" ? [`/api/project-floors/${target.floor.id}`, floorName(target.floor.name, locale)] : [`/api/project-units/${target.unit.id}`, target.unit.unitCode];
+    const [url, label] = target.type === "building" ? [`/api/project-buildings/${target.building.id}`, target.building.name] : target.type === "floor" ? [`/api/project-floors/${target.floor.id}`, floorName(target.floor.name, locale)] : [`/api/project-units/${target.unit.id}`, target.unit.label];
     setPending(true);
     try {
       await structureApi(url, { method: "DELETE" });
@@ -237,10 +270,13 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
     canUpdate: caps.canUpdateUnit,
     canMove: caps.canMoveUnit,
     canDelete: caps.canDeleteUnit,
+    canArchive: caps.canArchiveUnit,
     canReorder: caps.canManageStructure && Boolean(floor) && filters.sort === "structure" && activeFilters === 0 && (units?.total ?? 0) <= (units?.pageSize ?? 0),
-    onEdit: (unit) => setDialog({ kind: "unit", floor: { id: unit.floor.id, name: unit.floor.name, buildingName: unit.building.name }, unit }),
+    onEdit: (unit) => setDialog({ kind: "unit", floor: { id: unit.floor.id, name: unit.floor.name, buildingName: unit.building.name, buildingCode: unit.building.code }, unit }),
     onMove: (unit) => setDialog({ kind: "moveUnit", unit }),
     onDelete: (unit) => setDialog({ kind: "delete", target: { type: "unit", unit } }),
+    onArchive: (unit) => setDialog({ kind: "archive", unit }),
+    onRestore: (unit) => setDialog({ kind: "restore", unit }),
     onReorder: (unit, offset) => {
       if (!floor || !units) return;
       const ids = reorder(units.items, unit.id, offset);
@@ -359,48 +395,55 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
   /* Header for the choice ------------------------------------------------------ */
 
   const title = floor && building ? `${floorName(floor.name, locale)} — ${building.name}` : building ? building.name : structure.buildings.length ? t("workspace.allUnits") : t("workspace.units");
-  const meta = floor
-    ? [t("counts.units", { count: floor.unitCount }), t(`floorLevel.${floor.levelType}`), floor.elevation !== null ? `+${floor.elevation} m` : null, floor.isActive ? null : t("workspace.inactive")].filter(Boolean).join(" · ")
+  // The counts are said once: from lg the tree carries them, so this line keeps only what the tree does not say.
+  const counts = floor
+    ? t("counts.units", { count: floor.unitCount })
     : building
-      ? [t("counts.floors", { count: building.floorCount }), t("counts.units", { count: building.unitCount }), building.isActive ? null : t("workspace.inactive")].filter(Boolean).join(" · ")
+      ? [t("counts.floors", { count: building.floorCount }), t("counts.units", { count: building.unitCount })].join(" · ")
       : [t("counts.buildings", { count: structure.totals.buildings }), t("counts.floors", { count: structure.totals.floors }), t("counts.units", { count: structure.totals.units })].join(" · ");
+  const details = floor
+    ? [t(`floorLevel.${floor.levelType}`), floor.elevation !== null ? `+${floor.elevation} m` : null, floor.isActive ? null : t("workspace.inactive")].filter(Boolean).join(" · ")
+    : building && !building.isActive
+      ? t("workspace.inactive")
+      : "";
 
-  const headerActions = floor && building ? (
+  // "Add units" is the main button whenever there is a floor to add to (2026-11-09); without one, adding a floor is.
+  const canAddUnits = caps.canCreateUnit && structure.buildings.some((candidate) => candidate.floors.length > 0);
+  const floorTarget = building ?? (structure.buildings.length === 1 ? structure.buildings[0]! : null);
+  const addFloorFirst = !canAddUnits && caps.canCreateFloor && floorTarget !== null && (Boolean(building) || !floorTarget.floors.length);
+  const prices =
+    caps.canManagePrice && structure.totals.units > 0 ? (
+      <Button asChild variant="secondary">
+        <Link href={`/projects/${projectId}/sales/prices`} data-testid="units-prices-link">
+          <Tags aria-hidden="true" />
+          {t("workspace.prices")}
+        </Link>
+      </Button>
+    ) : null;
+  const headerActions = (
     <>
-      {caps.canCreateUnit ? (
-        <>
-          <Button onClick={() => setDialog({ kind: "unit", floor: { id: floor.id, name: floor.name, buildingName: building.name } })}>
-            <Plus aria-hidden="true" />
-            {t("workspace.addUnit")}
-          </Button>
-          <Button variant="secondary" onClick={() => setDialog({ kind: "bulkUnits", floor, buildingName: building.name })}>
-            {t("workspace.bulkAdd")}
-          </Button>
-        </>
+      {prices}
+      {canAddUnits && building && !floor && caps.canCreateFloor ? (
+        <Button variant="secondary" onClick={() => setDialog({ kind: "floor", building })}>
+          <Plus aria-hidden="true" />
+          {t("workspace.addFloor")}
+        </Button>
       ) : null}
-      {floorMenu(building, floor)}
-    </>
-  ) : building ? (
-    <>
-      {caps.canCreateFloor ? (
-        <>
-          <Button onClick={() => setDialog({ kind: "floor", building })}>
-            <Plus aria-hidden="true" />
-            {t("workspace.addFloor")}
-          </Button>
-          <Button variant="secondary" onClick={() => setDialog({ kind: "bulkFloors", buildingId: building.id })}>
-            {t("workspace.createFloors")}
-          </Button>
-        </>
+      {canAddUnits ? (
+        <Button onClick={() => setDialog({ kind: "addUnits" })} data-testid="add-units">
+          <Plus aria-hidden="true" />
+          {t("workspace.addUnits")}
+        </Button>
+      ) : addFloorFirst && floorTarget ? (
+        <Button onClick={() => setDialog({ kind: "floor", building: floorTarget })}>
+          <Plus aria-hidden="true" />
+          {t("workspace.addFloor")}
+        </Button>
       ) : null}
-      {buildingMenu(building, t("workspace.moreActionsFor", { name: building.name }))}
+      {floor && building ? floorMenu(building, floor) : building ? buildingMenu(building, t("workspace.moreActionsFor", { name: building.name })) : null}
     </>
-  ) : caps.canCreateBuilding && structure.buildings.length ? (
-    <Button onClick={() => setDialog({ kind: "building" })}>
-      <Plus aria-hidden="true" />
-      {t("workspace.addBuilding")}
-    </Button>
-  ) : null;
+  );
+  const hasHeaderActions = Boolean(prices) || canAddUnits || addFloorFirst || Boolean(building);
 
   /* Body ----------------------------------------------------------------------- */
 
@@ -437,11 +480,11 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
       <Empty icon={<Layers />} title={t("workspace.noUnitsTitle")} description={t("workspace.noUnitsBody")} testId="floor-empty">
         {caps.canCreateUnit ? (
           <>
-            <Button onClick={() => setDialog({ kind: "unit", floor: { id: floor.id, name: floor.name, buildingName: building.name } })}>
+            <Button onClick={() => setDialog({ kind: "unit", floor: { id: floor.id, name: floor.name, buildingName: building.name, buildingCode: building.code } })}>
               <Plus aria-hidden="true" />
               {t("workspace.addUnit")}
             </Button>
-            <Button variant="secondary" onClick={() => setDialog({ kind: "bulkUnits", floor, buildingName: building.name })}>
+            <Button variant="secondary" onClick={() => setDialog({ kind: "bulkUnits", floor, buildingName: building.name, buildingCode: building.code })}>
               {t("workspace.bulkAddUnits")}
             </Button>
             <Button variant="ghost" onClick={() => setDialog({ kind: "copy", floor })}>
@@ -484,7 +527,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
             <FilterSelect label={t("workspace.bedrooms")} value={filters.bedrooms} onChange={(bedrooms) => setFilter({ bedrooms })} options={COUNT_CHOICES.bedrooms.map((value) => ({ value: String(value), label: String(value) }))} />
             <FilterSelect label={t("workspace.bathrooms")} value={filters.bathrooms} onChange={(bathrooms) => setFilter({ bathrooms })} options={COUNT_CHOICES.bathrooms.map((value) => ({ value: String(value), label: String(value) }))} />
             <RangeFilter label={t("workspace.internalArea")} min={filters.internalAreaMin} max={filters.internalAreaMax} onChange={(internalAreaMin, internalAreaMax) => setFilter({ internalAreaMin, internalAreaMax })} />
-            <RangeFilter label={t("workspace.saleableArea")} min={filters.saleableAreaMin} max={filters.saleableAreaMax} onChange={(saleableAreaMin, saleableAreaMax) => setFilter({ saleableAreaMin, saleableAreaMax })} />
+            <RangeFilter label={t("workspace.saleArea")} min={filters.areaMin} max={filters.areaMax} onChange={(areaMin, areaMax) => setFilter({ areaMin, areaMax })} />
           </div>
         ) : null}
 
@@ -546,6 +589,22 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
               <ul className="mt-1 space-y-0.5" data-testid="structure-tree">
                 {visibleBuildings.map((candidate) => {
                   const open = expanded.has(candidate.id);
+                  const { withUnits, empty } = splitFloors(candidate);
+                  const emptyShown = emptyOpen[candidate.id] ?? false;
+                  const floorRow = (level: FloorNodeDTO) => (
+                    <li key={level.id}>
+                      <button
+                        type="button"
+                        className={cn("flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-table touch:min-h-11", selection.floorId === level.id ? "bg-accent-soft font-medium text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+                        aria-current={selection.floorId === level.id ? "true" : undefined}
+                        onClick={() => choose({ buildingId: candidate.id, floorId: level.id })}
+                        data-testid="tree-floor"
+                      >
+                        <span className={cn("truncate", !level.isActive && "line-through decoration-fg-subtle/60")}>{floorName(level.name, locale)}</span>
+                        <span className="tabular-nums text-fg-subtle">{level.unitCount}</span>
+                      </button>
+                    </li>
+                  );
                   return (
                     <li key={candidate.id} data-testid="tree-building" data-building-name={candidate.name}>
                       <div className={cn("group flex items-center rounded-md", selection.buildingId === candidate.id && !selection.floorId ? "bg-hover" : "hover:bg-hover")}>
@@ -558,31 +617,32 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
                         >
                           <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} aria-hidden="true" />
                         </button>
-                        <button type="button" className="min-w-0 flex-1 py-1.5 text-left" aria-current={selection.buildingId === candidate.id && !selection.floorId ? "true" : undefined} onClick={() => choose({ buildingId: candidate.id, floorId: null })}>
+                        {/* The building's own count, as its floors show theirs; the floor count is the heading's (§31). */}
+                        <button type="button" className="flex min-w-0 flex-1 items-center justify-between gap-2 py-1.5 pr-1 text-left" aria-current={selection.buildingId === candidate.id && !selection.floorId ? "true" : undefined} onClick={() => choose({ buildingId: candidate.id, floorId: null })}>
                           <span className={cn("block truncate text-table font-medium", candidate.isActive ? "text-fg" : "text-fg-muted")}>{candidate.name}</span>
-                          <span className="block text-meta text-fg-subtle">
-                            {t("counts.floors", { count: candidate.floorCount })} · {t("counts.units", { count: candidate.unitCount })}
-                          </span>
+                          <span className="text-table tabular-nums text-fg-subtle" data-testid="tree-building-count">{candidate.unitCount}</span>
                         </button>
                         {/* Hover reveals the menu under a mouse; a finger has no hover, so on touch it is always shown (AUD-04 §3, MW-19). */}
                         <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 touch:opacity-100">{buildingMenu(candidate, t("workspace.actionsFor", { name: candidate.name }))}</span>
                       </div>
                       {open ? (
                         <ul className="mb-1 ml-7 border-l border-line pl-1">
-                          {candidate.floors.map((level) => (
-                            <li key={level.id}>
+                          {withUnits.map(floorRow)}
+                          {empty.length ? (
+                            <li>
                               <button
                                 type="button"
-                                className={cn("flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-table touch:min-h-11", selection.floorId === level.id ? "bg-accent-soft font-medium text-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
-                                aria-current={selection.floorId === level.id ? "true" : undefined}
-                                onClick={() => choose({ buildingId: candidate.id, floorId: level.id })}
-                                data-testid="tree-floor"
+                                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-table text-fg-subtle hover:bg-hover hover:text-fg touch:min-h-11"
+                                aria-expanded={emptyShown}
+                                onClick={() => setEmptyOpen((current) => ({ ...current, [candidate.id]: !emptyShown }))}
+                                data-testid="tree-empty-floors"
                               >
-                                <span className={cn("truncate", !level.isActive && "line-through decoration-fg-subtle/60")}>{floorName(level.name, locale)}</span>
-                                <span className="tabular-nums text-fg-subtle">{level.unitCount}</span>
+                                <span className="truncate">{t("workspace.emptyFloors", { count: empty.length })}</span>
+                                <ChevronRight className={cn("size-3.5 shrink-0 transition-transform", emptyShown && "rotate-90")} aria-hidden="true" />
                               </button>
+                              {emptyShown ? <ul className="ml-2">{empty.map(floorRow)}</ul> : null}
                             </li>
-                          ))}
+                          ) : null}
                           {!candidate.floors.length ? <li className="px-2 py-1 text-meta text-fg-subtle">{t("workspace.noFloorsShort")}</li> : null}
                         </ul>
                       ) : null}
@@ -596,9 +656,17 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
           {/* Phone and tablet: building and floor dropdowns (§33, §103, §104). */}
           <div className="grid grid-cols-2 gap-2 lg:hidden">
             <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="structure-building" className="text-meta font-medium text-fg-muted">
-                {t("workspace.building")}
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="structure-building" className="text-meta font-medium text-fg-muted">
+                  {t("workspace.building")}
+                </label>
+                {/* The tree's + for adding a building, where the tree is not drawn. */}
+                {caps.canCreateBuilding ? (
+                  <Button variant="ghost" size="icon-sm" className="-my-1" aria-label={t("workspace.addBuilding")} onClick={() => setDialog({ kind: "building" })}>
+                    <Plus />
+                  </Button>
+                ) : null}
+              </div>
               <FormSelect id="structure-building" className={selectClass} value={selection.buildingId ?? ""} onChange={(event) => choose({ buildingId: event.target.value || null, floorId: null })}>
                 <option value="">{t("workspace.allBuildings")}</option>
                 {structure.buildings.map((candidate) => (
@@ -614,11 +682,23 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
               </label>
               <FormSelect id="structure-floor" className={selectClass} value={selection.floorId ?? ""} disabled={!building} onChange={(event) => choose({ buildingId: selection.buildingId, floorId: event.target.value || null })}>
                 <option value="">{t("workspace.allFloors")}</option>
-                {building?.floors.map((level) => (
-                  <option key={level.id} value={level.id}>
-                    {floorName(level.name, locale)} · {level.unitCount}
-                  </option>
-                ))}
+                {/* Floors with units first, the empty ones in their own group, as the tree folds them. */}
+                {building
+                  ? splitFloors(building).withUnits.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {floorName(level.name, locale)} · {level.unitCount}
+                      </option>
+                    ))
+                  : null}
+                {building && splitFloors(building).empty.length ? (
+                  <optgroup label={t("workspace.emptyFloorsGroup")}>
+                    {splitFloors(building).empty.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {floorName(level.name, locale)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </FormSelect>
             </div>
           </div>
@@ -633,11 +713,17 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
             </h2>
             {structure.buildings.length ? (
               <p className="text-table text-fg-muted" data-testid="structure-meta">
-                {meta}
+                <span className="lg:hidden">{counts}</span>
+                {details ? (
+                  <>
+                    <span className="lg:hidden"> · </span>
+                    {details}
+                  </>
+                ) : null}
               </p>
             ) : null}
           </div>
-          {headerActions ? <div className="flex flex-wrap items-center gap-2">{headerActions}</div> : null}
+          {hasHeaderActions ? <div className="flex flex-wrap items-center gap-2">{headerActions}</div> : null}
         </div>
         {body}
       </section>
@@ -681,17 +767,55 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
         />
       ) : null}
       {dialog?.kind === "moveFloor" ? <MoveFloorDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} buildings={structure.buildings} onMoved={() => { void reloadAll(); choose({ buildingId: null, floorId: null }); toast({ title: t("workspace.floorMoved", { name: floorName(dialog.floor.name, locale) }) }); }} /> : null}
-      {dialog?.kind === "unit" ? <UnitDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} unit={dialog.unit} types={structure.unitTypes} canManagePrice={caps.canManagePrice} onSaved={() => void reloadAll()} /> : null}
-      {dialog?.kind === "bulkUnits" ? <BulkUnitsDialog open onOpenChange={(open) => !open && setDialog(null)} floor={dialog.floor} buildingName={dialog.buildingName} types={structure.unitTypes} onCreated={() => void reloadAll()} /> : null}
+      {dialog?.kind === "addUnits" ? (
+        <AddUnitsDialog
+          open
+          onOpenChange={(open) => !open && setDialog(null)}
+          buildings={structure.buildings}
+          selection={selection}
+          onChoose={({ building: target, floor: level, mode }) =>
+            setDialog(mode === "one" ? { kind: "unit", floor: { id: level.id, name: level.name, buildingName: target.name, buildingCode: target.code } } : { kind: "bulkUnits", floor: level, buildingName: target.name, buildingCode: target.code })
+          }
+        />
+      ) : null}
+      {dialog?.kind === "unit" ? (
+        <UnitDialog
+          open
+          onOpenChange={(open) => !open && setDialog(null)}
+          floor={dialog.floor}
+          unit={dialog.unit}
+          types={structure.unitTypes}
+          canManagePrice={caps.canManagePrice}
+          onSaved={() => {
+            void reloadAll();
+            const owner = structure.buildings.find((candidate) => candidate.floors.some((level) => level.id === dialog.floor.id));
+            if (!dialog.unit && owner) showFloor({ buildingId: owner.id, floorId: dialog.floor.id });
+          }}
+        />
+      ) : null}
+      {dialog?.kind === "bulkUnits" ? (
+        <BulkUnitsDialog
+          open
+          onOpenChange={(open) => !open && setDialog(null)}
+          floor={dialog.floor}
+          buildingName={dialog.buildingName}
+          buildingCode={dialog.buildingCode}
+          types={structure.unitTypes}
+          onCreated={() => {
+            void reloadAll();
+            showFloor({ buildingId: dialog.floor.buildingId, floorId: dialog.floor.id });
+          }}
+        />
+      ) : null}
       {dialog?.kind === "copy" ? <CopyFloorDialog open onOpenChange={(open) => !open && setDialog(null)} projectId={projectId} floor={dialog.floor} buildings={structure.buildings} onCreated={() => void reloadAll()} /> : null}
       {dialog?.kind === "moveUnit" ? (
         <MoveUnitDialog
           open
           onOpenChange={(open) => !open && setDialog(null)}
-          unit={{ id: dialog.unit.id, unitCode: dialog.unit.unitCode, version: dialog.unit.version, floorId: dialog.unit.floor.id, buildingId: dialog.unit.building.id }}
+          unit={{ id: dialog.unit.id, label: dialog.unit.label, version: dialog.unit.version, floorId: dialog.unit.floor.id, buildingId: dialog.unit.building.id }}
           buildings={structure.buildings}
           onMoved={() => {
-            toast({ title: t("workspace.unitMoved", { code: dialog.unit.unitCode }) });
+            toast({ title: t("workspace.unitMoved", { code: dialog.unit.label }) });
             void reloadAll();
           }}
         />
@@ -699,7 +823,7 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
       <ConfirmDialog
         open={dialog?.kind === "delete"}
         onOpenChange={(open) => !open && setDialog(null)}
-        title={dialog?.kind === "delete" ? t("workspace.deleteTitle", { name: dialog.target.type === "building" ? dialog.target.building.name : dialog.target.type === "floor" ? floorName(dialog.target.floor.name, locale) : dialog.target.unit.unitCode }) : t("workspace.deleteFallback")}
+        title={dialog?.kind === "delete" ? t("workspace.deleteTitle", { name: dialog.target.type === "building" ? dialog.target.building.name : dialog.target.type === "floor" ? floorName(dialog.target.floor.name, locale) : dialog.target.unit.label }) : t("workspace.deleteFallback")}
         description={
           dialog?.kind === "delete" && dialog.target.type === "building"
             ? t("workspace.deleteBuildingBody")
@@ -709,6 +833,17 @@ export function StructureWorkspace({ initial, initialSelection, initialFilters, 
         }
         pending={pending}
         onConfirm={() => void confirmDelete()}
+      />
+      {/* Archive and Restore from the row menu: the unit page's confirmation, word for word (E-05D §32). */}
+      <ConfirmDialog
+        open={dialog?.kind === "archive" || dialog?.kind === "restore"}
+        onOpenChange={(open) => !open && setDialog(null)}
+        title={dialog?.kind === "archive" ? t("publishing.archiveTitle", { code: dialog.unit.label }) : dialog?.kind === "restore" ? t("publishing.restoreTitle", { code: dialog.unit.label }) : t("publishing.archive")}
+        description={dialog?.kind === "restore" ? t("publishing.restoreBody") : t("publishing.archiveBody")}
+        confirmLabel={dialog?.kind === "restore" ? t("publishing.restore") : t("publishing.archive")}
+        destructive={dialog?.kind !== "restore"}
+        pending={pending}
+        onConfirm={() => void changeArchive()}
       />
     </div>
   );

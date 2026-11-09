@@ -29,7 +29,14 @@ const tree = (page: Page) => page.getByTestId("structure-tree");
 // Scoped to main: a streamed page briefly keeps a hidden copy of itself outside it (React Suspense reveal).
 const heading = (page: Page) => mainRegion(page).getByTestId("structure-heading");
 
+/** Floors without units fold behind one "N empty floors" row per building (2026-11-09): opens it when it is closed. */
+async function openEmptyFloors(page: Page) {
+  const fold = tree(page).getByTestId("tree-empty-floors");
+  if ((await fold.count()) && (await fold.first().getAttribute("aria-expanded")) === "false") await fold.first().click();
+}
+
 async function chooseFloor(page: Page, name: string) {
+  await openEmptyFloors(page);
   await tree(page).getByTestId("tree-floor").filter({ hasText: new RegExp(`^${name}\\s*\\d+$`) }).click();
   await expect(heading(page)).toHaveText(`${name} — Tower`);
 }
@@ -75,10 +82,17 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   await preview.getByLabel("Name of floor 0").fill("Lobby");
   await floors.getByRole("button", { name: "Create 5 floors" }).click();
   await expect(floors).toBeHidden();
+  // None has units yet, so all five fold behind one row until it is opened.
+  await expect(tree(page).getByTestId("tree-empty-floors")).toHaveText(/5 empty floors/);
+  await expect(tree(page).getByTestId("tree-floor")).toHaveCount(0);
+  await openEmptyFloors(page);
   await expect(tree(page).getByTestId("tree-floor")).toHaveText([/Basement 1/, /Lobby/, /Floor 1/, /Floor 2/, /Floor 3/]);
 
   // A wider range over floors the building already has: they join the review instead of stopping it.
-  await mainRegion(page).getByRole("button", { name: "Create floors" }).first().click();
+  // With floors in place the main button is Add units; a range of floors is in the building's menu.
+  await expect(mainRegion(page).getByTestId("add-units")).toBeVisible();
+  await mainRegion(page).getByRole("button", { name: "More actions for Tower" }).click();
+  await page.getByRole("menuitem", { name: "Create floors by range" }).click();
   const wider = page.getByRole("dialog", { name: "Create floors" });
   await wider.getByLabel(/^From floor/).fill("-2");
   await wider.getByLabel(/^To floor/).fill("5");
@@ -94,6 +108,7 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   await review.getByLabel("Create floor 5").uncheck();
   await wider.getByRole("button", { name: "Create 2 floors · update 1" }).click();
   await expect(wider).toBeHidden();
+  await openEmptyFloors(page);
   await expect(tree(page).getByTestId("tree-floor")).toHaveText([/Basement 2/, /Basement 1/, /Ground Floor/, /Floor 1/, /Floor 2/, /Floor 3/, /Floor 4/]);
 
   // Units by code pattern with shared details (§41-§43).
@@ -109,6 +124,8 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   const rows = page.getByTestId("unit-table").getByTestId("unit-row");
   await expect(rows).toHaveCount(4);
   await expect(rows.first()).toContainText("80.50 m²");
+  // Floor 1 has units now: it leaves the fold, which counts the six floors still empty.
+  await expect(tree(page).getByTestId("tree-empty-floors")).toHaveText(/6 empty floors/);
 
   // Copy the floor: new units, codes moved to the new floor number (§98).
   await chooseFloor(page, "Floor 2");
@@ -131,6 +148,20 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   // The typed batch is unsaved input: closing asks first, and Discard lets it go (AUD-03).
   await page.getByTestId("unsaved-prompt").getByTestId("unsaved-discard").click();
   await expect(duplicate).toBeHidden();
+
+  // Add units asks where first, filled in from the floor chosen in the tree, then opens the unit form there (2026-11-09).
+  await mainRegion(page).getByTestId("add-units").click();
+  const where = page.getByTestId("add-units-dialog");
+  await expect(where.getByLabel(/^Building/)).toContainText("Tower");
+  await expect(where.getByLabel(/^Floor/)).toContainText("Floor 3");
+  await where.getByText("One unit").click();
+  await where.getByTestId("add-units-continue").click();
+  const one = page.getByRole("dialog", { name: "Add unit" });
+  await expect(one).toContainText("Tower · Floor 3");
+  // The building's code shows before the unit's own.
+  await expect(one.getByTestId("unit-code-prefix")).toHaveText("T-");
+  await one.getByRole("button", { name: "Cancel" }).click();
+  await expect(one).toBeHidden();
 
   // The unit page: a new code and a new floor, the same unit (§52, §55, §83).
   await chooseFloor(page, "Floor 2");
@@ -167,7 +198,7 @@ test("sales reads the units without changing them (§80)", async ({ page }) => {
   await signIn(page, "SALES", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
   await expect(heading(page)).toHaveText("Floor 1 — Block A");
   await expect(mainRegion(page).getByTestId("unit-table").getByTestId("unit-row")).toHaveCount(4);
-  await expect(mainRegion(page).getByRole("button", { name: "Add unit" })).toHaveCount(0);
+  await expect(mainRegion(page).getByRole("button", { name: "Add units" })).toHaveCount(0);
   await expect(mainRegion(page).getByRole("button", { name: /^Actions for/ })).toHaveCount(0);
 
   await mainRegion(page).getByTestId("unit-table").getByRole("link", { name: "A-104" }).click();
@@ -180,13 +211,14 @@ test("filters the project's units in the database (§48, §49)", async ({ page }
   await expect(heading(page)).toHaveText("All units");
   await mainRegion(page).getByRole("button", { name: /^Filters/ }).click();
   const filters = page.getByTestId("unit-filters");
-  await filters.getByLabel("Saleable area (m²) from").fill("140");
-  await filters.getByLabel("Saleable area (m²) from").press("Enter");
+  // The area is the sale area: saleable when typed, else gross (2026-11-09).
+  await filters.getByLabel("Area (m²), saleable or gross from").fill("140");
+  await filters.getByLabel("Area (m²), saleable or gross from").press("Enter");
   await expect(mainRegion(page).getByText("24 results")).toBeVisible();
   await page.getByRole("searchbox", { name: "Search units" }).fill("B-8");
   await expect(mainRegion(page).getByText("1 result")).toBeVisible();
   await expect(page.getByTestId("unit-table").getByTestId("unit-row")).toHaveAttribute("data-unit-code", "B-804");
-  await expect(page).toHaveURL(/saleableAreaMin=140/);
+  await expect(page).toHaveURL(/areaMin=140/);
 });
 
 test("a unit of another company is not found under this project (§82)", async ({ page }) => {

@@ -88,24 +88,31 @@ const inFuture = (days: number) => {
 test("Sales prices a unit, puts it on sale, reserves it for a new client and deal, extends it and sells it", async ({ page }) => {
   await signIn(page, "SALES", { to: salesUrl(OFFER) });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Q-101");
-  await expect(status(page)).toHaveText("Not For Sale");
+  // Nobody has priced it yet: Not Priced, not Not For Sale (2026-11-09).
+  await expect(status(page)).toHaveText("Not Priced");
   await expect(actions(page).getByRole("button", { name: "Reserve" })).toHaveCount(0);
 
   // The price, and the price per m² worked out from it (§10, §12). Typed as a
-  // total or per m² of gross area; only the total is saved (2026-11-09).
+  // total or per m² of the sale area — the saleable area here — and the dialog
+  // opens on Per m²; only the total is saved (2026-11-09).
   await actions(page).getByRole("button", { name: "Set price" }).click();
   const price = page.getByTestId("price-dialog");
-  await price.getByLabel("Asking price").fill("200000");
+  await expect(price.getByRole("textbox", { name: "Price per m² of saleable area" })).toBeVisible();
+  await price.getByText("Total price", { exact: true }).click();
+  await price.getByRole("textbox", { name: "Total price" }).fill("200000");
   await price.getByText("Price per m²", { exact: true }).click();
-  const rate = price.getByLabel("Price per m² of gross area");
+  const rate = price.getByRole("textbox", { name: "Price per m² of saleable area" });
   await expect(rate).toHaveValue("1904.76");
   await rate.fill("2000");
-  await expect(price.getByTestId("price-per-sqm-total")).toHaveText("105.00 m² gross × €2,000 = €210,000");
+  await expect(price.getByTestId("price-per-sqm-total")).toHaveText("105.00 m² saleable × €2,000 = €210,000");
   await price.getByLabel("Reason for the change").fill("Launch price list");
   await price.getByRole("button", { name: "Save price" }).click();
   await expect(page.getByTestId("asking-price")).toHaveText("€210,000");
   await expect(page.getByTestId("price-per-sqm")).toHaveText("€2,000/m²");
+  await expect(page.getByTestId("sale-area")).toHaveText("105.00 m² · saleable");
   await expect(page.getByTestId("price-history")).toContainText("Launch price list");
+  // Priced but not yet on sale.
+  await expect(status(page)).toHaveText("Not For Sale");
 
   await actions(page).getByRole("button", { name: "Put on sale" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Put on sale" }).click();
@@ -178,14 +185,20 @@ test("the inventory filters by status and searches, and a draft unit cannot be o
   await expect(rows).toHaveCount(3);
   await expect(page.getByTestId("sales-quick-filter").and(page.locator('[data-status="FOR_SALE"]'))).toContainText("2");
 
-  await page.getByTestId("sales-quick-filter").and(page.locator('[data-status="NOT_FOR_SALE"]')).click();
+  // Q-103 has no price and is not on sale: Not Priced, with its own filter (2026-11-09).
+  await expect(page.getByTestId("sales-quick-filter").and(page.locator('[data-status="NOT_FOR_SALE"]'))).toContainText("0");
+  await page.getByTestId("sales-quick-filter").and(page.locator('[data-status="NOT_PRICED"]')).click();
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toHaveAttribute("data-unit-code", "Q-103");
-  expect(new URL(page.url()).searchParams.get("commercialStatus")).toBe("NOT_FOR_SALE");
+  await expect(rows.first().getByTestId("commercial-status")).toHaveText("Not Priced");
+  expect(new URL(page.url()).searchParams.get("commercialStatus")).toBe("NOT_PRICED");
+  // Nothing on screen is reserved or sold, so there are no Client, Deal or Expires columns.
+  await expect(page.getByTestId("sales-table").getByRole("columnheader", { name: "Expires" })).toHaveCount(0);
 
+  // A row opens the unit's Sales section, where it is sold (2026-11-09).
   await rows.first().getByRole("link", { name: "Q-103" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Q-103");
-  await page.getByRole("navigation", { name: "Q-103 sections" }).getByRole("link", { name: "Sales", exact: true }).click();
+  await expect(page).toHaveURL(/\/units\/[^/]+\/sales$/);
   await expect(page.getByTestId("unit-not-sellable")).toContainText("This Unit is not published for Sales use.");
   await expect(mainRegion(page).getByRole("button", { name: "Put on sale" })).toHaveCount(0);
 });

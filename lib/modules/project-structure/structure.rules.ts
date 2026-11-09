@@ -163,6 +163,16 @@ export function unitLabel(buildingCode: string | null, unitCode: string): string
   return structureKey(unitCode).startsWith(`${structureKey(prefix)}-`) ? unitCode : `${prefix}-${unitCode}`;
 }
 
+/**
+ * A unit search as codes are compared (2026-11-09): upper case with only the
+ * letters and digits kept, so "T-501", "t 501" and "T501" all read "T501" and
+ * find the unit the lists call T-501, and "501" still finds it by its own code.
+ * The database folds the building's code and the unit's the same way.
+ */
+export function codeSearchKey(text: string): string {
+  return structureKey(text).replace(/[^\p{L}\p{N}]/gu, "");
+}
+
 /* Fields by type ------------------------------------------------------------ */
 
 /** Which counts a category is expected to carry (§22, §74). Everything else stays available. */

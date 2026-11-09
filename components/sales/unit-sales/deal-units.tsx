@@ -33,7 +33,7 @@ export async function DealUnits({ context, opportunityId, canEdit }: { context: 
             return (
               <li key={unit.unitId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-table" data-testid="deal-unit" data-unit-code={unit.unitCode}>
                 <Link href={unit.href} className="font-medium text-fg hover:underline">
-                  {unit.unitCode}
+                  {unit.label}
                 </Link>
                 <span className="text-fg-muted">
                   {unit.unitType} · {unit.projectName} · {unit.building} · {unit.floor}
@@ -46,7 +46,7 @@ export async function DealUnits({ context, opportunityId, canEdit }: { context: 
                   </span>
                 ) : null}
                 <span className="ml-auto tabular-nums text-fg">{moneyLabel(unit.agreedPrice, unit.currency, locale)}</span>
-                {canEdit && !held ? <DealUnitRemove opportunityId={opportunityId} unitId={unit.unitId} unitCode={unit.unitCode} /> : null}
+                {canEdit && !held ? <DealUnitRemove opportunityId={opportunityId} unitId={unit.unitId} unitCode={unit.label} /> : null}
               </li>
             );
           })}

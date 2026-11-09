@@ -262,7 +262,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                   <TableRow key={row.id} data-testid="finance-row" data-unit-code={row.unitCode}>
                     <TableCell className="whitespace-nowrap">
                       <Link href={href(row)} className="font-medium text-fg hover:text-accent-strong">
-                        {row.unitCode}
+                        {row.label}
                       </Link>
                       <span className="block text-meta text-fg-subtle">
                         {row.building} · {floorName(row.floor, locale)}
@@ -309,7 +309,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
               <li key={row.id} className="nesto-card p-3" data-testid="finance-card" data-unit-code={row.unitCode}>
                 <Link href={href(row)} className="block min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-body font-semibold text-fg">{row.unitCode}</span>
+                    <span className="text-body font-semibold text-fg">{row.label}</span>
                     <FinancialStatusBadge status={row.financialStatus} />
                     <span className="ml-auto text-body font-medium tabular-nums text-fg">{amountLabel(row.outstandingAmount, row.currency, locale)}</span>
                   </span>

@@ -16,8 +16,9 @@ import { parseOptionalDecimal } from "@/lib/forms/decimal";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
-import { grossPriceBasis, grossRate, prevailingPrice, prevailingRate, priceFromRate } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { prevailingPrice, prevailingRate, priceFromRate, saleArea, saleRate } from "@/lib/modules/sales/units/unit-pricing.rules";
 import type { PriceListDTO, PriceListSaveResult, PriceListUnitDTO } from "@/lib/modules/sales/units/unit-pricing.types";
+import { saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
 import { SALES_REASON_MAX, type UnitPriceBasis } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
@@ -26,8 +27,9 @@ import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-sta
 
 /**
  * A project's price list (2026-11). A floor is priced at one rate per m² of
- * gross area — a price per m² always means the gross area (2026-11-09) — and
- * every parking space at one price; either only fills in the units' own
+ * each unit's sale area — its saleable area when typed, else its gross area,
+ * the rule every screen follows (2026-11-09) — and every parking space at one
+ * price; either only fills in the units' own
  * prices, which stay editable one by one until Save sends the ones that
  * changed. A sold unit's price is frozen and never filled in. The server
  * decides again, keeps each change's history and refuses the whole save if
@@ -142,8 +144,9 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     }
     const rate = parsed.value;
     const skipped = fill(floorUnits, (unit) => {
-      const price = priceFromRate(rate, unit.grossArea);
-      return price === null ? null : { price: shortMoney(price), basis: "GROSS_AREA" };
+      const sale = saleArea(unit);
+      const price = priceFromRate(rate, sale.area);
+      return price === null ? null : { price: shortMoney(price), basis: sale.basis };
     });
     setNotes((current) => ({ ...current, [floorId]: skipped ? t("priceList.skippedNoArea", { count: skipped }) : "" }));
   }
@@ -159,9 +162,9 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     setNotes((current) => ({ ...current, parking: "" }));
   }
 
-  /** A price typed by hand: per m² of gross area when the unit has one, else a fixed price; parking is always fixed. */
+  /** A price typed by hand: on the unit's sale area when it has one, else a fixed price; parking is always fixed. */
   function typed(unit: PriceListUnitDTO, text: string) {
-    const basis: UnitPriceBasis = unit.category === "PARKING" ? "FIXED_UNIT_PRICE" : grossPriceBasis(unit.grossArea);
+    const basis: UnitPriceBasis = unit.category === "PARKING" ? "FIXED_UNIT_PRICE" : saleArea(unit).basis;
     setDraft(unit.id, { price: numberText(text), basis });
   }
 
@@ -226,7 +229,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
         return { kind: "unknown" };
       }
       const code = error.detailCode;
-      const unit = typeof error.details.unitCode === "string" ? error.details.unitCode : "";
+      const unit = typeof error.details.unitLabel === "string" ? error.details.unitLabel : typeof error.details.unitCode === "string" ? error.details.unitCode : "";
       if (code === "UNIT_SALES_STALE") setProblem({ message: t("priceList.stale"), reload: true });
       else if (code === "UNIT_SOLD") setProblem({ message: t("priceList.sold", { unit }), reload: true });
       else if (code === "PRICE_LIST_UNIT_NOT_FOUND") setProblem({ message: t("priceList.missingUnit"), reload: true });
@@ -263,19 +266,20 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     const sold = unit.status === "SOLD";
     const unitChanged = isChanged(unit, draft);
     const price = canonical(draft.price);
-    // Per m² of the gross area shown beside it, whatever basis an older price was saved on.
-    const rate = price === undefined ? null : grossRate(unit, price, draft.basis);
-    const area = unit.grossArea;
+    // Per m² of the sale area shown beside it, whatever basis the price was saved on — as every list shows it.
+    const sale = saleArea(unit);
+    const rate = price === undefined ? null : saleRate(unit, price);
+    const area = sale.area;
     const inputId = `price-${unit.id}`;
     const undo = (className?: string) =>
       unitChanged && !sold ? (
-        <Button variant="ghost" size="icon-sm" className={className} aria-label={t("priceList.undo", { unit: unit.unitCode })} title={t("priceList.undo", { unit: unit.unitCode })} onClick={() => setDraft(unit.id, baseline(unit))} disabled={pending}>
+        <Button variant="ghost" size="icon-sm" className={className} aria-label={t("priceList.undo", { unit: unit.label })} title={t("priceList.undo", { unit: unit.label })} onClick={() => setDraft(unit.id, baseline(unit))} disabled={pending}>
           <RotateCcw aria-hidden="true" />
         </Button>
       ) : null;
     return (
       <tr key={unit.id} className={cn("border-t border-line", CARD.row, unitChanged && "bg-accent-soft/40")} data-testid="price-row" data-unit-code={unit.unitCode} data-changed={unitChanged ? "true" : "false"}>
-        <td className={cn("px-3 py-2 font-medium text-fg", CARD.code)}>{unit.unitCode}</td>
+        <td className={cn("px-3 py-2 font-medium text-fg", CARD.code)}>{unit.label}</td>
         {options.showLocation ? (
           <td className={cn("px-3 py-2 text-fg-muted", CARD.location)}>
             {unit.building} · {floorName(unit.floor, locale)}
@@ -283,9 +287,14 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
         ) : (
           <td className={cn("px-3 py-2 text-fg-muted", CARD.type)}>{unitTypeName(unit.unitType, locale)}</td>
         )}
-        {options.showLocation ? null : <td className={cn("px-3 py-2 text-right tabular-nums text-fg-muted", CARD.area)}>{areaText(area, locale)}</td>}
+        {options.showLocation ? null : (
+          <td className={cn("px-3 py-2 text-right tabular-nums text-fg-muted", CARD.area)} data-testid="price-area" data-basis={sale.basis}>
+            {areaText(area, locale)}
+            {area !== null ? <span className="block text-micro text-fg-subtle">{sale.basis === "SALEABLE_AREA" ? t("priceList.areaSaleable") : t("priceList.areaGross")}</span> : null}
+          </td>
+        )}
         <td className={cn("px-3 py-2", CARD.status)}>
-          <CommercialStatusBadge status={unit.status} />
+          <CommercialStatusBadge status={saleStatusOf(unit.status, unit.askingPrice)} />
         </td>
         <td className={cn("px-3 py-2", CARD.price)}>
           {/* A phone's card names the field and shows the saved price beside it: its table heading is not drawn there. */}
@@ -307,7 +316,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
             <div className="flex items-start justify-end gap-1">
               <div className="flex flex-col items-end gap-0.5">
                 <label htmlFor={inputId} className="sr-only">
-                  {t("priceList.priceFor", { unit: unit.unitCode })}
+                  {t("priceList.priceFor", { unit: unit.label })}
                 </label>
                 <Input
                   id={inputId}
@@ -326,7 +335,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
                     {errors[unit.id]}
                   </span>
                 ) : null}
-                {/* On a phone the typed price per m² of gross area sits under the field; from md it has its own column. */}
+                {/* On a phone the typed price per m² sits under the field; from md it has its own column. */}
                 {options.showLocation ? null : <span className="text-meta tabular-nums text-fg-subtle md:hidden">{perSqmLabel(rate, currency, locale)}</span>}
               </div>
               {/* On a phone Undo sits beside the field; the table's own column is not drawn there. */}
@@ -413,7 +422,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
             {list.buildings.length > 1 ? <h2 className="text-section font-semibold text-fg">{building.name}</h2> : null}
             {floors.map((floor) => {
               const located = floor.units.map((unit) => ({ ...unit, building: building.name, floor: floor.name }));
-              const current = prevailingRate(floor.units, "GROSS_AREA");
+              const current = prevailingRate(floor.units);
               const label = floorName(floor.name, locale);
               return (
                 <div key={floor.id} className="rounded-md border border-line bg-surface" data-testid="price-floor" data-floor-name={floor.name}>
@@ -553,7 +562,7 @@ function RateControl({
 
 /*
  * Below md each unit is a card rather than a table row (mobile audit 2a): its
- * code and status on the first line, its type and gross area (a parking
+ * code and status on the first line, its type and sale area (a parking
  * space's location) under them, then its price field across the card with the
  * saved price beside it. The same cells and the same field, placed by CSS, so
  * nothing scrolls sideways; from md it is the table.

@@ -28,7 +28,7 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
   async function remove(): Promise<{ ok: true } | { ok: false; error: string }> {
     try {
       await structureApi(`/api/project-units/${unit.id}`, { method: "DELETE" });
-      toast({ title: t("unitTable.deleted", { code: unit.unitCode }) });
+      toast({ title: t("unitTable.deleted", { code: unit.label }) });
       router.push(`/projects/${unit.projectId}/units?floor=${unit.floor.id}`);
       return { ok: true };
     } catch (error) {
@@ -53,20 +53,20 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
         </Button>
       ) : null}
       {capabilities.canDeleteUnit ? (
-        <Button variant="ghost" size="icon" aria-label={t("unitTable.deleteNamed", { code: unit.unitCode })} onClick={() => setOpen("delete")}>
+        <Button variant="ghost" size="icon" aria-label={t("unitTable.deleteNamed", { code: unit.label })} onClick={() => setOpen("delete")}>
           <Trash2 />
         </Button>
       ) : null}
 
-      {open === "edit" ? <UnitDialog open onOpenChange={(value) => !value && setOpen(null)} floor={{ id: unit.floor.id, name: unit.floor.name, buildingName: unit.building.name }} unit={unit} types={types} canManagePrice={capabilities.canManagePrice} onSaved={() => router.refresh()} /> : null}
+      {open === "edit" ? <UnitDialog open onOpenChange={(value) => !value && setOpen(null)} floor={{ id: unit.floor.id, name: unit.floor.name, buildingName: unit.building.name, buildingCode: unit.building.code }} unit={unit} types={types} canManagePrice={capabilities.canManagePrice} onSaved={() => router.refresh()} /> : null}
       {open === "move" ? (
         <MoveUnitDialog
           open
           onOpenChange={(value) => !value && setOpen(null)}
-          unit={{ id: unit.id, unitCode: unit.unitCode, version: unit.version, floorId: unit.floor.id, buildingId: unit.building.id }}
+          unit={{ id: unit.id, label: unit.label, version: unit.version, floorId: unit.floor.id, buildingId: unit.building.id }}
           buildings={buildings}
           onMoved={() => {
-            toast({ title: t("workspace.unitMoved", { code: unit.unitCode }) });
+            toast({ title: t("workspace.unitMoved", { code: unit.label }) });
             router.refresh();
           }}
         />
@@ -74,7 +74,7 @@ export function UnitActions({ unit, types, buildings }: { unit: UnitDetailDTO; t
       <ConfirmAction
         open={open === "delete"}
         onOpenChange={(value) => !value && setOpen(null)}
-        title={t("unitTable.deleteTitle", { code: unit.unitCode })}
+        title={t("unitTable.deleteTitle", { code: unit.label })}
         description={t("workspace.deleteUnitBody")}
         run={remove}
       />

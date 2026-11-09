@@ -188,8 +188,10 @@ const PROVIDERS: Provider[] = [
     permissions: ["project.view", "project.structure.view"],
     async resolveMany(context, ids) {
       const { readableUnitWhere } = await import("@/lib/modules/project-structure/structure.permissions");
-      const rows = await prisma.projectUnit.findMany({ where: { AND: [readableUnitWhere(context), inIds(ids)] }, select: { id: true, unitCode: true, publicationStatus: true, projectId: true, project: { select: { name: true } } } });
-      return rows.map((row) => ({ entityType: "project_unit", entityId: row.id, title: row.unitCode, subtitle: `Unit · ${row.project.name}`, href: `/projects/${row.projectId}/units/${row.id}`, iconKey: "unit", status: row.publicationStatus, project: { id: row.projectId, name: row.project.name } }));
+      const { unitLabel } = await import("@/lib/modules/project-structure/structure.rules");
+      const rows = await prisma.projectUnit.findMany({ where: { AND: [readableUnitWhere(context), inIds(ids)] }, select: { id: true, unitCode: true, publicationStatus: true, projectId: true, project: { select: { name: true } }, floor: { select: { building: { select: { code: true } } } } } });
+      // Named by the code people see, "T-501" (2026-11-09).
+      return rows.map((row) => ({ entityType: "project_unit", entityId: row.id, title: unitLabel(row.floor.building.code, row.unitCode), subtitle: `Unit · ${row.project.name}`, href: `/projects/${row.projectId}/units/${row.id}`, iconKey: "unit", status: row.publicationStatus, project: { id: row.projectId, name: row.project.name } }));
     },
   },
   {

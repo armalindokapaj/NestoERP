@@ -14,7 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import { Textarea } from "@/components/ui/textarea";
 import { COMMITTED, failureOutcome, INVALID, useValuesEditor } from "@/components/project-planning/use-values-editor";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
-import { attributesFor, expectsCount, grossAreaIsTyped, unitWarningFindings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
+import { attributesFor, expectsCount, grossAreaIsTyped, unitLabel, unitWarningFindings, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
 import type { Translate } from "@/lib/i18n/translator";
 import { parseOptionalDecimal } from "@/lib/forms/decimal";
 import { numberText as localisedNumber } from "@/lib/i18n/format";
@@ -49,7 +49,10 @@ import { UnitPriceFields, useUnitPrice } from "./unit-price-fields";
  *
  * A unit is its code, not a name (2026-11). The counts are picked from short
  * lists, and the net and gross areas are sums shown as they will be saved:
- * the server works them out again on every save.
+ * the server works them out again on every save. The code is typed as the
+ * unit's own; the building's code shows beside it, as every list names the
+ * unit ("T-501"). A unit leaves use by Archive, so there is no Active tick
+ * (2026-11-09).
  */
 
 export type TechnicalValues = {
@@ -311,7 +314,7 @@ export function UnitDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  floor: { id: string; name: string; buildingName: string };
+  floor: { id: string; name: string; buildingName: string; buildingCode?: string | null };
   unit?: UnitDTO;
   types: UnitTypeOption[];
   /** Whether the person may set prices (Sales' `project.unit.price.manage`): the dialog then carries the asking price too. */
@@ -325,7 +328,7 @@ export function UnitDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogTitle>{unit ? t("unitDialog.editTitle", { code: unit.unitCode }) : t("unitDialog.addTitle")}</DialogTitle>
+        <DialogTitle>{unit ? t("unitDialog.editTitle", { code: unit.label }) : t("unitDialog.addTitle")}</DialogTitle>
         <DialogDescription>
           {floor.buildingName} · {floorName(floor.name, locale)}
         </DialogDescription>
@@ -344,7 +347,7 @@ function UnitForm({
   onSaved,
   onDone,
 }: {
-  floor: { id: string; name: string; buildingName: string };
+  floor: { id: string; name: string; buildingName: string; buildingCode?: string | null };
   unit?: UnitDTO;
   types: UnitTypeOption[];
   canManagePrice: boolean;
@@ -355,21 +358,25 @@ function UnitForm({
   const t = useTranslations("projects");
   const locale = useLocale();
   const [code, setCode] = React.useState(unit?.unitCode ?? "");
-  const [active, setActive] = React.useState(unit?.isActive ?? true);
   const [technical, setTechnical] = React.useState<TechnicalValues>(() => (unit ? technicalFromUnit(unit) : emptyTechnical(types.find((type) => type.isActive)?.id ?? "")));
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  // The asking price, per m² of the gross area these fields work out (2026-11-09); saved through Sales after the unit.
+  // The asking price, per m² of the sale area these fields give — the saleable area typed, else the gross
+  // they work out (2026-11-09); saved through Sales after the unit.
   const grossArea = shownAreas(technical, types.find((type) => type.id === technical.unitTypeId)?.category ?? "OTHER").grossArea;
-  const price = useUnitPrice({ unitId: unit?.id, enabled: canManagePrice, grossArea });
+  const saleable = parseOptionalDecimal(technical.areas.saleableArea, areaRule(AREA_LABELS.saleableArea));
+  const price = useUnitPrice({ unitId: unit?.id, enabled: canManagePrice, areas: { saleableArea: saleable.ok ? saleable.value : null, grossArea } });
+  // The building's code goes before the unit's in every list ("T-501"); shown beside the field, never typed.
+  const buildingCode = (unit?.building.code ?? floor.buildingCode ?? "").trim();
+  const named = (value: string) => unitLabel(buildingCode || null, value);
 
   // What was typed is not thrown away by a stray click, a link or a closed tab
   // (E-05D §53, AUD-03 §3): the unit registers with the tab's coordinator.
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
   const editor = useValuesEditor(
-    { code, active, technical, price: price.touched ? [price.view.entry, price.view.text] : null },
-    { module: "units", saveKind: unit ? "save" : "create", label: unit ? t("unitDialog.editorLabel", { code: unit.unitCode }) : t("unitDialog.newLabel", { floor: floor.name }), save: () => persist.current() },
+    { code, technical, price: price.touched ? [price.view.entry, price.view.text] : null },
+    { module: "units", saveKind: unit ? "save" : "create", label: unit ? t("unitDialog.editorLabel", { code: unit.label }) : t("unitDialog.newLabel", { floor: floor.name }), save: () => persist.current() },
   );
 
   persist.current = async () => {
@@ -389,14 +396,14 @@ function UnitForm({
     const body = { unitCode: code, ...technicalBody(technical) };
     try {
       if (unit) {
-        await editor.track(() => structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, isActive: active, expectedVersion: unit.version } }));
-        toast({ title: code !== unit.unitCode ? t("unitDialog.renamed", { old: unit.unitCode, code }) : t("unitDialog.saved", { code }) });
-        await price.save(unit.id, code);
+        await editor.track(() => structureApi(`/api/project-units/${unit.id}`, { method: "PATCH", body: { ...body, expectedVersion: unit.version } }));
+        toast({ title: code !== unit.unitCode ? t("unitDialog.renamed", { old: unit.label, code: named(code) }) : t("unitDialog.saved", { code: named(code) }) });
+        await price.save(unit.id, named(code));
         onSaved(unit.id);
       } else {
         const created = await editor.track(() => structureApi<{ id: string }>(`/api/project-floors/${floor.id}/units`, { body }));
-        toast({ title: t("unitDialog.added", { code, floor: floorName(floor.name, locale) }) });
-        await price.save(created.id, code);
+        toast({ title: t("unitDialog.added", { code: named(code), floor: floorName(floor.name, locale) }) });
+        await price.save(created.id, named(code));
         onSaved(created.id);
       }
       onDone();
@@ -421,18 +428,19 @@ function UnitForm({
       <FormError message={formError} />
       <fieldset disabled={pending} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t("unitDialog.code")} htmlFor="unit-code" error={errors.unitCode} required hint={unit ? t("unitDialog.codeHintEdit") : t("unitDialog.codeHintNew")}>
-            <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
+          <Field label={t("unitDialog.code")} htmlFor="unit-code" error={errors.unitCode} required hint={buildingCode && code.trim() && named(code.trim()) !== code.trim() ? t("unitDialog.codeShownAs", { label: named(code.trim()) }) : unit ? t("unitDialog.codeHintEdit") : t("unitDialog.codeHintNew")}>
+            <div className="flex min-w-0 items-center gap-1.5">
+              {buildingCode && (code.trim() === "" || named(code.trim()) !== code.trim()) ? (
+                <span className="shrink-0 text-table font-medium text-fg-muted" title={t("unitDialog.buildingCodePrefix", { code: buildingCode })} data-testid="unit-code-prefix">
+                  {buildingCode}-
+                </span>
+              ) : null}
+              <Input id="unit-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={80} autoFocus aria-invalid={Boolean(errors.unitCode)} />
+            </div>
           </Field>
         </div>
         <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
         <UnitPriceFields price={price} />
-        {unit ? (
-          <label className="flex items-center gap-2 text-table text-fg">
-            <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
-            {t("unitDialog.active")}
-          </label>
-        ) : null}
       </fieldset>
       <Warnings items={warningsFor(technical, types, t)} />
       <DialogFooter>

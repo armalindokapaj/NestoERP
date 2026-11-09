@@ -206,8 +206,9 @@ export const unitListQuerySchema = z.object({
   bathrooms: optionalCount,
   internalAreaMin: optionalArea,
   internalAreaMax: optionalArea,
-  saleableAreaMin: optionalArea,
-  saleableAreaMax: optionalArea,
+  // The sale area: saleable when typed, else gross (2026-11-09).
+  areaMin: optionalArea,
+  areaMax: optionalArea,
   // Publishing (E-05D §13): a unit is Published or Archived (units publish on create, 2026-11). An old
   // link's retired status or `unpublishedChanges=true` is ignored, not refused — unknown keys are dropped.
   publicationStatus: z.enum(["PUBLISHED", "ARCHIVED"]).optional().catch(undefined),

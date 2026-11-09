@@ -9,6 +9,7 @@ import { prisma } from "@/lib/database/prisma";
 import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { numberText } from "@/lib/i18n/format";
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { fail, loadStructureProject } from "@/lib/modules/project-structure/structure.service";
 import { resolveUnitSalesSettings } from "@/lib/modules/settings/sales-settings.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -49,6 +50,7 @@ export async function getPriceList(context: UserContext, projectId: string): Pro
       select: {
         id: true,
         name: true,
+        code: true,
         floors: {
           where: { isActive: true },
           orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -87,6 +89,7 @@ export async function getPriceList(context: UserContext, projectId: string): Pro
         units: floor.units.map((unit) => ({
           id: unit.id,
           unitCode: unit.unitCode,
+          label: unitLabel(building.code, unit.unitCode),
           unitType: unit.unitType.name,
           category: unit.unitType.category as UnitTypeCategoryKey,
           saleableArea: moneyText(unit.saleableArea),
@@ -113,7 +116,7 @@ export async function savePriceList(context: UserContext, projectId: string, inp
   const ids = input.prices.map((price) => price.unitId);
   const units = await prisma.projectUnit.findMany({
     where: { AND: [readableUnitWhere(context), { projectId: project.id, id: { in: ids }, isActive: true, floor: { isActive: true, building: { isActive: true } } }] },
-    select: { id: true, unitCode: true, projectId: true, companyId: true },
+    select: { id: true, unitCode: true, projectId: true, companyId: true, floor: { select: { building: { select: { code: true } } } } },
   });
   if (units.length !== ids.length) throw fail("PRICE_LIST_UNIT_NOT_FOUND", "One of these units is no longer in this project's price list. Reload it before saving.", "NOT_FOUND");
   const unitById = new Map(units.map((unit) => [unit.id, unit]));
@@ -137,19 +140,20 @@ export async function savePriceList(context: UserContext, projectId: string, inp
         const unit = unitById.get(change.unitId)!;
         const profile = profileByUnit.get(change.unitId)!;
         // A profile no one has changed yet is version 1, the same as having none (version 0).
-        if (profile.version !== Math.max(change.expectedVersion, 1)) throw fail("UNIT_SALES_STALE", STALE, "CONFLICT", { unitCode: unit.unitCode });
+        const label = unitLabel(unit.floor.building.code, unit.unitCode);
+        if (profile.version !== Math.max(change.expectedVersion, 1)) throw fail("UNIT_SALES_STALE", STALE, "CONFLICT", { unitCode: unit.unitCode, unitLabel: label });
         const oldPrice = moneyText(profile.askingPrice);
         const currency = change.askingPrice === null ? profile.currency : input.currency;
         const changed = oldPrice !== change.askingPrice || (change.askingPrice !== null && profile.currency !== currency) || profile.priceBasis !== change.priceBasis;
         if (!changed) continue;
-        if (profile.status === "SOLD") throw fail("UNIT_SOLD", `${unit.unitCode} is sold, so its asking price does not change. Reopen the sale first.`, "CONFLICT", { unitCode: unit.unitCode });
+        if (profile.status === "SOLD") throw fail("UNIT_SOLD", `${label} is sold, so its asking price does not change. Reopen the sale first.`, "CONFLICT", { unitCode: unit.unitCode, unitLabel: label });
 
         const newPrice = change.askingPrice === null ? null : new Prisma.Decimal(change.askingPrice);
         const updated = await tx.unitCommercialProfile.updateMany({
           where: { id: profile.id, companyId: context.companyId, version: profile.version },
           data: { askingPrice: newPrice, currency, priceBasis: change.priceBasis, updatedByMemberId: context.membershipId, version: { increment: 1 } },
         });
-        if (!updated.count) throw fail("UNIT_SALES_STALE", STALE, "CONFLICT", { unitCode: unit.unitCode });
+        if (!updated.count) throw fail("UNIT_SALES_STALE", STALE, "CONFLICT", { unitCode: unit.unitCode, unitLabel: label });
 
         // The asking price keeps its history; an agreed price never overwrites it (§12, §30).
         await tx.unitPriceHistory.create({

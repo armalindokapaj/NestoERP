@@ -6,6 +6,7 @@ import { AccessError, assertModule, assertPermission } from "@/lib/access/guards
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { readableUnitWhere, structureCapabilities, structureProjectDoor } from "./structure.permissions";
+import { codeSearchKey, unitLabel } from "./structure.rules";
 import type { UnitListQuery } from "./structure.schema";
 import { AREA_FIELDS, type AreaField, type ProjectStructureDTO, type UnitAttributes, type UnitDetailDTO, type UnitDTO, type UnitListDTO, type UnitTypeOption } from "./structure.types";
 
@@ -135,6 +136,7 @@ export function toUnitDTO(row: UnitRow): UnitDTO {
     id: row.id,
     projectId: row.projectId,
     unitCode: row.unitCode,
+    label: unitLabel(building.code, row.unitCode),
     unitType: row.unitType,
     building,
     floor,
@@ -156,79 +158,117 @@ export function toUnitDTO(row: UnitRow): UnitDTO {
   };
 }
 
-function orderFor(sort: UnitListQuery["sort"]): Prisma.ProjectUnitOrderByWithRelationInput[] {
-  const structure: Prisma.ProjectUnitOrderByWithRelationInput[] = [
-    { floor: { building: { sortOrder: "asc" } } },
-    { floor: { sortOrder: "asc" } },
-    { sortOrder: "asc" },
-    { unitCode: "asc" },
-  ];
-  const tail: Prisma.ProjectUnitOrderByWithRelationInput[] = [{ id: "asc" }];
+/** `%text%` for ILIKE, with the pattern's own characters taken literally. */
+export function containsPattern(text: string): string {
+  return `%${text.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+}
+
+/**
+ * A search for a unit by its code, as people write it (2026-11-09): "T-501",
+ * "T501" and "501" all find the unit the lists call T-501. The unit's own code
+ * matches as typed; the building's code and the unit's, folded to letters and
+ * digits, match the folded search (`codeSearchKey`). Reads the aliases `u`
+ * (project_units) and `b` (project_buildings).
+ */
+export function unitCodeMatch(q: string): Prisma.Sql {
+  const matches = [Prisma.sql`u."unitCode" ILIKE ${containsPattern(q)}`];
+  const key = codeSearchKey(q);
+  if (key) matches.push(Prisma.sql`regexp_replace(upper(COALESCE(b."code", '') || u."unitCode"), '[^[:alnum:]]', '', 'g') LIKE ${`%${key}%`}`);
+  return Prisma.sql`(${Prisma.join(matches, " OR ")})`;
+}
+
+/**
+ * The area a unit is sold by, in SQL (2026-11-09): the saleable area when it
+ * is above zero, else the gross area — null when neither is, so a division by
+ * it is never by zero. Reads the alias `u`; the same rule as `saleArea`.
+ */
+export const SALE_AREA_SQL = Prisma.sql`COALESCE(NULLIF(u."saleableArea", 0), NULLIF(u."grossArea", 0))`;
+
+function orderFor(sort: UnitListQuery["sort"]): Prisma.Sql {
+  const structure = Prisma.sql`b."sortOrder" ASC, f."sortOrder" ASC, u."sortOrder" ASC, u."unitCode" ASC`;
+  const id = Prisma.sql`u."id" ASC`;
   switch (sort) {
     case "code":
-      return [{ unitCodeKey: "asc" }, ...tail];
+      return Prisma.sql`u."unitCodeKey" ASC, ${id}`;
     case "-code":
-      return [{ unitCodeKey: "desc" }, ...tail];
+      return Prisma.sql`u."unitCodeKey" DESC, ${id}`;
     case "floor":
-      return [{ floor: { sortOrder: "asc" } }, { floor: { building: { sortOrder: "asc" } } }, { sortOrder: "asc" }, ...tail];
+      return Prisma.sql`f."sortOrder" ASC, b."sortOrder" ASC, u."sortOrder" ASC, ${id}`;
     case "type":
-      return [{ unitType: { sortOrder: "asc" } }, ...structure, ...tail];
-    case "saleableArea":
-      return [{ saleableArea: { sort: "asc", nulls: "last" } }, ...structure, ...tail];
-    case "-saleableArea":
-      return [{ saleableArea: { sort: "desc", nulls: "last" } }, ...structure, ...tail];
+      return Prisma.sql`t."sortOrder" ASC, ${structure}, ${id}`;
+    case "gross":
+      return Prisma.sql`u."grossArea" ASC NULLS LAST, ${structure}, ${id}`;
+    case "-gross":
+      return Prisma.sql`u."grossArea" DESC NULLS LAST, ${structure}, ${id}`;
+    case "bedrooms":
+      return Prisma.sql`u."bedrooms" ASC NULLS LAST, ${structure}, ${id}`;
+    case "-bedrooms":
+      return Prisma.sql`u."bedrooms" DESC NULLS LAST, ${structure}, ${id}`;
+    case "price":
+      return Prisma.sql`p."askingPrice" ASC NULLS LAST, ${structure}, ${id}`;
+    case "-price":
+      return Prisma.sql`p."askingPrice" DESC NULLS LAST, ${structure}, ${id}`;
+    case "area":
+      return Prisma.sql`${SALE_AREA_SQL} ASC NULLS LAST, ${structure}, ${id}`;
+    case "-area":
+      return Prisma.sql`${SALE_AREA_SQL} DESC NULLS LAST, ${structure}, ${id}`;
     case "internalArea":
-      return [{ internalArea: { sort: "asc", nulls: "last" } }, ...structure, ...tail];
+      return Prisma.sql`u."internalArea" ASC NULLS LAST, ${structure}, ${id}`;
     case "-internalArea":
-      return [{ internalArea: { sort: "desc", nulls: "last" } }, ...structure, ...tail];
+      return Prisma.sql`u."internalArea" DESC NULLS LAST, ${structure}, ${id}`;
     default:
-      return [...structure, ...tail];
+      return Prisma.sql`${structure}, ${id}`;
   }
 }
 
-function range(min: string | undefined, max: string | undefined): Prisma.DecimalNullableFilter | undefined {
-  if (min === undefined && max === undefined) return undefined;
-  return { ...(min !== undefined ? { gte: new Prisma.Decimal(min) } : {}), ...(max !== undefined ? { lte: new Prisma.Decimal(max) } : {}) };
-}
-
-/** One page of a project's units, filtered in the database (§47-§50, §66, §107, §109). */
+/**
+ * One page of a project's units, filtered and sorted in the database (§47-§50,
+ * §66, §107, §109). One SQL statement pages the ids — the sale area and the
+ * price are sorted on there, which Prisma's ordering cannot express — and the
+ * rows are then read by id. The project came through its door; every unit read
+ * is that project's, in the reader's company.
+ */
 export async function listProjectUnits(context: UserContext, projectId: string, query: UnitListQuery & { page: number; limit: number }): Promise<UnitListDTO> {
   const project = await loadStructureProject(context, projectId);
   const q = query.q?.trim();
-  const filters: Prisma.ProjectUnitWhereInput[] = [
-    readableUnitWhere(context),
-    { projectId: project.id },
-    ...(query.floorId ? [{ floorId: query.floorId }] : []),
-    ...(query.buildingId ? [{ floor: { is: { buildingId: query.buildingId } } }] : []),
-    ...(query.unitTypeId ? [{ unitTypeId: query.unitTypeId }] : []),
-    ...(query.orientation ? [{ orientation: query.orientation }] : []),
-    ...(query.bedrooms !== undefined ? [{ bedrooms: query.bedrooms }] : []),
-    ...(query.bathrooms !== undefined ? [{ bathrooms: query.bathrooms }] : []),
-    ...(query.publicationStatus ? [{ publicationStatus: query.publicationStatus }] : []),
-  ];
-  const internal = range(query.internalAreaMin, query.internalAreaMax);
-  if (internal) filters.push({ internalArea: internal });
-  const saleable = range(query.saleableAreaMin, query.saleableAreaMax);
-  if (saleable) filters.push({ saleableArea: saleable });
-  if (q) {
-    filters.push({
-      OR: [
-        { unitCode: { contains: q, mode: "insensitive" } },
-        { unitType: { is: { name: { contains: q, mode: "insensitive" } } } },
-      ],
-    });
-  }
+  const decimal = (value: string) => new Prisma.Decimal(value);
+  const filters: Prisma.Sql[] = [Prisma.sql`u."companyId" = ${context.companyId}`, Prisma.sql`u."projectId" = ${project.id}`];
+  if (query.floorId) filters.push(Prisma.sql`u."floorId" = ${query.floorId}`);
+  if (query.buildingId) filters.push(Prisma.sql`f."buildingId" = ${query.buildingId}`);
+  if (query.unitTypeId) filters.push(Prisma.sql`u."unitTypeId" = ${query.unitTypeId}`);
+  if (query.orientation) filters.push(Prisma.sql`u."orientation" = ${query.orientation}::"UnitOrientation"`);
+  if (query.bedrooms !== undefined) filters.push(Prisma.sql`u."bedrooms" = ${query.bedrooms}`);
+  if (query.bathrooms !== undefined) filters.push(Prisma.sql`u."bathrooms" = ${query.bathrooms}`);
+  if (query.publicationStatus) filters.push(Prisma.sql`u."publicationStatus" = ${query.publicationStatus}::"UnitPublicationStatus"`);
+  if (query.internalAreaMin !== undefined) filters.push(Prisma.sql`u."internalArea" >= ${decimal(query.internalAreaMin)}`);
+  if (query.internalAreaMax !== undefined) filters.push(Prisma.sql`u."internalArea" <= ${decimal(query.internalAreaMax)}`);
+  if (query.areaMin !== undefined) filters.push(Prisma.sql`${SALE_AREA_SQL} >= ${decimal(query.areaMin)}`);
+  if (query.areaMax !== undefined) filters.push(Prisma.sql`${SALE_AREA_SQL} <= ${decimal(query.areaMax)}`);
+  if (q) filters.push(Prisma.sql`(${unitCodeMatch(q)} OR t."name" ILIKE ${containsPattern(q)})`);
 
-  const where: Prisma.ProjectUnitWhereInput = { AND: filters };
+  const from = Prisma.sql`FROM "project_units" u
+    JOIN "project_floors" f ON f."id" = u."floorId"
+    JOIN "project_buildings" b ON b."id" = f."buildingId"
+    JOIN "project_unit_types" t ON t."id" = u."unitTypeId"
+    LEFT JOIN "unit_commercial_profiles" p ON p."unitId" = u."id"`;
+  const where = Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`;
   // Count and page from one snapshot (AUD-08 §4, DT-06); every order ends in the id (DT-04).
-  const [total, rows] = await prisma.$transaction(
+  const [counted, page] = await prisma.$transaction(
     [
-      prisma.projectUnit.count({ where }),
-      prisma.projectUnit.findMany({ where, orderBy: orderFor(query.sort), skip: (query.page - 1) * query.limit, take: query.limit, select: UNIT_SELECT }),
+      prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) AS count ${from} ${where}`,
+      prisma.$queryRaw<Array<{ id: string }>>`SELECT u."id" ${from} ${where} ORDER BY ${orderFor(query.sort)} LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}`,
     ],
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   );
-  return { items: rows.map(toUnitDTO), page: query.page, pageSize: query.limit, total };
+  const ids = page.map((row) => row.id);
+  const rows = ids.length ? await prisma.projectUnit.findMany({ where: { AND: [readableUnitWhere(context), { projectId: project.id, id: { in: ids } }] }, select: UNIT_SELECT }) : [];
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  // A unit removed between the page and the read is left out rather than failing the page.
+  const items = ids.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [toUnitDTO(row)] : [];
+  });
+  return { items, page: query.page, pageSize: query.limit, total: Number(counted[0]?.count ?? 0) };
 }
 
 /** A unit, through its project's door. */

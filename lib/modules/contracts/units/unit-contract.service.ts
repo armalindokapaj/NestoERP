@@ -14,6 +14,7 @@ import { prisma } from "@/lib/database/prisma";
 import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import { fail, findReadableUnit } from "@/lib/modules/project-structure/structure.service";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { contractMachine } from "../contracts/contract.machine";
 import { contractEditMode } from "../contracts/contract.status";
@@ -131,7 +132,7 @@ const CONTRACT_SELECT = {
   updatedAt: true,
   client: { select: { name: true } },
   opportunity: { select: { name: true } },
-  units: { orderBy: { createdAt: "asc" }, select: { unitId: true, value: true, valueNote: true, releasedAt: true, releaseReason: true, unit: { select: { unitCode: true } } } },
+  units: { orderBy: { createdAt: "asc" }, select: { unitId: true, value: true, valueNote: true, releasedAt: true, releaseReason: true, unit: { select: { unitCode: true, floor: { select: { building: { select: { code: true } } } } } } } },
 } satisfies Prisma.ContractSelect;
 
 type ContractRow = Prisma.ContractGetPayload<{ select: typeof CONTRACT_SELECT }>;
@@ -176,7 +177,7 @@ function contractDTO(row: ContractRow, unitId: string, caps: UnitLegalCapabiliti
     updatedBy: row.updatedByMemberId && names.has(row.updatedByMemberId) ? { memberId: row.updatedByMemberId, name: names.get(row.updatedByMemberId)! } : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    units: row.units.map((unit) => ({ unitId: unit.unitId, unitCode: unit.unit.unitCode, value: caps.canSeeValue ? moneyText(unit.value) : null, valueNote: caps.canSeeValue ? unit.valueNote : null, released: unit.releasedAt !== null, releaseReason: unit.releaseReason })),
+    units: row.units.map((unit) => ({ unitId: unit.unitId, unitCode: unit.unit.unitCode, label: unitLabel(unit.unit.floor.building.code, unit.unit.unitCode), value: caps.canSeeValue ? moneyText(unit.value) : null, valueNote: caps.canSeeValue ? unit.valueNote : null, released: unit.releasedAt !== null, releaseReason: unit.releaseReason })),
     pendingApproval: pending.has(row.id),
     documentCount: documents.get(row.id) ?? 0,
     actions: contractActions(row.status, live, caps),
@@ -197,7 +198,7 @@ const REQUEST_SELECT = {
   client: { select: { name: true } },
   opportunity: { select: { name: true } },
   reservation: { select: { id: true, status: true, expiresAt: true, agreedPrice: true, currency: true } },
-  unit: { select: { id: true, unitCode: true, projectId: true, project: { select: { name: true } }, floor: { select: { name: true, building: { select: { name: true } } } } } },
+  unit: { select: { id: true, unitCode: true, projectId: true, project: { select: { name: true } }, floor: { select: { name: true, building: { select: { name: true, code: true } } } } } },
 } satisfies Prisma.UnitContractRequestSelect;
 
 type RequestRow = Prisma.UnitContractRequestGetPayload<{ select: typeof REQUEST_SELECT }>;
@@ -212,7 +213,7 @@ function requestDTO(row: RequestRow, caps: Pick<UnitLegalCapabilities, "canSeeCl
   return {
     id: row.id,
     status: ended ? "CANCELLED" : row.status,
-    unit: { id: row.unit.id, unitCode: row.unit.unitCode, projectId: row.unit.projectId, projectName: row.unit.project.name, building: row.unit.floor.building.name, floor: row.unit.floor.name },
+    unit: { id: row.unit.id, unitCode: row.unit.unitCode, label: unitLabel(row.unit.floor.building.code, row.unit.unitCode), projectId: row.unit.projectId, projectName: row.unit.project.name, building: row.unit.floor.building.name, floor: row.unit.floor.name },
     client: caps.canSeeClients ? { id: row.clientId, name: row.client.name } : null,
     deal: caps.canSeeDeals ? { id: row.opportunityId, name: row.opportunity.name } : null,
     agreedPrice: moneyText(row.reservation.agreedPrice),
@@ -265,15 +266,17 @@ export async function getUnitLegal(context: UserContext, unitId: string): Promis
         status: { in: ["ACTIVE", "CONVERTED_TO_SALE"] },
         unit: { is: { AND: [readableUnitWhere(context), { projectId: unit.projectId }, { contractLinks: { none: { releasedAt: null } } }] } },
       },
-      select: { unitId: true, agreedPrice: true, currency: true, unit: { select: { unitCode: true, unitType: { select: { name: true } }, contractRequests: { where: { status: "OPEN" }, select: { id: true } } } } },
+      select: { unitId: true, agreedPrice: true, currency: true, unit: { select: { unitCode: true, floor: { select: { building: { select: { code: true } } } }, unitType: { select: { name: true } }, contractRequests: { where: { status: "OPEN" }, select: { id: true } } } } },
     });
-    candidates = others.map((row) => ({ unitId: row.unitId, unitCode: row.unit.unitCode, unitType: row.unit.unitType.name, agreedPrice: moneyText(row.agreedPrice), currency: row.currency, hasOpenRequest: row.unit.contractRequests.length > 0 }));
+    candidates = others.map((row) => ({ unitId: row.unitId, unitCode: row.unit.unitCode, label: unitLabel(row.unit.floor.building.code, row.unit.unitCode), unitType: row.unit.unitType.name, agreedPrice: moneyText(row.agreedPrice), currency: row.currency, hasOpenRequest: row.unit.contractRequests.length > 0 }));
   }
 
+  const label = unitLabel(unit.floor.building.code, unit.unitCode);
   return {
     unitId: unit.id,
     projectId: unit.projectId,
     unitCode: unit.unitCode,
+    unitLabel: label,
     contract: live,
     history: dtos.filter((row) => !row.live),
     openRequest,
@@ -281,7 +284,7 @@ export async function getUnitLegal(context: UserContext, unitId: string): Promis
     requestBlocked,
     createBlocked,
     candidates,
-    defaults: { autoNumber, title: `Sale agreement — ${unit.unitCode}`, agreedPrice: moneyText(standing.reservation?.agreedPrice), currency: standing.reservation?.currency ?? null },
+    defaults: { autoNumber, title: `Sale agreement — ${label}`, agreedPrice: moneyText(standing.reservation?.agreedPrice), currency: standing.reservation?.currency ?? null },
     capabilities: caps,
   };
 }

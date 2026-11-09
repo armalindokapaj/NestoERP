@@ -68,7 +68,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
 
   const close = () => setOpen(null);
   const base = contract ? `/api/contracts/${contract.id}` : "";
-  const name = contract ? contract.number : legal.unitCode;
+  const name = contract ? contract.number : legal.unitLabel;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
@@ -184,7 +184,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
       </div>
 
       {/* Sales asks (§12) */}
-      <FieldsDialog open={open === "request"} onClose={close} title={t("unitLegal.requestTitle", { unit: legal.unitCode })} description={t("unitLegal.requestDescription")} confirmLabel={t("unitLegal.requestContract")} url={`/api/project-units/${legal.unitId}/contract-requests`} fields={[{ name: "notes", label: t("unitLegal.notesForLegal"), kind: "textarea", max: 2000 }]} success={t("unitLegal.requestSent")} submit={submit} testId="request-contract-dialog" />
+      <FieldsDialog open={open === "request"} onClose={close} title={t("unitLegal.requestTitle", { unit: legal.unitLabel })} description={t("unitLegal.requestDescription")} confirmLabel={t("unitLegal.requestContract")} url={`/api/project-units/${legal.unitId}/contract-requests`} fields={[{ name: "notes", label: t("unitLegal.notesForLegal"), kind: "textarea", max: 2000 }]} success={t("unitLegal.requestSent")} submit={submit} testId="request-contract-dialog" />
       {request ? (
         <>
           <FieldsDialog open={open === "decline"} onClose={close} title={t("unitLegal.declineTitle")} description={t("unitLegal.declineDescription")} confirmLabel={t("common.decline")} url={`/api/contracts/requests/${request.id}/decline`} fields={[{ name: "reason", label: t("common.reason"), kind: "textarea", required: true }]} success={t("unitLegal.declined")} submit={submit} testId="decline-request-dialog" />
@@ -274,7 +274,7 @@ function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitCo
         <ul className="mt-2 divide-y divide-line rounded-md border border-line" data-testid="contract-units">
           {contract.units.map((unit) => (
             <li key={unit.unitId} className="flex flex-wrap items-center gap-2 px-3 py-2 text-table">
-              <span className="font-medium text-fg">{unit.unitCode}</span>
+              <span className="font-medium text-fg">{unit.label}</span>
               {unit.unitId === legal.unitId ? <Badge>{t("unitLegal.thisUnit")}</Badge> : null}
               {unit.released ? <Badge>{t("unitLegal.released")}</Badge> : null}
               <span className="ml-auto tabular-nums text-fg-muted">{caps.canSeeValue ? amountLabel(unit.value, contract.currency, locale) : ""}</span>
@@ -330,7 +330,7 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
   }, [open]);
 
   const changed = useOpenedWith(open, [number, title, chosen, values]);
-  const rows = [{ unitId: legal.unitId, unitCode: legal.unitCode, agreedPrice: legal.defaults.agreedPrice, primary: true }, ...legal.candidates.filter((row) => chosen[row.unitId]).map((row) => ({ unitId: row.unitId, unitCode: row.unitCode, agreedPrice: row.agreedPrice, primary: false }))];
+  const rows = [{ unitId: legal.unitId, unitCode: legal.unitLabel, agreedPrice: legal.defaults.agreedPrice, primary: true }, ...legal.candidates.filter((row) => chosen[row.unitId]).map((row) => ({ unitId: row.unitId, unitCode: row.label, agreedPrice: row.agreedPrice, primary: false }))];
   // Exact (AUD-09 §4, FV-06), and a row left empty counts at its agreed price —
   // as the server does — rather than as 0. "1 000,50" is read, not NaN.
   const total = sumDecimal(rows.map((row) => previewDecimal(values[row.unitId]?.value ?? "", 2) ?? row.agreedPrice ?? "0"), 2);
@@ -350,7 +350,7 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
     <FormDialog
       open={open}
       onClose={onClose}
-      title={t("unitLegal.draftTitle", { unit: legal.unitCode })}
+      title={t("unitLegal.draftTitle", { unit: legal.unitLabel })}
       description={t("unitLegal.draftDescription")}
       confirmLabel={t("unitLegal.draftContract")}
       pending={request.pending}
@@ -378,7 +378,7 @@ function CreateContractDialog({ open, onClose, legal, submit }: { open: boolean;
           {legal.candidates.map((row) => (
             <label key={row.unitId} className="flex items-center gap-2 text-table" htmlFor={`candidate-${row.unitId}`}>
               <Checkbox id={`candidate-${row.unitId}`} checked={Boolean(chosen[row.unitId])} onCheckedChange={(checked) => setChosen((current) => ({ ...current, [row.unitId]: checked === true }))} />
-              <span className="font-medium text-fg">{row.unitCode}</span>
+              <span className="font-medium text-fg">{row.label}</span>
               <span className="text-fg-muted">{row.unitType}</span>
               <span className="ml-auto tabular-nums text-fg-muted">{amountLabel(row.agreedPrice, row.currency, locale)}</span>
             </label>
@@ -418,7 +418,7 @@ function UnitValueDialog({ onClose, contract, unitId, submit }: { onClose: () =>
     <FieldsDialog
       open
       onClose={onClose}
-      title={t("unitLegal.changeUnitValue", { unit: unit?.unitCode ?? t("unitLegal.theUnit") })}
+      title={t("unitLegal.changeUnitValue", { unit: unit?.label ?? t("unitLegal.theUnit") })}
       description={t("unitLegal.valueDescription")}
       confirmLabel={t("unitLegal.saveValue")}
       url={`/api/contracts/${contract.id}/units/${unitId}`}

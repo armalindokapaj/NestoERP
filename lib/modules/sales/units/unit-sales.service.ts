@@ -41,10 +41,12 @@ import {
   type ProfileRow,
   type SellableUnit,
 } from "./unit-sales.core";
-import { canMarkUnitSold, defaultExpiry, moneyText, pricePerSqm, sellability } from "./unit-sales.rules";
+import { canMarkUnitSold, defaultExpiry, moneyText, saleStatusOf, sellability } from "./unit-sales.rules";
+import { saleArea, saleRate } from "./unit-pricing.rules";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { cancelSaleApprovals, latestSaleApproval } from "./unit-sale-approval.service";
 import type { commercialDetailsSchema, correctReservationSchema, dealUnitSchema, extendReservationSchema, releaseReservationSchema, reopenSaleSchema, reserveSchema, saleStatusSchema } from "./unit-sales.schema";
-import { MAX_RESERVATION_DAYS, PRICE_BASIS_AREA, type ReservationDTO, type UnitSalesDTO } from "./unit-sales.types";
+import { MAX_RESERVATION_DAYS, type ReservationDTO, type UnitSalesDTO } from "./unit-sales.types";
 import type { z } from "zod";
 
 /**
@@ -63,8 +65,9 @@ type Unit = SellableUnit;
 
 const DAY = 86_400_000;
 
+/** The unit as a notification names it: by the code people see, "T-501" (2026-11-09). */
 function unitRef(unit: Unit) {
-  return { id: unit.id, unitCode: unit.unitCode, projectId: unit.projectId, projectName: unit.project.name };
+  return { id: unit.id, unitCode: unitLabel(unit.floor.building.code, unit.unitCode), projectId: unit.projectId, projectName: unit.project.name };
 }
 
 async function evidence(tx: Tx, context: UserContext, unit: Unit, input: { action: string; message: string; audit: { actionKey: string; before?: Record<string, unknown>; after?: Record<string, unknown>; metadata?: Record<string, unknown> } }) {
@@ -170,21 +173,26 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
   const active = reservations.find((row) => row.status === "ACTIVE") ?? null;
   const status = profile?.status ?? "NOT_FOR_SALE";
   const priceBasis = profile?.priceBasis ?? "SALEABLE_AREA";
-  const areas = { saleableArea: moneyText(facts.saleableArea), internalArea: moneyText(facts.internalArea), grossArea: moneyText(facts.grossArea) };
-  const basisField = PRICE_BASIS_AREA[priceBasis];
+  const asking = moneyText(profile?.askingPrice);
+  // The area the unit is sold by, and the price per m² on it, whatever basis the price was saved on (2026-11-09).
+  const areas = { saleableArea: moneyText(facts.saleableArea), grossArea: moneyText(facts.grossArea) };
+  const sale = saleArea(areas);
   const verdict = sellability(facts);
 
   return {
     unitId: unit.id,
     projectId: unit.projectId,
     unitCode: unit.unitCode,
+    unitLabel: unitLabel(unit.floor.building.code, unit.unitCode),
     status,
     statusChangedAt: profile?.statusChangedAt?.toISOString() ?? null,
-    askingPrice: moneyText(profile?.askingPrice),
+    askingPrice: asking,
     currency: profile?.currency ?? null,
     priceBasis,
-    pricePerSqm: pricePerSqm(moneyText(profile?.askingPrice), priceBasis, areas),
-    basisArea: basisField ? (areas[basisField as keyof typeof areas] ?? null) : null,
+    pricePerSqm: saleRate(areas, asking),
+    saleArea: sale.area,
+    saleAreaBasis: sale.basis,
+    saleableArea: areas.saleableArea,
     grossArea: areas.grossArea,
     holdReason: profile?.holdReason ?? null,
     holdUntil: profile?.holdUntil?.toISOString() ?? null,
@@ -192,6 +200,7 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
     heldByMemberId: profile?.heldByMemberId ?? null,
     salesNotes: profile?.salesNotes ?? null,
     version: profile?.version ?? 0,
+    saleStatus: saleStatusOf(status, asking),
     sellable: verdict.sellable,
     sellableReason: verdict.reason,
     activeReservation: active ? toReservation(active) : null,
@@ -370,7 +379,7 @@ export async function reserveUnit(context: UserContext, unitId: string, input: z
     if (input.newDeal) {
       const value = agreedPrice ?? moneyText(profile.askingPrice);
       if (value === null || Number(value) <= 0) throw new AccessError("VALIDATION_ERROR", "Enter the agreed price, or set the unit's asking price, to open the deal.", { agreedPrice: ["Enter the agreed price to open the deal."] });
-      dealName = input.newDeal.name || `${unit.unitCode} — ${client!.name}`;
+      dealName = input.newDeal.name || `${unitLabel(unit.floor.building.code, unit.unitCode)} — ${client!.name}`;
       dealId = await createOpportunityInTransaction(
         tx,
         context,
@@ -615,7 +624,7 @@ async function findDeal(context: UserContext, opportunityId: string) {
   return deal;
 }
 
-export type DealUnitDTO = { unitId: string; unitCode: string; projectId: string; projectName: string; building: string; floor: string; unitType: string; status: UnitCommercialStatus; agreedPrice: string | null; currency: string | null; reservation: { status: string; expiresAt: string } | null; href: string };
+export type DealUnitDTO = { unitId: string; unitCode: string; /** "T-501": the building's code and the unit's. */ label: string; projectId: string; projectName: string; building: string; floor: string; unitType: string; status: UnitCommercialStatus; agreedPrice: string | null; currency: string | null; reservation: { status: string; expiresAt: string } | null; href: string };
 
 /** The units in a deal, as far as the reader may open them (§17). */
 export async function listDealUnits(context: UserContext, opportunityId: string): Promise<DealUnitDTO[]> {
@@ -634,7 +643,7 @@ export async function listDealUnits(context: UserContext, opportunityId: string)
           projectId: true,
           project: { select: { name: true } },
           unitType: { select: { name: true } },
-          floor: { select: { name: true, building: { select: { name: true } } } },
+          floor: { select: { name: true, building: { select: { name: true, code: true } } } },
           commercialProfile: { select: { status: true } },
           reservations: { where: { opportunityId: deal.id }, orderBy: { reservedAt: "desc" }, take: 1, select: { status: true, expiresAt: true } },
         },
@@ -644,6 +653,7 @@ export async function listDealUnits(context: UserContext, opportunityId: string)
   return links.map(({ unit, agreedPrice, currency }) => ({
     unitId: unit.id,
     unitCode: unit.unitCode,
+    label: unitLabel(unit.floor.building.code, unit.unitCode),
     projectId: unit.projectId,
     projectName: unit.project.name,
     building: unit.floor.building.name,
