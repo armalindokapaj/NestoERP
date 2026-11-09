@@ -20,3 +20,22 @@ export function usePhone(): boolean | null {
     () => null,
   );
 }
+
+const BELOW_LG = "(max-width: 1023.98px)";
+
+/**
+ * Whether the viewport is below `lg` (phones and tablets), where the shell
+ * folds a page's tab rows, tips and Help into its menus. `null` before the
+ * first client render, like `usePhone`.
+ */
+export function useBelowLg(): boolean | null {
+  return React.useSyncExternalStore(
+    (onChange) => {
+      const media = window.matchMedia(BELOW_LG);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(BELOW_LG).matches,
+    () => null,
+  );
+}

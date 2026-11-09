@@ -3,6 +3,7 @@ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { getTranslations } from "@/lib/i18n/server";
 import { PageContainer } from "@/components/ui/page-container";
 import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
+import { PageMenuProvider } from "@/components/navigation/page-menu";
 import { SectionStoreProvider } from "@/components/navigation/section-registry";
 import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
@@ -145,6 +146,8 @@ export async function AppShell({
               <BreadcrumbRegistryProvider>
               {/* A page's tab rows hand their sections to the top bar's section pill, below lg (components/layout/section-menu.tsx). */}
               <SectionStoreProvider>
+              {/* Below lg a page's tips and Help fold into its one ⋯ menu, at the end of its title row (components/navigation/page-menu.tsx). */}
+              <PageMenuProvider>
               <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
                 <Topbar context={context} core={core} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
@@ -175,6 +178,7 @@ export async function AppShell({
                   }}
                 />
               </div>
+              </PageMenuProvider>
               </SectionStoreProvider>
               </BreadcrumbRegistryProvider>
               </RecordNavigationProvider>

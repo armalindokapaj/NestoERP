@@ -24,6 +24,7 @@ import { belowQuery } from "@/components/ui/use-breakpoint";
 import { useIsPhone } from "./use-is-phone";
 import { englishCalendar, useCalendarTranslations, useDayWords } from "./calendar-text";
 import { HelpEntry } from "@/components/help/help-entry";
+import { PageMenuSlot } from "@/components/navigation/page-menu";
 
 /**
  * The calendar workspace (PRD #39 §6, §7, §20-§22, §100, §106, §170).
@@ -252,12 +253,16 @@ export function CalendarShell({
       )}
       data-testid="calendar"
     >
+      {/* Below lg Help is an item of the ⋯ at the end of the heading's line (components/navigation/page-menu.tsx). */}
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 max-lg:grow">
           <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>
-          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" aria-live="polite">
-            {periodLabel(view, date, zone, words.locale)}
-          </h1>
+          <div className="flex items-start gap-2">
+            <h1 className="min-w-0 flex-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" aria-live="polite">
+              {periodLabel(view, date, zone, words.locale)}
+            </h1>
+            <PageMenuSlot reserve />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <HelpEntry moduleKey="calendar" moduleLabel={t("title")} />

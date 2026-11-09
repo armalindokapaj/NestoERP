@@ -71,21 +71,16 @@ export async function ProjectNav({ projectId }: { projectId: string }) {
   /*
    * The Overview's own controls, at the end of the tab row: how a project's
    * records hang together (AUD-05 §7, UX-13), and one menu with the star,
-   * "Available offline" (MOB-09 §7) and what changes the project. On a phone
+   * "Available offline" (MOB-09 §7) and what changes the project. Below lg
    * the tip is an item of that menu, so the row holds the project's compact
-   * header and the menu alone.
+   * header and the ⋯ alone, the ⋯ right after the status.
    */
   const archived = project.archivedAt !== null || project.status === "ARCHIVED";
-  const relationships = (
-    <>
-      <p>{t("overview.relationshipsBody1", { company: project.company.name })}</p>
-      <p>{t("overview.relationshipsBody2")}</p>
-    </>
-  );
   const overviewTrailing = (
     <>
-      <WhatIsThis id="projects.detail.relationships" title={t("overview.relationshipsTitle")} placement="popover" className="max-md:hidden">
-        {relationships}
+      <WhatIsThis id="projects.detail.relationships" title={t("overview.relationshipsTitle")} placement="popover">
+        <p>{t("overview.relationshipsBody1", { company: project.company.name })}</p>
+        <p>{t("overview.relationshipsBody2")}</p>
       </WhatIsThis>
       <ProjectActions
         projectId={project.id}
@@ -100,7 +95,6 @@ export async function ProjectNav({ projectId }: { projectId: string }) {
         canManageTeam={actions.canManageMembers}
         favorite={favorite === null ? undefined : { initial: favorite }}
         offline
-        help={{ title: t("overview.relationshipsTitle"), body: relationships }}
       />
     </>
   );

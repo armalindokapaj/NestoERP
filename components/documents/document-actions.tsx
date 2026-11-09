@@ -90,7 +90,7 @@ export function DocumentActions({ document }: { document: DocumentDetailDTO }) {
       {!archived && may.canArchive ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} data-page-menu>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>

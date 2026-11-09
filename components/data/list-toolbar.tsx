@@ -74,7 +74,6 @@ export function ListToolbar({
   extraFilterParams = [],
   applied,
   className,
-  help,
 }: {
   searchPlaceholder?: string;
   searchParam?: string;
@@ -87,12 +86,6 @@ export function ListToolbar({
   /** The effective values the server parsed, by param — the canonical applied state (AUD-08 §3). */
   applied?: Readonly<Record<string, string | undefined>>;
   className?: string;
-  /**
-   * A "What is this?" about the list's search and filters (compact). From md it
-   * is a line of its own under the controls; on a phone it ends the Sort and
-   * Filters row, so it takes no row there.
-   */
-  help?: React.ReactNode;
 }) {
   const t = useTranslations("ui");
   const searchPlaceholder = searchPlaceholderProp ?? t("search");
@@ -264,9 +257,6 @@ export function ListToolbar({
       {filters.length > 0 ? (
         <FilterSheet filters={filters} applied={appliedValue} activeCount={activeFilters} onApply={applyDraft} />
       ) : null}
-
-      {/* md up: its own line, 16px under the controls, as when it followed the toolbar. Phone: the row's last item. */}
-      {help ? <div className="shrink-0 max-md:ml-auto md:mt-2 md:basis-full">{help}</div> : null}
     </div>
 
       {/* Phone: what is applied, each removable, and Clear all. */}

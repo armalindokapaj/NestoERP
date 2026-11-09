@@ -164,7 +164,7 @@ export function FinanceRecordActions({
       {capabilities.canClose || capabilities.canCancel || capabilities.canArchive ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { label })}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { label })} data-page-menu>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>

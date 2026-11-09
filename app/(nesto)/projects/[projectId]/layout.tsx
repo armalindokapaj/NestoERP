@@ -6,7 +6,8 @@ import { ProjectNav } from "./project-tabs";
 export default async function ProjectLayout({ children, params }: { children: ReactNode; params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
   return (
-    <div className="space-y-5">
+    // Tighter below lg: the project's compact header is the tab row's place there, and the page follows it closely.
+    <div className="space-y-5 max-lg:space-y-3">
       <ProjectNav projectId={projectId} />
       {children}
     </div>

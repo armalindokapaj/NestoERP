@@ -95,7 +95,7 @@ export function RecordContextHeader({
       subtitle={subtitle || undefined}
       status={status ? <StatusBadge status={status} /> : undefined}
       actions={actions || undefined}
-      className={nameInLayout ? (actions ? "max-lg:[&>div]:justify-end" : "max-lg:sr-only") : undefined}
+      className={nameInLayout ? (actions ? "max-lg:[&>[data-page-header-row]]:justify-end" : "max-lg:sr-only") : undefined}
       textClassName={nameInLayout && actions ? "max-lg:sr-only" : undefined}
     />
   );

@@ -105,7 +105,7 @@ export function MemberActions({ member }: { member: TeamMemberDetailDTO }) {
       {menuItems.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { name })}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.moreFor", { name })} data-page-menu>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>

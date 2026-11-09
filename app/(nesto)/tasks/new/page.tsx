@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { TaskForm } from "@/components/tasks/task-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { WhatIsThis } from "@/components/help/what-is-this";
+import { PageMenuSlot } from "@/components/navigation/page-menu";
 import { can } from "@/lib/access/can";
 import { requireModule } from "@/lib/context/current-user";
 import { recordTypeName } from "@/lib/i18n/modules/common/labels";
@@ -95,7 +96,11 @@ export default async function NewTaskPage({
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("create.heading")}</h1>
+        {/* Below lg "What is this?" is an item of the ⋯ at the end of the title's line (components/navigation/page-menu.tsx). */}
+        <div className="flex items-start gap-2">
+          <h1 className="min-w-0 flex-1 text-page font-semibold text-fg">{t("create.heading")}</h1>
+          <PageMenuSlot />
+        </div>
         <p className="mt-1.5 text-body text-fg-muted">
           {t("create.intro")}
         </p>

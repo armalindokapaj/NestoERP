@@ -36,6 +36,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { useBelowLg } from "@/components/layout/use-phone";
+import { PageMenuItems, useClaimPageMenu, usePageMenuCount } from "@/components/navigation/page-menu";
 import { taskCommandAction, type ActionResult, type TaskCommandName } from "@/lib/actions/tasks";
 import type { TaskDetailDTO } from "@/lib/modules/tasks/task.types";
 
@@ -178,6 +180,11 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
   // What only a phone finds in the menu; with nothing else in it, the menu is phone-only.
   const phoneOnlyItems = secondary.length > 0 || canEdit;
   const desktopItems = !archived && (canBlock || may.canArchive);
+  // Below lg this is the page's ⋯: it also holds the page's "What is this?" and Help (components/navigation/page-menu.tsx).
+  const belowLg = useBelowLg() === true;
+  useClaimPageMenu(belowLg);
+  const helpCount = usePageMenuCount();
+  const helpItems = belowLg && helpCount > 0;
 
   return (
     <>
@@ -221,10 +228,10 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
         </Button>
       ) : null}
 
-      {phoneOnlyItems || desktopItems ? (
+      {phoneOnlyItems || desktopItems || helpItems ? (
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} className={desktopItems ? undefined : "sm:hidden"}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} className={desktopItems ? undefined : helpItems ? "lg:hidden" : "sm:hidden"} data-page-menu>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -278,6 +285,7 @@ export function TaskActions({ task }: { task: TaskDetailDTO }) {
                 {t("actions.archiveTask")}
               </DropdownMenuItem>
             ) : null}
+            {helpItems ? <PageMenuItems separator={phoneOnlyItems || desktopItems} separatorClassName={desktopItems ? undefined : "sm:hidden"} /> : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

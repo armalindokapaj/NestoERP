@@ -8,6 +8,7 @@ import { Breadcrumbs, type Crumb } from "@/components/ui/breadcrumbs";
 import { ProjectStatusBadge } from "@/components/projects/portfolio/project-status-badge";
 import { switchProjectHref } from "@/lib/modules/projects/project.switch";
 import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
+import { PageMenuSlot } from "@/components/navigation/page-menu";
 import { cn } from "@/lib/utils/cn";
 import type { ProjectTabKey } from "./project-context";
 
@@ -39,13 +40,14 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
   const trail = section ? [...carried, { label: section.label, href: section.href }] : carried;
   /*
    * Below lg: who and what, once — name, code, company and status in one
-   * compact header, in the tab row's place, beside the Overview's controls
-   * (MOB-05 §18, §19, §70). A section's own page header then draws only its
-   * actions there (RecordContextHeader `nameInLayout`), so the name is not
-   * shown twice. From sm the Overview's hero names the project itself, so there
-   * the header is a phone's only.
+   * compact header, in the tab row's place (MOB-05 §18, §19, §70). The page's
+   * ⋯ follows the status on the same line: the Overview's project menu, or on
+   * a section the ⋯ for its tips and Help when it has any. A section's own
+   * page header then draws only its actions (RecordContextHeader
+   * `nameInLayout`) and the Overview's hero no name, so the name is not shown
+   * twice. From lg the tab row and the pages' own headers are drawn as ever.
    */
-  const header = <ProjectCompactHeader identity={identity} className={segment === null ? "sm:hidden" : "lg:hidden"} />;
+  const header = <ProjectCompactHeader identity={identity} className="lg:hidden" />;
   return (
     <>
       <Breadcrumbs items={trail} level="layout" />
@@ -57,11 +59,16 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
   );
 }
 
-/** The project's compact header below lg: its name, then its code and company, and its status at the end. */
+/**
+ * The project's compact header below lg: its name, then its code and company,
+ * on the left; its status, then the page's ⋯, on the right. The ⋯ here is the
+ * one for a section's tips and Help (`PageMenuSlot`); on the Overview the
+ * project's own menu, which follows this header in the row, holds them.
+ */
 function ProjectCompactHeader({ identity, className }: { identity: ProjectIdentity; className?: string }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 items-center justify-between gap-3 py-1", className)} data-testid="project-phone-identity">
-      <div className="min-w-0">
+    <div className={cn("flex min-w-0 flex-1 items-center gap-2 py-1", className)} data-testid="project-phone-identity">
+      <div className="min-w-0 flex-1">
         <p className="truncate text-card font-semibold text-fg">{identity.name}</p>
         <p className="truncate text-table text-fg-muted">
           <span data-testid="project-phone-code">{identity.code}</span>
@@ -70,6 +77,7 @@ function ProjectCompactHeader({ identity, className }: { identity: ProjectIdenti
         </p>
       </div>
       <ProjectStatusBadge status={identity.status} className="shrink-0" />
+      <PageMenuSlot />
     </div>
   );
 }

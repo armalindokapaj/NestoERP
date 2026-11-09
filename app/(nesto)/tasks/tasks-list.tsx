@@ -178,14 +178,12 @@ export async function TasksList({
           { value: "title-asc", label: t("list.sort.titleAsc") },
           { value: "title-desc", label: t("list.sort.titleDesc") },
         ]}
-        help={
-          // What search and filters cover, stated once where people use them (AUD-05 §5, §7, UX-10, UX-15).
-          <WhatIsThis id="lists.search-filters" title={t("list.helpTitle")} compact>
-            <p>{t("list.helpSearch")}</p>
-            <p>{t("list.helpFilters")}</p>
-          </WhatIsThis>
-        }
       />
+      {/* What search and filters cover, stated once where people use them (AUD-05 §5, §7, UX-10, UX-15). */}
+      <WhatIsThis id="lists.search-filters" title={t("list.helpTitle")}>
+        <p>{t("list.helpSearch")}</p>
+        <p>{t("list.helpFilters")}</p>
+      </WhatIsThis>
 
       {result.data.length === 0 ? (
         hasFilters ? (

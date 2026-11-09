@@ -3,11 +3,10 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Archive, ArchiveRestore, CircleHelp, CloudDownload, CloudOff, Images, Loader2, MoreHorizontal, PenLine, RefreshCw, Star, Users } from "lucide-react";
+import { Archive, ArchiveRestore, CloudDownload, CloudOff, Images, Loader2, MoreHorizontal, PenLine, RefreshCw, Star, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +19,8 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";
 import { useAvailableOffline } from "@/components/offline/available-offline";
 import { useFavorite } from "@/components/productivity/favorite-button";
-import { usePhone } from "@/components/layout/use-phone";
+import { useBelowLg } from "@/components/layout/use-phone";
+import { PageMenuItems, useClaimPageMenu, usePageMenuCount } from "@/components/navigation/page-menu";
 import { cn } from "@/lib/utils/cn";
 import { archiveProjectAction, restoreProjectAction } from "@/lib/actions/projects";
 import type { WorkingStatus } from "@/lib/modules/projects/project.machine";
@@ -37,9 +37,10 @@ import { ChangeProjectStatusDialog } from "./change-project-status-dialog";
  *
  * On the project's Overview the menu also carries the star (`favorite`, when
  * favourites are on) and "Available offline" (`offline`, on a live project):
- * the record's own toggles first, then what changes the project. On a phone it
- * also carries the Overview's "What is this?" (`help`), which then opens as a
- * dialog rather than taking a place of its own on the row.
+ * the record's own toggles first, then what changes the project. Below `lg`
+ * it is the page's ⋯, right after the project's status in its compact header:
+ * it then also holds the page's "What is this?" and Help, last
+ * (components/navigation/page-menu.tsx).
  */
 export function ProjectActions({
   projectId,
@@ -54,7 +55,6 @@ export function ProjectActions({
   canManageTeam = false,
   favorite,
   offline = false,
-  help,
 }: {
   projectId: string;
   projectName: string;
@@ -71,17 +71,12 @@ export function ProjectActions({
   favorite?: { initial: boolean };
   /** Offer "Available offline" (a live project only). */
   offline?: boolean;
-  /** The page's "What is this?", offered in the menu on a phone (below md), where the tip's own trigger is not drawn. */
-  help?: { title: string; body: React.ReactNode };
 }) {
   const router = useRouter();
   const toast = useToast();
   const t = useTranslations("projects");
   const [confirming, setConfirming] = React.useState(false);
   const [changingStatus, setChangingStatus] = React.useState(false);
-  const [helpOpen, setHelpOpen] = React.useState(false);
-  // Known only in the browser; the menu's items are drawn only once it is opened, by when it is.
-  const phone = usePhone();
   const [pending, startTransition] = React.useTransition();
   const common = useCommonTranslations();
   const offlineText = useTranslations("offline");
@@ -125,8 +120,11 @@ export function ProjectActions({
   const showOffline = offline && !archived && download.shown;
   const toggles = Boolean(favorite) || showOffline;
   const changes = !archived && (canArchive || canUpdate || canChangeStatus || canManageMedia || canManageTeam);
-  const helpInMenu = Boolean(help) && phone === true;
-  const showMenu = toggles || changes || Boolean(help);
+  const belowLg = useBelowLg() === true;
+  useClaimPageMenu(belowLg);
+  const helpCount = usePageMenuCount();
+  const helpItems = belowLg && helpCount > 0;
+  const showMenu = toggles || changes || helpItems;
 
   return (
     <>
@@ -140,8 +138,7 @@ export function ProjectActions({
       {showMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            {/* A menu that would hold only the phone's "What is this?" is not drawn from md, where the tip has its own trigger. */}
-            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} className={toggles || changes ? undefined : "md:hidden"}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("actions.more")} className={toggles || changes ? undefined : "lg:hidden"} data-page-menu>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -165,15 +162,6 @@ export function ProjectActions({
                 </span>
               </DropdownMenuItem>
             ) : null}
-            {helpInMenu ? (
-              <>
-                <DropdownMenuItem onSelect={() => setHelpOpen(true)} data-testid="what-is-this-menu-item">
-                  <CircleHelp aria-hidden="true" />
-                  {common("help.whatIsThis")}
-                </DropdownMenuItem>
-                {toggles || changes ? <DropdownMenuSeparator /> : null}
-              </>
-            ) : null}
             {toggles && changes ? <DropdownMenuSeparator /> : null}
             {!archived && canUpdate ? <DropdownMenuItem asChild><Link href={`/projects/${projectId}/edit`}><PenLine />{t("actions.edit")}</Link></DropdownMenuItem> : null}
             {!archived && canChangeStatus ? <DropdownMenuItem onSelect={() => setChangingStatus(true)}><RefreshCw />{t("actions.changeStatusMenu")}</DropdownMenuItem> : null}
@@ -190,20 +178,12 @@ export function ProjectActions({
                 {t("actions.archive")}
               </DropdownMenuItem>
             ) : null}
+            {helpItems ? <PageMenuItems separator={toggles || changes} /> : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
 
       {showOffline ? download.dialogs : null}
-
-      {help ? (
-        <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
-          <DialogContent presentation="sheet-phone" data-testid="what-is-this-dialog">
-            <DialogTitle className="pr-8">{help.title}</DialogTitle>
-            <div className="mt-2 space-y-1.5 text-table text-fg-muted">{help.body}</div>
-          </DialogContent>
-        </Dialog>
-      ) : null}
 
       <ChangeProjectStatusDialog
         project={canChangeStatus ? { id: projectId, name: projectName, companyName } : null}

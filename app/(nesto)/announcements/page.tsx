@@ -20,6 +20,7 @@ import { ensureCompanySettings } from "@/lib/modules/settings/company-settings.s
 import { prisma } from "@/lib/database/prisma";
 import { cn } from "@/lib/utils/cn";
 import { HelpEntry } from "@/components/help/help-entry";
+import { PageMenuSlot } from "@/components/navigation/page-menu";
 import { getTranslations } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/translator";
 import { FormSelect } from "@/components/ui/form-select";
@@ -68,9 +69,13 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      {/* Below lg Help is an item of the ⋯ at the end of the title's line (components/navigation/page-menu.tsx). */}
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-page font-semibold tracking-tight text-fg">{t("page.title")}</h1>
+        <div className="max-lg:grow">
+          <div className="flex items-start gap-2">
+            <h1 className="min-w-0 flex-1 text-page font-semibold tracking-tight text-fg">{t("page.title")}</h1>
+            <PageMenuSlot reserve />
+          </div>
           <p className="mt-1.5 text-body text-fg-muted">{t("page.description")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

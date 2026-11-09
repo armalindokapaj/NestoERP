@@ -7,6 +7,7 @@ import { Inbox, ListFilter, Rows3, Rows4, SlidersHorizontal, TriangleAlert, User
 
 import { Button } from "@/components/ui/button";
 import { WhatIsThis } from "@/components/help/what-is-this";
+import { PageMenuSlot } from "@/components/navigation/page-menu";
 import { SearchField } from "@/components/ui/search-field";
 import { useToast } from "@/components/ui/toast";
 import { GuardedRoot } from "@/components/unsaved/guarded-root";
@@ -432,15 +433,12 @@ export function ApprovalsShell({
   return (
     <ApprovalDraftProvider store={drafts}>
     <div className="flex flex-col gap-5" data-testid="approvals-center">
-      {/*
-        * On a phone the header is one wrapping row (the text block's own children join it): "What is this?"
-        * — and Help, where it is the only action — end the eyebrow's line, and Delegation and Help close the
-        * header below the figures, so neither help control takes a row of its own. From md: as ever.
-        */}
-      <header className="flex flex-wrap items-end justify-between gap-4 max-md:items-center max-md:gap-x-2 max-md:gap-y-1">
-        <div className="min-w-0 max-md:contents">
-          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle max-md:min-w-0 max-md:flex-1">{t("title")}</p>
-          <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg max-md:order-3 max-md:basis-full md:text-[30px] ds2:text-page ds2:leading-(--nesto-leading-page)" data-testid="approvals-heading" aria-live="polite">
+      {/* Below lg "What is this?" and Help are items of the ⋯ at the end of the heading's line (components/navigation/page-menu.tsx). */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0 max-lg:grow">
+          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>
+          <div className="flex items-start gap-2">
+          <h1 className="mt-1 min-w-0 flex-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px] ds2:text-page ds2:leading-(--nesto-leading-page)" data-testid="approvals-heading" aria-live="polite">
             {partial
               ? counts.waiting > 0
                 ? t("shell.atLeastWaiting", { count: counts.waiting })
@@ -449,7 +447,9 @@ export function ApprovalsShell({
                 ? t("shell.allCaughtUp")
                 : t("shell.waiting", { count: `${counts.waiting}${counts.capped ? "+" : ""}` })}
           </h1>
-          <p className="mt-1 flex flex-wrap gap-x-3 text-table text-fg-muted max-md:order-3 max-md:basis-full">
+          <PageMenuSlot reserve />
+          </div>
+          <p className="mt-1 flex flex-wrap gap-x-3 text-table text-fg-muted">
             {counts.overdue > 0 ? <span className="font-medium text-danger-strong">{t("shell.overdue", { count: counts.overdue })}</span> : null}
             {counts.critical > 0 ? <span className="font-medium text-warning-strong">{t("shell.critical", { count: counts.critical })}</span> : null}
             {partial ? (
@@ -461,12 +461,12 @@ export function ApprovalsShell({
             ) : null}
           </p>
           {group && byCompany.length > 0 ? (
-            <p className="mt-1 text-table text-fg-muted max-md:order-3 max-md:basis-full" data-testid="approvals-by-company">
+            <p className="mt-1 text-table text-fg-muted" data-testid="approvals-by-company">
               {byCompany.map((row) => `${row.company.name} ${row.partial ? (row.waiting > 0 ? `${row.waiting}+` : "?") : `${row.waiting}${row.capped ? "+" : ""}`}`).join(" · ")}
             </p>
           ) : null}
           {/* The queue is the high-confusion point of first use (AUD-05 §7, UX-15). */}
-          <WhatIsThis id="approvals.queue" title={t("shell.helpTitle")} className="mt-2 max-md:order-1 max-md:mt-0" compact>
+          <WhatIsThis id="approvals.queue" title={t("shell.helpTitle")} className="mt-2">
             <p>
               {group
                 ? t("shell.helpGroup")
@@ -475,7 +475,7 @@ export function ApprovalsShell({
             <p>{t("shell.helpActions")}</p>
           </WhatIsThis>
         </div>
-        <div className={cn("flex flex-wrap items-center gap-2", group ? "max-md:order-1" : "max-md:order-4 max-md:mt-2")}>
+        <div className="flex flex-wrap items-center gap-2">
           {group ? null : (
             <Button
               type="button"

@@ -1,5 +1,6 @@
 import * as React from "react";
 
+import { PageMenuSlot } from "@/components/navigation/page-menu";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -126,7 +127,7 @@ export function PageHeaderFrame({
   status,
   meta,
   actions,
-  help,
+  reserveMenu = false,
   className,
   textClassName,
 }: {
@@ -140,12 +141,8 @@ export function PageHeaderFrame({
   /** Short key/value pairs shown under the title. */
   meta?: { label: string; value: React.ReactNode }[];
   actions?: React.ReactNode;
-  /**
-   * The page's Help entry: the last of the actions from `md`; on a phone it
-   * sits at the end of the title's line instead, so it never takes a row of
-   * its own and the actions keep theirs below the title.
-   */
-  help?: React.ReactNode;
+  /** The header will hold Help below lg (a module page): its ⋯ is drawn from the first paint (`PageMenuSlot`). */
+  reserveMenu?: boolean;
   className?: string;
   /** Extra classes for the block holding the title, its line, status and facts (a record named above it below lg). */
   textClassName?: string;
@@ -157,8 +154,8 @@ export function PageHeaderFrame({
   return (
     <div data-page-header={kind} className={cn(v1.root, v2.root, className)}>
       {lead}
-      <div className={cn(v1.row, v2.row)}>
-        <div className={cn(v1.text, v2.text, help ? "max-md:flex-1" : null, textClassName)}>
+      <div data-page-header-row className={cn(v1.row, v2.row, PAGE_MENU_ROW)}>
+        <div className={cn(v1.text, v2.text, PAGE_MENU_TEXT, textClassName)}>
           <h1 data-page-title className={cn(v1.title, v2.title)}>{title}</h1>
           {subtitle === null || subtitle === undefined ? null : <Subtitle className={cn(v1.subtitle, v2.subtitle)}>{subtitle}</Subtitle>}
           {status ? <div className={cn(v1.status, v2.status)}>{status}</div> : null}
@@ -173,23 +170,27 @@ export function PageHeaderFrame({
             </dl>
           ) : null}
         </div>
-        {help ? (
-          /*
-           * From md the group is the actions, then Help, as one wrapping row. On a phone the group's
-           * wrappers become the row's own items: Help beside the title (order 1), the actions on a full
-           * line of their own under it (order 2). `contents` keeps the md-up drawing identical.
-           */
-          <div data-page-actions className={cn(headerActionsClass, "max-md:contents")}>
-            {actions ? <div className="contents max-md:order-2 max-md:flex max-md:basis-full max-md:flex-wrap max-md:items-center max-md:gap-2">{actions}</div> : null}
-            <div className="contents max-md:order-1 max-md:flex max-md:shrink-0 max-md:items-start">{help}</div>
-          </div>
-        ) : actions ? (
-          <div data-page-actions className={headerActionsClass}>{actions}</div>
-        ) : null}
+        {actions ? <div data-page-actions className={cn(headerActionsClass, PAGE_MENU_ACTIONS)}>{actions}</div> : null}
+        {/* Below lg: the ⋯ for the page's tips and Help, where no record menu holds them (components/navigation/page-menu.tsx). */}
+        <PageMenuSlot reserve={reserveMenu} />
       </div>
     </div>
   );
 }
+
+/*
+ * The page's ⋯ at the end of the title row, below lg (the user's rule: "the ⋯
+ * always goes at the end of the page's title or status row"). A ⋯ marks
+ * itself `data-page-menu` — the header's own slot, or a record's menu among
+ * the actions (TaskActions, ClientActions, EntityActionSheet …). While the row
+ * holds one, the action group lets go of its box (`contents`) so each action
+ * is an item of the row; the title block takes the line but for the ⋯'s room,
+ * the ⋯ follows it, and the other actions wrap onto the next line, left to
+ * right. From lg nothing here applies: the actions and the ⋯ are drawn as ever.
+ */
+const PAGE_MENU_ROW = "group/page-header-row max-lg:has-[[data-page-menu]]:justify-start max-lg:[&_[data-page-menu]]:order-1";
+const PAGE_MENU_TEXT = "max-lg:group-has-[[data-page-menu]]/page-header-row:min-w-0 max-lg:group-has-[[data-page-menu]]/page-header-row:flex-[1_1_calc(100%_-_4.5rem)]";
+const PAGE_MENU_ACTIONS = "max-lg:group-has-[[data-page-menu]]/page-header-row:contents max-lg:group-has-[[data-page-menu]]/page-header-row:[&>:not([data-page-menu])]:order-3";
 
 export function PageHeader({
   title,

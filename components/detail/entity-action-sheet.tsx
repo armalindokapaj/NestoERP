@@ -44,7 +44,8 @@ export function EntityActionSheet({ name, actions }: { name: string; actions: En
 
   return (
     <>
-      <div className="md:hidden" data-entity-actions="sheet">
+      {/* `data-page-menu`: in a page header, below lg the ⋯ goes to the end of the title row (components/ui/page-header.tsx). */}
+      <div className="md:hidden" data-entity-actions="sheet" data-page-menu>
         <RecordActionSheet name={name}>
           {ordered.map((action) =>
             action.href ? (
@@ -59,7 +60,7 @@ export function EntityActionSheet({ name, actions }: { name: string; actions: En
           )}
         </RecordActionSheet>
       </div>
-      <div className="hidden md:block" data-entity-actions="menu">
+      <div className="hidden md:block" data-entity-actions="menu" data-page-menu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <IconButton label={t("mob04MoreActions", { name })} icon={<MoreHorizontal aria-hidden="true" />} data-testid="entity-actions" />

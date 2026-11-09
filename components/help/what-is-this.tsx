@@ -5,6 +5,7 @@ import { CircleHelp, X } from "lucide-react";
 
 import Link from "@/components/navigation/nav-link";
 import { useCommonTranslations } from "@/components/i18n/common-text";
+import { usePageMenuInline, useRegisterPageMenuItem } from "@/components/navigation/page-menu";
 import { tabIdentity } from "@/lib/unsaved/tab-context";
 import { cn } from "@/lib/utils/cn";
 
@@ -24,6 +25,10 @@ import { cn } from "@/lib/utils/cn";
  *   §7) — never the raw user id, never localStorage, no form data. Another
  *   demo identity in the same tab sees it again; a route change does not bring
  *   it back. Bumping `version` when the text changes shows it once more.
+ * - Below `lg` (phones and tablets) it is not drawn where it sits: it is an
+ *   item of the page's ⋯ menu at the end of the title row, which opens the
+ *   same heading, words and link as a dialog (components/navigation/page-menu.tsx).
+ *   Where the page has nothing to hold it, it stays where it is, as from `lg`.
  */
 
 const PREFIX = "nesto.help.dismissed";
@@ -78,35 +83,14 @@ export type WhatIsThisProps = {
   className?: string;
   /** "popover": the panel opens over the page, below the trigger's end, for a row that cannot grow (a tab row). */
   placement?: "inline" | "popover";
-  /**
-   * On a phone (below md), a tip that sits on a row it shares: the trigger is
-   * the icon alone — its name is still "What is this?" — and the panel opens
-   * over the page under it, the width of the screen less the gutters, so the
-   * row never grows. From md it is drawn as `placement` says.
-   */
-  compact?: boolean;
 };
 
-/** The content gutter on a phone (styles/globals.css, `--nesto-gutter` below md). */
-const PHONE_GUTTER = 16;
-
-export function WhatIsThis({ id, version = 1, label, title, children, link, className, placement = "inline", compact = false }: WhatIsThisProps) {
+export function WhatIsThis({ id, version = 1, label, title, children, link, className, placement = "inline" }: WhatIsThisProps) {
   const t = useCommonTranslations();
   const panelId = React.useId();
   const [open, setOpen] = React.useState(false);
   const [dismissed, setDismissed] = React.useState(false);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
-  const rootRef = React.useRef<HTMLDivElement>(null);
-  // Compact, on a phone: how far the tip's box starts from the screen's left gutter, so the panel can start at the gutter.
-  const [shift, setShift] = React.useState(0);
-
-  React.useLayoutEffect(() => {
-    if (!compact || !open) return;
-    const measure = () => setShift(Math.max(0, (rootRef.current?.getBoundingClientRect().left ?? PHONE_GUTTER) - PHONE_GUTTER));
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [compact, open]);
 
   // The identity is known only in the browser, after the shell's layout effect
   // has registered it — so storage is read in an effect, never during render.
@@ -114,35 +98,34 @@ export function WhatIsThis({ id, version = 1, label, title, children, link, clas
     if (isHelpDismissed(sessionStore(), tabIdentity()?.user ?? null, id, version)) setDismissed(true);
   }, [id, version]);
 
+  // Below lg: an item of the page's ⋯ menu, opening the same help (components/navigation/page-menu.tsx).
+  const text = label ?? t("help.whatIsThis");
+  useRegisterPageMenuItem(dismissed ? null : { kind: "tip", label: text, title, body: children, link });
+  const inline = usePageMenuInline();
+
   if (dismissed) return null;
 
   return (
-    <div ref={rootRef} className={cn("text-table", placement === "popover" && "relative", compact && "max-md:relative", className)} data-testid={`help-${id}`}>
+    <div className={cn("text-table", placement === "popover" && "relative", !inline && "max-lg:hidden", className)} data-testid={`help-${id}`}>
       <button
         ref={triggerRef}
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
-        className={cn(
-          "inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 font-medium text-accent-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:min-h-11",
-          compact && "max-md:size-11 max-md:justify-center max-md:px-0",
-        )}
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 font-medium text-accent-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent touch:min-h-11"
       >
-        <CircleHelp aria-hidden="true" className={cn("size-4", compact && "max-md:size-5")} />
-        {compact ? <span className="max-md:sr-only">{label ?? t("help.whatIsThis")}</span> : (label ?? t("help.whatIsThis"))}
+        <CircleHelp aria-hidden="true" className="size-4" />
+        {text}
       </button>
       <div
         id={panelId}
         role="region"
         aria-label={title}
         hidden={!open}
-        style={compact ? ({ "--what-is-this-shift": `${shift}px` } as React.CSSProperties) : undefined}
         className={cn(
           "rounded-lg border border-line p-3 text-fg-muted",
           placement === "popover" ? "absolute right-0 top-full z-50 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-surface shadow-lg" : "mt-2 max-w-prose bg-surface-muted",
-          compact &&
-            "max-md:absolute max-md:left-[calc(var(--what-is-this-shift,0px)*-1)] max-md:right-auto max-md:top-full max-md:z-50 max-md:mt-1 max-md:w-[calc(100vw-2rem)] max-md:max-w-none max-md:bg-surface max-md:shadow-lg",
         )}
       >
         <div className="flex items-start justify-between gap-3">

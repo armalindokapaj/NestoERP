@@ -109,7 +109,8 @@ export default async function ProjectOverviewPage({ params }: Params) {
   return (
     // The page's sections, for the scroll ruler: each heading below that this reader is given (UI-02 §8, §17.2, §26.3).
     <PageSections template="overview">
-    <div className="space-y-7">
+    {/* Tighter below lg, where the project's compact header sits right above (Keep it tight vertically). */}
+    <div className="space-y-7 max-lg:space-y-4">
       {/* The top of the page, under the project's name. The name itself sits at the foot of the hero (and is another element on a phone), so the anchor is here. */}
       <PageSection id="overview" label={project.name} order={0} />
       {/* The star, "Available offline", the project's actions and "What is this?" sit at the end of the tab row (project-tabs.tsx). */}
@@ -134,10 +135,11 @@ export default async function ProjectOverviewPage({ params }: Params) {
           </Suspense>
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/10" aria-hidden="true" />
           <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65"><span>{project.code}</span><span aria-hidden="true">·</span><span>{t(`status.${project.status}`)}</span></div>
-            <h1 id="project-title" className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.025em] sm:text-4xl ds2:text-page">{project.name}</h1>
-            <p className="mt-2 text-sm font-medium text-white/70">{project.company.name}</p>
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{projectTypeName(project.projectType.name, locale)}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
+            {/* Below lg the project's compact header above names it (code, company, status): the hero does not name it again; its heading stays for screen readers. */}
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65 max-lg:hidden"><span>{project.code}</span><span aria-hidden="true">·</span><span>{t(`status.${project.status}`)}</span></div>
+            <h1 id="project-title" className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.025em] max-lg:sr-only sm:text-4xl ds2:text-page">{project.name}</h1>
+            <p className="mt-2 text-sm font-medium text-white/70 max-lg:hidden">{project.company.name}</p>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70 max-lg:mt-0"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{projectTypeName(project.projectType.name, locale)}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
             <div className="mt-4 h-1.5 max-w-md">
               <Suspense fallback={null}>
                 <ProgressBar progress={progress} />

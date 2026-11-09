@@ -38,18 +38,63 @@ test("Project workspace: phone identity, tabs and Overview", async ({ page }) =>
   await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
   const main = mainRegion(page);
   await expect(main.getByRole("heading", { level: 2 }).first()).toBeVisible();
+  // Below 1024px the project's compact header names it, phones and tablets alike.
+  if (page.viewportSize()!.width < 1024) await expect(page.getByTestId("project-phone-identity")).toBeVisible();
+  else await expect(page.getByTestId("project-phone-identity")).toBeHidden();
   if (isPhone(page)) {
-    await expect(page.getByTestId("project-phone-identity")).toBeVisible();
     await expect(page.getByTestId("project-phone-company")).not.toBeEmpty();
     await expect(page.getByTestId("project-mobile-overview")).toBeVisible();
     await expect(page.getByTestId("project-attention").or(main.getByText(/nothing needs attention|asgjë nuk kërkon/i)).first()).toBeVisible();
     await expect(page.getByTestId("project-metrics")).toBeVisible();
     await expect(page.getByTestId("project-quick-actions").locator("a").first()).toHaveAttribute("href", /projectId=project_a|daily-logs\/new/);
   } else {
-    await expect(page.getByTestId("project-phone-identity")).toBeHidden();
     await expect(page.getByTestId("project-mobile-overview")).toBeHidden();
   }
   await expectNoPageOverflow(page);
+});
+
+test("Project Overview below 1024px: the ⋯ follows the status on the header's line and holds What is this?", async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 1024, "phones and tablets; from 1024px the ⋯ and What is this? stay on the tab row");
+  await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+  const identity = page.getByTestId("project-phone-identity");
+  await expect(identity).toBeVisible();
+  const status = identity.getByTestId("project-status");
+  const more = page.locator("[data-context-tabs]").getByRole("button", { name: "More project actions" });
+  await expect(more).toBeVisible();
+  // One line: the ⋯ right after the status, on its level, and nothing else on its own row.
+  const [pill, dots] = [(await status.boundingBox())!, (await more.boundingBox())!];
+  expect(dots.x).toBeGreaterThan(pill.x + pill.width - 1);
+  expect(Math.abs(dots.y + dots.height / 2 - (pill.y + pill.height / 2))).toBeLessThanOrEqual(12);
+  await expect(mainRegion(page).getByTestId("help-projects.detail.relationships")).toBeHidden();
+  // The name once: no visible heading repeats it under the header.
+  await expect(mainRegion(page).getByRole("heading", { level: 1 })).toHaveCount(1);
+  expect((await mainRegion(page).getByRole("heading", { level: 1 }).boundingBox())?.width ?? 0).toBeLessThanOrEqual(1);
+
+  await more.click();
+  await page.getByRole("menuitem", { name: "What is this?" }).click();
+  const dialog = page.getByTestId("page-help-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("opens from the tabs of this project");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expectNoPageOverflow(page);
+});
+
+test("A module page below 1024px: Help is in the ⋯ at the end of the title's line, not a row of its own", async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 1024, "phones and tablets");
+  await signIn(page, "PROJECT_MANAGER", { to: "/tasks" });
+  const header = mainRegion(page).locator('[data-page-header="module"]');
+  await expect(header.getByTestId("module-help-entry")).toBeHidden();
+  const more = header.getByTestId("page-menu");
+  await expect(more).toBeVisible();
+  const [title, dots] = [(await header.locator("[data-page-title]").boundingBox())!, (await more.boundingBox())!];
+  expect(dots.y).toBeLessThan(title.y + title.height);
+  // The tasks list's "What is this?" is in the same menu, not on the page.
+  await expect(mainRegion(page).getByTestId("help-lists.search-filters")).toBeHidden();
+  await more.click();
+  await expect(page.getByRole("menuitem", { name: "What is this?" })).toBeVisible();
+  await page.getByRole("menuitem", { name: /^Help/ }).click();
+  await expect(page).toHaveURL(/\/help\/tasks/);
 });
 
 test("Project section below 1024px: the project is named once, in the compact header (name, code, company, status)", async ({ page }) => {
