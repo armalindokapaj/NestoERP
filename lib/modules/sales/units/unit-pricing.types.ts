@@ -45,13 +45,3 @@ export type PriceListSaveResult = { saved: number; list: PriceListDTO };
 
 /** One save holds at most this many prices: a large project, never an unbounded request. */
 export const MAX_PRICE_LIST_CHANGES = 2000;
-
-/** The area bases a floor's rate may be per square metre of; a fixed price has no area. */
-export const AREA_PRICE_BASES = ["SALEABLE_AREA", "GROSS_AREA", "INTERNAL_AREA"] as const;
-export type AreaPriceBasis = (typeof AREA_PRICE_BASES)[number];
-
-export const AREA_OF_BASIS: Record<AreaPriceBasis, "saleableArea" | "grossArea" | "internalArea"> = {
-  SALEABLE_AREA: "saleableArea",
-  GROSS_AREA: "grossArea",
-  INTERNAL_AREA: "internalArea",
-};

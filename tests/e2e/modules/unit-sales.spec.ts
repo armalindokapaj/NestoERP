@@ -63,7 +63,7 @@ test.beforeAll(async () => {
   const apartment = await db.projectUnitType.findFirstOrThrow({ where: { companyId: COMPANY, code: "APARTMENT" }, select: { id: true } });
   await db.projectBuilding.create({ data: { id: BUILDING, companyId: COMPANY, projectId: PROJECT, name: "E05E Quay", nameKey: "E05E QUAY", sortOrder: 98, createdBy: "seed" } });
   await db.projectFloor.create({ data: { id: FLOOR, companyId: COMPANY, projectId: PROJECT, buildingId: BUILDING, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "seed" } });
-  const unit = (id: string, code: string, sortOrder: number, publicationStatus: "PUBLISHED" | "DRAFT") => ({ id, companyId: COMPANY, projectId: PROJECT, floorId: FLOOR, unitCode: code, unitCodeKey: code, unitTypeId: apartment.id, sortOrder, createdBy: "seed", saleableArea: "105.00", internalArea: "90.00", bedrooms: 2, bathrooms: 1, publicationStatus });
+  const unit = (id: string, code: string, sortOrder: number, publicationStatus: "PUBLISHED" | "DRAFT") => ({ id, companyId: COMPANY, projectId: PROJECT, floorId: FLOOR, unitCode: code, unitCodeKey: code, unitTypeId: apartment.id, sortOrder, createdBy: "seed", saleableArea: "105.00", internalArea: "90.00", grossArea: "105.00", bedrooms: 2, bathrooms: 1, publicationStatus });
   await db.projectUnit.createMany({ data: [unit(OFFER, "Q-101", 1, "PUBLISHED"), unit(SECOND, "Q-102", 2, "PUBLISHED"), unit(DRAFT, "Q-103", 3, "DRAFT")] });
   // Q-102 is already on sale, priced, for the Sales Manager's reservation.
   await db.unitCommercialProfile.create({ data: { companyId: COMPANY, projectId: PROJECT, unitId: SECOND, status: "FOR_SALE", askingPrice: "160000.00", currency: "EUR", statusChangedAt: new Date() } });
@@ -91,10 +91,16 @@ test("Sales prices a unit, puts it on sale, reserves it for a new client and dea
   await expect(status(page)).toHaveText("Not For Sale");
   await expect(actions(page).getByRole("button", { name: "Reserve" })).toHaveCount(0);
 
-  // The price, and the price per m² worked out from it (§10, §12).
+  // The price, and the price per m² worked out from it (§10, §12). Typed as a
+  // total or per m² of gross area; only the total is saved (2026-11-09).
   await actions(page).getByRole("button", { name: "Set price" }).click();
   const price = page.getByTestId("price-dialog");
-  await price.getByLabel("Asking price").fill("210000");
+  await price.getByLabel("Asking price").fill("200000");
+  await price.getByText("Price per m²", { exact: true }).click();
+  const rate = price.getByLabel("Price per m² of gross area");
+  await expect(rate).toHaveValue("1904.76");
+  await rate.fill("2000");
+  await expect(price.getByTestId("price-per-sqm-total")).toHaveText("105.00 m² gross × €2,000 = €210,000");
   await price.getByLabel("Reason for the change").fill("Launch price list");
   await price.getByRole("button", { name: "Save price" }).click();
   await expect(page.getByTestId("asking-price")).toHaveText("€210,000");

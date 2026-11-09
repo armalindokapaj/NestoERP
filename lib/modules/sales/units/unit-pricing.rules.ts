@@ -1,6 +1,9 @@
+import { parseOptionalDecimal } from "@/lib/forms/decimal";
+import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
+
 import { pricePerSqm } from "./unit-sales.rules";
 import type { UnitPriceBasis } from "./unit-sales.types";
-import { AREA_OF_BASIS, type AreaPriceBasis, type PriceListUnitDTO } from "./unit-pricing.types";
+import type { PriceListUnitDTO } from "./unit-pricing.types";
 
 /**
  * The arithmetic of a price list (2026-11). Pure and client-safe: the editor
@@ -9,6 +12,7 @@ import { AREA_OF_BASIS, type AreaPriceBasis, type PriceListUnitDTO } from "./uni
 
 // BigInt() rather than literals: the build targets ES2017.
 const ZERO = BigInt(0);
+const TWO = BigInt(2);
 const FIFTY = BigInt(50);
 const HUNDRED = BigInt(100);
 
@@ -38,9 +42,53 @@ export function priceFromRate(rate: string, area: string | null): string | null 
   return fromHundredths((product + FIFTY) / HUNDRED);
 }
 
-/** The area a basis divides by, for one unit. */
-export function areaFor(unit: Pick<PriceListUnitDTO, "saleableArea" | "grossArea" | "internalArea">, basis: AreaPriceBasis): string | null {
-  return unit[AREA_OF_BASIS[basis]];
+/**
+ * The rate per m² a price works out at on an area: the price over the area,
+ * rounded half up to the cent — `pricePerSqm`'s answer, but on integers, so a
+ * fifteen-digit price is as exact as a small one.
+ */
+export function rateFromPrice(price: string, area: string | null): string | null {
+  if (area === null) return null;
+  const areaHundredths = hundredths(area);
+  if (areaHundredths <= ZERO) return null;
+  // (price¢ / 100) / (area / 100) currency = price¢ × 100 / area cents; + ½ before dividing rounds half up.
+  const cents = hundredths(price) * HUNDRED;
+  return fromHundredths((cents * TWO + areaHundredths) / (TWO * areaHundredths));
+}
+
+/**
+ * How a unit's asking price is typed (2026-11-09): the total itself, or a
+ * price per m² of the unit's gross area that the total is worked out from.
+ * Either way only the total is saved; the rate is never stored.
+ */
+export const PRICE_ENTRIES = ["TOTAL", "PER_SQM"] as const;
+export type PriceEntry = (typeof PRICE_ENTRIES)[number];
+
+/** Whether a unit has a gross area to price per m² on: present and above zero. */
+export function hasGrossArea(grossArea: string | null): boolean {
+  return grossArea !== null && hundredths(grossArea) > ZERO;
+}
+
+/**
+ * The basis a price is saved on. A price per m² always means per m² of gross
+ * area, so a unit with a gross area is priced on it; one without has a fixed
+ * price.
+ */
+export function grossPriceBasis(grossArea: string | null): UnitPriceBasis {
+  return hasGrossArea(grossArea) ? "GROSS_AREA" : "FIXED_UNIT_PRICE";
+}
+
+/**
+ * What the price box holds after switching how the price is typed: a total
+ * becomes its rate on the gross area (rounded to the cent), a rate becomes the
+ * total it gives. Anything that is not an amount — empty, half typed, invalid —
+ * stays as typed, and so does every value when there is no gross area.
+ */
+export function convertPriceEntry(text: string, grossArea: string | null, to: PriceEntry): string {
+  const parsed = parseOptionalDecimal(text, { label: "Price", ...MONEY_RULE });
+  if (!parsed.ok || parsed.value === null) return text;
+  const converted = to === "PER_SQM" ? rateFromPrice(parsed.value, grossArea) : priceFromRate(parsed.value, grossArea);
+  return converted ?? text;
 }
 
 /** A unit's price per m² on its own basis, derived as the inventory derives it (E-05E §10). */
@@ -54,7 +102,7 @@ export function unitRate(unit: Pick<PriceListUnitDTO, "saleableArea" | "grossAre
  * equally common: a floor of one unit at the floor's rate and one priced by hand
  * has no rate to suggest.
  */
-export function prevailingRate(units: Array<Pick<PriceListUnitDTO, "saleableArea" | "grossArea" | "internalArea" | "askingPrice" | "priceBasis">>, basis: AreaPriceBasis): string | null {
+export function prevailingRate(units: Array<Pick<PriceListUnitDTO, "saleableArea" | "grossArea" | "internalArea" | "askingPrice" | "priceBasis">>, basis: UnitPriceBasis): string | null {
   const tally = new Map<string, number>();
   for (const unit of units) {
     if (unit.priceBasis !== basis) continue;
@@ -76,19 +124,4 @@ export function prevailingPrice(units: Array<Pick<PriceListUnitDTO, "askingPrice
   const tally = new Map<string, number>();
   for (const unit of units) if (unit.askingPrice !== null) tally.set(unit.askingPrice, (tally.get(unit.askingPrice) ?? 0) + 1);
   return mostCommon(tally);
-}
-
-/**
- * The area basis a project's floors are priced on: the one its priced units
- * use most, else the first area most of its units have (saleable, then gross,
- * then internal), else saleable.
- */
-export function defaultAreaBasis(units: Array<Pick<PriceListUnitDTO, "saleableArea" | "grossArea" | "internalArea" | "askingPrice" | "priceBasis">>): AreaPriceBasis {
-  const order: AreaPriceBasis[] = ["SALEABLE_AREA", "GROSS_AREA", "INTERNAL_AREA"];
-  const used = order.map((basis) => units.filter((unit) => unit.askingPrice !== null && unit.priceBasis === basis).length);
-  const mostUsed = Math.max(...used);
-  if (mostUsed > 0) return order[used.indexOf(mostUsed)]!;
-  const present = order.map((basis) => units.filter((unit) => areaFor(unit, basis) !== null).length);
-  const mostPresent = Math.max(...present);
-  return mostPresent > 0 ? order[present.indexOf(mostPresent)]! : "SALEABLE_AREA";
 }

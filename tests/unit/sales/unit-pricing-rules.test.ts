@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultAreaBasis, prevailingPrice, prevailingRate, priceFromRate, unitRate } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { convertPriceEntry, grossPriceBasis, hasGrossArea, prevailingPrice, prevailingRate, priceFromRate, rateFromPrice, unitRate } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { pricePerSqm } from "@/lib/modules/sales/units/unit-sales.rules";
 import { priceListSaveSchema } from "@/lib/modules/sales/units/unit-pricing.schema";
 import { MAX_PRICE_LIST_CHANGES } from "@/lib/modules/sales/units/unit-pricing.types";
 
@@ -56,11 +57,54 @@ describe("what a floor and the parking are priced at", () => {
     expect(prevailingPrice([{ askingPrice: null }])).toBeNull();
     expect(prevailingPrice([{ askingPrice: "15000.00" }, { askingPrice: "18000.00" }])).toBeNull();
   });
+});
 
-  it("prices floors on the basis already in use, else on the area most units have", () => {
-    expect(defaultAreaBasis([unit({ askingPrice: "1.00", priceBasis: "GROSS_AREA", grossArea: "90.00" }), unit()])).toBe("GROSS_AREA");
-    expect(defaultAreaBasis([unit({ saleableArea: null, grossArea: "90.00" }), unit({ saleableArea: null, grossArea: "70.00" }), unit()])).toBe("GROSS_AREA");
-    expect(defaultAreaBasis([unit({ saleableArea: null })])).toBe("SALEABLE_AREA");
+describe("a unit's price typed as a total or per m² of gross area", () => {
+  it("works a total out at a rate, rounding half up to the cent as the price per m² does", () => {
+    expect(rateFromPrice("226000.00", "113.00")).toBe("2000.00");
+    expect(rateFromPrice("185000", "113.00")).toBe("1637.17"); // 1,637.168…
+    expect(rateFromPrice("0.01", "2.00")).toBe("0.01"); // 0.005 rounds up
+    expect(rateFromPrice("0.01", "3.00")).toBe("0.00"); // 0.0033 rounds down
+    // 15 whole digits: past a float's precision, still exact.
+    expect(rateFromPrice("999999999999990.00", "1000.00")).toBe("999999999999.99");
+    for (const [price, area] of [["210000.00", "105.00"], ["185000.00", "113.00"], ["102444.00", "85.37"], ["99999.99", "72.40"], ["1.00", "3.00"]] as const) {
+      expect(rateFromPrice(price, area)).toBe(pricePerSqm(price, "GROSS_AREA", { grossArea: area }));
+    }
+  });
+
+  it("has no rate without a gross area, or with a zero one", () => {
+    expect(rateFromPrice("210000", null)).toBeNull();
+    expect(rateFromPrice("210000", "0.00")).toBeNull();
+    expect(hasGrossArea(null)).toBe(false);
+    expect(hasGrossArea("0.00")).toBe(false);
+    expect(hasGrossArea("0.01")).toBe(true);
+  });
+
+  it("saves a price on the gross area when the unit has one, else as a fixed price", () => {
+    expect(grossPriceBasis("113.00")).toBe("GROSS_AREA");
+    expect(grossPriceBasis(null)).toBe("FIXED_UNIT_PRICE");
+    expect(grossPriceBasis("0.00")).toBe("FIXED_UNIT_PRICE");
+  });
+
+  it("turns the value in the box into the other kind when the entry switches", () => {
+    expect(convertPriceEntry("226000.00", "113.00", "PER_SQM")).toBe("2000.00");
+    expect(convertPriceEntry("2000", "113.00", "TOTAL")).toBe("226000.00");
+    expect(convertPriceEntry("1234.56", "85.37", "TOTAL")).toBe("105394.39");
+    // Grouped with spaces or with a decimal comma, as the shared decimal rule reads it.
+    expect(convertPriceEntry("226 000", "113.00", "PER_SQM")).toBe("2000.00");
+    expect(convertPriceEntry("1800,5", "100.00", "TOTAL")).toBe("180050.00");
+    // An exact rate goes there and back unchanged.
+    expect(convertPriceEntry(convertPriceEntry("226000.00", "113.00", "PER_SQM"), "113.00", "TOTAL")).toBe("226000.00");
+  });
+
+  it("leaves what is not an amount, or has no gross area to work on, as typed", () => {
+    expect(convertPriceEntry("", "113.00", "PER_SQM")).toBe("");
+    expect(convertPriceEntry("  ", "113.00", "TOTAL")).toBe("  ");
+    expect(convertPriceEntry("12abc", "113.00", "PER_SQM")).toBe("12abc");
+    expect(convertPriceEntry("1,200", "113.00", "TOTAL")).toBe("1,200"); // ambiguous: refused, not guessed
+    expect(convertPriceEntry("12.345", "113.00", "TOTAL")).toBe("12.345");
+    expect(convertPriceEntry("210000", null, "PER_SQM")).toBe("210000");
+    expect(convertPriceEntry("2000", "0.00", "TOTAL")).toBe("2000");
   });
 });
 

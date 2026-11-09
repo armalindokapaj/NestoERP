@@ -16,8 +16,8 @@ import { parseOptionalDecimal } from "@/lib/forms/decimal";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
-import { areaFor, defaultAreaBasis, prevailingPrice, prevailingRate, priceFromRate, unitRate } from "@/lib/modules/sales/units/unit-pricing.rules";
-import { AREA_PRICE_BASES, type AreaPriceBasis, type PriceListDTO, type PriceListSaveResult, type PriceListUnitDTO } from "@/lib/modules/sales/units/unit-pricing.types";
+import { grossPriceBasis, prevailingPrice, prevailingRate, priceFromRate, unitRate } from "@/lib/modules/sales/units/unit-pricing.rules";
+import type { PriceListDTO, PriceListSaveResult, PriceListUnitDTO } from "@/lib/modules/sales/units/unit-pricing.types";
 import { SALES_REASON_MAX, type UnitPriceBasis } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY } from "@/lib/unsaved/outcome";
@@ -25,7 +25,8 @@ import { cn } from "@/lib/utils/cn";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
 
 /**
- * A project's price list (2026-11). A floor is priced at one rate per m² and
+ * A project's price list (2026-11). A floor is priced at one rate per m² of
+ * gross area — a price per m² always means the gross area (2026-11-09) — and
  * every parking space at one price; either only fills in the units' own
  * prices, which stay editable one by one until Save sends the ones that
  * changed. A sold unit's price is frozen and never filled in. The server
@@ -91,7 +92,6 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
   const [drafts, setDrafts] = React.useState<Record<string, Draft>>(() => draftsOf(initial));
   const [currency, setCurrency] = React.useState(() => mostUsedCurrency(initial));
   const all = React.useMemo(() => units(list), [list]);
-  const [areaBasis, setAreaBasis] = React.useState<AreaPriceBasis>(() => defaultAreaBasis(units(initial).filter((unit) => unit.category !== "PARKING")));
   const [rates, setRates] = React.useState<Record<string, string>>({});
   const [parkingPrice, setParkingPrice] = React.useState("");
   const [notes, setNotes] = React.useState<Record<string, string>>({});
@@ -142,8 +142,8 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     }
     const rate = parsed.value;
     const skipped = fill(floorUnits, (unit) => {
-      const price = priceFromRate(rate, areaFor(unit, areaBasis));
-      return price === null ? null : { price: shortMoney(price), basis: areaBasis };
+      const price = priceFromRate(rate, unit.grossArea);
+      return price === null ? null : { price: shortMoney(price), basis: "GROSS_AREA" };
     });
     setNotes((current) => ({ ...current, [floorId]: skipped ? t("priceList.skippedNoArea", { count: skipped }) : "" }));
   }
@@ -159,9 +159,9 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     setNotes((current) => ({ ...current, parking: "" }));
   }
 
-  /** A price typed by hand: per m² of the page's area when the unit has it, else a fixed price. */
+  /** A price typed by hand: per m² of gross area when the unit has one, else a fixed price; parking is always fixed. */
   function typed(unit: PriceListUnitDTO, text: string) {
-    const basis: UnitPriceBasis = unit.category === "PARKING" || areaFor(unit, areaBasis) === null ? "FIXED_UNIT_PRICE" : areaBasis;
+    const basis: UnitPriceBasis = unit.category === "PARKING" ? "FIXED_UNIT_PRICE" : grossPriceBasis(unit.grossArea);
     setDraft(unit.id, { price: numberText(text), basis });
   }
 
@@ -264,7 +264,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
     const unitChanged = isChanged(unit, draft);
     const price = canonical(draft.price);
     const rate = price === undefined ? null : unitRate(unit, price, draft.basis);
-    const area = areaFor(unit, areaBasis);
+    const area = unit.grossArea;
     const inputId = `price-${unit.id}`;
     return (
       <tr key={unit.id} className={cn("border-t border-line", unitChanged && "bg-accent-soft/40")} data-testid="price-row" data-unit-code={unit.unitCode} data-changed={unitChanged ? "true" : "false"}>
@@ -342,18 +342,6 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
               ))}
             </FormSelect>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-meta font-medium text-fg-muted" htmlFor="price-list-basis">
-              {t("priceList.areaBasis")}
-            </label>
-            <FormSelect id="price-list-basis" className={cn(selectClass, "w-auto")} value={areaBasis} onChange={(event) => setAreaBasis(event.target.value as AreaPriceBasis)} disabled={pending}>
-              {AREA_PRICE_BASES.map((basis) => (
-                <option key={basis} value={basis}>
-                  {t(`priceList.basis.${basis}`)}
-                </option>
-              ))}
-            </FormSelect>
-          </div>
         </div>
       </section>
 
@@ -407,7 +395,7 @@ export function PriceListEditor({ initial }: { initial: PriceListDTO }) {
             {list.buildings.length > 1 ? <h2 className="text-section font-semibold text-fg">{building.name}</h2> : null}
             {floors.map((floor) => {
               const located = floor.units.map((unit) => ({ ...unit, building: building.name, floor: floor.name }));
-              const current = prevailingRate(floor.units, areaBasis);
+              const current = prevailingRate(floor.units, "GROSS_AREA");
               const label = floorName(floor.name, locale);
               return (
                 <div key={floor.id} className="rounded-md border border-line bg-surface" data-testid="price-floor" data-floor-name={floor.name}>

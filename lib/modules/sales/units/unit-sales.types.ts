@@ -126,6 +126,8 @@ export type UnitSalesDTO = {
   priceBasis: UnitPriceBasis;
   pricePerSqm: string | null;
   basisArea: string | null;
+  /** The unit's gross area: what a price per m² is typed against in the price dialog. */
+  grossArea: string | null;
   holdReason: string | null;
   holdUntil: string | null;
   heldBy: string | null;

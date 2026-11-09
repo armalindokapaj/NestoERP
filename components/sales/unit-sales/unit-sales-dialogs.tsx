@@ -5,7 +5,8 @@ import { Check, UserPlus } from "lucide-react";
 
 import { guardComposingEnter, reveal, useSubmitOnlyButton } from "@/components/forms/form-contract";
 import { selectClass } from "@/components/forms/record-form";
-import { Field, fieldErrors, FormError, failureMessage, isFailure, numberText, structureApi } from "@/components/project-structure/structure-ui";
+import { useLocale } from "@/components/i18n/i18n-provider";
+import { areaText, Field, fieldErrors, FormError, failureMessage, isFailure, numberText, structureApi } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -13,13 +14,16 @@ import { SearchField } from "@/components/ui/search-field";
 import { Textarea } from "@/components/ui/textarea";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
-import { SALES_NOTES_MAX, SALES_REASON_MAX, UNIT_PRICE_BASES, UNIT_PRICE_BASIS_LABELS, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
+import { compareDecimal, parseDecimalInput } from "@/lib/forms/decimal";
+import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
+import { convertPriceEntry, grossPriceBasis, hasGrossArea, PRICE_ENTRIES, priceFromRate, type PriceEntry } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { SALES_NOTES_MAX, SALES_REASON_MAX, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
 import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
-import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
 import { FormSelect } from "@/components/ui/form-select";
+import { moneyLabel } from "./commercial-status";
 
 /**
  * The dialogs a unit's sale is changed through (E-05E §10, §16-§31, §48). Each
@@ -295,26 +299,74 @@ function CurrencySelect({ id, value, onChange }: { id: string; value: string; on
 
 /* Price (§10-§12) --------------------------------------------------------------------- */
 
+/**
+ * The asking price, typed as a total or as a price per m² of the unit's gross
+ * area (2026-11-09). Only the total is saved — gross area × rate, rounded half
+ * up to the cent, exactly as the price list fills a floor — on the gross-area
+ * basis, or as a fixed price when the unit has no gross area. The rate is not
+ * kept: a later change to the area leaves the saved total as it is.
+ */
 export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; onClose: () => void; sales: UnitSalesDTO; submit: Submit }) {
   const request = useDialogRequest(submit);
   const t = useSalesTranslations();
+  const locale = useLocale();
+  const grossArea = sales.grossArea;
+  const perSqmAllowed = hasGrossArea(grossArea);
+  const [entry, setEntry] = React.useState<PriceEntry>("TOTAL");
   const [price, setPrice] = React.useState("");
   const [currency, setCurrency] = React.useState(sales.defaults.currency);
-  const [basis, setBasis] = React.useState(sales.priceBasis);
   const [notes, setNotes] = React.useState("");
   const [reason, setReason] = React.useState("");
+  /** Why the typed rate cannot be saved; a new object each time, so a second try focuses the field again. */
+  const [rateError, setRateError] = React.useState<{ message: string } | null>(null);
+  const priceInput = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
     if (!open) return;
+    setEntry("TOTAL");
     setPrice(sales.askingPrice ?? "");
     setCurrency(sales.currency ?? sales.defaults.currency);
-    setBasis(sales.priceBasis);
     setNotes(sales.salesNotes ?? "");
     setReason("");
+    setRateError(null);
     request.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const changed = useOpenedWith(open, [price, currency, basis, notes, reason]);
-  const send = () => request.send(`/api/project-units/${sales.unitId}/sales`, { askingPrice: price, currency, priceBasis: basis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, t("unitDialogs.priceSaved", { unit: sales.unitCode }));
+  // Runs after FormDialog has marked the field invalid, so focus lands on a field that says why.
+  React.useEffect(() => {
+    if (!rateError || !priceInput.current) return;
+    reveal(priceInput.current);
+    priceInput.current.focus();
+  }, [rateError]);
+  const changed = useOpenedWith(open, [entry, price, currency, notes, reason]);
+  const perSqm = entry === "PER_SQM" && perSqmAllowed;
+  const rateRule = { label: t("unitDialogs.ratePerSqm"), ...MONEY_RULE };
+  // The total the typed rate gives, shown before anything is saved.
+  const typedRate = perSqm ? parseDecimalInput(price, rateRule) : null;
+  const rate = typedRate?.ok && compareDecimal(typedRate.value, "0") > 0 ? typedRate.value : null;
+  const total = rate === null ? null : priceFromRate(rate, grossArea);
+
+  function chooseEntry(next: PriceEntry) {
+    if (next === entry || (next === "PER_SQM" && !perSqmAllowed)) return;
+    setPrice((current) => convertPriceEntry(current, grossArea, next));
+    setEntry(next);
+    setRateError(null);
+  }
+
+  /** What is sent, or null — after saying why — when the typed rate cannot give a total. */
+  function body(): Record<string, unknown> | null {
+    let askingPrice = price;
+    if (perSqm) {
+      const typed = parseDecimalInput(price, rateRule);
+      if (!typed.ok || compareDecimal(typed.value, "0") <= 0) {
+        setRateError({ message: typed.ok ? t("unitDialogs.rateAboveZero") : typed.message });
+        return null;
+      }
+      askingPrice = priceFromRate(typed.value, grossArea)!;
+    }
+    setRateError(null);
+    return { askingPrice, currency, priceBasis: grossPriceBasis(grossArea), salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) };
+  }
+  const send = (payload: Record<string, unknown>) => request.send(`/api/project-units/${sales.unitId}/sales`, payload, t("unitDialogs.priceSaved", { unit: sales.unitCode }));
 
   return (
     <FormDialog
@@ -328,26 +380,83 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
       testId="price-dialog"
       dirty={changed && !request.done}
       unresolved={request.unresolved}
-      save={{ kind: "save", run: async () => requestOutcome(await send()) }}
-      onSubmit={() => void send().then((failed) => (failed ? null : onClose()))}
+      save={{
+        kind: "save",
+        run: async () => {
+          const payload = body();
+          return payload ? requestOutcome(await send(payload)) : { kind: "invalid" };
+        },
+      }}
+      onSubmit={() => {
+        const payload = body();
+        if (payload) void send(payload).then((failed) => (failed ? null : onClose()));
+      }}
     >
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-        <Field label={t("unitDialogs.askingPrice")} htmlFor="sales-asking-price" error={request.fields.askingPrice}>
-          <Input id="sales-asking-price" inputMode="decimal" value={price} onChange={(event) => setPrice(numberText(event.target.value))} autoFocus placeholder="e.g. 185000" />
-        </Field>
-        <Field label={t("unitDialogs.currency")} htmlFor="sales-currency" error={request.fields.currency}>
-          <CurrencySelect id="sales-currency" value={currency} onChange={setCurrency} />
-        </Field>
+      <fieldset className="space-y-1.5" data-testid="price-entry">
+        <legend className="sr-only">{t("unitDialogs.priceEntry")}</legend>
+        <div className="inline-flex gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5">
+          {PRICE_ENTRIES.map((value) => {
+            const unavailable = value === "PER_SQM" && !perSqmAllowed;
+            return (
+              <label
+                key={value}
+                className={cn(
+                  "relative inline-flex cursor-pointer items-center rounded-md px-3 py-1.5 text-table font-medium text-fg-muted transition-colors hover:text-fg touch:min-h-11",
+                  "has-[:checked]:bg-accent-soft has-[:checked]:text-accent-strong has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+                  "has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:disabled]:hover:text-fg-muted",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="sales-price-entry"
+                  value={value}
+                  className="sr-only"
+                  checked={entry === value}
+                  disabled={unavailable || request.pending}
+                  aria-describedby={unavailable ? "sales-price-entry-hint" : undefined}
+                  onChange={() => chooseEntry(value)}
+                  data-testid={`price-entry-${value === "TOTAL" ? "total" : "per-sqm"}`}
+                />
+                {value === "TOTAL" ? t("unitDialogs.entryTotal") : t("unitDialogs.entryPerSqm")}
+              </label>
+            );
+          })}
+        </div>
+        {perSqmAllowed ? null : (
+          <p id="sales-price-entry-hint" className="text-meta text-fg-subtle">
+            {t("unitDialogs.perSqmNeedsGross")}
+          </p>
+        )}
+      </fieldset>
+      <div className="space-y-1">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+          <Field label={perSqm ? t("unitDialogs.ratePerSqm") : t("unitDialogs.askingPrice")} htmlFor="sales-asking-price" error={rateError?.message ?? request.fields.askingPrice ?? request.fields.priceBasis}>
+            <Input
+              ref={priceInput}
+              id="sales-asking-price"
+              inputMode="decimal"
+              value={price}
+              onChange={(event) => {
+                setPrice(numberText(event.target.value));
+                setRateError(null);
+              }}
+              autoFocus
+              placeholder={perSqm ? t("unitDialogs.ratePlaceholder") : t("unitDialogs.totalPlaceholder")}
+              aria-describedby={perSqm ? "sales-price-total" : undefined}
+            />
+          </Field>
+          <Field label={t("unitDialogs.currency")} htmlFor="sales-currency" error={request.fields.currency}>
+            <CurrencySelect id="sales-currency" value={currency} onChange={setCurrency} />
+          </Field>
+        </div>
+        {perSqm ? (
+          <p id="sales-price-total" className="text-meta tabular-nums text-fg-muted" aria-live="polite" data-testid="price-per-sqm-total">
+            {total === null
+              ? t("unitDialogs.perSqmFormula", { area: areaText(grossArea, locale) })
+              : t("unitDialogs.perSqmTotal", { area: areaText(grossArea, locale), rate: moneyLabel(rate, currency, locale), total: moneyLabel(total, currency, locale) })}
+          </p>
+        ) : null}
       </div>
-      <Field label={t("unitDialogs.priceBasis")} htmlFor="sales-price-basis" hint={t("unitDialogs.priceBasisHint")} error={request.fields.priceBasis}>
-        <FormSelect id="sales-price-basis" className={selectClass} value={basis} onChange={(event) => setBasis(event.target.value as typeof basis)}>
-          {UNIT_PRICE_BASES.map((value) => (
-            <option key={value} value={value}>
-              {salesLabel(t, "priceBasis", value, UNIT_PRICE_BASIS_LABELS[value])}
-            </option>
-          ))}
-        </FormSelect>
-      </Field>
       <Field label={t("unitDialogs.changeReason")} htmlFor="sales-price-reason" error={request.fields.reason}>
         <Input id="sales-price-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} placeholder={t("unitDialogs.changeReasonPlaceholder")} />
       </Field>

@@ -185,6 +185,7 @@ export async function getUnitSales(context: UserContext, unitId: string): Promis
     priceBasis,
     pricePerSqm: pricePerSqm(moneyText(profile?.askingPrice), priceBasis, areas),
     basisArea: basisField ? (areas[basisField as keyof typeof areas] ?? null) : null,
+    grossArea: areas.grossArea,
     holdReason: profile?.holdReason ?? null,
     holdUntil: profile?.holdUntil?.toISOString() ?? null,
     heldBy: profile?.heldByMemberId ? (names.get(profile.heldByMemberId) ?? null) : null,
