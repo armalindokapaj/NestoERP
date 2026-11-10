@@ -191,3 +191,27 @@ export async function listSalesSelection(context: UserContext, projectId: string
   );
   return toSelection(rows, Number(counted[0]?.count ?? 0));
 }
+
+/**
+ * Every unit the Sales list's filters match, in the list's order — not one
+ * page — for Export (2026-11-10): their ids, at most `limit`, and how many
+ * matched. Archived units are left out, as an export with no filters is every
+ * unit in use.
+ */
+export async function listSalesUnitIds(context: UserContext, projectId: string, query: InventoryQuery, limit: number): Promise<{ ids: string[]; total: number }> {
+  const project = await loadStructureProject(context, projectId);
+  const caps = salesCapabilities(context);
+  if (!caps.canView) throw new AccessError("FORBIDDEN", "You cannot see this project's sales.");
+  const filters = inventoryConditions(context, project.id, query, caps);
+  if (query.commercialStatus) filters.push(Prisma.sql`${SALE_STATUS} = ${query.commercialStatus}`);
+  filters.push(Prisma.sql`u."publicationStatus" <> 'ARCHIVED'::"UnitPublicationStatus"`);
+  const where = Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`;
+  const [counted, rows] = await prisma.$transaction(
+    [
+      prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) AS count ${FROM} ${where}`,
+      prisma.$queryRaw<Array<{ id: string }>>`SELECT u."id" ${FROM} ${where} ORDER BY ${orderBy(query.sort)} LIMIT ${limit}`,
+    ],
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
+  return { ids: rows.map((row) => row.id), total: Number(counted[0]?.count ?? 0) };
+}

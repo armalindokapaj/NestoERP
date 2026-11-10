@@ -2,7 +2,7 @@ import type { UnitTypeCategory } from "@/config/unit-types";
 import { grossAreaIsTyped, structureKey, unitLabel, workedOutAreas } from "@/lib/modules/project-structure/structure.rules";
 import type { CountField, UnitCommercialStatusKey } from "@/lib/modules/project-structure/structure.types";
 import { priceFromRate, rateFromPrice, saleArea } from "@/lib/modules/sales/units/unit-pricing.rules";
-import { mapHeaders, SHEET_HEADERS, type SheetColumn, WORKED_OUT_COLUMNS } from "./unit-sheet.columns";
+import { IGNORED_COLUMNS, isReadOnlyColumn, mapHeaders, SHEET_HEADERS, type SheetColumn } from "./unit-sheet.columns";
 import { cellText, rowIsBlank, type SheetCell, type SheetGrid } from "./unit-sheet.parse";
 import { SHEET_FIELDS, type SheetCheckDTO, type SheetField, type SheetPriceDTO, type SheetSkipDTO, type SheetSkipReason, type SheetStructureField } from "./unit-sheet.types";
 import { type FieldRead, matchBuilding, matchFloor, matchUnitType, nameText, readArea, readCode, readCount, readMoney, readOrientation } from "./unit-sheet.values";
@@ -307,11 +307,12 @@ export function diffSheet(input: DiffInput): SheetDiff {
   const used = (index: number) => grid.rows.some((row) => (row[index] ?? { kind: "blank" }).kind !== "blank");
   const headers = mapHeaders(grid.header, used);
   const at = headers.at;
-  const known = Object.values(at) as number[];
+  // A column NESTO writes but never reads (Status) says nothing about whether a row is empty.
+  const known = (Object.entries(at) as Array<[SheetColumn, number]>).filter(([column]) => !IGNORED_COLUMNS.has(column)).map(([, index]) => index);
   const check: SheetCheckDTO = {
     title: null,
     rows: grid.rows.filter((row) => !rowIsBlank(row)).length,
-    columns: headers.columns.map((column) => ({ column: column.column, header: column.header, key: column.key, readOnly: column.key !== null && WORKED_OUT_COLUMNS.has(column.key) })),
+    columns: headers.columns.map((column) => ({ column: column.column, header: column.header, key: column.key, readOnly: column.key !== null && isReadOnlyColumn(column.key) })),
     unknownColumns: headers.unknown,
     hasCodeColumn: at.code !== undefined,
     typed: grid.typed,

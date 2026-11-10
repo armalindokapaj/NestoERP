@@ -13,6 +13,7 @@ import { UnitListTable } from "@/components/project-structure/unit-list/unit-lis
 import { UnitListToolbar } from "@/components/project-structure/unit-list/unit-list-toolbar";
 import { UnitPanel } from "@/components/project-structure/unit-panel/unit-panel";
 import { keepOpenUnit, useUnitPanelNav } from "@/components/project-structure/unit-panel/use-unit-panel";
+import { UNITS_CHANGED_EVENT } from "@/components/project-structure/unit-sheet/sheet-client";
 import type { UnitTypeOption } from "@/lib/modules/project-structure/structure.types";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -139,6 +140,14 @@ export function SalesInventory({
   const canTick = canChangeTogether(bulkCaps);
   const shownKey = React.useMemo(() => filterParams({ ...filters, sort: "structure" }, "sales").toString(), [filters]);
   const reload = React.useCallback(() => setReloadKey((key) => key + 1), []);
+  // A confirmed Google Sheet sync (the header's control, 2026-11-10) changed prices, statuses or units: read the list again.
+  React.useEffect(() => {
+    const onChanged = (event: Event) => {
+      if ((event as CustomEvent<{ projectId?: string }>).detail?.projectId === projectId) reload();
+    };
+    window.addEventListener(UNITS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(UNITS_CHANGED_EVENT, onChanged);
+  }, [projectId, reload]);
   const bulk = useUnitBulk({ projectId, caps: bulkCaps, resetKey: shownKey, onChanged: reload });
   const { setSelection: setTicks } = bulk;
   const rows = React.useMemo(() => list.items.map(rowFromInventory), [list]);

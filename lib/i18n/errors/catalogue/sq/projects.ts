@@ -457,6 +457,7 @@ export const rows = {
   "The sheet changed since the preview. Sync again to see what it says now.": "Fleta ndryshoi që nga parapamja. Sinkronizoni përsëri për të parë çfarë thotë tani.",
   "Somebody confirmed a sync of this sheet since your preview. Sync again.": "Dikush konfirmoi një sinkronizim të kësaj flete pas parapamjes suaj. Sinkronizoni përsëri.",
   "Paste the sheet's link.": "Ngjitni lidhjen e fletës.",
+  "More units match than one file holds (5,000). Narrow the search or the filters.": "Përputhen më shumë njësi nga sa mban një skedar (5.000). Ngushtoni kërkimin ose filtrat.",
   "That link is too long.": "Kjo lidhje është shumë e gjatë.",
   "Sync again: this preview cannot be confirmed.": "Sinkronizoni përsëri: kjo parapamje nuk mund të konfirmohet.",
   "A unit is sent twice.": "Një njësi është dërguar dy herë.",

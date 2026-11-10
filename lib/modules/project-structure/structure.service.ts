@@ -364,6 +364,27 @@ export function toSelection(rows: SelectionRow[], total: number): UnitSelectionD
 }
 
 /**
+ * Every unit the Units list's filters match, in the list's order — not one
+ * page — for Export (2026-11-10): their ids, at most `limit`, and how many
+ * matched. Units out of use (archived) only when the filters ask for them, as
+ * an export with no filters is every unit in use.
+ */
+export async function listProjectUnitIds(context: UserContext, projectId: string, query: UnitListQuery, limit: number): Promise<{ ids: string[]; total: number }> {
+  const project = await loadStructureProject(context, projectId);
+  const { filters } = unitListConditions(context, project.id, query);
+  if (!query.publicationStatus) filters.push(Prisma.sql`u."publicationStatus" <> 'ARCHIVED'::"UnitPublicationStatus"`);
+  const where = Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`;
+  const [counted, rows] = await prisma.$transaction(
+    [
+      prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) AS count ${UNIT_LIST_FROM} ${where}`,
+      prisma.$queryRaw<Array<{ id: string }>>`SELECT u."id" ${UNIT_LIST_FROM} ${where} ORDER BY ${unitListOrder(query.sort)} LIMIT ${limit}`,
+    ],
+    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+  );
+  return { ids: rows.map((row) => row.id), total: Number(counted[0]?.count ?? 0) };
+}
+
+/**
  * Every unit a list's filters match — not one page — for "Select all N
  * matching", "Select this floor" and Fill in (2026-11-09): what a change to
  * many units sends back, its id and versions, and what the selection bar

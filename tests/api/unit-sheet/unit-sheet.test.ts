@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 import type { UserContext } from "@/lib/context/types";
 import { localizeMessage } from "@/lib/i18n/errors";
+import { parseUnitListQuery } from "@/lib/modules/project-structure/structure.schema";
 import { updateUnit } from "@/lib/modules/project-structure/structure.units";
 import { buildSheetDownload } from "@/lib/modules/unit-sheet/unit-sheet.service";
 import type { SheetPreviewDTO } from "@/lib/modules/unit-sheet/unit-sheet.types";
@@ -151,7 +152,7 @@ async function cleanup() {
   actAs(null);
   await prisma.projectUnitSheetBaseline.deleteMany({ where: { projectId: RIVERSIDE } });
   await prisma.projectUnitSheetLink.deleteMany({ where: { projectId: RIVERSIDE } });
-  await prisma.auditEvent.deleteMany({ where: { OR: [{ projectId: RIVERSIDE, actionKey: { in: SHEET_ACTIONS } }, { entityId: "project_units_sheet" }] } });
+  await prisma.auditEvent.deleteMany({ where: { OR: [{ projectId: RIVERSIDE, actionKey: { in: SHEET_ACTIONS } }, { entityId: { in: ["project_units_sheet", "project_units_units", "project_units_sales"] } }] } });
   const buildings = await prisma.projectBuilding.findMany({ where: { projectId: RIVERSIDE, nameKey: { startsWith: T } }, select: { id: true } });
   const floors = await prisma.projectFloor.findMany({ where: { buildingId: { in: buildings.map((row) => row.id) } }, select: { id: true } });
   const units = await prisma.projectUnit.findMany({ where: { floorId: { in: floors.map((row) => row.id) } }, select: { id: true } });
@@ -473,5 +474,77 @@ describe("download for Google Sheets", () => {
     expect(seen.data.unknownColumns).toEqual([]);
     expect(seen.data.counts).toMatchObject({ changes: 0, clashes: 0, newUnits: 0, newerInNesto: 0, notInSheet: 0 });
     expect(seen.data.skipped).toEqual([]);
+  });
+});
+
+/* Export (2026-11-10) ------------------------------------------------------------------------ */
+
+describe("Export from the Units and Sales tabs", () => {
+  function rowsOf(file: Uint8Array): string[][] {
+    const cells = sheetCells(readZip(file).get("xl/worksheets/sheet1.xml")!);
+    const rows = new Map<number, string[]>();
+    for (const cell of cells) {
+      const [, column, row] = /^([A-Z]+)(\d+)$/.exec(cell.ref)!;
+      const list = rows.get(Number(row)) ?? [];
+      list[column!.charCodeAt(0) - 65] = cell.value;
+      rows.set(Number(row), list);
+    }
+    const width = rows.get(1)?.length ?? 0;
+    return [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([, list]) => Array.from({ length: width }, (_, index) => list[index] ?? ""));
+  }
+  async function exported(context: UserContext, query: string) {
+    actAs(context);
+    const response = await downloadRoute.GET(new Request(`http://localhost/api/projects/${RIVERSIDE}/units/sheet/download?${query}`), { params: Promise.resolve({ projectId: RIVERSIDE }) });
+    return { response, rows: response.ok ? rowsOf(new Uint8Array(await response.arrayBuffer())) : [] };
+  }
+  const withoutSales = (context: UserContext): UserContext => ({ ...context, permissions: context.permissions.filter((permission) => permission !== "project.unit.sales.view") });
+
+  it("narrows the file to the Units tab's filters, adds the sale status, and names the file after the project", async () => {
+    const { name } = await prisma.project.findUniqueOrThrow({ where: { id: RIVERSIDE }, select: { name: true } });
+    const { response, rows } = await exported(owner, `view=units&floorId=${floor5}&page=3`);
+    expect(response.status).toBe(200);
+    const day = new Date().toISOString().slice(0, 10);
+    expect(response.headers.get("content-disposition")).toBe(`attachment; filename="${name} - units - ${day}.xlsx"; filename*=UTF-8''${encodeURIComponent(`${name} – units – ${day}.xlsx`)}`);
+    expect(response.headers.get("x-export-row-count")).toBe("2");
+    expect(rows[0]!.at(-1)).toBe("Status");
+    expect(rows[0]!.slice(-3, -1)).toEqual(["Total price", "Price per m²"]);
+    // Every unit the filter matches, not one page; the archived SH-503 is not in use.
+    expect(rows.slice(1).map((row) => [row[0], row.at(-1)])).toEqual([
+      ["SH-501", "For Sale"],
+      ["SH-502", "Not Priced"],
+    ]);
+    const audit = await prisma.auditEvent.findFirstOrThrow({ where: { entityId: "project_units_units", actionKey: "REPORT_EXPORTED_XLSX" }, select: { metadataJson: true } });
+    expect(audit.metadataJson).toMatchObject({ rows: 2, view: "units", status: true, filters: { floorId: floor5 } });
+  });
+
+  it("narrows it to the Sales tab's status chip, and a sheet made from it reads Status as known and changes nothing", async () => {
+    const { rows } = await exported(owner, `view=sales&floorId=${floor5}&commercialStatus=FOR_SALE`);
+    expect(rows.slice(1).map((row) => row[0])).toEqual(["SH-501"]);
+    const numeric = new Set(rows[0]!.map((_, index) => index).filter((index) => index >= 5 && index < rows[0]!.length - 1));
+    sheet = rows.map((row, rowIndex) => row.map((value, index) => (value === "" ? null : rowIndex > 0 && numeric.has(index) ? Number(value) : value)));
+    await link(owner);
+    const seen = await preview(owner);
+    expect(seen.status).toBe(200);
+    expect(seen.data.unknownColumns).toEqual([]);
+    expect(seen.data.sheet.columns.find((column) => column.key === "status")).toMatchObject({ readOnly: true });
+    expect(seen.data.counts).toMatchObject({ changes: 0, clashes: 0, newUnits: 0, newerInNesto: 0 });
+    expect(seen.data.skipped).toEqual([]);
+  });
+
+  it("leaves Status out for a reader who may not see sales, keeps the prices the Units table shows them, and refuses them the Sales tab's export", async () => {
+    const reader = withoutSales(owner);
+    const { response, rows } = await exported(reader, `view=units&floorId=${floor5}`);
+    expect(response.status).toBe(200);
+    expect(rows[0]).not.toContain("Status");
+    expect(rows[0]!.at(-1)).toBe("Price per m²");
+    expect(rows.find((row) => row[0] === "SH-501")!.at(-2)).toBe("160000.00");
+    expect((await exported(reader, `view=sales&floorId=${floor5}`)).response.status).toBe(403);
+  });
+
+  it("writes Status in the reader's language", async () => {
+    const file = await buildSheetDownload(owner, RIVERSIDE, "sq", { view: "units", query: parseUnitListQuery(new URLSearchParams({ floorId: floor5 })) });
+    const rows = rowsOf(file.body);
+    expect(rows[0]!.at(-1)).toBe("Statusi");
+    expect(file.filenameUtf8).toMatch(/ – njësitë – \d{4}-\d{2}-\d{2}\.xlsx$/);
   });
 });

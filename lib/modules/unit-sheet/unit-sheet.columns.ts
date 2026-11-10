@@ -13,6 +13,12 @@ import type { Locale } from "@/lib/i18n/config";
  * or the note after a dash.
  */
 
+/**
+ * The one column layout (2026-11-10): the order "Download for Google Sheets"
+ * and Export write, and the names reading a sheet knows. Kept in this one
+ * place so it can become the template the platform reads later. `status` is
+ * written by Export only and never read (`IGNORED_COLUMNS`).
+ */
 export const SHEET_COLUMNS = [
   "code",
   "building",
@@ -33,11 +39,24 @@ export const SHEET_COLUMNS = [
   "storage",
   "totalPrice",
   "pricePerSqm",
+  "status",
 ] as const;
 export type SheetColumn = (typeof SHEET_COLUMNS)[number];
 
 /** The columns NESTO works out and the sheet never sets: the net area always; the gross area except for land. */
 export const WORKED_OUT_COLUMNS: ReadonlySet<SheetColumn> = new Set<SheetColumn>(["netArea", "grossArea"]);
+
+/**
+ * Columns written for the reader and never read: the sale status Export adds
+ * (the sheet never changes a unit's sale status). Known, so a sheet made from
+ * an export does not list them as unknown columns, and ignored.
+ */
+export const IGNORED_COLUMNS: ReadonlySet<SheetColumn> = new Set<SheetColumn>(["status"]);
+
+/** What a sync never takes from the sheet: the worked-out columns and the ignored ones. */
+export function isReadOnlyColumn(column: SheetColumn): boolean {
+  return WORKED_OUT_COLUMNS.has(column) || IGNORED_COLUMNS.has(column);
+}
 
 export const SHEET_HEADERS: Record<SheetColumn, Record<Locale, string>> = {
   code: { en: "Unit", sq: "Njësia" },
@@ -59,6 +78,7 @@ export const SHEET_HEADERS: Record<SheetColumn, Record<Locale, string>> = {
   storage: { en: "Storage", sq: "Depo" },
   totalPrice: { en: "Total price", sq: "Çmimi total" },
   pricePerSqm: { en: "Price per m²", sq: "Çmimi për m²" },
+  status: { en: "Status", sq: "Statusi" },
 };
 
 /**

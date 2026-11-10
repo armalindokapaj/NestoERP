@@ -11,23 +11,27 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { prisma } from "@/lib/database/prisma";
 import type { Locale } from "@/lib/i18n/config";
+import { moduleMessages } from "@/lib/i18n/modules";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { readableUnitWhere, structureOpen } from "@/lib/modules/project-structure/structure.permissions";
 import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
-import { createUnitSchema, updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
-import { loadStructureProject, type StructureProject } from "@/lib/modules/project-structure/structure.service";
+import { createUnitSchema, updateUnitSchema, type UnitListQuery } from "@/lib/modules/project-structure/structure.schema";
+import { listProjectUnitIds, loadStructureProject, type StructureProject } from "@/lib/modules/project-structure/structure.service";
 import { createUnit, updateUnit } from "@/lib/modules/project-structure/structure.units";
 import { BULK_CONCURRENCY, skipReasonOf } from "@/lib/modules/project-structure/unit-bulk.service";
 import type { BulkSkipReason } from "@/lib/modules/project-structure/unit-bulk.rules";
 import { bulkAskingPrice, saleArea, saleRate } from "@/lib/modules/sales/units/unit-pricing.rules";
 import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
-import { salesExpectedVersion, sellability } from "@/lib/modules/sales/units/unit-sales.rules";
+import { listSalesUnitIds } from "@/lib/modules/sales/units/unit-sales.inventory";
+import { saleStatusOf, salesExpectedVersion, sellability } from "@/lib/modules/sales/units/unit-sales.rules";
+import type { InventoryQuery } from "@/lib/modules/sales/units/unit-sales.schema";
 import { changeSaleStatus, updateCommercialDetails } from "@/lib/modules/sales/units/unit-sales.service";
-import { SHEET_COLUMNS, SHEET_HEADERS, type SheetColumn, WORKED_OUT_COLUMNS } from "./unit-sheet.columns";
+import { IGNORED_COLUMNS, SHEET_COLUMNS, SHEET_HEADERS, type SheetColumn, WORKED_OUT_COLUMNS } from "./unit-sheet.columns";
 import { changeId, diffSheet, type DiffUnit, type MatchedUnit, newUnitBaseline, nextBaseline, type NewUnitPlan, planUnits, sheetSkip, type SheetDiff, toPriceDTO, type UnitBaseline, type UnitPlan } from "./unit-sheet.diff";
 import { readGoogleSheet, SheetReadError, type Fetcher } from "./unit-sheet.fetch";
+import { exportFilename, sheetFilename } from "./unit-sheet.files";
 import { parseSheetLink, type LinkProblem, type SheetRef } from "./unit-sheet.link";
-import type { SheetGrid } from "./unit-sheet.parse";
+import { SHEET_LIMITS, type SheetGrid } from "./unit-sheet.parse";
 import type { SheetApplyInput, SheetLinkInput } from "./unit-sheet.schema";
 import type { SheetApplyResultDTO, SheetCapabilitiesDTO, SheetCheckDTO, SheetField, SheetLinkDTO, SheetLinkResultDTO, SheetPreviewDTO, SheetSkipDTO, SheetSkipReason, SheetStatusDTO, SheetStructureField } from "./unit-sheet.types";
 import { buildXlsx, type XlsxCell, type XlsxColumn } from "./unit-sheet.xlsx";
@@ -736,18 +740,17 @@ const WIDTHS: Record<SheetColumn, number> = {
   storage: 9,
   totalPrice: 14,
   pricePerSqm: 13,
+  status: 14,
 };
-const TEXT_COLUMNS: ReadonlySet<SheetColumn> = new Set(["code", "building", "floor", "type", "orientation"]);
+const TEXT_COLUMNS: ReadonlySet<SheetColumn> = new Set(["code", "building", "floor", "type", "orientation", "status"]);
 
-/** `RIV-units-2026-11-10.xlsx`: letters, digits, dot, dash and underscore only. */
-export function sheetFilename(projectCode: string, now: Date = new Date()): string {
-  const base = projectCode
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/^[-.]+|[-.]+$/g, "")
-    .slice(0, 60);
-  return `${base || "project"}-units-${now.toISOString().slice(0, 10)}.xlsx`;
+/** What Export narrows the file to: the tab it is pressed on and that tab's search and filters. */
+export type UnitExportScope = { view: "units"; query: UnitListQuery } | { view: "sales"; query: InventoryQuery };
+
+export type SheetDownload = { filename: string; filenameUtf8: string; body: Uint8Array; rows: number };
+
+function tooManyToExport(total: number): AccessError {
+  return new AccessError("VALIDATION_ERROR", "More units match than one file holds (5,000). Narrow the search or the filters.", { code: "EXPORT_TOO_LARGE", total, limit: SHEET_LIMITS.maxRows });
 }
 
 /**
@@ -756,20 +759,38 @@ export function sheetFilename(projectCode: string, now: Date = new Date()): stri
  * columns a sync reads — so a downloaded file is read back as it is. Net and
  * gross areas come as worked-out columns; prices as the Units table shows
  * them. Also "Start from NESTO's units" when a sheet is first linked.
+ *
+ * With a `scope`, Export (2026-11-10): the same builder and columns, narrowed
+ * to the units the tab's search and filters match — every one of them, not
+ * one page — in the tab's order, plus a Status column (the sale status as the
+ * Sales tab words it) for a reader who may see sales. A sync never reads
+ * Status, so an exported file can be imported into a sheet and linked.
  */
-export async function buildSheetDownload(context: UserContext, projectId: string, locale: Locale): Promise<{ filename: string; body: Uint8Array; rows: number }> {
+export async function buildSheetDownload(context: UserContext, projectId: string, locale: Locale, scope?: UnitExportScope): Promise<SheetDownload> {
   const project = await loadStructureProject(context, projectId);
-  const [rows, structure] = await Promise.all([loadUnits(context, project), loadStructure(context, project)]);
-  const inUse = rows.filter((row) => row.publicationStatus !== "ARCHIVED");
+  let rows: UnitRow[];
+  if (scope) {
+    const limit = SHEET_LIMITS.maxRows;
+    const found = scope.view === "units" ? await listProjectUnitIds(context, project.id, scope.query, limit + 1) : await listSalesUnitIds(context, project.id, scope.query, limit + 1);
+    if (found.total > limit) throw tooManyToExport(found.total);
+    const byId = new Map((found.ids.length ? await loadUnits(context, project, found.ids) : []).map((row) => [row.id, row]));
+    rows = found.ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+  } else {
+    rows = (await loadUnits(context, project)).filter((row) => row.publicationStatus !== "ARCHIVED");
+  }
+  const structure = await loadStructure(context, project);
   const buildings = new Map(structure.buildings.map((building) => [building.id, building]));
   const floors = new Map(structure.floors.map((floor) => [floor.id, floor]));
   const types = new Map(structure.types.map((type) => [type.id, type]));
   const prices = unitPricesVisible(context);
-  const columns = SHEET_COLUMNS.filter((column) => prices || (column !== "totalPrice" && column !== "pricePerSqm"));
+  // The sale status, as the Sales tab says it, only on Export and only for a reader who may see sales.
+  const status = Boolean(scope) && salesCapabilities(context).canView;
+  const statusWords = moduleMessages[locale].sales.labels.commercialStatus;
+  const columns = SHEET_COLUMNS.filter((column) => (prices || (column !== "totalPrice" && column !== "pricePerSqm")) && (status || !IGNORED_COLUMNS.has(column)));
   const xlsxColumns: XlsxColumn[] = columns.map((column) => ({ header: SHEET_HEADERS[column][locale], width: WIDTHS[column], text: TEXT_COLUMNS.has(column), muted: WORKED_OUT_COLUMNS.has(column) }));
   const text = (value: string | null | undefined): XlsxCell => (value ? { kind: "text", text: value } : null);
   const number = (value: string | null, format: "decimal" | "integer" = "decimal"): XlsxCell => (value === null ? null : { kind: "number", value, format });
-  const body = inUse.map((row) => {
+  const body = rows.map((row) => {
     const values = valuesOf(row);
     const building = buildings.get(row.floor.building.id);
     const floor = floors.get(row.floorId);
@@ -794,11 +815,28 @@ export async function buildSheetDownload(context: UserContext, projectId: string
       storage: number(values.storage, "integer"),
       totalPrice: number(values.price),
       pricePerSqm: number(saleRate({ saleableArea: values.saleableArea, grossArea: values.grossArea }, values.price)),
+      status: text(statusWords[saleStatusOf(row.commercialProfile?.status, values.price)]),
     };
     return columns.map((column) => cells[column]);
   });
   const file = buildXlsx({ sheetName: locale === "sq" ? "Njësitë" : "Units", columns: xlsxColumns, rows: body });
-  const filename = sheetFilename(project.code);
-  await recordUserAction(context, { actionKey: AuditAction.REPORT_EXPORTED_XLSX, entity: { type: "export", id: "project_units_sheet", label: filename }, projectId: project.id, metadata: { module: "projects", rows: body.length, prices } });
-  return { filename, body: file, rows: body.length };
+  const names = scope ? exportFilename(project.name, locale) : null;
+  const filename = names?.ascii ?? sheetFilename(project.code);
+  await recordUserAction(context, {
+    actionKey: AuditAction.REPORT_EXPORTED_XLSX,
+    entity: { type: "export", id: scope ? `project_units_${scope.view}` : "project_units_sheet", label: filename },
+    projectId: project.id,
+    metadata: { module: "projects", rows: body.length, prices, ...(scope ? { view: scope.view, status, filters: exportFilters(scope) } : {}) },
+  });
+  return { filename, filenameUtf8: names?.utf8 ?? filename, body: file, rows: body.length };
+}
+
+/** The filters an export was narrowed by, for its audit event: only those set. */
+function exportFilters(scope: UnitExportScope): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(scope.query)) {
+    if (key === "page" || key === "limit" || value === undefined || value === null || value === "") continue;
+    if (typeof value === "string" || typeof value === "number") out[key] = value;
+  }
+  return out;
 }
