@@ -5,6 +5,7 @@ import { roleModuleAccess } from "@/config/role-defaults";
 import { ROLE_KEYS, type RoleKey } from "@/config/roles";
 import { settingsSections } from "@/config/settings";
 import { visibleSettingsSections } from "@/lib/access/settings-sections";
+import { buildModuleAccess } from "@/lib/context/build-context";
 import type { ModuleAccess } from "@/lib/context/types";
 
 /**
@@ -35,6 +36,12 @@ function accessFor(role: RoleKey) {
   const permissions = Object.values(moduleAccess).flatMap((access) => access.permissions);
 
   return { permissions, moduleAccess };
+}
+
+/** A member of `role` holding CEO access: the CEO's rights laid over their own (2026-11). */
+function holderAccess(role: RoleKey) {
+  const moduleAccess = buildModuleAccess(role, [...MODULE_KEYS], "MEMBER", [], { role: "CEO", position: "MEMBER" });
+  return { permissions: Object.values(moduleAccess).flatMap((access) => access.permissions), moduleAccess };
 }
 
 const PERSONAL = settingsSections.filter((section) => section.personal).map((s) => s.slug);
@@ -72,9 +79,7 @@ describe("visibleSettingsSections", () => {
       for (const section of settingsSections.filter((s) => !s.personal)) {
         // Users and Roles are Team administration's doors from Company Settings
         // (CEO Users & Roles §5): their own Team permission is the rule.
-        // Company opens on company.name.update, which the CEO holds to rename
-        // their company (user, 2026-10-02).
-        const teamDoor = section.slug === "users" || section.slug === "roles" || section.slug === "company";
+        const teamDoor = section.slug === "users" || section.slug === "roles";
         const expected =
           (teamDoor || mayManage) &&
           access.moduleAccess.settings.accessLevel !== "NONE" &&
@@ -84,11 +89,39 @@ describe("visibleSettingsSections", () => {
     }
   });
 
-  it("opens Company, Users and Roles to the CEO, and nothing else of the company's", () => {
-    const slugs = visibleSettingsSections(accessFor("CEO")).map((section) => section.slug);
-    expect(slugs).toEqual(expect.arrayContaining(["company", "users", "roles"]));
-    for (const slug of ["modules", "numbering", "integrations", "audit"] as const) {
-      expect(slugs.includes(slug), `CEO sees ${slug}`).toBe(false);
+  /*
+   * The CEO manages the company's settings as the Owner does (the user,
+   * 2026-11-10: "CEO can."), and so does a member holding CEO access. The audit
+   * log is the one company section that stays the Owner's.
+   */
+  it("opens every section but Audit to the CEO and to a CEO access holder", () => {
+    const allButAudit = settingsSections.map((section) => section.slug).filter((slug) => slug !== "audit");
+    expect(visibleSettingsSections(accessFor("CEO")).map((section) => section.slug)).toEqual(allButAudit);
+    expect(visibleSettingsSections(holderAccess("ARCHITECT")).map((section) => section.slug)).toEqual(allButAudit);
+  });
+
+  it("gives the CEO and a CEO access holder the company's settings, and not the audit log or the Owner and Group IT seats", () => {
+    for (const [who, access] of [["CEO", accessFor("CEO")], ["Architect with CEO access", holderAccess("ARCHITECT")], ["Viewer with CEO access", holderAccess("VIEWER")]] as const) {
+      for (const permission of [
+        "settings.manage",
+        "company.manage",
+        "company.settings.update",
+        "company.finance_settings.manage",
+        "company.modules.manage",
+        "company.integrations.manage",
+        "company.numbering.manage",
+        "company.localization.manage",
+        "company.security_settings.manage",
+        "security.policy.manage",
+        "security.devices.revoke",
+        "security.sessions.revoke",
+        "company.storage.view",
+      ] as const) {
+        expect(access.permissions.includes(permission), `${who} holds ${permission}`).toBe(true);
+      }
+      for (const permission of ["audit.view", "audit.export", "audit.sensitive.view", "team.owner.assign", "team.group_role.assign"] as const) {
+        expect(access.permissions.includes(permission), `${who} holds ${permission}`).toBe(false);
+      }
     }
   });
 

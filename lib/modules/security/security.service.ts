@@ -443,13 +443,16 @@ const ADMIN_EVENTS: AuthEventType[] = [
  * Security events for the people in the administrator's scope (MOB-11 §113).
  * No secrets, no addresses: who, what, when, and whether it worked. Events about
  * people outside the scope — and every platform-level event — are not here.
+ * Nor is an event another company recorded about somebody who also works here:
+ * an administrator of one company reads that company's events, and a person's
+ * company-less ones (E-06 §118).
  */
 export async function listSecurityEvents(context: UserContext, filters: { type?: AuthEventType; limit?: number } = {}): Promise<SecurityEventDTO[]> {
   const scope = await securityScope(context, "security.audit.read");
   const rows = await prisma.authEvent.findMany({
     where: {
       type: filters.type ? filters.type : { in: ADMIN_EVENTS },
-      OR: [{ user: { memberships: { some: { companyId: { in: scope.companyIds } } } } }, { companyId: { in: scope.companyIds } }],
+      OR: [{ companyId: null, user: { memberships: { some: { companyId: { in: scope.companyIds } } } } }, { companyId: { in: scope.companyIds } }],
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(filters.limit ?? 50, 200),

@@ -1116,9 +1116,14 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
     procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
     // The CEO administers the company's own users (CEO Users & Roles §4):
-    // Team manage at company scope, and Settings read so Company Settings
-    // opens its Users and Roles sections. Owner and Group IT stay out of reach.
-    team: "M/C", company: "V/C", settings: "V/C", support: "V/C", organization: "V/C",
+    // Team manage at company scope; the Owner and Group IT seats stay out of
+    // reach (team.owner.assign and team.group_role.assign are the Owner's).
+    // The CEO manages the company's settings as the Owner does (the user,
+    // 2026-11-10: "CEO can."): its details, modules, localization, integrations,
+    // numbering, Settings → Sales, the finance defaults, security, mobile
+    // devices and policy, and storage. The audit log (audit.* is no rung of the
+    // settings ladder, only the Owner's extra) and the group stay the Owner's.
+    team: "M/C", company: "M/C", settings: "M/C", support: "V/C", organization: "V/C",
   },
   PROJECT_MANAGER: {
     calendar: "C/C", approvals: "A/P", announcements: "A/P", meetings: "C/C", timesheets: "A/P", dailyLogs: "M/P", workforce: "M/P", contractors: "M/P", engineering: "A/P", projects: "M/P", tasks: "M/P", clients: "C/P", documents: "C/P",
@@ -1355,9 +1360,12 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
      * `legal.approval.self`: those decide your own without conditions. The CEO
      * decides their own only when nobody else in the company could
      * (lib/core/approvals/self-approval.ts).
+     *
+     * Not the Owner's `audit.view`, `audit.export` or `audit.sensitive.view`
+     * either: the CEO manages the company's settings (the user, 2026-11-10),
+     * and the audit log, which is evidence about administrators too, stays the
+     * Owner's. Renaming the company is on the company ladder the CEO now holds.
      */
-    // The CEO may rename their company (user, 2026-10-02); nothing else on it.
-    company: { extra: ["company.name.update"] },
     // CEO access (2026-11): in a tenant of one company the CEO gives members
     // their own rights on top of their role; every holder may do the same.
     team: { extra: ["team.ceo_access.manage"] },

@@ -65,7 +65,9 @@ describe("role × module access matrix", () => {
     { role: "CEO", module: "finance", level: "MANAGE", scope: "COMPANY" },
     { role: "CEO", module: "sales", level: "MANAGE", scope: "COMPANY" },
     { role: "CEO", module: "clients", level: "MANAGE", scope: "COMPANY" },
-    { role: "CEO", module: "settings", level: "VIEW", scope: "COMPANY" },
+    // The company's settings as the Owner keeps them (the user, 2026-11-10: "CEO can.").
+    { role: "CEO", module: "settings", level: "MANAGE", scope: "COMPANY" },
+    { role: "CEO", module: "company", level: "MANAGE", scope: "COMPANY" },
     { role: "CEO", module: "organization", level: "VIEW", scope: "COMPANY" },
     { role: "QAQC", module: "qaqc", level: "MANAGE", scope: "COMPANY" },
     { role: "HSE", module: "hse", level: "MANAGE", scope: "COMPANY" },
@@ -136,7 +138,9 @@ describe("restricted sub-permissions", () => {
    * The CEO was an approver and viewer: no invoice, expense, deal or contract
    * of their own (PRD #5 §16). The user changed that on 2026-11-09 ("CEO does
    * everything"): the Owner's rights in every company module, without the
-   * Owner's unconditional self-approval or the group's ownership.
+   * Owner's unconditional self-approval or the group's ownership. On
+   * 2026-11-10 the company's settings followed ("CEO can."); the audit log and
+   * the Owner and Group IT seats did not.
    */
   it("gives the CEO the Owner's rights in every company module, and not the group's", () => {
     const ceo = new Set(permissionsForRole("CEO"));
@@ -144,9 +148,21 @@ describe("restricted sub-permissions", () => {
     for (const permission of ["finance.invoice.create", "finance.payment.create", "finance.expense.create", "finance.budget.create", "finance.commitment.create", "finance.export", "sales.lead.create", "sales.opportunity.create", "sales.proposal.create", "client.create", "legal.contract.create", "procurement.request.create", "task.create", "document.create", "daily_log.create", "hse.incident.create", "qaqc.inspection.create", "inventory.item.create", "finance.settings.manage", "hr.compensation.view"] as const) {
       expect(ceo.has(permission), permission).toBe(true);
     }
-    // Every difference is a group, company-administration or self-approval right.
+    for (const permission of ["settings.manage", "company.manage", "company.settings.update", "company.finance_settings.manage", "company.modules.manage", "security.policy.manage"] as const) {
+      expect(ceo.has(permission), permission).toBe(true);
+    }
+    // Every difference is the group's, the audit log, the Owner and Group IT seats, or self-approval.
     const ownerOnly = owner.filter((permission) => !ceo.has(permission));
-    expect(ownerOnly.filter((permission) => !/^(organization\.|department\.|company\.|security\.|audit\.|team\.(owner|group_role)\.|settings\.manage$|person_profile\.|candidate\.)/.test(permission)).sort()).toEqual(["finance.approval.self", "legal.approval.self", "sales.approval.self"]);
+    expect(ownerOnly.filter((permission) => !/^(organization\.|department\.|person_profile\.|candidate\.)/.test(permission)).sort()).toEqual([
+      "audit.export",
+      "audit.sensitive.view",
+      "audit.view",
+      "finance.approval.self",
+      "legal.approval.self",
+      "sales.approval.self",
+      "team.group_role.assign",
+      "team.owner.assign",
+    ]);
     expect([...ceo].filter((permission) => !owner.includes(permission))).toEqual([]);
   });
 

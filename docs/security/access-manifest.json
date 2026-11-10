@@ -418,8 +418,8 @@
         "people": "CONTRIBUTE/GROUP",
         "team": "MANAGE/COMPANY",
         "organization": "VIEW/COMPANY",
-        "company": "VIEW/COMPANY",
-        "settings": "VIEW/COMPANY",
+        "company": "MANAGE/COMPANY",
+        "settings": "MANAGE/COMPANY",
         "support": "VIEW/COMPANY"
       },
       "COMPANY_MANAGER": {
@@ -448,8 +448,8 @@
         "people": "CONTRIBUTE/GROUP",
         "team": "MANAGE/COMPANY",
         "organization": "APPROVE/COMPANY",
-        "company": "VIEW/COMPANY",
-        "settings": "VIEW/COMPANY",
+        "company": "MANAGE/COMPANY",
+        "settings": "MANAGE/COMPANY",
         "support": "VIEW/COMPANY"
       },
       "GROUP_HEAD": {
@@ -478,8 +478,8 @@
         "people": "CONTRIBUTE/GROUP",
         "team": "MANAGE/COMPANY",
         "organization": "APPROVE/GROUP",
-        "company": "VIEW/COMPANY",
-        "settings": "VIEW/COMPANY",
+        "company": "MANAGE/COMPANY",
+        "settings": "MANAGE/COMPANY",
         "support": "VIEW/COMPANY"
       }
     },
@@ -4408,12 +4408,12 @@
       },
       "organization": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["organization.company.view","organization.department.view","organization.view"] },
       "company": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["company.integrations.view","company.localization.view","company.modules.view","company.name.update","company.numbering.view","company.settings.view","company.view"]
+        "permissions": ["company.finance_settings.manage","company.finance_settings.view","company.integrations.manage","company.integrations.view","company.localization.manage","company.localization.view","company.manage","company.modules.manage","company.modules.view","company.name.update","company.numbering.manage","company.numbering.view","company.security_settings.manage","company.security_settings.view","company.settings.update","company.settings.view","company.storage.view","company.view","security.audit.read","security.devices.read","security.devices.revoke","security.policy.manage","security.policy.read","security.sessions.read","security.sessions.revoke"]
       },
-      "settings": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["settings.view"] },
+      "settings": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["settings.manage","settings.view"] },
       "support": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["support.request.view","support.view"] }
     },
     "ENGINEER@GROUP_HEAD": {
