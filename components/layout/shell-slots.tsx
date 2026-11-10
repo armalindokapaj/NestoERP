@@ -5,7 +5,6 @@ import { useRouter } from "@/components/navigation/guarded-router";
 
 import { CriticalAnnouncementBanner } from "@/components/announcements/shell";
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { usePublishedHeight } from "@/lib/hooks/use-published-height";
 import type { CriticalBannerDTO } from "@/lib/modules/announcements/announcement.service";
 import type { GroupEntryCapability, ShellCoreDTO } from "@/lib/workspace/shell-core";
 import type { SlotResult } from "@/lib/workspace/shell-slots";
@@ -252,12 +251,8 @@ export function BannerSlot() {
   // No space is held for a banner that may never come: under the sticky breadcrumb
   // bar the page's top margin does that job, and a late banner moves the page once
   // (Sticky Navigation, accepted by the product owner 2026-09-30; was SHELL-03).
-  // Version 2 measures the region and publishes its height, so what starts below
-  // the stack keeps clear of a banner of any length (UI-02 §7.3, §16.2).
-  const region = React.useRef<HTMLDivElement>(null);
-  usePublishedHeight("--nesto-shell-banner-h", region);
   return (
-    <div ref={region} data-shell-banner data-testid="critical-banner-region">
+    <div data-shell-banner data-testid="critical-banner-region">
       {result ? result.ok ? <CriticalAnnouncementBanner banner={result.data} /> : <BannerFailed /> : null}
     </div>
   );

@@ -20,7 +20,7 @@ export async function GroupHero({ identity }: { identity: GroupIdentity }) {
       <div className="flex flex-wrap items-center justify-between gap-4 border-l-2 border-l-accent p-5 md:p-6">
         <div className="min-w-0">
           <p className="nesto-eyebrow text-fg-subtle">{t("group")}</p>
-          <h2 id="group-hero-title" className="mt-1 truncate font-display text-section text-fg ds2:font-semibold">
+          <h2 id="group-hero-title" className="mt-1 truncate font-serif look2:font-display text-section text-fg">
             {identity.name}
           </h2>
           {facts.length ? <p className="mt-1 text-table text-fg-muted">{facts.join(" · ")}</p> : null}

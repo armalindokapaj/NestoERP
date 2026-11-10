@@ -20,7 +20,6 @@ export function ButtonEntry() {
   return (
     <CatalogEntry
       id="buttons"
-      order={1}
       title="Button"
       source="components/ui/button.tsx"
       summary="One visually primary action per task area, named with a verb. Hover is a small shift in contrast, pressed is immediate, and nothing lifts or moves."
@@ -85,7 +84,6 @@ export function IconButtonEntry() {
   return (
     <CatalogEntry
       id="icon-buttons"
-      order={2}
       title="IconButton"
       source="components/ui/icon-button.tsx"
       summary="An icon-only control. Its label is required, so it always has an accessible name, and in version 2 the same label is its tooltip on hover and on keyboard focus. Hover is a neutral ground with no colour of its own."

@@ -27,8 +27,6 @@ import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/ui/page-container";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDesignVersion2 } from "@/lib/hooks/use-design-version";
-import type { AppearanceOptions } from "@/lib/layout/design-state";
 import type { SidebarState } from "@/lib/layout/sidebar-state";
 import { cn } from "@/lib/utils/cn";
 
@@ -37,8 +35,6 @@ type User = { id: string; name: string; firstName: string; lastName: string; ema
 /** The mark, the name and the workspace line, as the platform's sidebar header has them (OW §2-§18). */
 function AdminIdentity() {
   const t = useTranslations("admin");
-  const { isRail } = useSidebar();
-  const ds2 = useDesignVersion2();
   const link = (
     <Link href="/admin" aria-label={t("shell.dashboardLink")} data-testid="platform-context" className="flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left">
       <OrganizationMark name="NESTO Platform" logoUrl={null} />
@@ -48,14 +44,7 @@ function AdminIdentity() {
       </span>
     </Link>
   );
-  // Version 2: on the rail the mark names itself on hover and focus, like every row under it (UI-02 §7.1).
-  if (!ds2 || !isRail) return link;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{t("shell.platformName")}</TooltipContent>
-    </Tooltip>
-  );
+  return link;
 }
 
 /* The platform's navigation row (components/layout/sidebar-nav.tsx): a light accent ground, accent icon and text, a 2px left marker;
@@ -72,19 +61,18 @@ function NavRow({ item, active, dense, onNavigate }: { item: AdminDestination; a
       aria-label={label}
       data-testid={`admin-nav-${item.key}`}
       className={cn(
-        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-full px-3 font-mono text-micro font-medium uppercase tracking-[0.1em] transition-colors",
-        "ds2:rounded-lg ds2:font-sans ds2:text-body ds2:normal-case ds2:tracking-normal",
+        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
+        "look2:rounded-full look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.1em]",
         dense ? "min-h-11 py-2.5" : "py-2.5 touch:min-h-11",
         // Pending shows before the route commits (§28), not by colour alone.
         "data-[nav-pending]:bg-hover data-[nav-pending]:[&>svg]:animate-pulse",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
         // Version 2 (UI-02 §7.1, §9.1): as the company's rows, and a focus ring at full strength.
-        "ds2:focus-visible:ring-ring",
-        active ? "bg-primary text-primary-fg ds2:bg-accent-soft ds2:font-semibold ds2:text-fg" : "text-fg-muted hover:bg-hover hover:text-fg ds2:active:bg-pressed",
+        active ? "bg-accent-soft text-accent-strong look2:bg-primary look2:text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
       )}
     >
-      {active ? <span aria-hidden="true" className={cn(navMarkerClass, "hidden ds2:block")} /> : null}
-      <item.icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "ds2:text-fg" : "text-fg-subtle group-hover:text-fg ds2:text-fg-muted")} />
+      {active ? <span aria-hidden="true" className={cn(navMarkerClass, "look2:hidden")} /> : null}
+      <item.icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "text-accent look2:text-current" : "text-accent-strong group-hover:text-accent look2:text-fg-subtle look2:group-hover:text-fg")} />
       <span className="nesto-nav-label truncate">{label}</span>
     </Link>
   );
@@ -104,7 +92,7 @@ function Navigation({ permissions, utility = false, dense = false, onNavigate }:
   const items = visibleTo(adminDestinations, permissions).filter((item) => Boolean(item.utility) === utility);
   if (!items.length) return null;
   return (
-    <nav aria-label={utility ? t("shell.navLabelSystem") : t("shell.navLabel")} className={cn("flex flex-col px-3 py-2", dense ? "gap-4" : "gap-6 ds2:px-2")}>
+    <nav aria-label={utility ? t("shell.navLabelSystem") : t("shell.navLabel")} className={cn("flex flex-col px-3 py-2", dense ? "gap-4" : "gap-6")}>
       <ul className="space-y-0.5">
         {items.map((item) => <li key={item.key}><NavRow item={item} active={item.key === current} dense={dense} onNavigate={onNavigate} /></li>)}
       </ul>
@@ -122,7 +110,7 @@ function SidebarToggle() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button type="button" onClick={toggle} aria-label={label} aria-pressed={collapsed} data-testid="admin-sidebar-toggle" className="hidden size-8 shrink-0 cursor-pointer place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg xl:-ml-5 xl:grid touch:size-11 ds2:xl:-ml-3">
+        <button type="button" onClick={toggle} aria-label={label} aria-pressed={collapsed} data-testid="admin-sidebar-toggle" className="hidden size-8 shrink-0 cursor-pointer place-items-center rounded-md text-fg-subtle transition-colors hover:bg-hover hover:text-fg xl:-ml-5 xl:grid touch:size-11">
           <Icon aria-hidden="true" className="size-4" />
         </button>
       </TooltipTrigger>
@@ -258,15 +246,15 @@ function SectionTabs({ permissions }: { permissions: readonly string[] }) {
  * lives in the /admin layout, so moving between admin pages swaps only the main
  * region (§54).
  */
-export function PlatformShell({ user, permissions, initialSidebar, appearance, devActions, children }: { user: User; permissions: readonly string[]; initialSidebar: SidebarState; appearance: AppearanceOptions; devActions?: React.ReactNode; children: React.ReactNode }) {
+export function PlatformShell({ user, permissions, initialSidebar, devActions, children }: { user: User; permissions: readonly string[]; initialSidebar: SidebarState; devActions?: React.ReactNode; children: React.ReactNode }) {
   return (
     <SidebarProvider initial={initialSidebar} className="min-h-dvh bg-canvas">
-      <Shell user={user} permissions={permissions} appearance={appearance} devActions={devActions}>{children}</Shell>
+      <Shell user={user} permissions={permissions} devActions={devActions}>{children}</Shell>
     </SidebarProvider>
   );
 }
 
-function Shell({ user, permissions, appearance, devActions, children }: { user: User; permissions: readonly string[]; appearance: AppearanceOptions; devActions?: React.ReactNode; children: React.ReactNode }) {
+function Shell({ user, permissions, devActions, children }: { user: User; permissions: readonly string[]; devActions?: React.ReactNode; children: React.ReactNode }) {
   const [mobile, setMobile] = React.useState(false);
   const phone = usePhone();
   const pathname = usePathname();
@@ -275,16 +263,16 @@ function Shell({ user, permissions, appearance, devActions, children }: { user: 
 
   return (
     <>
-      <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden ds2:z-(--nesto-z-sidebar) w-[var(--nesto-nav-width)] flex-col border-r border-line bg-canvas transition-[width] lg:flex ds2:border-accent/25" data-testid="admin-sidebar">
-        <div className="flex h-16 shrink-0 items-center border-b border-fg px-3 ds2:border-transparent" data-testid="sidebar-header"><AdminIdentity /></div>
+      <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex look2:border-line" data-testid="admin-sidebar">
+        <div className="flex h-16 shrink-0 items-center px-3 look2:border-b look2:border-fg" data-testid="sidebar-header"><AdminIdentity /></div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><Navigation permissions={permissions} /></div>
-        <div className="shrink-0 border-t border-line pb-1 ds2:border-accent/25"><Navigation permissions={permissions} utility /></div>
+        <div className="shrink-0 border-t border-accent/25 pb-1 look2:border-line"><Navigation permissions={permissions} utility /></div>
         <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4"><PoweredBy isDemo={false} /></div>
       </aside>
       <Drawer open={mobile} onOpenChange={setMobile}>
         <DrawerContent side={phone ? "right" : "left"} className="bg-canvas lg:hidden" aria-describedby={undefined}>
           <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-accent/25 pl-4 pr-2">
-            <DrawerTitle className="font-display text-[1.375rem] text-fg">{t("shell.menu")}</DrawerTitle>
+            <DrawerTitle className="font-serif look2:font-display text-[1.375rem] font-normal text-fg">{t("shell.menu")}</DrawerTitle>
             <DrawerClose asChild>
               <button type="button" aria-label={t("shell.closeNavigation")} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"><X aria-hidden="true" className="size-5" strokeWidth={1.6} /></button>
             </DrawerClose>
@@ -296,7 +284,7 @@ function Shell({ user, permissions, appearance, devActions, children }: { user: 
       </Drawer>
       <BreadcrumbRegistryProvider>
       <div className="pl-[var(--nesto-nav-width)] transition-[padding]" data-admin-shell>
-        <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-fg bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
+        <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas look2:border-fg pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {/* Tablet: the drawer opens from the left. A phone has its menu at the right, as the platform does. */}
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} className="hidden size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover md:grid lg:hidden"><Menu className="size-5" /></button>
@@ -315,7 +303,6 @@ function Shell({ user, permissions, appearance, devActions, children }: { user: 
                 roleLabel: t("shell.platformAdmin"),
                 workspaceName: t("shell.platformName"),
                 destinations: { profile: "/admin/account", settings: "/admin/account", help: "/admin/help", whatsNew: "/admin/whats-new" },
-                appearance,
               }}
             />
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} data-testid="admin-menu" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover md:hidden"><Menu aria-hidden="true" className="size-[22px]" strokeWidth={1.6} /></button>

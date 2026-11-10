@@ -27,7 +27,6 @@ export function FieldEntry() {
   return (
     <CatalogEntry
       id="fields"
-      order={8}
       title="Inputs, selects and search"
       source="components/ui/input.tsx · textarea.tsx · select.tsx · form-select.tsx · search-field.tsx"
       summary="One control height for the density — 40px, 32px compact, 44px under touch — the 3:1 control border and an 8px radius. The border is what identifies a field, so it is never a divider grey."

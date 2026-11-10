@@ -6,7 +6,6 @@ import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { greetingText } from "@/components/dashboard/config-text";
 import { adminText } from "@/components/platform/admin-i18n";
 import { Badge } from "@/components/ui/badge";
-import { PageSection } from "@/components/ui/page-sections";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { QUICK_CREATE } from "@/components/platform/quick-create-items";
 import { adminActionLabel } from "@/components/platform/admin-actions";
@@ -25,11 +24,10 @@ import { assignedCompany } from "@/lib/access/project-ownership";
  * server component, so each streams in when its data lands and fails alone.
  */
 
-/** `section`: the heading is one of the page's sections, under this stable anchor and at this place (UI-02 §26.3). */
-export function SectionHeader({ id, title, href, linkLabel, section }: { id: string; title: string; href?: string; linkLabel?: string; section?: { id: string; order: number } }) {
+export function SectionHeader({ id, title, href, linkLabel }: { id: string; title: string; href?: string; linkLabel?: string }) {
   return (
     <div className="flex min-w-0 items-start justify-between gap-3">
-      <h2 id={id} className="text-card font-semibold text-fg">{title}{section ? <PageSection id={section.id} label={title} order={section.order} /> : null}</h2>
+      <h2 id={id} className="text-card font-semibold text-fg">{title}</h2>
       {href ? <Link href={href} className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong transition-opacity hover:opacity-80">{linkLabel}<ArrowRight aria-hidden="true" className="size-3.5" /></Link> : null}
     </div>
   );
@@ -44,12 +42,12 @@ export async function DashboardHeader({ context, actions }: { context: PlatformC
   const quick = QUICK_CREATE.filter((item) => context.permissions.includes(item.permission));
   return (
     <>
-      <div className="border-b border-fg pb-6 max-md:border-0 max-md:pb-1 max-md:pt-1">
+      <div className="border-b border-accent/25 pb-6 look2:border-fg max-md:border-0 max-md:pb-1 max-md:pt-1">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="nesto-eyebrow text-accent-strong">{today}</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="font-display text-[2.875rem] leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] ds2:text-page ds2:font-semibold ds2:leading-(--nesto-leading-page)">{ta("dashboard.lead")} <em className="font-serif font-light italic tracking-normal text-accent-strong ds2:not-italic">{ta("dashboard.accent")}</em><PageSection id="overview" label={`${ta("dashboard.lead")} ${ta("dashboard.accent")}`} order={0} /></h1>
+              <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05]">{ta("dashboard.lead")} <em className="italic text-accent-strong look2:font-serif look2:font-light look2:tracking-normal">{ta("dashboard.accent")}</em></h1>
               <Badge tone="neutral" className="max-md:hidden">{ta("shell.platformAdmin")}</Badge>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -102,7 +100,7 @@ function Metric({ label, value, detail, href, icon: Icon, tone }: { label: strin
         <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9"><Icon className="size-4" strokeWidth={1.6} /></span>
         <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">{label}</p>
       </div>
-      <p className="mt-3 font-display text-display tabular-nums text-fg md:mt-4 ds2:text-metric ds2:font-semibold">{value}</p>
+      <p className="mt-3 font-serif look2:font-display text-display font-normal tabular-nums text-fg md:mt-4">{value}</p>
       <p className={cn("mt-1 text-meta", tone === "attention" ? "text-warning-strong" : "text-fg-subtle")}>{detail}</p>
     </Link>
   );
@@ -163,7 +161,7 @@ export async function AttentionSection({ context }: { context: PlatformContext }
   return (
     <section aria-labelledby="dash-attention" className={cn("nesto-card flex min-w-0 flex-col p-5", critical && "border-danger/40")} data-testid="dashboard-attention">
       <div className="flex items-center gap-2">
-        <SectionHeader id="dash-attention" title={t("dashboard.attentionTitle")} section={{ id: "attention", order: 1 }} />
+        <SectionHeader id="dash-attention" title={t("dashboard.attentionTitle")} />
         {items.length > 0 ? <span className="grid h-[26px] min-w-[26px] place-items-center rounded-full bg-accent-soft px-1.5 text-meta font-bold text-accent-strong">{total}</span> : null}
       </div>
       <div className="mt-4 min-w-0 flex-1">
@@ -207,7 +205,7 @@ export async function ActivitySection({ context }: { context: PlatformContext })
   const [rows, t] = await Promise.all([dashboardActivity(context), getTranslations("admin")]);
   return (
     <section aria-labelledby="dash-activity" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-activity">
-      <SectionHeader id="dash-activity" title={t("dashboard.activityTitle")} href="/admin/audit" linkLabel={t("dashboard.activityLink")} section={{ id: "activity", order: 2 }} />
+      <SectionHeader id="dash-activity" title={t("dashboard.activityTitle")} href="/admin/audit" linkLabel={t("dashboard.activityLink")} />
       <div className="mt-4 min-w-0 flex-1">
         {rows.length === 0 ? (
           <p className="text-table text-fg-subtle">{t("dashboard.activityNone")}</p>
@@ -235,7 +233,7 @@ export async function OrganizationsSection({ context }: { context: PlatformConte
   const [rows, t] = await Promise.all([dashboardOrganizations(context), getTranslations("admin")]);
   return (
     <section aria-labelledby="dash-orgs" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-organizations">
-      <SectionHeader id="dash-orgs" title={t("dashboard.orgsTitle")} href="/admin/organizations" linkLabel={t("dashboard.viewAll")} section={{ id: "organizations", order: 3 }} />
+      <SectionHeader id="dash-orgs" title={t("dashboard.orgsTitle")} href="/admin/organizations" linkLabel={t("dashboard.viewAll")} />
       {rows.length === 0 ? (
         <div className="mt-4 text-table text-fg-subtle">
           <p>{t("dashboard.orgsNone")}</p>
@@ -268,7 +266,7 @@ export async function ProjectsSection({ context, summary }: { context: PlatformC
   const [rows, canCreate, t] = await Promise.all([dashboardProjects(context), summary.then((value) => value.organizations.companies > 0, () => false), getTranslations("admin")]);
   return (
     <section aria-labelledby="dash-projects" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-projects">
-      <SectionHeader id="dash-projects" title={t("dashboard.projectsTitle")} href="/admin/projects" linkLabel={t("dashboard.viewAll")} section={{ id: "projects", order: 4 }} />
+      <SectionHeader id="dash-projects" title={t("dashboard.projectsTitle")} href="/admin/projects" linkLabel={t("dashboard.viewAll")} />
       {rows.length === 0 ? (
         <div className="mt-4 text-table text-fg-subtle">
           <p>{t("dashboard.projectsNone")}</p>
@@ -306,23 +304,23 @@ export async function UsageSection({ context }: { context: PlatformContext }) {
   const shareTone = share === null ? "" : share >= STORAGE_CRITICAL ? "text-danger-strong" : share >= STORAGE_WARNING ? "text-warning-strong" : "text-fg-subtle";
   return (
     <section aria-labelledby="dash-usage" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-usage">
-      <SectionHeader id="dash-usage" title={t("dashboard.usageTitle")} section={{ id: "usage", order: 5 }} />
+      <SectionHeader id="dash-usage" title={t("dashboard.usageTitle")} />
       <div className="mt-4 grid gap-5 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-line">
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.storage")}</p>
-          <p className="mt-1 font-display text-[1.625rem] leading-tight text-fg tabular-nums ds2:font-semibold">{storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}</p>
+          <p className="mt-1 font-serif look2:font-display text-[1.625rem] font-normal leading-tight text-fg tabular-nums">{storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}</p>
           {share !== null ? <p className={cn("text-meta", shareTone)}>{t("dashboard.quotaShare", { percent: Math.round(share * 100) })}</p> : <p className="text-meta text-fg-subtle">{t("dashboard.noQuota")}</p>}
           <Link href="/admin/system/storage" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.storage")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.moduleProvisioning")}</p>
-          <p className="mt-1 font-display text-[1.625rem] leading-tight text-fg tabular-nums ds2:font-semibold">{modules.assignments}</p>
+          <p className="mt-1 font-serif look2:font-display text-[1.625rem] font-normal leading-tight text-fg tabular-nums">{modules.assignments}</p>
           <p className="text-meta text-fg-subtle">{t("dashboard.assignmentsHint", { available: modules.available })}</p>
           <Link href="/admin/modules" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manageModules")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.threeD")}</p>
-          <p className="mt-1 font-display text-[1.625rem] leading-tight text-fg tabular-nums ds2:font-semibold">{threeD.configured}</p>
+          <p className="mt-1 font-serif look2:font-display text-[1.625rem] font-normal leading-tight text-fg tabular-nums">{threeD.configured}</p>
           <p className="text-meta text-fg-subtle">{threeD.configured === 0 ? t("dashboard.threeDNone") : t("dashboard.threeDHint", { public: threeD.public, companyOnly: threeD.companyOnly, private: threeD.private, offline: threeD.offline })}</p>
           <Link href="/admin/3d" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manage3d")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>

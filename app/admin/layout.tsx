@@ -14,7 +14,6 @@ import { identityKeys } from "@/lib/context/identity-key";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { requirePlatformContext } from "@/lib/context/platform-context";
-import { getDesignState } from "@/lib/layout/design-server";
 import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
 
 export const metadata: Metadata = {
@@ -31,8 +30,6 @@ export const metadata: Metadata = {
 export default async function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   const context = await requirePlatformContext();
   const sidebarState = readSidebarState((await cookies()).get(SIDEBAR_COOKIE)?.value);
-  // Which display preferences the account panel may offer (UI-02 §15, §33): client code cannot read the environment.
-  const { options: appearance } = await getDesignState();
 
   return (
     <ModuleMessages namespaces={["admin", "adminOrgs", "adminAccess", "adminPlatform"]}>
@@ -50,7 +47,6 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
       user={{ id: context.userId, name: context.fullName, firstName: context.firstName, lastName: context.fullName.slice(context.firstName.length).trim(), email: context.email, username: context.username }}
       permissions={context.permissions}
       initialSidebar={sidebarState}
-      appearance={appearance}
     >
       <PasswordChangeNotice userId={context.userId} href="/admin/account" />
       {children}

@@ -15,7 +15,6 @@ export function Input({ className, type, ...props }: React.ComponentProps<"input
         "transition-colors focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "disabled:cursor-not-allowed disabled:opacity-60",
         // Version 2: a read-only field sits on the muted ground, so it does not pass for an editable one (UI-02 §9).
-        "ds2:[&[readonly]]:bg-surface-muted",
         "aria-[invalid=true]:border-danger aria-[invalid=true]:focus-visible:ring-danger",
         className,
       )}

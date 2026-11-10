@@ -21,7 +21,6 @@ export function TableEntry() {
   return (
     <CatalogEntry
       id="tables"
-      order={7}
       title="Table"
       source="components/ui/table.tsx"
       summary="A semantic table for records read against each other. Rows are divided by one subtle line, numbers are right-aligned in tabular numerals, and a selected row stays selected under the pointer."

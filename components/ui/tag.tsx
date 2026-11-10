@@ -34,7 +34,7 @@ export function Tag({ className, children, onRemove, removeLabel, ...props }: Ta
           type="button"
           onClick={onRemove}
           aria-label={removeLabel}
-          className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-hover hover:text-fg ds2:active:bg-pressed ds2:active:transition-none touch:after:absolute touch:after:-inset-2.5 touch:after:content-['']"
+          className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-hover hover:text-fg touch:after:absolute touch:after:-inset-2.5 touch:after:content-['']"
         >
           <X aria-hidden="true" className="size-3.5" />
         </button>

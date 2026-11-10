@@ -176,7 +176,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         aria-label={t("dialogTitle")}
         aria-keyshortcuts="Meta+K Control+K"
         title={`${t("dialogTitle")} (${shortcut.replace(" ", "")})`}
-        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted ds2:rounded-md transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-md look2:rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         data-testid="search-trigger"
         {...warm}
       >

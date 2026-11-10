@@ -3,19 +3,15 @@
 import * as React from "react";
 import { ArrowDown, ArrowUp, Bold, ImageOff, Star } from "lucide-react";
 
-import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { applyRulerChoice, ChoiceGroup, readDisplayPreferences } from "@/components/settings/display-preferences";
+import { useLocale } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { IconButton } from "@/components/ui/icon-button";
-import type { UiSection } from "@/components/ui/page-sections";
-import { RulerSectionLabel, RulerSectionList } from "@/components/ui/scroll-ruler";
 import { SearchField } from "@/components/ui/search-field";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
 import { formatCurrency } from "@/lib/i18n/format";
-import { RULER_CHOICES, type RulerChoice } from "@/lib/layout/design-state";
 
 /*
  * The catalog's live specimens: the states that only exist while something is
@@ -219,59 +215,5 @@ export function Picture({ alt }: { alt: string }) {
         <img ref={image} src={UNREADABLE} alt={alt} onError={() => setBroken(true)} className="size-full object-cover" />
       )}
     </div>
-  );
-}
-
-/** The ruler's own preference, as Settings › Appearance and the account panel write it: the rail leaves and "On this page" arrives at once. */
-export function RulerSwitch() {
-  const t = useTranslations("settings");
-  const [choice, setChoice] = React.useState<RulerChoice>("auto");
-  // What the server rendered onto <html>, read after hydration so the first paint matches the server's.
-  React.useEffect(() => setChoice(readDisplayPreferences().ruler), []);
-
-  return (
-    <ChoiceGroup
-      label={t("appearance.ruler")}
-      value={choice}
-      options={RULER_CHOICES.map((value) => ({ value, label: t(`appearance.rulers.${value}`) }))}
-      onChange={(next) => {
-        setChoice(next);
-        applyRulerChoice(next);
-      }}
-      testId="catalog-ruler"
-    />
-  );
-}
-
-const SAMPLE_SECTIONS: UiSection[] = ["Overview", "Financial position", "Schedule and milestones", "Risks"].map((label, order) => ({
-  id: `sample-section-${order + 1}`,
-  label,
-  order,
-  element: null,
-  anchor: null,
-  availability: "visible",
-}));
-
-/** The one label the rail shows on hover or focus where the page's content runs up to it. */
-export function RulerLabelSpecimen() {
-  return <RulerSectionLabel label={SAMPLE_SECTIONS[1].label} />;
-}
-
-/** The list behind the rail's "On this page" control, as its popover holds it. Its links go nowhere here: the sections are samples. */
-export function RulerListSpecimen() {
-  const [active, setActive] = React.useState(1);
-  return (
-    <nav aria-label="On this page (sample)" className="w-60 rounded-xl border border-line bg-surface p-1 shadow-menu">
-      <p aria-hidden="true" className="px-3 pb-1 pt-1.5 text-meta font-semibold text-fg-subtle">On this page</p>
-      <RulerSectionList
-        id="catalog-ruler-list"
-        sections={SAMPLE_SECTIONS}
-        active={active}
-        onActivate={(event, index) => {
-          event.preventDefault();
-          setActive(index);
-        }}
-      />
-    </nav>
   );
 }

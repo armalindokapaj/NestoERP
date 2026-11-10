@@ -117,7 +117,7 @@ export function SectionHeader({
 
         <h2
           className={cn(
-            "mt-5 text-balance font-display text-page leading-tight sm:text-display",
+            "mt-5 text-balance font-serif look2:font-display text-page font-normal leading-tight sm:text-display",
             inverse ? "text-graphite-fg" : "text-fg",
           )}
         >
@@ -161,7 +161,7 @@ export function PageIntro({
       <div aria-hidden="true" className="nesto-drafting-grid absolute inset-0" />
       <Container className="relative py-16 sm:py-20 lg:py-24">
         <p className="nesto-eyebrow text-accent-strong">{eyebrow}</p>
-        <h1 className="mt-5 max-w-3xl text-balance font-display text-page leading-tight text-fg sm:text-display">
+        <h1 className="mt-5 max-w-3xl text-balance font-serif look2:font-display text-page font-normal leading-tight text-fg sm:text-display">
           {title}
         </h1>
         {lead ? (

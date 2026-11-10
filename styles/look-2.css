@@ -1,0 +1,105 @@
+/*
+ * Look 2 — "Theme 2" in the interface (lib/layout/look-state.ts;
+ * docs/ui/UI-03-vertical-look.md).
+ *
+ * An overlay, never a second default: every rule here is scoped to
+ * `:root[data-look="2"]`, which the root layout renders only for a person who
+ * chose Theme 2, and restates variables styles/tokens.css already declares.
+ * Remove the attribute and the page is Theme 1 again, value for value.
+ *
+ * What it changes: the neutrals (cool paper and ink for warm ivory and
+ * graphite), the status fills of the light scheme, the lift of a card, a menu
+ * and a dialog, two radii, the easing, and the typefaces. What a token cannot
+ * say — a navigation row that becomes a pill, a table heading in mono capitals
+ * — is a `look2:` class on the component (styles/globals.css).
+ *
+ * Gold stays the accent in both looks. Each pair is held to the same contrast
+ * bar as Theme 1 (tests/unit/a11y/contrast.test.ts).
+ */
+
+:root[data-look="2"] {
+  /* ---- Ground and ink ---- */
+  --nesto-canvas: light-dark(#f5f6f7, #0b0d10);
+  --nesto-surface: light-dark(#ffffff, #12151a);
+  --nesto-surface-muted: light-dark(#eef0f2, #171b21);
+  --nesto-sidebar: light-dark(#ffffff, #0f1216);
+  --nesto-row-hover: light-dark(#f8f9fa, #181c22);
+
+  --nesto-fg: light-dark(#0f141a, #eceef1);
+  --nesto-fg-muted: light-dark(#3a424c, #a9b0ba);
+  --nesto-fg-subtle: light-dark(#59616c, #8b939e);
+
+  --nesto-border: light-dark(#dfe2e5, #232830);
+  --nesto-border-strong: light-dark(#c8ccd1, #363d47);
+  --nesto-control-border: light-dark(#757d87, #6f7884);
+
+  /* Ink in the light scheme; gold stays the primary action in the dark, as in Theme 1. */
+  --nesto-primary: light-dark(#0f141a, #c9a961);
+  --nesto-primary-fg: light-dark(#ffffff, #0b0d10);
+  --nesto-primary-hover: light-dark(#252c35, #d6b873);
+
+  --nesto-accent-fg: light-dark(#ffffff, #0b0d10);
+  --nesto-accent-soft: light-dark(#f6efdf, #221d13);
+  --nesto-hover: light-dark(#eceef1, #1f242b);
+
+  --nesto-graphite: light-dark(#0f141a, #eceef1);
+  --nesto-graphite-fg: light-dark(#ffffff, #0b0d10);
+  --nesto-hero: light-dark(#0f141a, #12151a);
+  --nesto-hero-fg: light-dark(#f5f6f7, #eceef1);
+
+  /* ---- Status: deeper fills in the light scheme; the dark scheme keeps Theme 1's ---- */
+  --nesto-success: light-dark(#1e6a4e, #46b98a);
+  --nesto-success-strong: light-dark(#1a5c44, #5ecb9c);
+  --nesto-success-soft: light-dark(#e6f1ec, #14241d);
+  --nesto-warning: light-dark(#b06f12, #e3934a);
+  --nesto-warning-strong: light-dark(#85500a, #eda66a);
+  --nesto-warning-soft: light-dark(#f8efe0, #2a1c10);
+  --nesto-danger: light-dark(#b0251f, #e8756f);
+  --nesto-danger-fg: light-dark(#ffffff, #0b0d10);
+  --nesto-danger-strong: light-dark(#a3221c, #f28f89);
+  --nesto-danger-soft: light-dark(#f9eae8, #2c1817);
+  --nesto-info: light-dark(#2d5a8a, #7ea2de);
+  --nesto-info-strong: light-dark(#274f7a, #9bb8e8);
+  --nesto-info-soft: light-dark(#e8eef5, #141c2a);
+
+  /*
+   * A lift, not a glow: the shadow is pulled in under the surface (a negative
+   * spread) and falls straight down, so a card stands off the paper without a
+   * halo round it. A menu and a dialog add a hairline at the edge.
+   */
+  --nesto-shadow-card-color: light-dark(rgb(15 20 26 / 0.2), rgb(0 0 0 / 0.5));
+  --nesto-shadow-menu-color: light-dark(rgb(15 20 26 / 0.36), rgb(0 0 0 / 0.6));
+  --nesto-shadow-dialog-color: light-dark(rgb(15 20 26 / 0.48), rgb(0 0 0 / 0.7));
+  --nesto-shadow-card: 0 14px 30px -22px var(--nesto-shadow-card-color);
+  --nesto-shadow-menu: 0 0 0 1px light-dark(rgb(15 20 26 / 0.08), rgb(255 255 255 / 0.08)), 0 20px 40px -18px var(--nesto-shadow-menu-color);
+  --nesto-shadow-dialog: 0 0 0 1px light-dark(rgb(15 20 26 / 0.08), rgb(255 255 255 / 0.08)), 0 50px 120px -40px var(--nesto-shadow-dialog-color), 0 20px 40px -24px var(--nesto-shadow-menu-color);
+
+  /* ---- Shape and motion ---- */
+  --nesto-radius-xl: 10px; /* dashboard cards */
+  --nesto-radius-card: 10px;
+  --nesto-radius-overlay: 14px;
+  --nesto-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/*
+ * The typefaces. next/font declares each face's variable on <body>
+ * (lib/fonts); here the product's three font variables are pointed at Theme
+ * 2's faces, so every `font-sans`, `font-mono` and `font-serif` follows. The
+ * running text names its face in full: Theme 1's body rule resolves its
+ * variable on <html>, where the face is not declared, and so falls back to the
+ * system font.
+ */
+:root[data-look="2"] body {
+  --font-nesto-sans: var(--font-plex-sans);
+  --font-geist-mono: var(--font-plex-mono);
+  --font-nesto-serif: var(--font-newsreader);
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Theme 1's alternates are Manrope's. */
+  font-feature-settings: normal;
+}
+
+/* The small uppercase label — a sidebar group, a fact's name, a kicker — is mono, a little less open. */
+:root[data-look="2"] .nesto-eyebrow {
+  font-family: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: 0.14em;
+}

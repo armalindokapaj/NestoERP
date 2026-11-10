@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { PageSection } from "@/components/ui/page-sections";
 import type { UserContext } from "@/lib/context/types";
 import { dateText } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils/cn";
@@ -50,16 +49,15 @@ export async function WelcomeHeader({
 
   return (
     <>
-      <div className="grid gap-x-8 gap-y-5 border-b border-fg pb-6 max-md:border-0 max-md:pb-1 max-md:pt-1 lg:grid-cols-3" data-testid="dashboard-header">
+      <div className="grid gap-x-8 gap-y-5 border-b border-accent/25 pb-6 look2:border-fg max-md:border-0 max-md:pb-1 max-md:pt-1 lg:grid-cols-3" data-testid="dashboard-header">
         <div className={cn("min-w-0", aside ? "lg:col-span-2" : "lg:col-span-3")} data-testid="dashboard-heading">
           <p className="nesto-eyebrow text-accent-strong">{today}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             {/* Version 2: no display face and nothing above the page title (UI-02 §6.2). */}
-            <h1 className="font-display text-[2.875rem] leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] ds2:text-page ds2:font-semibold ds2:leading-(--nesto-leading-page)">
-              {t(`${heading}.lead`)} <em className="font-serif font-light italic tracking-normal text-accent-strong ds2:not-italic">{t(`${heading}.accent`)}</em>
+            <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05]">
+              {t(`${heading}.lead`)} <em className="italic text-accent-strong look2:font-serif look2:font-light look2:tracking-normal">{t(`${heading}.accent`)}</em>
               {/* The top of the page, as the first of its sections (UI-02 §26.3). */}
-              <PageSection id="overview" label={`${t(`${heading}.lead`)} ${t(`${heading}.accent`)}`} order={0} />
             </h1>
             <Badge tone="neutral" className="max-md:hidden">{roleLabel}</Badge>
           </div>
@@ -68,7 +66,7 @@ export async function WelcomeHeader({
           <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
             <p className="text-[0.9375rem] text-fg-muted md:text-body">
               {/* The name takes the heading's accent: the serif in gold italic, like "overview" above. */}
-              {greetingText(t)}, <em className="font-serif text-[1.15em] italic leading-none text-accent-strong ds2:not-italic">{context.firstName}</em>
+              {greetingText(t)}, <em className="font-serif text-[1.15em] italic leading-none text-accent-strong look2:font-light look2:tracking-normal">{context.firstName}</em>
             </p>
             <Badge tone="neutral" className="rounded-full border border-accent/30 bg-transparent px-2.5 py-0.5 text-micro font-semibold text-accent-strong md:hidden">
               {roleLabel}

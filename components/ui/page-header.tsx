@@ -16,27 +16,27 @@ export const headerActionsClass = "flex max-w-full shrink-0 flex-wrap items-cent
 
 /**
  * Which page the header belongs to: a plain page, a module landing, a record,
- * a record's sub-page, a settings page. The kind picks version 1's drawing and
- * is published as `data-page-header`.
+ * a record's sub-page, a settings page. The kind picks the drawing and is
+ * published as `data-page-header`.
  */
 export type PageHeaderKind = "page" | "module" | "record" | "context" | "settings";
 
 type HeaderDrawing = { root: string; row: string; text: string; title: string; subtitle: string; status: string; meta: string };
 
 /**
- * Version 1: the condensed display title of a page, a module, a record and a
- * settings page, with an italic standfirst under the first two
- * (docs/ui/UI-03-vertical-look.md §3); the one-line header of a record's
- * sub-page; and the settings heading that left room for a breadcrumb it no
- * longer draws.
+ * The drawing of each kind: the serif display title of a plain page, the sans
+ * title of a module and a record, the one-line header of a record's sub-page,
+ * and the settings heading. The `look2:` classes are Theme 2's
+ * (docs/ui/UI-03-vertical-look.md §5): every title in the display face, and
+ * the line under a page's or a module's title as an italic standfirst.
  */
-const V1: Record<PageHeaderKind, HeaderDrawing> = {
+const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
   page: {
     root: "",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0",
-    title: "font-display text-page text-fg md:text-display [overflow-wrap:anywhere]",
-    subtitle: "mt-1.5 nesto-standfirst text-card",
+    title: "font-serif font-normal look2:font-display text-page text-fg md:text-display [overflow-wrap:anywhere]",
+    subtitle: "mt-1.5 text-body text-fg-muted look2:nesto-standfirst look2:text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
   },
@@ -44,8 +44,8 @@ const V1: Record<PageHeaderKind, HeaderDrawing> = {
     root: "",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0",
-    title: "font-display text-page text-fg [overflow-wrap:anywhere]",
-    subtitle: "mt-1.5 nesto-standfirst text-card",
+    title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display",
+    subtitle: "mt-1.5 text-body text-fg-muted look2:nesto-standfirst look2:text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
   },
@@ -53,7 +53,7 @@ const V1: Record<PageHeaderKind, HeaderDrawing> = {
     root: "space-y-4",
     row: "flex flex-wrap items-start justify-between gap-4",
     text: "min-w-0",
-    title: "font-display text-page text-fg [overflow-wrap:anywhere]",
+    title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display",
     subtitle: "mt-1 text-table text-fg-subtle [overflow-wrap:anywhere]",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
@@ -72,40 +72,11 @@ const V1: Record<PageHeaderKind, HeaderDrawing> = {
     root: "",
     row: "",
     text: "",
-    title: "mt-2 font-display text-page text-fg",
+    title: "mt-2 text-page font-semibold text-fg look2:font-display",
     subtitle: "mt-1.5 text-body text-fg-muted",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
   },
-};
-
-/**
- * Version 2 (UI-02 §7.2, §18.1): one header, whatever the page. The title is
- * the 28/36 page title at weight 600 (24/32 on a phone, §6.2), the line under
- * it is body text in the secondary colour 4px below, status follows 8px below
- * and the key facts 12px below that; the actions sit at the title's level and
- * go under it when the two no longer fit side by side. A long name breaks
- * anywhere rather than pushing the actions off the page (§24).
- */
-const V2_FULL: HeaderDrawing = {
-  root: "",
-  row: "ds2:flex ds2:flex-wrap ds2:items-start ds2:justify-between ds2:gap-x-4 ds2:gap-y-3",
-  text: "ds2:min-w-0",
-  title: "ds2:mt-0 ds2:text-page ds2:font-semibold ds2:[overflow-wrap:anywhere]",
-  subtitle: "ds2:mt-1 ds2:font-sans ds2:text-body ds2:font-normal ds2:not-italic ds2:text-fg-muted ds2:[overflow-wrap:anywhere]",
-  status: "ds2:mt-2",
-  meta: "ds2:mt-3 ds2:gap-x-6",
-};
-
-/** Version 2 inside a record (§18.1): the record's name on one compact line, at the section-heading step. */
-const V2_COMPACT: HeaderDrawing = {
-  root: "",
-  row: "ds2:gap-x-4",
-  text: "",
-  title: "",
-  subtitle: "ds2:text-body ds2:text-fg-muted",
-  status: "",
-  meta: "",
 };
 
 /**
@@ -147,8 +118,7 @@ export function PageHeaderFrame({
   /** Extra classes for the block holding the title, its line, status and facts (a record named above it below lg). */
   textClassName?: string;
 }) {
-  const v1 = V1[kind];
-  const v2 = kind === "context" ? V2_COMPACT : V2_FULL;
+  const d = DRAWING[kind];
   // A record's sub-page keeps everything on the title's line, so the line under the title is inline there.
   const Subtitle = kind === "context" ? "span" : "p";
   /*
@@ -159,12 +129,12 @@ export function PageHeaderFrame({
    */
   const inline = kind === "context" || Boolean(status);
   const wideMenu = <PageMenuSlot at="lg" reserve={reserveMenu} className={inline ? "-my-1.5 touch:-my-3" : undefined} />;
-  const heading = <h1 data-page-title className={cn(v1.title, v2.title, !inline && "lg:min-w-0")}>{title}</h1>;
+  const heading = <h1 data-page-title className={cn(d.title, !inline && "lg:min-w-0")}>{title}</h1>;
   return (
-    <div data-page-header={kind} className={cn(v1.root, v2.root, className)}>
+    <div data-page-header={kind} className={cn(d.root, className)}>
       {lead}
-      <div data-page-header-row className={cn(v1.row, v2.row, PAGE_MENU_ROW)}>
-        <div className={cn(v1.text, v2.text, PAGE_MENU_TEXT, textClassName)}>
+      <div data-page-header-row className={cn(d.row, PAGE_MENU_ROW)}>
+        <div className={cn(d.text, PAGE_MENU_TEXT, textClassName)}>
           {inline ? (
             heading
           ) : (
@@ -174,9 +144,9 @@ export function PageHeaderFrame({
               {wideMenu}
             </div>
           )}
-          {subtitle === null || subtitle === undefined ? null : <Subtitle className={cn(v1.subtitle, v2.subtitle)}>{subtitle}</Subtitle>}
+          {subtitle === null || subtitle === undefined ? null : <Subtitle className={d.subtitle}>{subtitle}</Subtitle>}
           {status ? (
-            <div className={cn(v1.status, v2.status)}>
+            <div className={d.status}>
               {status}
               {kind === "context" ? null : wideMenu}
             </div>
@@ -184,7 +154,7 @@ export function PageHeaderFrame({
           {/* A record's sub-page: one line, title, its line and status, then the ⋯. */}
           {kind === "context" ? wideMenu : null}
           {meta && meta.length > 0 ? (
-            <dl className={cn(v1.meta, v2.meta)}>
+            <dl className={d.meta}>
               {meta.map((entry) => (
                 <div key={entry.label} className="min-w-0">
                   <dt className="nesto-eyebrow text-fg-subtle">{entry.label}</dt>
@@ -214,7 +184,7 @@ export function PageHeaderFrame({
  * record's ⋯ among them, and the header's own ⋯ follows the title or status
  * (`wideMenu` above).
  */
-// `flex flex-wrap`: a settings header's row is a plain block in version 1, which would put its ⋯ on a line of its own.
+// `flex flex-wrap`: a settings header's row is a plain block, which would put its ⋯ on a line of its own.
 const PAGE_MENU_ROW = "group/page-header-row max-lg:has-[[data-page-menu]]:flex max-lg:has-[[data-page-menu]]:flex-wrap max-lg:has-[[data-page-menu]]:justify-start max-lg:[&_[data-page-menu]]:order-1";
 const PAGE_MENU_TEXT = "max-lg:group-has-[[data-page-menu]]/page-header-row:min-w-0 max-lg:group-has-[[data-page-menu]]/page-header-row:flex-[1_1_calc(100%_-_4.5rem)]";
 const PAGE_MENU_ACTIONS = "max-lg:group-has-[[data-page-menu]]/page-header-row:contents max-lg:group-has-[[data-page-menu]]/page-header-row:[&>:not([data-page-menu])]:order-3";

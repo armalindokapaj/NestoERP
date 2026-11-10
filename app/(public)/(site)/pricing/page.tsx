@@ -29,7 +29,7 @@ export default async function PricingPage() {
         <header className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="nesto-eyebrow text-fg-subtle">{t.eyebrow}</p>
-            <h1 className="mt-2 font-display text-page text-fg sm:text-display">{t.title}</h1>
+            <h1 className="mt-2 font-serif look2:font-display text-page text-fg sm:text-display">{t.title}</h1>
             <p className="mt-2 max-w-2xl text-body text-fg-muted">{t.subtitle}</p>
           </div>
           <p className="text-meta text-fg-subtle">{t.notes}</p>

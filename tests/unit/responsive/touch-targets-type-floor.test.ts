@@ -61,10 +61,9 @@ describe("a phone reads nothing under 12px (audit 4b)", () => {
     expect(phone).toMatch(/--nesto-text-tick:\s*0\.75rem;/);
   });
 
-  it("from md up version 1 keeps its 11px micro and 10px tick, and version 2 its 12px micro", () => {
+  it("from md up the 11px micro and the 10px tick are kept", () => {
     expect(/--nesto-text-micro:\s*([\d.]+)rem/.exec(tokens)?.[1]).toBe("0.6875");
     expect(/--nesto-text-tick:\s*([\d.]+)rem/.exec(tokens)?.[1]).toBe("0.625");
-    expect(/--nesto-text-micro:\s*([\d.]+)rem/.exec(css("tokens-v2.css"))?.[1]).toBe("0.75");
   });
 
   it("the micro and tick utilities and the eyebrow read the variables, so the phone floor reaches them", () => {

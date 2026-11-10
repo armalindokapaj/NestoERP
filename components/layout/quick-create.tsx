@@ -538,7 +538,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="inline-flex h-9 shrink-0 items-center max-md:hidden justify-center gap-1.5 rounded-full bg-primary px-2.5 text-table font-medium text-primary-fg transition-colors hover:bg-primary-hover md:px-4 touch:h-11 touch:min-w-11 ds2:rounded-md ds2:bg-accent ds2:text-accent-fg ds2:hover:bg-accent-strong ds2:md:px-3"
+        className="inline-flex h-9 shrink-0 items-center max-md:hidden justify-center gap-1.5 rounded-md bg-accent px-2.5 text-table font-medium text-accent-fg transition-colors hover:bg-accent-strong md:px-3 touch:h-11 touch:min-w-11 look2:rounded-full look2:bg-primary look2:px-4 look2:text-primary-fg look2:hover:bg-primary-hover"
         data-testid="quick-create-button"
         {...warm}
       >

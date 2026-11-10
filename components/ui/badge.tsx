@@ -12,14 +12,11 @@ import { cn } from "@/lib/utils/cn";
  * Each tone is a `-strong` text colour on its soft ground, measured in both
  * versions and schemes (lib/a11y/contrast-pairs.ts).
  *
- * Set like every small label in the product: the mono face, uppercase, a
- * little open (docs/ui/UI-03-vertical-look.md §4).
- *
  * Not a control: no hover cue, no pointer, no focus (§9.1). A badge that opens
  * something is a button that contains one.
  */
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-micro font-medium uppercase tracking-[0.06em] max-w-full",
+  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium max-w-full look2:font-mono look2:uppercase look2:tracking-[0.06em]",
   {
     variants: {
       /* nowrap keeps a short status on one line; `wrap` lets a long label break instead of overflowing (MOB-01 §35). */

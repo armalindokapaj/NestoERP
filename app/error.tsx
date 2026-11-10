@@ -30,7 +30,7 @@ export default function GlobalError({
         onRetry={reset}
         reference={error.digest}
         action={
-          <Button asChild variant="ghost" size="sm" className="hidden ds2:inline-flex">
+          <Button asChild variant="ghost" size="sm" className="hidden">
             <a href="/login">{t("errorSignIn")}</a>
           </Button>
         }

@@ -76,7 +76,7 @@ export function Card({
       aria-disabled={disabled || undefined}
       className={cn(
         "nesto-card group/card min-w-0",
-        interactive && !disabled && "cursor-pointer transition-colors hover:bg-row-hover active:bg-hover focus-visible:outline-2 ds2:active:bg-pressed ds2:active:transition-none",
+        interactive && !disabled && "cursor-pointer transition-colors hover:bg-row-hover active:bg-hover focus-visible:outline-2",
         navigable && [
           "relative transition-colors hover:border-line-strong",
           // The rule sits where the card's padding starts, inside the top border; decoration, so it is the gold that is never text (§6.1).

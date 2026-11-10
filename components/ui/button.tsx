@@ -16,25 +16,25 @@ import { cn } from "@/lib/utils/cn";
  */
 const buttonVariants = cva(
   [
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--nesto-radius-button) font-medium transition-colors ds2:active:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--nesto-radius-button) font-medium transition-colors [&_svg]:pointer-events-none [&_svg]:shrink-0",
     "disabled:pointer-events-none disabled:opacity-50",
     // Busy (`loading`) is not `disabled`, so it keeps focus; it reads and refuses the pointer the same way (§10.1).
     // Its own marker, because callers also set `aria-busy` on a button they have disabled themselves.
-    "data-[busy]:pointer-events-none data-[busy]:opacity-50 ds2:data-[busy]:relative",
+    "data-[busy]:pointer-events-none data-[busy]:opacity-50",
   ],
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-fg hover:bg-primary-hover ds2:active:bg-primary-pressed",
-        secondary: "border border-button-line bg-surface text-fg hover:bg-hover ds2:active:bg-pressed",
-        ghost: "text-fg-muted hover:bg-hover hover:text-fg ds2:active:bg-pressed",
-        subtle: "bg-hover text-fg hover:bg-line ds2:active:bg-pressed",
+        primary: "bg-primary text-primary-fg hover:bg-primary-hover",
+        secondary: "border border-button-line bg-surface text-fg hover:bg-hover",
+        ghost: "text-fg-muted hover:bg-hover hover:text-fg",
+        subtle: "bg-hover text-fg hover:bg-line",
         // Gold is not a fill for an action in version 2 (§6.1): there this is the primary button.
         accent:
-          "bg-accent text-accent-fg hover:opacity-90 ds2:bg-primary ds2:text-primary-fg ds2:hover:bg-primary-hover ds2:hover:opacity-100 ds2:active:bg-primary-pressed",
+          "bg-accent text-accent-fg hover:opacity-90",
         // danger-fg: white on the light red, near-black on the dark one; both >= 4.5:1 (AUD-11 AV-10).
         // Version 2 moves the fill away from its text instead of fading both (contrast-pairs.ts).
-        danger: "bg-danger text-danger-fg hover:opacity-90 ds2:hover:bg-danger-hover ds2:hover:opacity-100 ds2:active:bg-danger-pressed",
+        danger: "bg-danger text-danger-fg hover:opacity-90",
         link: "text-accent-strong underline-offset-4 hover:underline",
       },
       /*
@@ -103,8 +103,8 @@ export function Button({ className, variant, size, asChild = false, loading = fa
       {busy ? (
         <>
           {/* Version 2: centred over the label, which keeps its room and its name (opacity, not visibility). */}
-          <Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none ds2:absolute ds2:inset-0 ds2:m-auto" />
-          <span className="contents ds2:inline-flex ds2:items-center ds2:gap-2 ds2:opacity-0">{children}</span>
+          <Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
+          <span className="contents">{children}</span>
         </>
       ) : (
         children

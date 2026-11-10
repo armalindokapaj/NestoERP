@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "./tokens.css";
-@import "./tokens-v2.css";
+@import "./look-2.css";
 @import "./project-viewer.css";
 
 /*
@@ -8,9 +8,9 @@
  *
  * tokens.css declares the raw values; this file maps them onto Tailwind's
  * theme so components can only ever spend tokens, and defines the handful of
- * structural rules the app shell needs. tokens-v2.css restates those values
- * for version 2 of the design system, under `:root[data-ds="2"]` only
- * (UI-02 §33).
+ * structural rules the app shell needs. look-2.css restates some of those
+ * values for Theme 2, under `:root[data-look="2"]` only
+ * (lib/layout/look-state.ts).
  */
 
 @theme inline {
@@ -71,14 +71,14 @@
     "Segoe UI", sans-serif;
   --font-serif: var(--font-nesto-serif), "Iowan Old Style", "Palatino Linotype",
     Palatino, Georgia, ui-serif, serif;
-  --font-mono: var(--font-nesto-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 
   /*
    * The scale from §7. Nothing in the product may go below 11px.
    *
    * `@theme inline` copies these values into the utilities, so each step points
    * at a --nesto-* variable rather than stating a size: tokens.css declares the
-   * values, and tokens-v2.css can restate them for version 2 (UI-02 §6.2).
+   * values, and look-2.css can restate them for Theme 2.
    */
   --text-hero: var(--nesto-text-hero); /* 56px — public hero only */
   --text-hero--line-height: var(--nesto-leading-hero);
@@ -119,7 +119,7 @@
   --radius-sm: var(--nesto-radius-sm); /* 6px */
   --radius-md: var(--nesto-radius-md); /* 8px — buttons, inputs */
   --radius-lg: var(--nesto-radius-lg); /* 10px — small cards */
-  --radius-xl: var(--nesto-radius-xl); /* 10px — dashboard cards */
+  --radius-xl: var(--nesto-radius-xl); /* 12px — dashboard cards */
   --radius-2xl: var(--nesto-radius-2xl); /* 14px — dialogs */
   --radius-3xl: var(--nesto-radius-3xl); /* 16px — large feature cards */
 
@@ -230,35 +230,34 @@
 }
 
 /*
- * Version 2 of the design system (UI-02 §33). `ds2:` applies only inside
- * <html data-ds="2">, which the root layout renders for version 2 and never
- * for version 1 — so a `ds2:` class cannot change today's look. Most of the
- * difference between the versions is in the tokens (styles/tokens-v2.css);
- * this is for the few places where a component needs another class.
+ * Look 2 — "Theme 2" in the interface (lib/layout/look-state.ts). `look2:`
+ * applies only inside <html data-look="2">, which the root layout renders for
+ * look 2 and never for look 1 — so a `look2:` class cannot change look 1. Most
+ * of the difference between the looks is in the tokens (styles/look-2.css);
+ * the variant is for what a token cannot say: a row that becomes a pill, a
+ * label that becomes mono capitals.
  *
- * It adds no specificity, like every Tailwind variant, and it is declared
- * after them, so `ds2:text-page` beats `md:text-display` on the same element,
- * while a state still wins over it (`ds2:bg-surface hover:bg-hover`). Where
- * touch sizing must win, write the pair: `ds2:h-8 ds2:touch:h-11`.
+ * Declared after the pointer and breakpoint variants, so `look2:text-card`
+ * beats `md:text-display` on the same element.
  */
-@custom-variant ds2 (&:where([data-ds="2"], [data-ds="2"] *));
+@custom-variant look2 (&:where([data-look="2"], [data-look="2"] *));
 
 /*
- * The dashboard metric (UI-02 §6.2): 30/36, 26/32 in compact density, always
- * in tabular numerals so a column of figures lines up.
- */
-@utility text-metric {
-  font-size: var(--nesto-text-metric);
-  line-height: var(--tw-leading, var(--nesto-leading-metric));
-  font-variant-numeric: tabular-nums;
-}
-
-/*
- * Display type (docs/ui/UI-03-vertical-look.md §3): titles and figures in
- * Archivo, condensed, a step tighter than running text. The width is the
- * face's own axis, so one file serves a 28px page title and a 52px headline.
- * Declared before the font-weight utilities, so `font-display font-semibold`
- * is semibold.
+ * Theme 2's vocabulary (docs/ui/UI-03-vertical-look.md §4). Written with the
+ * variant — `look2:font-display` — so Theme 1 never draws them. Utilities, so
+ * a single-property class beside one still wins (`look2:nesto-standfirst
+ * look2:text-accent-strong`).
+ *
+ * - `font-display`: a title or a figure in Archivo, condensed. The width is
+ *   the face's own axis, so one file serves a 28px page title and a 52px
+ *   headline.
+ * - `nesto-standfirst`: the italic serif line under a title.
+ * - `nesto-rule`: the ink hairline that closes a title block. Ink, where a
+ *   divider between rows stays the quiet `border`.
+ * - `nesto-numeral`: a section's number, drawn as an outline. Decoration: the
+ *   heading beside it carries the name, so it is `aria-hidden`.
+ * - `nesto-status-dot`: the 8px square that leads a status label; it takes
+ *   `currentColor`, so `text-success` and the like colour it.
  */
 @utility font-display {
   font-family: var(--font-nesto-display), "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
@@ -267,29 +266,16 @@
   letter-spacing: -0.02em;
 }
 
-/*
- * The rest of the look's vocabulary (docs/ui/UI-03-vertical-look.md §4).
- * Utilities, so a single-property class beside one still wins
- * (`nesto-standfirst text-accent-strong`).
- *
- * - `nesto-rule`: the ink hairline that closes a title block. Ink, where a
- *   divider between rows stays the quiet `border`.
- * - `nesto-standfirst`: the italic line under a title.
- * - `nesto-numeral`: a section's number, drawn as an outline. Decoration:
- *   the heading beside it carries the name, so it is `aria-hidden`.
- * - `nesto-status-dot`: the 8px square that leads a status label; it takes
- *   `currentColor`, so `text-success` and the like colour it.
- */
-@utility nesto-rule {
-  border-bottom: 1px solid var(--nesto-fg);
-}
-
 @utility nesto-standfirst {
-  font-family: var(--font-nesto-serif), Georgia, "Times New Roman", serif;
+  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
   font-style: italic;
   font-weight: 300;
   letter-spacing: 0;
   color: var(--nesto-fg-muted);
+}
+
+@utility nesto-rule {
+  border-bottom: 1px solid var(--nesto-fg);
 }
 
 @utility nesto-numeral {
@@ -308,6 +294,16 @@
   flex-shrink: 0;
   border-radius: 2px;
   background-color: currentColor;
+}
+
+/*
+ * The dashboard metric (UI-02 §6.2): 30/36, 26/32 in compact density, always
+ * in tabular numerals so a column of figures lines up.
+ */
+@utility text-metric {
+  font-size: var(--nesto-text-metric);
+  line-height: var(--tw-leading, var(--nesto-leading-metric));
+  font-variant-numeric: tabular-nums;
 }
 
 /*
@@ -545,8 +541,8 @@
   body {
     background-color: var(--nesto-canvas);
     color: var(--nesto-fg);
-    /* Named in full: next/font declares the face on <body>, so a theme variable resolved on <html> would not find it. */
-    font-family: var(--font-nesto-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   /* §55: a visible 2px accent focus ring on every interactive control. */
@@ -673,7 +669,7 @@
     max-width: none;
   }
 
-  /* §20: white surface, 10px radius, 1px border, a short lift. */
+  /* §20: white surface, 12px radius, 1px border, minimal shadow. */
   .nesto-card {
     background-color: var(--nesto-surface);
     border: 1px solid var(--nesto-border);
@@ -688,11 +684,10 @@
    */
   .nesto-eyebrow {
     font-size: var(--text-micro);
-    font-family: var(--font-nesto-mono), ui-monospace, SFMono-Regular, monospace;
     line-height: 1.4;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.18em;
   }
 
   .nesto-skeleton {
@@ -961,7 +956,6 @@
   from {
     opacity: 0;
     transform: translateY(10px);
-    filter: blur(8px);
   }
 }
 

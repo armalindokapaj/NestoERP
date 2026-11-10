@@ -85,7 +85,7 @@ export function ContactForm({
         >
           <Check className="size-5" />
         </span>
-        <h2 className="mt-5 font-display text-section text-fg">{copy.sentTitle}</h2>
+        <h2 className="mt-5 font-serif look2:font-display text-section text-fg">{copy.sentTitle}</h2>
         <p className="mt-2 max-w-md text-body leading-relaxed text-fg-muted">
           {replyTime} {copy.urgentBefore}{" "}
           <a

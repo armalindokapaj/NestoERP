@@ -3,7 +3,6 @@
 import * as React from "react";
 
 import { MobileActionBar } from "@/components/ui/mobile-action-bar";
-import { usePublishedGeometry } from "@/lib/hooks/use-published-height";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -47,7 +46,6 @@ export function StickyStack({ children }: { children: React.ReactNode }) {
     setHeights((current) => (current[level] === height ? current : { ...current, [level]: height }));
   }, []);
   const value = React.useMemo(() => ({ heights, report }), [heights, report]);
-  usePublishedGeometry("--nesto-page-sticky-h", ORDER.reduce((total, level) => total + (heights[level] ?? 0), 0));
   return <StickyStackContext.Provider value={value}>{children}</StickyStackContext.Provider>;
 }
 

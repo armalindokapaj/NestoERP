@@ -11,7 +11,6 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import ts from "typescript";
 
 import { devModeFor } from "../lib/auth/dev-mode";
-import { resolveDesignSystem } from "../lib/layout/design-state";
 
 type Check = { name: string; run: () => string | null };
 
@@ -57,26 +56,7 @@ const checks: Check[] = [
     },
   },
   {
-    // UI-02 §33: the design-system version is the release flag's to decide; a cookie may move it only on a developer's machine.
-    name: "no cookie can change the design-system version outside dev mode",
-    run: () => {
-      const environments: Array<Record<string, string>> = [{ APP_ENV: "production" }, { APP_ENV: "staging" }, { APP_ENV: "unexpected" }, { NODE_ENV: "production" }];
-      const offenders: string[] = [];
-      for (const env of environments) {
-        for (const flag of [undefined, "1", "2", "on"]) {
-          for (const cookie of ["1", "2"]) {
-            const design = resolveDesignSystem({ flag, devMode: devModeFor(env), cookie });
-            const expected = flag === "2" ? "2" : "1";
-            if (design.switchable || design.version !== expected) offenders.push(JSON.stringify({ ...env, flag, cookie }));
-          }
-        }
-      }
-      if (resolveDesignSystem({ flag: undefined, devMode: true, cookie: "2" }).version !== "1") offenders.push("no flag, dev mode, cookie 2");
-      return offenders.length ? `the design-system version follows a cookie for ${offenders.join(", ")}` : null;
-    },
-  },
-  {
-    // UI-02 §26.2: the component catalog is a developer's page. It answers 404 outside dev mode, before it reads or renders anything.
+    // The component catalog is a developer's page. It answers 404 outside dev mode, before it reads or renders anything.
     name: "the component catalog does not exist outside dev mode",
     run: () => {
       const file = "app/dev/ui/page.tsx";
