@@ -30,6 +30,8 @@ const SOLO_CEO = { user: "user_e2e_solo_ceo", person: "person_e2e_solo_ceo", mem
 
 const raisedInvoices: string[] = [];
 let holderMember = "";
+/** Aurelia's settings as the spec found them, put back whatever happens to the settings test. */
+let settingsBefore: { unitReservationDays: number; unitSoldRule: string; defaultPaymentTermsDays: number } | null = null;
 
 async function clearUnits() {
   const ids = Object.values(UNITS);
@@ -89,6 +91,7 @@ async function removeSoloCeo() {
 }
 
 test.beforeAll(async () => {
+  settingsBefore = await readSettings();
   // Reservations name their deals: the units' trail goes first.
   await clearUnits();
   await clearRecords();
@@ -117,12 +120,17 @@ test.afterAll(async () => {
   // The people first, so a failed clean-up never leaves an Architect with CEO access or Solo Studio without its Owner.
   if (holderMember) await db.companyMember.update({ where: { id: holderMember }, data: { ceoAccess: false, ceoAccessGrantedAt: null, ceoAccessGrantedByMemberId: null, accessVersion: { increment: 1 } } });
   await restoreSoloOwner();
+  if (settingsBefore) await db.companySettings.update({ where: { companyId: AURELIA }, data: { ...settingsBefore, unitSoldRule: settingsBefore.unitSoldRule as never } });
   await clearUnits();
   await clearRecords();
   await removeSoloCeo();
   await removeSpareProject(PROJECT);
   await db.$disconnect();
 });
+
+function readSettings() {
+  return db.companySettings.findUniqueOrThrow({ where: { companyId: AURELIA }, select: { unitReservationDays: true, unitSoldRule: true, defaultPaymentTermsDays: true } });
+}
 
 /** Picks an option from a native select or from a Nesto dropdown (a combobox with a listbox), whichever the form draws. */
 async function choose(page: Page, field: Locator, option: { label?: string | RegExp; index?: number }) {
@@ -278,4 +286,83 @@ test("a CEO alone in a one-company tenant approves their own invoice, and the re
   const audit = await db.auditEvent.findFirst({ where: { entityId: invoiceId, actionKey: "APPROVAL_SELF_APPROVED" }, select: { actorMemberId: true } });
   expect(audit?.actorMemberId).toBe(SOLO_CEO.member);
   expect(await db.activity.count({ where: { entityId: invoiceId, action: "APPROVAL_SELF_APPROVED" } })).toBe(1);
+});
+
+/*
+ * The CEO manages the company's settings (the user, 2026-11-10: "CEO can."), and
+ * so does a member holding CEO access. The audit log stays the Owner's.
+ */
+const COMPANY_SECTIONS = ["company", "users", "roles", "modules", "localization", "integrations", "numbering", "sales", "storage", "mobile-devices", "mobile-policy", "security-events"] as const;
+const PERSONAL_SECTIONS = ["profile", "appearance", "notifications", "security"] as const;
+
+/** Settings lists every section but Audit; with `open`, each one opens too. */
+async function expectSettingsSections(page: Page, open: boolean) {
+  await page.goto("/settings");
+  const main = mainRegion(page);
+  for (const slug of [...COMPANY_SECTIONS, ...PERSONAL_SECTIONS]) await expect(main.locator(`a[href="/settings/${slug}"]`), slug).toHaveCount(1);
+  await expect(main.locator('a[href="/settings/audit"]')).toHaveCount(0);
+  if (!open) return;
+  for (const slug of [...COMPANY_SECTIONS, ...PERSONAL_SECTIONS]) {
+    await page.goto(`/settings/${slug}`);
+    // Users is Team's door from Settings (CEO Users & Roles §5).
+    await expect(page, slug).toHaveURL(slug === "users" ? /\/team(\?|$)/ : new RegExp(`/settings/${slug}(\\?|$)`));
+    await expect(mainRegion(page).getByRole("heading", { level: 1 }).first(), slug).toBeVisible();
+  }
+}
+
+/** Settings → Sales: the reservation length, saved from the page. */
+async function saveReservationDays(page: Page, days: number) {
+  await page.goto("/settings/sales");
+  const main = mainRegion(page);
+  await main.locator("#unitReservationDays").fill(String(days));
+  await main.getByRole("button", { name: "Save sales settings" }).click();
+  await expect.poll(async () => (await readSettings()).unitReservationDays).toBe(days);
+}
+
+/** Settings → Localization: the finance defaults' payment terms, saved from the page. */
+async function savePaymentTerms(page: Page, days: number) {
+  await page.goto("/settings/localization");
+  const main = mainRegion(page);
+  await expect(main.getByText("Finance defaults", { exact: true }).first()).toBeVisible();
+  await main.locator("#defaultPaymentTermsDays").fill(String(days));
+  await main.getByRole("button", { name: "Save settings" }).click();
+  await expect.poll(async () => (await readSettings()).defaultPaymentTermsDays).toBe(days);
+}
+
+async function expectAuditRefused(page: Page) {
+  await page.goto("/settings/audit");
+  await expect(page).toHaveURL(/\/access-denied/);
+  expect((await page.request.get("/api/audit")).status()).toBe(403);
+}
+
+test("the CEO opens every Settings section but Audit, and changes Settings → Sales and a finance default", async ({ page }) => {
+  test.setTimeout(300_000);
+  const before = await readSettings();
+  await signInAs(page, "ceo-a");
+  await expectSettingsSections(page, true);
+
+  const days = before.unitReservationDays >= 90 ? 30 : before.unitReservationDays + 1;
+  await saveReservationDays(page, days);
+  await saveReservationDays(page, before.unitReservationDays);
+
+  await savePaymentTerms(page, before.defaultPaymentTermsDays + 3);
+  await savePaymentTerms(page, before.defaultPaymentTermsDays);
+
+  await expectAuditRefused(page);
+});
+
+test("an Architect with CEO access manages the company's settings too, and is refused the audit log", async ({ page }) => {
+  test.setTimeout(240_000);
+  const before = await readSettings();
+  await signInAs(page, "architect-a");
+  await expectSettingsSections(page, false);
+
+  const days = before.unitReservationDays >= 90 ? 30 : before.unitReservationDays + 1;
+  await saveReservationDays(page, days);
+  await saveReservationDays(page, before.unitReservationDays);
+
+  await savePaymentTerms(page, before.defaultPaymentTermsDays + 3);
+  await savePaymentTerms(page, before.defaultPaymentTermsDays);
+
+  await expectAuditRefused(page);
 });
