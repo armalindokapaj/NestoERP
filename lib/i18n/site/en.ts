@@ -1,4 +1,6 @@
 import type {
+  ApplicantRole,
+  ApplicationKind,
   CompanySize,
   ContactChannelKey,
   ContactTopic,
@@ -6,7 +8,8 @@ import type {
   FooterColumnKey,
   FooterLinkKey,
   LifecycleStageKey,
-  PlanKey,
+  SectionFloorKey,
+  StartWindow,
   StatKey,
 } from "@/config/marketing";
 import type { ModuleGroup, ModuleKey } from "@/config/modules";
@@ -93,19 +96,77 @@ export const siteEn = {
     drawerTitle: "Site navigation",
     openMenu: "Open menu",
     closeMenu: "Close menu",
+    closePanel: "Close",
     signIn: "Sign in",
-    requestAccess: "Request access",
+    apply: "Apply for a workspace",
+    applyShort: "Apply",
     language: "Language",
+    followUnit: "Follow one Unit through NESTO",
   },
 
-  nav: {
-    fullView: "Full View",
-    platform: "Platform",
-    pricing: "Pricing",
-    security: "Security",
-    about: "About",
-    contact: "Contact",
-    faq: "Questions",
+  /** The Ribbon masthead (config/marketing.ts → siteRibbon). */
+  ribbon: {
+    tabs: {
+      platform: "Platform",
+      solutions: "Solutions",
+      modules: "Modules",
+      pricing: "Pricing",
+      company: "Company",
+    },
+    groups: {
+      understand: "Understand",
+      trust: "Trust",
+      business: "By business",
+      role: "By role",
+      build: "Build",
+      foundations: "Foundations",
+      nesto: "NESTO",
+      getIn: "Get in",
+      write: "Write to us",
+    },
+    items: {
+      overview: "Overview",
+      fullView: "Full View tour",
+      record: "One project record",
+      security: "Security",
+      phone: "On site, on a phone",
+      dayNight: "Day and Night",
+      developer: "Developer",
+      contractor: "Contractor",
+      group: "Group of companies",
+      allRoles: "All {n} roles",
+      configure: "Build your NESTO",
+      rates: "Every rate",
+      offer: "Launch offer",
+      about: "About",
+      questions: "Questions",
+      contact: "Contact",
+      apply: "Apply for a workspace",
+      signIn: "Sign in",
+    },
+    foundations: {
+      platform: { name: "NESTO Platform", note: "Every module, one workspace" },
+      rozaris: { name: "NESTO ROZARIS", note: "The 3D sales tower, per project" },
+    },
+    callouts: {
+      platform: {
+        eyebrow: "Try it here",
+        title: "Follow one Unit from the sale to the final account.",
+        cta: "Start the story",
+      },
+      solutions: {
+        eyebrow: "{n} roles",
+        title: "Every role opens NESTO on a workspace of its own.",
+        cta: "See every role",
+      },
+      pricing: {
+        eyebrow: "In public",
+        title: "Every rate is on the page before anyone calls you.",
+        cta: "Build your NESTO",
+      },
+    },
+    channels: { general: "General", sales: "New companies", support: "Customers" },
+    replyNote: "A person answers within one business day.",
   },
 
   footer: {
@@ -126,7 +187,7 @@ export const siteEn = {
       questions: "Questions",
       contact: "Contact",
       signIn: "Sign in",
-      requestAccess: "Request access",
+      apply: "Apply for a workspace",
       privacy: "Privacy",
       terms: "Terms",
     } satisfies Record<FooterLinkKey, string>,
@@ -137,11 +198,146 @@ export const siteEn = {
    * ---------------------------------------------------------------- */
 
   home: {
+    /** The section cut: NESTO drawn as a building, a floor per department. */
+    cut: {
+      eyebrow: "The Construction OS · Section A–A",
+      headline: "Every department.",
+      outline: "One building",
+      lead: "Cut NESTO open and it looks like the company it runs: a floor for every department, all of them standing on one foundation — the project record.",
+      apply: "Apply for a workspace",
+      story: "Follow one Unit through NESTO",
+      figures: { modules: "Modules", roles: "Roles", foundation: "Foundation" },
+      drawing: "Section A–A · scale 1:1",
+      pick: "Pick a floor",
+      floorsLabel: "NESTO, floor by floor",
+      foundation: "Foundation",
+      foundationLine: "One project record. Every floor stands on it.",
+      sheet: "Sheet",
+      open: "Open the sheet",
+      levels: { roof: "Roof", ground: "Ground", level: "L{n}" },
+      floors: {
+        management: {
+          name: "Management",
+          line: "The view from the top, built from every floor below.",
+          points: ["A dashboard for each role", "Approvals waiting on you", "One calendar for the company"],
+        },
+        sales: {
+          name: "Sales and Legal",
+          line: "Units, buyers and the contract behind every sale.",
+          points: ["Unit inventory and status", "Reservations and sale contracts", "ROZARIS 3D, published"],
+        },
+        finance: {
+          name: "Finance",
+          line: "Cost against value, reconciled because it was never apart.",
+          points: ["Budgets and commitments", "Invoices and payments", "Cash per project"],
+        },
+        people: {
+          name: "People",
+          line: "Crews and staff, where they work and what they work on.",
+          points: ["Employees and contracts", "Attendance and leave", "Qualifications"],
+        },
+        engineering: {
+          name: "Engineering",
+          line: "Drawings and documents under revision control.",
+          points: ["Drawing registers", "RFIs and submittals", "Transmittals"],
+        },
+        procurement: {
+          name: "Procurement",
+          line: "From the site's request to the goods at the gate.",
+          points: ["Requests and RFQs", "Orders against the budget", "Receipts into stock"],
+        },
+        quality: {
+          name: "Quality",
+          line: "Evidence, not recollection.",
+          points: ["Inspections and tests", "NCRs that hold the work", "Punch lists to handover"],
+        },
+        site: {
+          name: "Site",
+          line: "The day on site, recorded where it happens.",
+          points: ["Daily logs with photos", "Workforce and crews", "Tasks against the programme"],
+        },
+        safety: {
+          name: "Safety",
+          line: "Safety holds the ground floor of every site.",
+          points: ["Permits to work", "Incidents and actions", "Inspections and toolbox talks"],
+        },
+      } satisfies Record<SectionFloorKey, { name: string; line: string; points: string[] }>,
+    },
+    stages: {
+      eyebrow: "End to end",
+      title: ["From the tender", "to the final account"],
+      lead: "The building goes up and the record grows with it. Nothing is handed from one system to the next.",
+    },
+    kinds: {
+      eyebrow: "Solutions",
+      title: "Three kinds of company. One structure.",
+      follow: "Follow the story",
+      items: {
+        developer: {
+          name: "Developer",
+          copy: "Sell Units off the plan and watch each sale reach Legal, Finance and the 3D tower at once.",
+          meta: "Units · ROZARIS · Sales",
+        },
+        contractor: {
+          name: "Contractor",
+          copy: "Deliver on site with procurement, quality and safety on the same project as the office.",
+          meta: "Site · QA/QC · HSE",
+        },
+        group: {
+          name: "Group of companies",
+          copy: "Run central departments across companies, each keeping its own records.",
+          meta: "Group · Companies · Approvals",
+        },
+      },
+    },
+    prices: {
+      eyebrow: "What it costs",
+      title: "The bill of quantities, in public.",
+      cta: "Build your NESTO",
+      columns: { item: "Item", included: "Included", rate: "Rate", per: "Per month, per" },
+      rows: {
+        platform: { item: "NESTO Platform, every module", included: "{companies} company · {projects} project · {users} people", per: "workspace" },
+        company: { item: "Further company", included: "{users} people each", per: "company" },
+        project: { item: "Further active project", included: "—", per: "project" },
+        users: { item: "Further people", included: "—", per: "{n} people" },
+        rozaris: { item: "NESTO ROZARIS, for developers", included: "{users} people · {months} months", per: "project" },
+      },
+      from: "from",
+      offer: {
+        lead: "Launch offer on {months} months: {periods}.",
+        firstFree: "the first {n} months free",
+        firstOff: "the first {n} months at {pct}% off",
+        nextFree: "the next {n} free",
+        nextOff: "the next {n} at {pct}% off",
+      },
+      footnote: "EUR · excl. VAT · price book {version}",
+      unavailable: "The price book is being updated. Every rate is back on the pricing page shortly.",
+    },
+    access: {
+      eyebrow: "Access",
+      title: "Every door has a lock. The role holds the key.",
+      items: [
+        { title: "Role-derived", copy: "Permissions come from the role, not from screens." },
+        { title: "Refused at the edge", copy: "A module the role cannot open is refused before the page is built." },
+        { title: "Checked again in the page", copy: "Every action is checked where it happens." },
+        { title: "On the record", copy: "Who did what and when, in the audit log the owner reads." },
+      ],
+      cta: "How access works",
+    },
+    closing: {
+      title: ["Break ground", "on your NESTO"],
+      apply: "Apply for a workspace",
+      signIn: "Sign in",
+    },
+  },
+
+  /** The Full View's opening and section heads (/full-view). */
+  tour: {
     hero: {
       /** Set as separate lines so the break is a design decision, not a guess. */
       headline: ["Run the entire build", "from one system."],
       lead: "Tender to handover, site to boardroom. NESTO holds every project, contract, purchase order, inspection, invoice and person a construction company runs on — in a single workspace, under a single set of permissions.",
-      primary: "Request access",
+      primary: "Apply for a workspace",
       secondary: "Sign in",
       note: "One workspace per company. Accounts are provisioned by your administrator.",
     },
@@ -360,7 +556,7 @@ export const siteEn = {
     eyebrow: "Platform",
     title: "Everything a construction company runs, in one workspace.",
     lead: "One database, one design system and one set of permissions behind every department — from the tender that wins the job to the account that closes it.",
-    requestAccess: "Request access",
+    apply: "Apply for a workspace",
     seePricing: "See pricing",
     modules: {
       eyebrow: "Modules",
@@ -426,77 +622,6 @@ export const siteEn = {
   /* ---------------------------------------------------------------- *
    * Pricing
    * ---------------------------------------------------------------- */
-
-  pricing: {
-    eyebrow: "Pricing",
-    title: "Priced per company. Never per module.",
-    lead: "NESTO is modular. Companies activate the functions they need, while shared records and permissions keep the selected modules connected.",
-    mostChosen: "Most chosen",
-    /** In place of a figure, for a plan config/marketing.ts prices by agreement. */
-    bespoke: "Bespoke",
-    plans: {
-      studio: {
-        name: "Studio",
-        period: "per company / month",
-        summary: "For design studios and contractors running a handful of projects at a time.",
-        seats: "Up to 25 users",
-        features: [
-          "All 17 modules",
-          "All 16 role workspaces",
-          "Company workspace and branding",
-          "Module activation control",
-          "Email support",
-        ],
-        cta: "Request access",
-      },
-      company: {
-        name: "Company",
-        period: "per company / month",
-        summary:
-          "For established construction companies running several sites and full departments.",
-        seats: "Up to 100 users",
-        features: [
-          "Everything in Studio",
-          "Guided onboarding and data setup",
-          "Custom roles and permission mapping",
-          "Priority support",
-          "Quarterly platform review",
-        ],
-        cta: "Request access",
-      },
-      enterprise: {
-        name: "Enterprise",
-        period: "annual agreement",
-        summary:
-          "For groups operating multiple companies, joint ventures or a dedicated environment.",
-        seats: "Unlimited users",
-        features: [
-          "Everything in Company",
-          "Multiple company workspaces",
-          "Dedicated environment",
-          "Named implementation lead",
-          "Service level agreement",
-        ],
-        cta: "Talk to us",
-      },
-    } satisfies Record<
-      PlanKey,
-      {
-        name: string;
-        period: string;
-        summary: string;
-        seats: string;
-        features: string[];
-        cta: string;
-      }
-    >,
-    footnotes: [
-      "Annual and monthly terms available. Annual is billed once, at a discount.",
-      "Onboarding covers company setup, roles, users and module activation.",
-      "No charge for a workspace while it is being set up.",
-    ],
-    questions: { eyebrow: "Commercial questions", title: "Before you ask us." },
-  },
 
   /* ---------------------------------------------------------------- *
    * About
@@ -758,8 +883,129 @@ export const siteEn = {
     eyebrow: "One workspace",
     headline: ["Bring the whole company", "into one system."],
     lead: "Projects, procurement, quality, safety, people and finance — under one roof, with one set of rights over it.",
-    primary: "Request access",
+    primary: "Apply for a workspace",
     secondary: "See the platform",
+  },
+
+  /* ---------------------------------------------------------------- *
+   * Apply for a workspace (/apply)
+   * ---------------------------------------------------------------- */
+
+  apply: {
+    meta: {
+      title: "Apply for a workspace",
+      description: "Tell us about your company in four short steps. A person reads every application and sets up the workspace with you.",
+    },
+    title: "Apply for a workspace",
+    lead: "Four short steps. A person reads every application, and nothing is billed while your workspace is being set up.",
+    haveAccount: "Already have an account?",
+    signIn: "Sign in",
+    stepsLabel: "Application steps",
+    stepOf: "Step {n} of {total}",
+    steps: { company: "Company", you: "You", run: "What you'll run", review: "Review" },
+    notes: {
+      invited: {
+        title: "Invited by your company?",
+        copy: "You don't need to apply. Open the invitation your administrator sent, or ask them for one.",
+      },
+      contractor: {
+        title: "Working on a client's project?",
+        copy: "Your client's NESTO will invite you to the packages you deliver.",
+        soon: "Soon",
+      },
+    },
+    fields: {
+      company: "Company name",
+      country: "Country",
+      countryPlaceholder: "Albania",
+      city: "City",
+      cityPlaceholder: "Tirana",
+      kind: "What kind of company",
+      size: "People in the company",
+      name: "Full name",
+      email: "Work email",
+      phone: "Phone",
+      optional: "Optional",
+      role: "Your role",
+      departments: "Departments you'll run in NESTO",
+      projects: "Active projects",
+      users: "People who will sign in",
+      start: "When would you start",
+      consent: "NESTO may contact me about this application. Nothing is billed while a workspace is being set up.",
+    },
+    kinds: {
+      DEVELOPER: { title: "Developer", copy: "Sells Units off the plan." },
+      CONTRACTOR: { title: "Contractor", copy: "Delivers on site." },
+      GROUP: { title: "Group of companies", copy: "Several companies, central departments." },
+      OTHER: { title: "Something else", copy: "Tell us on the call." },
+    } satisfies Record<ApplicationKind, { title: string; copy: string }>,
+    roles: {
+      owner: "Owner or CEO",
+      operations: "Operations",
+      it: "IT",
+      finance: "Finance",
+      other: "Other",
+    } satisfies Record<ApplicantRole, string>,
+    starts: { now: "This month", quarter: "Next quarter", later: "Later" } satisfies Record<StartWindow, string>,
+    fewer: "Fewer",
+    more: "More",
+    back: "Back",
+    continue: "Continue",
+    submit: "Send the application",
+    sending: "Sending…",
+    permit: {
+      title: "Application for a workspace",
+      number: "No.",
+      draft: "Draft",
+      received: "Received",
+      company: "Company",
+      kind: "Kind",
+      applicant: "Applicant",
+      projects: "Projects",
+      users: "People",
+      start: "Start",
+      estimate: "Sample estimate",
+      perMonth: "{price} a month",
+      estimateNote: "From the public price book: NESTO Platform on 24 months, before the launch offer. Your proposal is written for you.",
+      show: "Show the application",
+      hide: "Hide the application",
+    },
+    timeline: {
+      title: "What happens next",
+      items: [
+        { title: "Received", when: "Now" },
+        { title: "Read by a person", when: "Within one business day" },
+        { title: "Workspace set up", when: "After a call with you" },
+        { title: "First account sent", when: "The same day" },
+      ],
+    },
+    done: {
+      stamp: "Received",
+      title: "Thank you, {name}.",
+      lead: "Application {reference} is with us. A person reads it within one business day and writes to {email}.",
+      home: "Back to the home page",
+      pricing: "Build your NESTO meanwhile",
+    },
+    errors: {
+      companyRequired: "Enter the company's name",
+      companyTooLong: "Keep the name under 120 characters",
+      countryRequired: "Enter the country",
+      cityRequired: "Enter the city",
+      kindRequired: "Choose the kind of company",
+      sizeRequired: "Choose how many people work there",
+      nameRequired: "Enter your full name",
+      nameTooLong: "Keep your name under 80 characters",
+      emailRequired: "Enter your work email",
+      emailInvalid: "Enter a valid email address",
+      emailTooLong: "Keep the address under 160 characters",
+      phoneTooLong: "Keep the number under 40 characters",
+      roleRequired: "Choose your role",
+      startRequired: "Choose when you would start",
+      consentRequired: "Tick the box so we may write to you",
+      invalid: "Check the answers marked and send it again.",
+      failed: "The application could not be sent. Try again in a moment.",
+      tooMany: "Too many applications from this network. Try again later.",
+    },
   },
 
   /* ---------------------------------------------------------------- *

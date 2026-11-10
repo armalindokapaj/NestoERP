@@ -38,8 +38,8 @@ export default async function PlatformPage() {
       <PageIntro eyebrow={platform.eyebrow} title={platform.title} lead={platform.lead}>
         <div className="flex flex-wrap items-center gap-3">
           <Button asChild size="lg">
-            <Link href="/contact">
-              {platform.requestAccess}
+            <Link href="/apply">
+              {platform.apply}
               <ArrowRight />
             </Link>
           </Button>

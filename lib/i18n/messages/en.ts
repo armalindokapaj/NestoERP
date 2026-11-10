@@ -782,17 +782,20 @@ export const en = {
   },
 
   auth: {
-    brandHeadline: "One platform to run your company.",
+    brandHeadline: "Every floor of your company,",
+    brandHeadlineAccent: "one sign-in away.",
     brandTagline: "People. Projects. Progress.",
-    backToHome: "Back to home",
     backToLogin: "Back to login",
     username: "Username",
     usernamePlaceholder: "your.username",
 
     login: {
       metaTitle: "Sign in",
-      title: "Welcome back",
-      description: "Sign in to continue to your workspace.",
+      title: "Sign in",
+      description: "to your company's NESTO.",
+      noAccount: "No account yet? Your company's administrator creates it.",
+      newToNesto: "New to NESTO?",
+      apply: "Apply for a workspace",
       sessionExpired: "Your work session has expired. Please sign in again.",
       accountUnavailable: "Your account is currently unavailable. Contact your administrator.",
       password: "Password",

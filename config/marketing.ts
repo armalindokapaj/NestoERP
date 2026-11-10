@@ -20,13 +20,117 @@ export const siteContact = {
   support: "support@nesto.build",
 } as const;
 
-export const siteNav = [
-  { key: "fullView", href: "/full-view" },
-  { key: "pricing", href: "/pricing" },
-  { key: "security", href: "/security" },
-  { key: "about", href: "/about" },
-  { key: "contact", href: "/contact" },
-] as const;
+/** The demo story's first slide for each business, as the landing page links it. */
+const story = (persona: "developer" | "contractor" | "group") => `/?story=${persona}&step=company`;
+
+/**
+ * The Ribbon masthead (UI-05 §2): five tabs, each opening a panel of groups.
+ * Icons are named here and drawn by the masthead; the words are in the site
+ * copy under `ribbon`, keyed to the same names. Modules are not listed: that
+ * tab is built from config/modules.ts, so it can never offer a module that
+ * does not exist.
+ */
+export type RibbonIcon =
+  | "LayoutGrid" | "Eye" | "Layers3" | "ShieldCheck" | "Smartphone" | "Moon"
+  | "Building2" | "HardHat" | "Landmark" | "Users" | "Receipt" | "Tag"
+  | "Sparkles" | "Info" | "CircleHelp" | "Mail" | "FilePen" | "LogIn";
+
+export const siteRibbon = {
+  platform: {
+    groups: [
+      {
+        key: "understand",
+        items: [
+          { key: "overview", href: "/platform", icon: "LayoutGrid" },
+          { key: "fullView", href: "/full-view", icon: "Eye" },
+          { key: "record", href: "/full-view#overview", icon: "Layers3" },
+        ],
+      },
+      {
+        key: "trust",
+        items: [
+          { key: "security", href: "/security", icon: "ShieldCheck" },
+          { key: "phone", href: "/full-view#experience", icon: "Smartphone" },
+          { key: "dayNight", href: "/full-view#experience", icon: "Moon" },
+        ],
+      },
+    ],
+    callout: story("developer"),
+  },
+  solutions: {
+    groups: [
+      {
+        key: "business",
+        items: [
+          { key: "developer", href: story("developer"), icon: "Building2" },
+          { key: "contractor", href: story("contractor"), icon: "HardHat" },
+          { key: "group", href: story("group"), icon: "Landmark" },
+        ],
+      },
+    ],
+    /** The roles the "By role" group names; every one opens the roles section of the Full View. */
+    roles: ["CEO", "PROJECT_MANAGER", "ENGINEER", "PROCUREMENT", "QAQC", "HSE", "FINANCE", "SALES"] as RoleKey[],
+    rolesHref: "/full-view#roles",
+    callout: "/full-view#roles",
+  },
+  modules: { href: "/full-view#modules" },
+  pricing: {
+    groups: [
+      {
+        key: "build",
+        items: [
+          { key: "configure", href: "/pricing", icon: "Receipt" },
+          { key: "rates", href: "/pricing#prices", icon: "Tag" },
+          { key: "offer", href: "/pricing#offer", icon: "Sparkles" },
+        ],
+      },
+    ],
+    callout: "/pricing",
+  },
+  company: {
+    groups: [
+      {
+        key: "nesto",
+        items: [
+          { key: "about", href: "/about", icon: "Info" },
+          { key: "security", href: "/security", icon: "ShieldCheck" },
+          { key: "questions", href: "/faq", icon: "CircleHelp" },
+          { key: "contact", href: "/contact", icon: "Mail" },
+        ],
+      },
+      {
+        key: "getIn",
+        items: [
+          { key: "apply", href: "/apply", icon: "FilePen" },
+          { key: "signIn", href: "/login", icon: "LogIn" },
+        ],
+      },
+    ],
+  },
+} as const satisfies Record<string, unknown>;
+
+export const RIBBON_TABS = ["platform", "solutions", "modules", "pricing", "company"] as const;
+export type RibbonTab = (typeof RIBBON_TABS)[number];
+
+/**
+ * The section cut on the home page (UI-05 §3): NESTO drawn as a building, a
+ * floor for every department, top to bottom. Levels count down to the ground;
+ * the modules are the ones the floor's sheet names, and the first one lends
+ * the sheet its icon.
+ */
+export const sectionFloors = [
+  { key: "management", level: "roof", modules: ["dashboard", "approvals", "calendar"] },
+  { key: "sales", level: 7, modules: ["sales", "contracts", "clients"] },
+  { key: "finance", level: 6, modules: ["finance"] },
+  { key: "people", level: 5, modules: ["hr", "people", "team"] },
+  { key: "engineering", level: 4, modules: ["engineering", "documents"] },
+  { key: "procurement", level: 3, modules: ["procurement", "inventory"] },
+  { key: "quality", level: 2, modules: ["qaqc"] },
+  { key: "site", level: 1, modules: ["dailyLogs", "workforce", "tasks"] },
+  { key: "safety", level: "ground", modules: ["hse"] },
+] as const satisfies readonly { key: string; level: number | "roof" | "ground"; modules: readonly ModuleKey[] }[];
+
+export type SectionFloorKey = (typeof sectionFloors)[number]["key"];
 
 export const footerNav = [
   {
@@ -53,7 +157,7 @@ export const footerNav = [
     key: "access",
     links: [
       { key: "signIn", href: "/login" },
-      { key: "requestAccess", href: "/contact" },
+      { key: "apply", href: "/apply" },
       { key: "privacy", href: "/privacy" },
       { key: "terms", href: "/terms" },
     ],
@@ -99,19 +203,6 @@ export const featuredRoles: RoleKey[] = [
   "FINANCE",
 ];
 
-export const pricing = {
-  /** The only place figures are set. Currency follows the demo company. */
-  currency: "EUR",
-  plans: [
-    { key: "studio", monthly: 390, featured: false },
-    { key: "company", monthly: 890, featured: true },
-    /** Priced by agreement, so the plan names its terms instead of a figure. */
-    { key: "enterprise", monthly: null, featured: false },
-  ],
-} as const;
-
-export type PlanKey = (typeof pricing.plans)[number]["key"];
-
 export const FAQ_GROUPS = ["platform", "access", "security", "gettingStarted"] as const;
 
 export type FaqGroupKey = (typeof FAQ_GROUPS)[number];
@@ -142,3 +233,26 @@ export type ContactTopic = (typeof contactTopics)[number];
 export const companySizes = ["1-10", "11-50", "51-200", "200+"] as const;
 
 export type CompanySize = (typeof companySizes)[number];
+
+/** Applying for a workspace (/apply, UI-05 §6): the answers the form offers and the server accepts. */
+export const applicationKinds = ["DEVELOPER", "CONTRACTOR", "GROUP", "OTHER"] as const;
+export type ApplicationKind = (typeof applicationKinds)[number];
+
+export const applicantRoles = ["owner", "operations", "it", "finance", "other"] as const;
+export type ApplicantRole = (typeof applicantRoles)[number];
+
+export const startWindows = ["now", "quarter", "later"] as const;
+export type StartWindow = (typeof startWindows)[number];
+
+/** The departments an applicant can tick, named by their modules. */
+export const applicationDepartments = [
+  "sales",
+  "contracts",
+  "finance",
+  "hr",
+  "procurement",
+  "engineering",
+  "qaqc",
+  "hse",
+] as const satisfies readonly ModuleKey[];
+export type ApplicationDepartment = (typeof applicationDepartments)[number];

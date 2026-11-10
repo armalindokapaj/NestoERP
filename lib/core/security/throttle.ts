@@ -54,6 +54,10 @@ export const THROTTLES = {
   DEVICE_STATE: {
     ip: { limit: 120, windowMs: 15 * MINUTE },
   },
+  /** Applications for a workspace from the public site (/apply): a handful an hour per address. */
+  WORKSPACE_APPLICATION: {
+    ip: { limit: 5, windowMs: 60 * MINUTE },
+  },
   /** A signed-in session guessing its own current password. */
   PASSWORD_CHANGE: {
     account: { limit: 5, windowMs: 15 * MINUTE },

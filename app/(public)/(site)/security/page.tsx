@@ -2,16 +2,11 @@ import type { Metadata } from "next";
 
 import { CtaBand } from "@/components/marketing/cta-band";
 import { FaqList } from "@/components/marketing/faq-list";
-import { BlueprintPlan } from "@/components/marketing/blueprint";
-import {
-  PageIntro,
-  Section,
-  SectionHeader,
-  hairlineCell,
-  hairlineGrid,
-} from "@/components/marketing/section";
+import { Dotted, PageIntro, Section, SectionHeader } from "@/components/marketing/section";
 import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
+
+const LEGEND = ["site-fill-solid", "site-fill-hatch", "site-fill-outline", "site-fill-dash", "site-fill-gold", "site-fill-cross"];
 
 export async function generateMetadata(): Promise<Metadata> {
   return (await getSiteCopy()).meta.security;
@@ -32,30 +27,29 @@ export default async function SecurityPage() {
       <PageIntro eyebrow={security.eyebrow} title={security.title} lead={security.lead} />
 
       <Section tone="canvas">
-        <dl className={cn(hairlineGrid, "sm:grid-cols-2")}>
-          {security.measures.map((measure) => (
-            <div key={measure.title} className={cn(hairlineCell, "p-6 lg:p-8")}>
-              <dt className="text-card font-semibold text-fg">{measure.title}</dt>
-              <dd className="mt-3 text-table leading-relaxed text-fg-muted">{measure.copy}</dd>
+        {/* A drawing's legend: each measure keeps its own fill (UI-05 §7). */}
+        <dl className="grid sm:grid-cols-2 sm:gap-x-10">
+          {security.measures.map((measure, index) => (
+            <div key={measure.title} className="flex gap-5 border-t border-fg py-7">
+              <span aria-hidden="true" className={cn("size-12 shrink-0", LEGEND[index % LEGEND.length])} />
+              <div>
+                <dt className="text-card font-semibold text-fg">{measure.title}</dt>
+                <dd className="mt-2 text-table leading-relaxed text-fg-muted">{measure.copy}</dd>
+              </div>
             </div>
           ))}
         </dl>
       </Section>
 
-      <section className="relative overflow-hidden border-b border-line bg-graphite">
-        <BlueprintPlan className="absolute -right-10 top-0 hidden h-full w-[440px] text-graphite-fg/10 lg:block" />
-        <div className="relative mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-          <div className="max-w-2xl">
-            <p className="nesto-eyebrow text-graphite-fg/55">{security.honesty.eyebrow}</p>
-            <h2 className="mt-5 text-page text-graphite-fg sm:text-display font-display">
-              {security.honesty.title}
-            </h2>
-            <p className="mt-5 text-body leading-relaxed text-graphite-fg/70 sm:text-card">
-              {security.honesty.copy}
-            </p>
-          </div>
+      <Section tone="canvas">
+        <div className="max-w-3xl border-[1.5px] border-dashed border-fg p-6 sm:p-10">
+          <p className="nesto-eyebrow text-accent-strong">{security.honesty.eyebrow}</p>
+          <h2 className="mt-4 text-[32px] leading-[0.98] text-fg sm:text-[44px] font-display">
+            <Dotted>{security.honesty.title}</Dotted>
+          </h2>
+          <p className="mt-4 text-body leading-relaxed text-fg-muted sm:text-card">{security.honesty.copy}</p>
         </div>
-      </section>
+      </Section>
 
       <Section tone="surface" bordered={false}>
         <SectionHeader

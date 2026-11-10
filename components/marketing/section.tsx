@@ -19,7 +19,7 @@ const tones = {
 } as const;
 
 export function Container({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("mx-auto w-full max-w-6xl px-5 sm:px-8", className)} {...props} />;
+  return <div className={cn("mx-auto w-full max-w-[1280px] px-[clamp(16px,4vw,48px)]", className)} {...props} />;
 }
 
 export function Section({
@@ -50,38 +50,6 @@ export function Section({
   );
 }
 
-/**
- * The sheet reference in the margin — "03 / Roles".
- *
- * Borrowed from a drawing set rather than a deck: it gives the page a spine a
- * reader can navigate by, and it is the one ornament the site allows itself.
- */
-export function SectionMark({
-  step,
-  label,
-  tone = "default",
-  className,
-}: {
-  step: string;
-  label: string;
-  tone?: "default" | "inverse";
-  className?: string;
-}) {
-  return (
-    <p
-      className={cn(
-        "nesto-eyebrow flex items-center gap-2.5",
-        tone === "inverse" ? "text-graphite-fg/55" : "text-fg-subtle",
-        className,
-      )}
-    >
-      <span className={tone === "inverse" ? "text-graphite-fg/80" : "text-accent-strong"}>{step}</span>
-      <span aria-hidden="true" className={cn("h-px w-6", tone === "inverse" ? "bg-current opacity-40" : "bg-accent")} />
-      <span>{label}</span>
-    </p>
-  );
-}
-
 export function SectionHeader({
   step,
   eyebrow,
@@ -101,49 +69,75 @@ export function SectionHeader({
   className?: string;
 }) {
   const inverse = tone === "inverse";
-
+  // A numbered head is a sheet: the number in outline, the title, then a full ink rule (UI-05 §4).
   return (
-    <div className={cn("flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between", className)}>
-      <div className="max-w-2xl">
+    <div
+      className={cn(
+        "grid gap-x-6 gap-y-4 lg:items-end",
+        step ? "border-b-2 pb-5 sm:grid-cols-[96px_minmax(0,1fr)] lg:grid-cols-[120px_minmax(0,1fr)_auto]" : "lg:grid-cols-[minmax(0,1fr)_auto]",
+        inverse ? "border-graphite-fg" : "border-fg",
+        className,
+      )}
+    >
+      {step ? (
+        <span aria-hidden="true" className="nesto-numeral text-[72px] lg:text-[96px]">
+          {step}
+        </span>
+      ) : null}
+      <div className="max-w-3xl">
         {eyebrow ? (
-          step ? (
-            <SectionMark step={step} label={eyebrow} tone={tone} />
-          ) : (
-            <p className={cn("nesto-eyebrow", inverse ? "text-graphite-fg/55" : "text-fg-subtle")}>
-              {eyebrow}
-            </p>
-          )
+          <p className={cn("nesto-eyebrow", inverse ? "text-graphite-fg/55" : "text-accent-strong")}>{eyebrow}</p>
         ) : null}
-
         <h2
           className={cn(
-            "mt-5 text-balance text-page leading-tight sm:text-display font-display",
+            "mt-3 text-balance text-[32px] leading-[0.98] sm:text-[44px] lg:text-[52px] font-display",
             inverse ? "text-graphite-fg" : "text-fg",
           )}
         >
-          {title}
+          <Dotted>{title}</Dotted>
         </h2>
-
         {lead ? (
           <p
             className={cn(
-              "mt-4 max-w-xl text-body leading-relaxed sm:text-card",
-              inverse ? "text-graphite-fg/70" : "text-fg-muted",
+              "nesto-standfirst mt-4 max-w-2xl text-card leading-snug sm:text-[19px]",
+              inverse && "text-graphite-fg/70",
             )}
           >
             {lead}
           </p>
         ) : null}
       </div>
-
-      {aside ? <div className="shrink-0">{aside}</div> : null}
+      {aside ? <div className="shrink-0 sm:col-start-2 lg:col-start-auto">{aside}</div> : null}
     </div>
   );
 }
 
 /**
+ * A display heading ends on a gold square instead of its full stop. A heading
+ * that ends on a question mark keeps it, and gets no square.
+ */
+export function Dotted({ children }: { children: React.ReactNode }) {
+  if (typeof children !== "string") return <>{children}</>;
+  if (/[?!:]$/.test(children)) return <>{children}</>;
+  // The last word and the square stay on one line: a square alone on a line reads as a stray mark.
+  const text = children.replace(/\.$/, "");
+  const split = text.lastIndexOf(" ") + 1;
+  return (
+    <>
+      {text.slice(0, split)}
+      <span className="whitespace-nowrap">
+        {text.slice(split)}
+        <span aria-hidden="true" className="site-dot" />
+      </span>
+    </>
+  );
+}
+
+/**
  * A page title band. Interior pages open with this rather than the hero, so a
- * visitor always knows which sheet they are on.
+ * visitor always knows which sheet they are on: the sheet's name in mono, the
+ * title large with a gold full stop, a serif standfirst, and an ink rule
+ * under all of it (UI-05 §4).
  */
 export function PageIntro({
   eyebrow,
@@ -157,17 +151,18 @@ export function PageIntro({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="relative overflow-hidden border-b border-accent/25 bg-surface">
-      <div aria-hidden="true" className="nesto-drafting-grid absolute inset-0" />
-      <Container className="relative py-16 sm:py-20 lg:py-24">
-        <p className="nesto-eyebrow text-accent-strong">{eyebrow}</p>
-        <h1 className="mt-5 max-w-3xl text-balance text-page leading-tight text-fg sm:text-display font-display">
-          {title}
-        </h1>
-        {lead ? (
-          <p className="mt-5 max-w-2xl text-body leading-relaxed text-fg-muted sm:text-card">{lead}</p>
-        ) : null}
-        {children ? <div className="mt-8">{children}</div> : null}
+    <section className="bg-canvas">
+      <Container className="pt-12 sm:pt-16 lg:pt-20">
+        <div className="border-b-2 border-fg pb-10 sm:pb-12">
+          <p className="nesto-eyebrow text-accent-strong">{eyebrow}</p>
+          <h1 className="mt-5 max-w-5xl text-balance text-[44px] leading-[0.92] text-fg sm:text-[64px] lg:text-[84px] font-display">
+            <Dotted>{title}</Dotted>
+          </h1>
+          {lead ? (
+            <p className="nesto-standfirst mt-6 max-w-3xl text-[19px] leading-snug sm:text-[23px]">{lead}</p>
+          ) : null}
+          {children ? <div className="mt-8">{children}</div> : null}
+        </div>
       </Container>
     </section>
   );

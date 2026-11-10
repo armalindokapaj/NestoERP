@@ -1,47 +1,37 @@
 import Link from "@/components/navigation/nav-link";
-
+import { BrandSkyline } from "@/components/layout/brand-skyline";
 import { NestoLogo } from "@/components/layout/nesto-logo";
+import { brand } from "@/config/brand";
 import { getTranslations } from "@/lib/i18n/server";
 
 /**
- * Architectural brand visual for the authentication pages (design spec §83).
- *
- * Drawn rather than photographed: a structural line composition keeps the
- * "architectural minimalism" direction (§3) with no image asset to ship, no
- * layout shift, and no stock photography to license.
+ * The brand panel beside sign-in, recovery and the invitation (design spec
+ * §83; UI-05 §5): the company's towers at dusk, every floor one sign-in away.
+ * Ink in both themes — it is the one surface on these pages that never
+ * changes, so the form beside it is what the theme toggle visibly moves.
  */
 export async function BrandPanel({ tagline }: { tagline?: string }) {
   const [tAuth, tShell] = await Promise.all([getTranslations("auth"), getTranslations("shell")]);
 
   return (
-    <div className="relative hidden overflow-hidden bg-graphite lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-between lg:p-12">
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 400 600"
-        preserveAspectRatio="xMidYMid slice"
-        className="pointer-events-none absolute inset-0 size-full text-graphite-fg/10"
-      >
-        <g stroke="currentColor" strokeWidth="1" fill="none">
-          {/* Structural frame */}
-          <path d="M60 560V220l140-90 140 90v340" />
-          <path d="M60 300h280M60 380h280M60 460h280" />
-          <path d="M130 560V265M200 560V225M270 560V265" />
-          {/* Foundation */}
-          <path d="M20 560h360" strokeWidth="1.5" />
-          {/* Site lines */}
-          <path d="M0 200h400M0 140h400" strokeDasharray="4 10" />
-        </g>
-      </svg>
-
-      <div className="relative">
+    <div className="relative hidden overflow-hidden bg-[#0f141a] text-[#e8e4da] lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:p-12">
+      <div>
         <Link href="/" aria-label={tShell("homeLink")} className="inline-flex">
-          <NestoLogo tone="inverse" />
+          <NestoLogo wordmarkClassName="text-[#e8e4da]" />
         </Link>
       </div>
-
-      <div className="relative max-w-sm">
-        <p className="text-graphite-fg font-display text-[4rem] font-semibold leading-[0.88] tracking-[-0.03em] [font-variation-settings:'wdth'_62]">{tAuth("brandHeadline")}</p>
-        <p className="mt-4 text-body text-graphite-fg/60">{tagline ?? tAuth("brandTagline")}</p>
+      <div className="mt-14 max-w-md">
+        <p className="text-[56px] leading-[0.9] xl:text-[64px] font-display">
+          {tAuth("brandHeadline")}
+          <span className="block text-[#c9a961]">{tAuth("brandHeadlineAccent")}</span>
+        </p>
+        <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.16em] text-[#e8e4da]/60">
+          {tagline ?? brand.signoff.join(" · ")}
+        </p>
+      </div>
+      {/* The drawing takes whatever height is left, so it never runs under the words. */}
+      <div className="relative -mx-12 -mb-12 mt-8 min-h-0 flex-1">
+        <BrandSkyline className="pointer-events-none absolute inset-0 size-full" />
       </div>
     </div>
   );

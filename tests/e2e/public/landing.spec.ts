@@ -1,11 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The interactive landing presentation and the Full View
- * (Landing + Full View PRD §101-§104). Public pages: no sign-in, no data.
+ * The interactive landing presentation — "Try it here", under the section cut —
+ * and the Full View (Landing + Full View PRD §101-§104; UI-05 §3). Public
+ * pages: no sign-in, no data.
  */
 
 const story = (page: Page) => page.getByTestId("landing-story");
+const visual = (page: Page) => page.getByTestId("story-visual");
 const next = (page: Page) => page.getByTestId("story-next").click();
 
 async function expectStep(page: Page, step: string) {
@@ -15,7 +17,8 @@ async function expectStep(page: Page, step: string) {
 
 test("developer story: one Unit carries from sale to legal to finance (§101)", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Run a company through it.");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Every department.");
+  await expect(page.getByRole("heading", { name: /Run a company through it/ })).toBeVisible();
   await page.getByTestId("persona-developer").click();
   await expectStep(page, "company");
   await expect(page.getByRole("heading", { name: "Create the company once." })).toBeVisible();
@@ -24,13 +27,12 @@ test("developer story: one Unit carries from sale to legal to finance (§101)", 
   await expectStep(page, "project");
   await next(page);
   await expectStep(page, "units");
-  const visual = page.locator("div.lg\\:block").filter({ has: page.getByTestId("demo-select-unit") });
-  await visual.getByTestId("demo-select-unit").click();
-  await expect(visual.getByTestId("demo-select-unit")).toHaveAttribute("aria-pressed", "true");
+  await visual(page).getByTestId("demo-select-unit").click();
+  await expect(visual(page).getByTestId("demo-select-unit")).toHaveAttribute("aria-pressed", "true");
 
   await next(page);
   await expectStep(page, "rozaris");
-  const plan = page.locator("div.lg\\:block");
+  const plan = visual(page);
   await expect(plan.getByTestId("demo-unit-status")).toHaveText("Available");
   await plan.getByTestId("demo-reserve-unit").click();
   await expect(plan.getByTestId("demo-unit-status")).toHaveText("Reserved");
@@ -59,7 +61,7 @@ test("developer story: one Unit carries from sale to legal to finance (§101)", 
   await expectStep(page, "control");
 
   await page.getByTestId("story-final").getByRole("link", { name: "Build your NESTO" }).click();
-  await expect(page).toHaveURL(/\/pricing$/);
+  await expect(page).toHaveURL(/\/pricing(\?.*)?$/);
 });
 
 test("contractor story: the approved RFQ's PO reaches Finance (§102)", async ({ page }) => {
@@ -69,14 +71,13 @@ test("contractor story: the approved RFQ's PO reaches Finance (§102)", async ({
   await next(page);
   await next(page);
   await expectStep(page, "procurement");
-  const visual = page.locator("div.lg\\:block");
-  await visual.getByTestId("demo-approve-rfq").click();
-  await expect(visual.getByTestId("demo-approve-rfq")).toContainText("Purchase order created PO-0142");
+  await visual(page).getByTestId("demo-approve-rfq").click();
+  await expect(visual(page).getByTestId("demo-approve-rfq")).toContainText("Purchase order created PO-0142");
   for (const step of ["site", "qaqc", "hse", "finance"]) {
     await next(page);
     await expectStep(page, step);
   }
-  await expect(visual).toContainText("Purchase order PO-0142");
+  await expect(visual(page)).toContainText("Purchase order PO-0142");
   await next(page);
   await expectStep(page, "control");
   await page.getByTestId("story-final").getByRole("link", { name: "See the Full View" }).click();
@@ -86,9 +87,8 @@ test("contractor story: the approved RFQ's PO reaches Finance (§102)", async ({
 test("group story: department scope, keyboard and shareable steps (§103, §43, §10)", async ({ page }) => {
   await page.goto("/?story=group&step=departments");
   await expectStep(page, "departments");
-  const visual = page.locator("div.lg\\:block");
-  await visual.getByTestId("demo-toggle-scope").click();
-  await expect(visual.getByTestId("demo-scope")).toContainText("Company A");
+  await visual(page).getByTestId("demo-toggle-scope").click();
+  await expect(visual(page).getByTestId("demo-scope")).toContainText("Company A");
 
   await page.keyboard.press("ArrowRight");
   await expectStep(page, "projects");
@@ -128,5 +128,5 @@ test("Full View keeps the detailed platform, corrected (§104)", async ({ page }
   await expect(page).toHaveURL(/#rozaris$/);
   await expect(page.locator("body")).not.toContainText(/every module included|on every plan|seventeen modules/i);
   await page.locator("#pricing").getByRole("link", { name: "Build your price" }).click();
-  await expect(page).toHaveURL(/\/pricing$/);
+  await expect(page).toHaveURL(/\/pricing(\?.*)?$/);
 });

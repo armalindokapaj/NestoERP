@@ -764,17 +764,20 @@ export const sq: Messages = {
   },
 
   auth: {
-    brandHeadline: "Një platformë për të drejtuar kompaninë tuaj.",
+    brandHeadline: "Çdo kat i kompanisë suaj,",
+    brandHeadlineAccent: "një hyrje larg.",
     brandTagline: "Njerëz. Projekte. Progres.",
-    backToHome: "Kthehu në faqen kryesore",
     backToLogin: "Kthehu te hyrja",
     username: "Emri i përdoruesit",
     usernamePlaceholder: "emri.juaj",
 
     login: {
       metaTitle: "Hyr",
-      title: "Mirë se u kthyet",
-      description: "Hyni për të vazhduar në hapësirën tuaj të punës.",
+      title: "Hyr",
+      description: "në NESTO-n e kompanisë suaj.",
+      noAccount: "Ende pa llogari? Administratori i kompanisë suaj e krijon.",
+      newToNesto: "I ri në NESTO?",
+      apply: "Apliko për një hapësirë pune",
       sessionExpired: "Seanca juaj skadoi. Ju lutemi hyni përsëri.",
       accountUnavailable:
         "Llogaria juaj nuk është e disponueshme për momentin. Kontaktoni administratorin tuaj.",

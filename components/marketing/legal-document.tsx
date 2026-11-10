@@ -19,8 +19,8 @@ export async function LegalDocumentPage({ document }: { document: LegalDocument 
       </PageIntro>
 
       <section className="bg-canvas">
-        <Container className="py-16 sm:py-20 lg:py-24">
-          <p className="max-w-2xl rounded-xl border border-line bg-surface p-5 text-table leading-relaxed text-fg-muted">
+        <Container className="py-12 sm:py-16 lg:py-20">
+          <p className="max-w-2xl border-[1.5px] border-dashed border-fg p-5 text-table leading-relaxed text-fg-muted">
             {document.note}
           </p>
 
@@ -28,13 +28,13 @@ export async function LegalDocumentPage({ document }: { document: LegalDocument 
             {document.sections.map((section, index) => (
               <article
                 key={section.title}
-                className="grid gap-5 border-t border-line pt-8 lg:grid-cols-[minmax(0,200px)_minmax(0,1fr)] lg:gap-12"
+                className="grid gap-5 border-t border-fg pt-8 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)] lg:gap-12"
               >
                 <div>
-                  <p className="nesto-eyebrow text-fg-subtle">
+                  <p aria-hidden="true" className="nesto-numeral text-[56px]">
                     {String(index + 1).padStart(2, "0")}
                   </p>
-                  <h2 className="mt-3 text-section text-fg font-display">{section.title}</h2>
+                  <h2 className="mt-3 text-[24px] leading-tight text-fg font-display">{section.title}</h2>
                 </div>
                 <div className="max-w-2xl space-y-4">
                   {section.body.map((paragraph) => (

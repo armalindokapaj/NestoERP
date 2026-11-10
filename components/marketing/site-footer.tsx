@@ -1,31 +1,27 @@
 import Link from "next/link";
 
-import { BlueprintSurvey } from "@/components/marketing/blueprint";
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { brand } from "@/config/brand";
 import { footerNav } from "@/config/marketing";
 import { getSiteCopy } from "@/lib/i18n/server";
 
 /**
- * Public site footer (design spec §82).
+ * Public site footer (design spec §82; UI-05 §2.4).
  *
  * The sitemap in full — a visitor should never have to guess whether a page
- * exists. The survey line above it is the same drawing language as the rest of
- * the site, closing the page the way the hero opened it.
+ * exists — closed by the drawing's title block: who, what, which revision.
  */
 export async function SiteFooter() {
   const copy = await getSiteCopy();
+  const block = [`© ${new Date().getFullYear()} ${brand.name}`, copy.category, brand.signoff.join(" · "), brand.version];
 
   return (
-    <footer className="relative border-t border-line bg-surface">
-      <BlueprintSurvey className="absolute inset-x-0 top-0 h-12 w-full text-line-strong opacity-60" />
-
-      <div className="relative mx-auto w-full max-w-6xl px-5 pb-10 pt-16 sm:px-8 sm:pt-20">
+    <footer className="border-t-2 border-fg bg-canvas">
+      <div className="mx-auto w-full max-w-[1280px] px-[clamp(16px,4vw,48px)] pb-10 pt-14 sm:pt-16">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.85fr)]">
           <div className="max-w-sm">
             <NestoLogo size="md" />
             <p className="mt-5 text-body leading-relaxed text-fg-muted">{copy.summary}</p>
-            <p className="nesto-eyebrow mt-6 text-fg-subtle">{copy.category}</p>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-3">
@@ -49,13 +45,13 @@ export async function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-6">
-          <p className="text-meta text-fg-subtle">
-            © {new Date().getFullYear()} {brand.name}
-          </p>
-          <p className="nesto-eyebrow text-fg-subtle">{brand.signoff.join(" · ")}</p>
-          <p className="ml-auto text-meta text-fg-subtle">{brand.version}</p>
-        </div>
+        <ul className="site-tb mt-14 grid-cols-2 border-r-0 border-b-0 sm:grid-cols-4">
+          {block.map((cell) => (
+            <li key={cell} className="site-tb-cell">
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">{cell}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </footer>
   );

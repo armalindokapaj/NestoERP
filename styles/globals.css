@@ -1695,3 +1695,112 @@ html[data-unsaved-masked] [data-experience-editor] {
   }
 }
 
+
+/* ==== The public site's drawn pieces (docs/ui/UI-05-public-site.md) ====
+ *
+ * What Tailwind cannot say in one class: the drafting paper, the hatched
+ * fills of the legend, the title block's ruled cells, the floors of the
+ * section cut and the outline lettering. Everything else on the public site
+ * is utility classes on the same tokens as the product.
+ */
+@layer components {
+  /* Drafting paper: a 24px grid in the border colour. */
+  .site-paper {
+    background-color: var(--nesto-surface);
+    background-image:
+      linear-gradient(var(--nesto-border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--nesto-border) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* The legend's fills: solid, hatched, gold hatch, outline, dashed. */
+  .site-fill-solid { background: var(--nesto-fg); }
+  .site-fill-hatch { background: repeating-linear-gradient(45deg, var(--nesto-fg) 0 1px, transparent 1px 6px); }
+  .site-fill-gold { background: repeating-linear-gradient(45deg, var(--nesto-accent) 0 1px, transparent 1px 6px); }
+  .site-fill-outline { border: 1.5px solid var(--nesto-fg); }
+  .site-fill-dash { border: 1.5px dashed var(--nesto-fg); }
+  .site-fill-cross {
+    background:
+      repeating-linear-gradient(45deg, var(--nesto-fg) 0 1px, transparent 1px 8px),
+      repeating-linear-gradient(-45deg, var(--nesto-fg) 0 1px, transparent 1px 8px);
+  }
+
+  /* Outline lettering, for the second line of a display heading. */
+  .site-outline {
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--nesto-fg);
+  }
+
+  /* The full stop of a display heading, in gold. */
+  .site-dot {
+    display: inline-block;
+    width: 0.16em;
+    height: 0.16em;
+    margin-left: 0.06em;
+    background: var(--nesto-accent);
+    vertical-align: baseline;
+  }
+
+  /* The architect's title block: ruled cells, a mono key over a value. */
+  .site-tb {
+    display: grid;
+    border: 1.5px solid var(--nesto-fg);
+    background: var(--nesto-surface);
+  }
+  .site-tb-cell {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border-right: 1px solid var(--nesto-fg);
+    border-bottom: 1px solid var(--nesto-fg);
+  }
+  .site-tb-k {
+    font-family: var(--font-nesto-mono), ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--nesto-fg-subtle);
+  }
+
+  /* A floor of the section cut: a slab with windows and a hatched core. */
+  .site-slab {
+    position: relative;
+    border-left: 2px solid var(--nesto-fg);
+    border-right: 2px solid var(--nesto-fg);
+    border-bottom: 3px solid var(--nesto-fg);
+    background: repeating-linear-gradient(90deg, transparent 0 22px, var(--nesto-border-strong) 22px 23px, transparent 23px 44px);
+  }
+  .site-slab::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 46%;
+    width: 30px;
+    background: repeating-linear-gradient(45deg, var(--nesto-fg) 0 1px, transparent 1px 5px);
+    opacity: 0.55;
+  }
+  .site-floor:hover .site-slab { background-color: var(--nesto-hover); }
+  .site-floor[aria-pressed="true"] .site-slab {
+    background: repeating-linear-gradient(45deg, var(--nesto-accent) 0 1px, transparent 1px 6px);
+    background-color: var(--nesto-accent-soft);
+  }
+
+  /* A received application's stamp. */
+  .site-stamp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 18px;
+    border: 2.5px solid var(--nesto-accent);
+    border-radius: 8px;
+    color: var(--nesto-accent);
+    transform: rotate(-6deg);
+    font-family: var(--font-nesto-mono), ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+}

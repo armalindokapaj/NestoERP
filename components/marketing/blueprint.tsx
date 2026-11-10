@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils/cn";
  * inherits the surrounding text colour, works on warm white and on graphite,
  * costs nothing to load, and can never shift the layout while it arrives.
  *
- * Three drawings cover every placement: an elevation beside the hero, a plan
- * behind a panel, and a horizontal survey line under a band.
+ * One elevation remains, beside the About and Full View openings; the rest of
+ * the site draws its pieces in styles/globals.css (UI-05).
  */
 
 export function BlueprintElevation({ className }: { className?: string }) {
@@ -63,55 +63,6 @@ export function BlueprintElevation({ className }: { className?: string }) {
         <circle cx="116" cy="148" r="2.5" />
         <circle cx="264" cy="148" r="2.5" />
         <circle cx="324" cy="292" r="2.5" />
-      </g>
-    </svg>
-  );
-}
-
-export function BlueprintPlan({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 400 320"
-      fill="none"
-      preserveAspectRatio="xMidYMid slice"
-      className={cn("pointer-events-none", className)}
-    >
-      <g stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke">
-        {/* Outer walls */}
-        <path d="M40 40h320v240H40z" strokeWidth="1.5" />
-        {/* Partitions */}
-        <path d="M40 152h180M220 40v240M300 152h60M220 200h80" opacity="0.7" />
-        {/* Openings */}
-        <path d="M120 40v12M280 280v-12M40 96h12M360 216h-12" opacity="0.5" />
-        {/* Grid */}
-        <path d="M40 96h320M40 216h320M120 40v240M300 40v240" strokeDasharray="3 9" opacity="0.35" />
-      </g>
-      <g fill="currentColor" opacity="0.4">
-        <circle cx="120" cy="152" r="2" />
-        <circle cx="220" cy="152" r="2" />
-        <circle cx="220" cy="200" r="2" />
-      </g>
-    </svg>
-  );
-}
-
-export function BlueprintSurvey({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 1200 120"
-      fill="none"
-      preserveAspectRatio="none"
-      className={cn("pointer-events-none", className)}
-    >
-      <g stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke">
-        <path d="M0 92h1200" opacity="0.6" />
-        <path d="M0 60h1200" strokeDasharray="3 9" opacity="0.3" />
-        {/* Station ticks, tall every fourth */}
-        {Array.from({ length: 25 }, (_, index) => index * 50).map((x) => (
-          <path key={x} d={`M${x} 92v${x % 200 === 0 ? -22 : -10}`} opacity="0.45" />
-        ))}
       </g>
     </svg>
   );

@@ -48,7 +48,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function FullViewPage() {
   const [copy, locale] = await Promise.all([getSiteCopy(), getLocale()]);
   const fv = fullViewCopy[locale];
-  const { hero, problem, platform, build, principles, access } = copy.home;
+  const { hero, problem, platform, build, principles, access } = copy.tour;
 
   return (
     <>
@@ -75,7 +75,7 @@ export default async function FullViewPage() {
 
               <div className="nesto-rise nesto-rise-4 mt-9 flex flex-wrap items-center gap-3">
                 <Button asChild size="lg">
-                  <Link href="/contact">
+                  <Link href="/apply">
                     {hero.primary}
                     <ArrowRight />
                   </Link>
@@ -308,7 +308,7 @@ export default async function FullViewPage() {
           aside={
             <Button asChild variant="secondary" size="md">
               <Link href="/faq">
-                {copy.home.questions.cta}
+                {copy.tour.questions.cta}
                 <ArrowRight />
               </Link>
             </Button>

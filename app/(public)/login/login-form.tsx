@@ -38,20 +38,21 @@ export function LoginForm({ callbackUrl, revealPassword = false }: { callbackUrl
     });
   });
 
+  // Bare fields inside ruled cells: the cell, not the field, shows focus (UI-05 §5).
+  const cell = "site-tb-cell col-span-2 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-accent";
+  const field = "h-10 rounded-none border-0 bg-transparent px-0 text-[17px] focus-visible:ring-0 touch:h-11";
+
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="site-tb grid-cols-2 border-b-0 border-r-0" noValidate>
       {formError ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-md border border-danger/25 bg-danger-soft px-3 py-2.5 text-table text-danger-strong"
-        >
+        <div role="alert" className="site-tb-cell col-span-2 flex-row items-start gap-2 bg-danger-soft text-table text-danger-strong">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
           <span>{translateAuthError(t, formError)}</span>
         </div>
       ) : null}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="username">{t("username")}</Label>
+      <div className={cell}>
+        <Label htmlFor="username" className="site-tb-k">{t("username")}</Label>
         <Input
           id="username"
           type="text"
@@ -62,44 +63,39 @@ export function LoginForm({ callbackUrl, revealPassword = false }: { callbackUrl
           autoFocus
           placeholder={t("usernamePlaceholder")}
           aria-invalid={Boolean(errors.username)}
+          className={field}
           {...register("username")}
         />
         {errors.username ? (
-          <p className="text-meta text-danger-strong">
-            {translateAuthError(t, errors.username.message ?? "")}
-          </p>
+          <p className="text-meta text-danger-strong">{translateAuthError(t, errors.username.message ?? "")}</p>
         ) : null}
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="password">{t("login.password")}</Label>
+      <div className={cell}>
+        <Label htmlFor="password" className="site-tb-k">{t("login.password")}</Label>
         <PasswordInput
           id="password"
           reveal={revealPassword}
           autoComplete="current-password"
           placeholder="••••••••"
           aria-invalid={Boolean(errors.password)}
+          className={field}
           {...register("password")}
         />
         {errors.password ? (
-          <p className="text-meta text-danger-strong">
-            {translateAuthError(t, errors.password.message ?? "")}
-          </p>
+          <p className="text-meta text-danger-strong">{translateAuthError(t, errors.password.message ?? "")}</p>
         ) : null}
       </div>
 
-      <Button type="submit" size="lg" className="w-full" disabled={isPending}>
-        {isPending ? t("login.submitting") : t("login.submit")}
-      </Button>
-
-      <div className="text-center">
-        <Link
-          href="/forgot-password"
-          className="text-table text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
-        >
+      <div className="site-tb-cell col-span-2 items-end">
+        <Link href="/forgot-password" className="text-table text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline">
           {t("login.forgotPassword")}
         </Link>
       </div>
+
+      <Button type="submit" size="lg" className="col-span-2 h-14 rounded-none text-card" disabled={isPending}>
+        {isPending ? t("login.submitting") : t("login.submit")}
+      </Button>
     </form>
   );
 }

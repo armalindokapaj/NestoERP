@@ -18,7 +18,7 @@ const en = {
     description: "See how one company, one project and one shared record connect Sales, Legal, Finance, Procurement, site teams and management in NESTO.",
   },
   hero: {
-    eyebrow: "The Construction OS",
+    eyebrow: "Try it here",
     headline: ["Don't read about NESTO.", "Run a company through it."],
     lead: "Choose your business. We'll show you what happens next.",
     choose: "Choose your business",
@@ -48,28 +48,12 @@ const en = {
     done: "You just ran this workflow without leaving one system.",
     primary: "Build your NESTO",
     secondary: "See the Full View",
-    tertiary: "Request access",
+    tertiary: "Apply for a workspace",
   },
-  fallback: {
-    title: "Run your company in one system.",
-    fullView: "Full View",
-    pricing: "Pricing",
-    access: "Request access",
-  },
-  proof: {
-    eyebrow: "Trusted structure",
-    items: [
-      { title: "One company structure", copy: "People, departments and permissions." },
-      { title: "One project record", copy: "Every department works against it." },
-      { title: "One source of truth", copy: "Data accumulates instead of being re-entered." },
-    ],
-    fullView: "See the Full View",
-  },
-  closing: {
-    title: "See what your NESTO would cost.",
-    copy: "Choose a foundation, the modules you need and your companies, projects and users.",
-    pricing: "Build your NESTO",
-    access: "Request access",
+  /** The product window the story runs in: an illustrative NESTO, its Ribbon tabs and address. */
+  window: {
+    illustrative: "Illustrative",
+    tabs: { home: "Home", work: "Work", department: "Department", company: "Company", page: "This page" },
   },
   stories: {
     DEVELOPER: {
@@ -204,7 +188,7 @@ const sq: LandingCopy = {
     description: "Shikoni si një kompani, një projekt dhe një regjistër i përbashkët lidhin Shitjet, Ligjoren, Financën, Prokurimin, ekipet e kantierit dhe drejtimin në NESTO.",
   },
   hero: {
-    eyebrow: "Sistemi Operativ i Ndërtimit",
+    eyebrow: "Provoje këtu",
     headline: ["Mos lexoni për NESTO-n.", "Drejtoni një kompani përmes saj."],
     lead: "Zgjidhni biznesin tuaj. Do t'ju tregojmë çfarë ndodh më pas.",
     choose: "Zgjidhni biznesin tuaj",
@@ -233,28 +217,11 @@ const sq: LandingCopy = {
     done: "Sapo e drejtuat këtë proces pa dalë nga një sistem i vetëm.",
     primary: "Ndërtoni NESTO-n tuaj",
     secondary: "Shikoni Pamjen e plotë",
-    tertiary: "Kërkoni qasje",
+    tertiary: "Apliko për një hapësirë pune",
   },
-  fallback: {
-    title: "Drejtoni kompaninë tuaj në një sistem.",
-    fullView: "Pamja e plotë",
-    pricing: "Çmimet",
-    access: "Kërkoni qasje",
-  },
-  proof: {
-    eyebrow: "Strukturë e besueshme",
-    items: [
-      { title: "Një strukturë kompanie", copy: "Njerëz, departamente dhe leje." },
-      { title: "Një regjistër projekti", copy: "Çdo departament punon mbi të." },
-      { title: "Një burim i vetëm i së vërtetës", copy: "Të dhënat grumbullohen në vend që të rishkruhen." },
-    ],
-    fullView: "Shikoni Pamjen e plotë",
-  },
-  closing: {
-    title: "Shikoni sa do t'ju kushtonte NESTO-ja juaj.",
-    copy: "Zgjidhni një bazë, modulet që ju duhen dhe kompanitë, projektet dhe përdoruesit tuaj.",
-    pricing: "Ndërtoni NESTO-n tuaj",
-    access: "Kërkoni qasje",
+  window: {
+    illustrative: "Ilustruese",
+    tabs: { home: "Kreu", work: "Puna", department: "Departamenti", company: "Kompania", page: "Kjo faqe" },
   },
   stories: {
     DEVELOPER: {

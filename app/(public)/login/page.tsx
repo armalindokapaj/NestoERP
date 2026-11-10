@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { BrandPanel } from "@/components/layout/brand-panel";
-import { NestoLogo } from "@/components/layout/nesto-logo";
+import { FocusedFormPage, FocusedHeading } from "@/components/layout/focused-page";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { quickLoginSections } from "@/lib/auth/quick-login";
 import { getTranslations } from "@/lib/i18n/server";
@@ -32,11 +31,10 @@ function isSignInNotice(reason: string | undefined): reason is keyof typeof SIGN
 /**
  * Login (spec §7; design spec §83, §84).
  *
- * Split layout on desktop — brand visual beside the form. Below the desktop
- * breakpoint the visual drops away entirely and the form stands alone (§84),
- * because a decorative panel above a login form is just something to scroll
- * past on a phone. Recovery and the invitation share the layout as
- * `FocusedFormPage` (components/layout/focused-page.tsx; UI-02 §7.5).
+ * The focused layout every account page shares (components/layout/focused-page.tsx;
+ * UI-02 §7.5, UI-05 §5): the dusk drawing beside a title-block form. Accounts
+ * are created by a company's administrator, so the way in for a newcomer is
+ * the application, not a sign-up.
  *
  * Authenticated visitors never reach here — middleware sends them to /dashboard.
  */
@@ -50,49 +48,21 @@ export default async function LoginPage({
   const notice = isSignInNotice(reason) ? t(SIGN_IN_NOTICES[reason]) : null;
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,42%)_minmax(0,1fr)]">
-      <BrandPanel />
-
-      <div className="flex min-h-dvh flex-col bg-surface lg:min-h-0">
-        <header className="flex h-16 shrink-0 items-center px-4 sm:px-8 lg:hidden">
-          <Link href="/" aria-label={tShell("homeLink")}>
-            <NestoLogo />
-          </Link>
-        </header>
-
-        <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
-          <div className="w-full max-w-lg">
-            <h1 className="text-section font-semibold text-fg">{t("login.title")}</h1>
-            <p className="mb-6 mt-1.5 text-body text-fg-muted">{t("login.description")}</p>
-
-            {notice ? (
-              <p
-                role="status"
-                className="mb-4 rounded-md border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"
-              >
-                {notice}
-              </p>
-            ) : null}
-
-            <LoginForm callbackUrl={callbackUrl} />
-
-            <div className="mt-6 text-center">
-              <Link
-                href="/"
-                className="text-table text-fg-muted underline-offset-4 transition-colors hover:text-fg hover:underline"
-              >
-                {t("backToHome")}
-              </Link>
-            </div>
-
-            {isDevMode ? <QuickLogin sections={await quickLoginSections()} /> : null}
-          </div>
-        </main>
-
-        <footer className="shrink-0 px-4 py-6 sm:px-8">
-          <p className="text-meta text-fg-subtle">© {new Date().getFullYear()} NESTO</p>
-        </footer>
-      </div>
-    </div>
+    <FocusedFormPage homeLabel={tShell("homeLink")}>
+      <FocusedHeading title={t("login.title")} description={t("login.description")} />
+      {notice ? (
+        <p role="status" className="mb-4 border-l-2 border-accent bg-accent-soft px-4 py-3 text-table text-fg">
+          {notice}
+        </p>
+      ) : null}
+      <LoginForm callbackUrl={callbackUrl} revealPassword />
+      <p className="mt-6 text-table leading-relaxed text-fg-muted">
+        {t("login.noAccount")} {t("login.newToNesto")}{" "}
+        <Link href="/apply" className="font-medium text-fg underline-offset-4 hover:underline">
+          {t("login.apply")} →
+        </Link>
+      </p>
+      {isDevMode ? <QuickLogin sections={await quickLoginSections()} /> : null}
+    </FocusedFormPage>
   );
 }
