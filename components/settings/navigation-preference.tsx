@@ -189,21 +189,30 @@ function PhonePreview({ value }: { value: PhoneNav }) {
         <span className="block h-1 w-2/3 rounded-full bg-fg-subtle/40" />
         <span className="block h-1 w-full rounded-full bg-fg-subtle/25" />
       </span>
-      {value === "thumb" ? (
-        <span className="absolute inset-x-1 bottom-1 flex h-3 items-center justify-around rounded-full border border-line bg-surface px-0.5">
-          <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
-          <span className="h-2 w-2 -translate-y-0.5 rounded-full bg-primary" />
-          <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
-        </span>
-      ) : (
+      {value === "pocket" ? (
         <>
-          <span className="absolute inset-x-0 bottom-3 h-5 rounded-t-md border-t border-line bg-surface" />
+          {/* The strip: This page, Units, Create. */}
+          <span className="absolute inset-x-1 bottom-[0.9rem] flex h-2.5 items-center gap-0.5 rounded-[3px] border border-line bg-surface p-px">
+            <span className="h-full flex-1 rounded-[2px] bg-accent/60" />
+            <span className="h-full w-1.5 rounded-[2px] bg-fg-subtle/40" />
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+          </span>
+          {/* The bar: four tabs. */}
           <span className="absolute inset-x-0 bottom-0 flex h-3 items-center justify-around border-t border-line bg-surface">
-            <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
             <span className="h-1 w-1 rounded-full bg-accent" />
+            <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
+            <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
             <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
           </span>
         </>
+      ) : (
+        // One bar: Ribbon, the page's action, Units, Create.
+        <span className="absolute inset-x-0 bottom-0 flex h-3.5 items-center gap-0.5 border-t border-line bg-surface px-0.5">
+          <span className="h-1.5 w-1.5 rounded-[2px] bg-fg-subtle/60" />
+          <span className="h-2 flex-1 rounded-[2px] bg-primary" />
+          <span className="h-1.5 w-1.5 rounded-[2px] bg-fg-subtle/60" />
+          <span className="h-1.5 w-1.5 rounded-full border border-fg-subtle/70" />
+        </span>
       )}
     </span>
   );

@@ -428,6 +428,11 @@
     transition: --nesto-bottom-nav-space 0s linear 0.3s;
   }
 
+  /* The Pocket Ribbon is taller: its bar (76px) and the strip floating 8px above it (60px). */
+  html:has([data-mobile-bottom-nav="pocket"]) {
+    --nesto-bottom-nav-space: calc(10.375rem + var(--nesto-safe-bottom));
+  }
+
   @media (min-width: 1024px) {
     html:has([data-mobile-bottom-nav]) {
       --nesto-bottom-nav-space: 0px;
@@ -478,8 +483,8 @@
    * audit 5b): a form's Save / Cancel ("flow") and a detail page's main action
    * ("pinned"). Unlike the hand-made bars above (`data-sticky-action-bar`),
    * it does not take the bottom navigation's place: it sits above it, 0.5rem
-   * clear of its top edge (82px plus the safe area, `--nesto-bottom-nav-space`
-   * less its 0.875rem of breathing room), or 0.5rem above the safe area where
+   * clear of its top edge (`--nesto-bottom-nav-space` less its 0.875rem of
+   * breathing room), or 0.5rem above the safe area where
    * the navigation is not pinned (from lg, while typing, a low window in
    * version 2). An open keyboard lifts it by `--nesto-keyboard-inset`, which
    * the bar publishes from the visual viewport (0 where the keyboard resizes
@@ -1083,8 +1088,8 @@ html[data-unsaved-masked] [data-experience-editor] {
 }
 
 /*
- * Below lg (phones and tablets) a page's sections are the top bar's section
- * menu (components/layout/section-menu.tsx), so a row that hands its tabs to it
+ * Below lg (phones and tablets) a page's sections are the phone Ribbon's This
+ * page (components/layout/phone-ribbon.tsx), so a row that hands its tabs to it
  * (`data-tabs-in-menu`, components/navigation/context-tabs-frame.tsx) is not
  * drawn. One that carries a page's own controls keeps just those, right-aligned
  * in its place and scrolling with the page, with the context's compact header
@@ -1105,11 +1110,6 @@ html[data-unsaved-masked] [data-experience-editor] {
 
   :root:has([data-tabs-in-menu]):not(:has([data-context-tabs]:not([data-tabs-in-menu]))) {
     --nesto-shell-tabs-h: 0px;
-  }
-
-  /* Until the page hydrates and its rows register, the top bar keeps the pill's place (section-menu.tsx). */
-  html:has([data-section-level]) [data-section-pill-placeholder] {
-    display: grid;
   }
 }
 

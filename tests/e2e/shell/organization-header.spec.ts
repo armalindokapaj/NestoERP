@@ -483,12 +483,12 @@ test.describe("widths (§47-§49, §84, §85)", () => {
     await expect(workspaceSwitcher(page)).toHaveCount(0);
   });
 
-  test("a tablet: no navigation drawer; the top bar's company switcher switches, and the bottom bar's Menu is the only menu", async ({ page }) => {
+  test("a tablet: no navigation drawer; the top bar's company switcher switches, and the phone Ribbon is the navigation", async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 1180 });
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
     // From 768px the top bar carries the switcher, beside + Create; below 1024px there is no drawer trigger.
     await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(0);
-    await expect(page.getByTestId("mobile-more")).toBeVisible();
+    await expect(page.getByTestId("phone-tab-work")).toBeVisible();
     await expect(workspaceSwitcher(page)).toBeVisible();
     await workspaceSwitcher(page).click();
     const popup = workspacePanel(page);

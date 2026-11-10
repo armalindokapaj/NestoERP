@@ -51,8 +51,13 @@ const PHONE_SLAB = "rounded-[20px] border border-line bg-surface/90 p-2 shadow-m
 /**
  * The shell's pinned bar, where `MainAction`s go below `md`. Nothing at all
  * while it holds nothing (`empty:hidden`), and never from `md`.
+ *
+ * `inline`: the Action Ribbon's own slot (components/layout/action-ribbon.tsx).
+ * The page's main actions sit in the phone's bottom bar itself, so the slot is
+ * neither pinned nor measured, and is not a `data-mobile-action-bar`: the bar
+ * already keeps the page clear of it.
  */
-export function MobileActionBarHost() {
+export function MobileActionBarHost({ inline = false }: { inline?: boolean }) {
   const registry = React.useContext(HostContext);
   const t = useTranslations("ui");
   const setHost = registry?.setHost;
@@ -64,7 +69,19 @@ export function MobileActionBarHost() {
     },
     [setHost],
   );
-  useBarGeometry(node);
+  useBarGeometry(inline ? null : node);
+  if (inline) {
+    return (
+      <div
+        ref={ref}
+        role="group"
+        aria-label={t("pageActions")}
+        data-action-slot=""
+        data-testid="mobile-action-bar"
+        className="flex min-w-0 flex-1 items-center gap-1 empty:hidden md:hidden [&>*]:min-w-0 [&>*]:flex-1"
+      />
+    );
+  }
   return (
     <div
       ref={ref}
@@ -75,20 +92,12 @@ export function MobileActionBarHost() {
       className={cn(
         "fixed bottom-(--nesto-action-bar-bottom) left-[max(0.75rem,var(--nesto-safe-left))] right-[max(0.75rem,var(--nesto-safe-right))] z-(--nesto-z-shell-tabs) mx-auto flex max-w-xl flex-wrap items-center gap-2 empty:hidden md:hidden",
         PHONE_SLAB,
-        // Each action takes an equal share of the bar; two or three fit a phone side by side.
         "[&>*]:min-w-0 [&>*]:flex-1",
       )}
     />
   );
 }
 
-/**
- * A detail page's main action. From `md` it is drawn where it sits (the
- * wrapper has no box of its own); below `md` it moves into the shell's pinned
- * bar. Until the page has hydrated it is hidden below `md` rather than drawn
- * in the header first and then moved. Outside the shell it simply stays where
- * it is at every width.
- */
 export function MainAction({ children }: { children: React.ReactNode }) {
   const registry = React.useContext(HostContext);
   const phone = useIsBelow("md");

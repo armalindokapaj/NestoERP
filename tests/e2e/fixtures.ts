@@ -175,9 +175,9 @@ export function mainRegion(page: Page) {
 /**
  * A page's sections the way a person reaches them at this width. From 1024px
  * they are the page's tab rows. Below it (phones and tablets) no tab row is
- * drawn: the top bar's section pill — "Sales ▾" — opens them as one menu, and a
- * record's own tabs inside a tabbed page (a unit inside its project) are a
- * second group there, under that row's name (components/layout/section-menu.tsx).
+ * drawn: the phone Ribbon's This page opens them as tiles, and a record's own
+ * tabs inside a tabbed page (a unit inside its project) are a second group
+ * there, under that row's name (components/layout/phone-ribbon.tsx).
  */
 export const sectionsInMenu = (page: Page) => page.viewportSize()!.width < 1024;
 
@@ -185,7 +185,7 @@ export function sectionMenuTrigger(page: Page) {
   return page.getByTestId("section-menu-trigger");
 }
 
-/** Below 1024px: opens the section menu and returns it. */
+/** Below 1024px: opens This page's sections and returns them. */
 export async function openSectionMenu(page: Page) {
   await sectionMenuTrigger(page).click();
   const menu = page.getByTestId("section-menu");

@@ -5,8 +5,9 @@ import * as React from "react";
 import { SectionStore, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
 
 /**
- * Where a page's tab rows hand their sections to the top bar's section menu
- * below `lg` (components/layout/section-menu.tsx). The store lives in the app
+ * Where a page's tab rows hand their sections to the phone Ribbon's This page
+ * below `lg` (components/layout/phone-ribbon.tsx), and the module's own row to
+ * the desktop Ribbon. The store lives in the app
  * shell, keyed by the workspace with everything else, so nothing outlives a
  * workspace switch. Outside the shell (no provider) a row registers nothing.
  */

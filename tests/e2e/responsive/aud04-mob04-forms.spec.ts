@@ -27,12 +27,13 @@ test.describe("form actions", () => {
       const viewport = page.viewportSize()!;
       // Pinned to the bottom of the screen, whole in view, above the safe area and the bottom navigation.
       expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
-      expect(box.y + box.height).toBeGreaterThan(viewport.height - 140);
-      // The bottom navigation stays, and the action bar sits above it rather than on it (mobile audit 5b).
+      expect(box.y + box.height).toBeGreaterThan(viewport.height - 200);
+      // The bottom navigation stays, and the action bar sits above it rather than on it (mobile audit 5b):
+      // above the Pocket Ribbon's strip, which floats over its bar.
       const navigation = page.locator("[data-mobile-bottom-nav]");
       await expect(navigation).toBeVisible();
-      const navBox = (await navigation.boundingBox())!;
-      expect(box.y + box.height).toBeLessThanOrEqual(navBox.y + 1);
+      const top = (await page.getByTestId("phone-strip").or(navigation).first().boundingBox())!;
+      expect(box.y + box.height).toBeLessThanOrEqual(top.y + 1);
     } else {
       expect(position).toBe("static");
     }

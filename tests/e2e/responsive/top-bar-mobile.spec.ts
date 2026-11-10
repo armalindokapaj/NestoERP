@@ -4,9 +4,10 @@ import { signIn } from "../fixtures";
 
 /**
  * The top bar on a phone (Fast Re-entry §148, Quick Create §48, §181,
- * Activity Center §102-§105, §214): search opens full screen; create and the
- * bell, which live in the bottom bar, open as bubbles of glass above it with
- * a pointer on the button pressed — all with the same content as on a desktop.
+ * Activity Center §102-§105, §214): search opens full screen; Create, which
+ * lives in the phone Ribbon at the bottom, opens as a bubble of glass above it
+ * with a pointer on the button pressed; the bell stays in the top bar and opens
+ * the Activity Center under it — all with the same content as on a desktop.
  */
 
 /** Above the bar and whole on screen, the pointer under the panel aimed at the middle of its button. */
@@ -40,7 +41,7 @@ test("search opens full screen with recent work and the link to My Work", async 
 
 test("+ Create opens a bubble of the actions the person may create, and closes from the same button", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-  const create = page.getByTestId("mobile-create");
+  const create = page.getByTestId("phone-create");
   await create.click();
   const panel = page.getByTestId("quick-create-panel");
   await expect(panel).toBeVisible();
@@ -56,19 +57,19 @@ test("+ Create opens a bubble of the actions the person may create, and closes f
   await expect(panel).toHaveCount(0);
 });
 
-test("the bell opens the Activity Center as a bubble above the bar, with All alerts", async ({ page }) => {
+test("the bell is the top bar's and opens the Activity Center under it, with the way to all activity", async ({ page }) => {
   await signIn(page, "ENGINEER", { to: "/dashboard" });
-  // A phone's bell is the bottom bar's.
-  const bell = page.getByRole("navigation", { name: "Primary" }).getByTestId("notification-bell");
+  const bell = page.getByTestId("global-actions").getByTestId("notification-bell");
   await bell.click();
   const panel = page.getByRole("dialog", { name: "Activity Center" });
   await expect(panel).toBeVisible();
-  await expect(panel).toHaveAttribute("data-placement", "bar");
   await expect(panel.getByRole("tab", { name: "Announcements" })).toBeVisible();
-  await expectBubbleOver(panel, bell);
-  // The way to the whole Activity Center, as the popup names it.
+  // Under the bell and whole on screen.
+  const [button, box] = [(await bell.boundingBox())!, (await panel.boundingBox())!];
+  expect(box.y).toBeGreaterThanOrEqual(button.y + button.height - 1);
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   const all = panel.getByTestId("activity-view-all");
-  await expect(all).toHaveText("All alerts");
+  await expect(all).toHaveText("View all activity");
   await expect(all).toHaveAttribute("href", "/activity");
   await panel.getByRole("button", { name: "Close" }).click();
   await expect(panel).toHaveCount(0);

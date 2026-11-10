@@ -46,7 +46,7 @@ test("reads a published unit's page, sections and Sales Plan on a phone (E-05D Â
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   // A phone draws no tab rows: the unit's sections are the second group of the top bar's section menu,
-  // under the project's, and the pill names the unit's section (components/layout/section-menu.tsx).
+  // under the project's, and the pill names the unit's section (components/layout/phone-ribbon.tsx).
   await expect(sectionMenuTrigger(page).getByTestId("section-menu-current")).toHaveText("Overview");
   const menu = await openSectionMenu(page);
   await expect(menu).toHaveAccessibleName("Page sections");

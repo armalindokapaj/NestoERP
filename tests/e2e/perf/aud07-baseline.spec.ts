@@ -336,14 +336,17 @@ test.describe("AUD-07 benchmark", () => {
             await probe(page, route, category, index);
             destinationPrefetches = 0;
             await page.goto(route.origin!, { waitUntil: "load" });
-            // On a phone there is no sidebar: Home and Projects are on the bottom bar, every other module is in
-            // the bar's Menu drawer (commit 4ec692d8). Menu is opened first, outside the measurement.
+            // On a phone the modules are under the phone Ribbon's tabs at the bottom: the tab holding this
+            // one is opened first, outside the measurement.
             let selector = route.link!;
             if (PROFILE === "mobile" && selector.startsWith("nav ")) {
               const target = selector.slice("nav ".length);
-              const onBar = page.locator(`[data-mobile-bottom-nav] ${target}`).filter({ visible: true });
-              if ((await onBar.count()) === 0) await page.getByTestId("mobile-more").click();
-              selector = `[data-mobile-bottom-nav] ${target}, [data-testid="mobile-more-drawer"] ${target}`;
+              for (const tab of await page.locator('[data-mobile-bottom-nav] [data-testid^="phone-tab-"]').all()) {
+                await tab.click();
+                if ((await page.locator(`[data-testid="phone-panel"] ${target}`).count()) > 0) break;
+                await tab.click();
+              }
+              selector = `[data-testid="phone-panel"] ${target}`;
             }
             const link = page.locator(selector).filter({ visible: true }).first();
             await link.waitFor({ state: "visible", timeout: 15_000 });

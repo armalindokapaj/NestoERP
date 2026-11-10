@@ -1,8 +1,8 @@
 /**
- * The page's sections, for the section menu below `lg` (components/layout/section-menu.tsx).
+ * The page's sections, for This page below `lg` (components/layout/phone-ribbon.tsx).
  *
- * Below 1024px a page's tab rows are not drawn: the top bar's section pill
- * opens them as one menu instead. Every tab row goes through ContextTabsFrame,
+ * Below 1024px a page's tab rows are not drawn: the phone Ribbon's This page
+ * opens them instead. Every tab row goes through ContextTabsFrame,
  * which hands its tabs to this store while it is mounted — its level — and
  * takes them back when it unmounts. A record's own tabs inside a tabbed page
  * (a unit inside its project) are a second level; the levels are kept in

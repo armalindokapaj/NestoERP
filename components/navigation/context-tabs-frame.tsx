@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils/cn";
  * the tabs outgrow the row it scrolls sideways.
  *
  * Below `lg` (phones and tablets) the row is not drawn: its `sections` — every
- * tab, including those a row tucks under More — are the top bar's section menu
- * (components/layout/section-menu.tsx). A page's own controls (`trailing`)
+ * tab, including those a row tucks under More — are the phone Ribbon's This
+ * page (components/layout/phone-ribbon.tsx). A page's own controls (`trailing`)
  * stay on the page there, a compact right-aligned row in the tab row's place
  * that scrolls with it (`data-tabs-in-menu`, styles/globals.css). `lead` is
  * what names the context in that row below `lg` — a project's name, code,

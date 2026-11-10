@@ -1,6 +1,6 @@
 "use client";
 
-import { OPEN_QUICK_CREATE_EVENT } from "@/components/layout/mobile-bottom-nav";
+import { OPEN_QUICK_CREATE_EVENT } from "@/components/layout/phone-ribbon";
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Plus, X } from "@/components/icons";
@@ -270,8 +270,8 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     return () => window.removeEventListener("keydown", onKey);
   }, [summary.canOpen, open, openPanel]);
 
-  // The phone's bottom bar opens the same panel; its own trigger is hidden below md (MOB-02 §16).
-  // Pressed again while the panel is open, the bar's button closes it, as this one does.
+  // The phone Ribbon's Create opens the same panel; its own trigger is hidden below md (MOB-02 §16).
+  // Pressed again while the panel is open, that button closes it, as this one does.
   React.useEffect(() => {
     if (!summary.canOpen) return;
     const onOpen = (event: Event) => {
@@ -559,7 +559,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
-          className="nesto-popup-glass fixed inset-x-3 bottom-[calc(var(--nesto-safe-bottom)+7.25rem)] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-11rem))] max-w-md flex-col border border-line bg-surface shadow-xl outline-none md:absolute md:inset-auto md:left-0 md:top-[calc(50%+var(--nesto-shell-header-h)/2+0.5px)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3 rounded-[14px] shadow-menu"
+          className="nesto-popup-glass fixed inset-x-3 bottom-[max(calc(var(--nesto-safe-bottom)+0.75rem),calc(var(--nesto-bottom-nav-space)-0.875rem))] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-var(--nesto-bottom-nav-space)-4.5rem))] max-w-md flex-col border border-line bg-surface shadow-xl outline-none md:absolute md:inset-auto md:left-0 md:top-[calc(50%+var(--nesto-shell-header-h)/2+0.5px)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3 rounded-[14px] shadow-menu"
           data-testid="quick-create-panel"
           data-state={step.kind === "menu" ? menuState.status : step.kind}
         >

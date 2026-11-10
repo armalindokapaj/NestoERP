@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import { Bell, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
@@ -9,7 +8,6 @@ import { createActivityController, fetchTransport, type ActivityController } fro
 import { onActivityReset, removeLegacyActivityCache, subscribeActivity } from "@/lib/activity/client";
 import { onDataRefresh } from "@/lib/navigation/refresh-event";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
-import { useIsBelow } from "@/components/ui/use-breakpoint";
 import { cn } from "@/lib/utils/cn";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
 import { aimPointer, PanelPointer } from "@/components/ui/popup-pointer";
@@ -28,20 +26,15 @@ import { unsaved } from "@/lib/unsaved/coordinator";
 const body = createPanelLoader("activity", () => import("@/components/layout/panels/activity-panel-body"));
 
 /**
- * `placement="bar"` is the bottom bar's Alerts cell (icon over label). The bell
- * lives in the bottom bar wherever the bar is drawn — phones and tablets, below
- * `lg` — and in the top bar from `lg`; once the width is known only the one
- * that belongs is mounted, so there is one controller and one
- * `notification-bell`.
+ * The bell, in the top bar at every width: the phone's ribbons keep the bottom
+ * of the screen for the page and for moving around (docs/ui/UI-04-navigation-layouts.md),
+ * so there is one controller and one `notification-bell`.
  */
-export function ActivityBell({ contextKey, canManageAnnouncements = false, placement = "topbar" }: { contextKey: string; canManageAnnouncements?: boolean; placement?: "topbar" | "bar" }) {
-  const belowLg = useIsBelow("lg");
-  if (belowLg === true && placement === "topbar") return null;
-  if (belowLg === false && placement === "bar") return null;
-  return <BellControl contextKey={contextKey} canManageAnnouncements={canManageAnnouncements} placement={placement} />;
+export function ActivityBell({ contextKey, canManageAnnouncements = false }: { contextKey: string; canManageAnnouncements?: boolean }) {
+  return <BellControl contextKey={contextKey} canManageAnnouncements={canManageAnnouncements} />;
 }
 
-function BellControl({ contextKey, canManageAnnouncements, placement }: { contextKey: string; canManageAnnouncements: boolean; placement: "topbar" | "bar" }) {
+function BellControl({ contextKey, canManageAnnouncements }: { contextKey: string; canManageAnnouncements: boolean }) {
   const t = useTranslations("activity");
   const panelId = React.useId();
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -86,8 +79,6 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
   const label = counts === null ? t("title") : `${t("title")} — ${t("unreadCount", { count: total })}${snapshot.count.stale ? ` (${t("countStale")})` : ""}`;
   const Body = code.status === "ready" ? code.module.ActivityPanelBody : null;
 
-  const inBar = placement === "bar";
-
   // On a touch layout the panel carries a pointer: it is aimed at the bell.
   React.useLayoutEffect(() => {
     if (!open) return;
@@ -97,9 +88,8 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
     return () => window.removeEventListener("resize", aim);
   }, [open]);
 
-  // In the top bar it stays fixed under the bar: its top edge on the breadcrumb bar's top line, its right
+  // It stays fixed under the top bar: its top edge on the breadcrumb bar's top line, its right
   // edge on the content's, like every panel opened from the top bar (lib/layout/topbar-line.ts).
-  // In the bottom bar it is a bubble of glass floating above the bar, its pointer on the bell.
   const panel = open ? (
     <div
       ref={panelRef}
@@ -108,16 +98,13 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
       aria-label={t("title")}
       className={cn(
         "nesto-popup-glass fixed z-50 flex flex-col border border-line bg-surface shadow-lg rounded-[14px] shadow-menu",
-        inBar
-          ? "inset-x-3 bottom-[calc(var(--nesto-safe-bottom)+6.5rem)] mx-auto max-h-[min(70dvh,calc(100dvh-10rem))] max-w-md"
-          : "right-[max(1.5rem,env(safe-area-inset-right))] top-[var(--nesto-shell-header-h)] max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] w-[min(26rem,calc(100vw-1.5rem))] touch:mt-3 xl:right-8",
+        "right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--nesto-shell-header-h)] max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] w-[min(26rem,calc(100vw-1.5rem))] touch:mt-3 md:right-[max(1.5rem,env(safe-area-inset-right))] xl:right-8",
       )}
       data-testid="activity-panel"
-      data-placement={placement}
     >
-      <PanelPointer side={inBar ? "below" : "above"} />
+      <PanelPointer side="above" />
       {Body ? (
-        <Body controller={controller} snapshot={snapshot} panelId={panelId} canManageAnnouncements={canManageAnnouncements} onClose={close} viewAllLabel={inBar ? t("allAlerts") : undefined} />
+        <Body controller={controller} snapshot={snapshot} panelId={panelId} canManageAnnouncements={canManageAnnouncements} onClose={close} />
       ) : (
         <>
           <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
@@ -133,7 +120,7 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
   ) : null;
 
   return (
-    <div className={cn("relative", inBar && "min-w-0 flex-1")}>
+    <div className="relative">
       <button
         ref={triggerRef}
         type="button"
@@ -142,33 +129,22 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
-        className={cn(
-          "relative shrink-0 text-fg-muted transition-colors hover:text-fg",
-          inBar
-            ? "flex h-14 w-full flex-col items-center justify-center px-1 text-fg-subtle gap-1 font-mono text-[0.625rem] font-medium uppercase aria-expanded:text-fg leading-tight"
-            : "grid size-9 place-items-center hover:bg-hover aria-expanded:bg-hover touch:size-11 rounded-full",
-        )}
+        className="relative grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-expanded:bg-hover touch:size-11"
         data-testid="notification-bell"
         data-count-state={counts === null ? "unknown" : snapshot.count.stale ? "stale" : "fresh"}
         {...warm}
       >
         <span className="relative">
-          <Bell aria-hidden="true" className={inBar ? "size-[22px]" : "size-[18px]"} />
-          {total > 0 && inBar ? (
-            <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute -right-2 -top-1.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ring-2 ring-surface", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
-              {total > 99 ? "99+" : total}
-            </span>
-          ) : null}
+          <Bell aria-hidden="true" className="size-[18px]" />
         </span>
-        {inBar ? <span className="max-w-full truncate tracking-[0.06em]">{t("barLabel")}</span> : null}
-        {total > 0 && !inBar ? (
+        {total > 0 ? (
           <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ring-2 ring-canvas", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
             {total > 99 ? "99+" : total}
           </span>
         ) : null}
       </button>
 
-      {inBar && panel ? createPortal(panel, document.body) : panel}
+      {panel}
     </div>
   );
 }

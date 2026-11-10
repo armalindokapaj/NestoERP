@@ -139,9 +139,8 @@ function DrawerAccount({ user, onNavigate }: { user: User; onNavigate: () => voi
   );
 }
 
-/* A bar cell, as in the platform's phone bottom bar (components/layout/mobile-bottom-nav.tsx): icon over label, the whole cell the target, a gold dot above the active one. */
-/* A bar cell, as the platform's own bar draws it (components/layout/mobile-bottom-nav.tsx): the destination
-   the console is at is filled with the accent colour — the cell itself, not just its ink. */
+/* A bar cell: icon over label, the whole cell the target. The destination the console is at is filled
+   with the accent colour — the cell itself, not just its ink. */
 const cellClass =
   "relative flex h-[52px] w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:bg-accent data-[active=true]:text-accent-fg data-[active=true]:shadow-sm data-[active=true]:hover:text-accent-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 

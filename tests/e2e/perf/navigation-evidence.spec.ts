@@ -54,8 +54,8 @@ async function quickCreateStates(page: Page, prefix: string) {
     return route.fulfill({ response, json: body });
   });
   const panel = page.getByTestId("quick-create-panel");
-  // The top bar's button on a tablet or desktop; the bottom bar's on a phone (MOB-02 §16).
-  await page.getByTestId("quick-create-button").or(page.getByTestId("mobile-create")).filter({ visible: true }).click();
+  // The top bar's button on a tablet or desktop; the phone Ribbon's on a phone (MOB-02 §16).
+  await page.getByTestId("quick-create-button").or(page.getByTestId("phone-create")).filter({ visible: true }).click();
   await expect(panel.getByTestId("quick-create-loading")).toBeVisible();
   await shot(page, `${prefix}-quick-create-loading`);
   mode = "error";
@@ -115,11 +115,11 @@ test.describe("NAV-01 evidence, phone", () => {
   delete pixel.defaultBrowserType;
   test.use(pixel);
 
-  test("a More tap: the sheet closes and the skeleton owns the wait", async ({ page }) => {
+  test("a tile tap: the panel closes and the skeleton owns the wait", async ({ page }) => {
     await signIn(page, "FINANCE", { to: "/dashboard" });
     const release = await hold(page, "/finance");
-    await page.getByTestId("mobile-more").click();
-    await page.getByRole("dialog").locator('a[href="/finance"]').click();
+    await page.getByTestId("phone-tab-department").click();
+    await page.getByTestId("phone-panel").locator('a[href="/finance"]').click();
     await expect(mainRegion(page).getByTestId("page-skeleton")).toBeVisible();
     await page.waitForTimeout(250);
     await shot(page, "phone-01-loading-skeleton");

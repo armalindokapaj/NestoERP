@@ -68,13 +68,13 @@ test.describe("AUD-04 top bar below 1024px (MW-02)", () => {
     test.skip(!belowLg(page), "the phone and tablet top bar (below 1024px)");
   });
 
-  test("no navigation drawer: the bottom bar's Menu is the one menu; the top bar fits without collisions, with 44px controls", async ({ page }) => {
+  test("no navigation drawer: the phone Ribbon is the one navigation; the top bar fits without collisions, with 44px controls", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     const header = page.locator("header[data-shell-region]");
     await expectNoPageOverflow(page, "dashboard");
     await expectTouchTargets(page, header);
     await expect(page.getByRole("button", { name: /open navigation/i })).toHaveCount(0);
-    await expect(page.getByTestId("mobile-more")).toBeVisible();
+    await expect(page.getByTestId("phone-tab-work")).toBeVisible();
 
     // No two top-bar controls overlap, and every one is on screen (320px included).
     const boxes = await header.locator("button:visible, a[href]:visible").evaluateAll((elements) =>

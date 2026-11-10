@@ -4,25 +4,51 @@ import { describe, expect, it } from "vitest";
 
 import { SectionStore } from "@/components/navigation/section-store";
 import { readDesktopNav, readPhoneNav, DESKTOP_NAV_CHOICES, PHONE_NAV_CHOICES } from "@/lib/layout/nav-layout";
+import { phoneTabs, projectIdFrom } from "@/lib/navigation/phone";
+import type { NavigationGroup } from "@/config/navigation";
 
 /**
  * Navigation layouts (docs/ui/UI-04-navigation-layouts.md): the Ribbon or the
- * Dock on a desktop, the Thumb bar or Bottom tabs on a phone, each chosen in
+ * Dock on a desktop, the Pocket Ribbon or the Action Ribbon on a phone, each chosen in
  * Settings › Appearance and read from a cookie.
  */
 describe("the layout choices", () => {
-  it("defaults to the Ribbon on a desktop and the Thumb bar on a phone", () => {
+  it("defaults to the Ribbon on a desktop and the Pocket Ribbon on a phone", () => {
     expect(readDesktopNav(undefined)).toBe("ribbon");
-    expect(readPhoneNav(undefined)).toBe("thumb");
+    expect(readPhoneNav(undefined)).toBe("pocket");
     expect(DESKTOP_NAV_CHOICES[0]).toBe("ribbon");
-    expect(PHONE_NAV_CHOICES[0]).toBe("thumb");
+    expect(PHONE_NAV_CHOICES[0]).toBe("pocket");
   });
 
   it("reads each choice, and anything else as the default", () => {
     expect(readDesktopNav("dock")).toBe("dock");
     expect(readDesktopNav("sidebar")).toBe("ribbon");
-    expect(readPhoneNav("tabs")).toBe("tabs");
-    expect(readPhoneNav("drawer")).toBe("thumb");
+    expect(readPhoneNav("action")).toBe("action");
+    // The retired phone layouts fall back to the default.
+    expect(readPhoneNav("thumb")).toBe("pocket");
+    expect(readPhoneNav("tabs")).toBe("pocket");
+  });
+});
+
+describe("the phone Ribbon", () => {
+  const item = (key: string) => ({ key, module: key, href: `/${key}`, icon: "NestoOverview" }) as unknown as NavigationGroup["items"][number];
+
+  it("has a tab per group with modules, and Company always, which holds the account", () => {
+    const groups: NavigationGroup[] = [
+      { group: "primary", label: null, items: [item("dashboard")] },
+      { group: "work", label: "Work", items: [] },
+      { group: "department", label: "Department", items: [item("finance")] },
+    ];
+    expect(phoneTabs(groups).map((group) => group.group)).toEqual(["primary", "department", "company"]);
+  });
+
+  it("finds the project Units belongs to in the path, never a page of the module", () => {
+    expect(projectIdFrom("/projects/project_a/units")).toBe("project_a");
+    expect(projectIdFrom("/projects/project_a")).toBe("project_a");
+    expect(projectIdFrom("/projects/new")).toBeNull();
+    expect(projectIdFrom("/projects/my-projects")).toBeNull();
+    expect(projectIdFrom("/projects")).toBeNull();
+    expect(projectIdFrom("/sales/units")).toBeNull();
   });
 });
 
@@ -48,8 +74,8 @@ describe("the shell", () => {
     const shell = read("components/layout/app-shell.tsx");
     expect(shell).toContain("<Ribbon");
     expect(shell).toContain("<DesktopDock");
-    expect(shell).toContain("<MobileTabsNav");
-    expect(shell).toContain("<MobileBottomNav");
+    expect(shell).toContain("<PocketRibbon");
+    expect(shell).toContain("<ActionRibbon");
     expect(shell).not.toMatch(/<Sidebar\b/);
   });
 

@@ -20,12 +20,13 @@ test("a bottom-bar tap keeps the shell, and the wait stays visible in it (N02)",
       await route.continue();
     },
   );
-  // Projects is a bottom-bar destination on a phone (MOB-02), prepared only on deliberate intent, so a tap
+  // Projects is a tile under the phone Ribbon's Work tab, prepared only on deliberate intent, so a tap
   // fetches it then. The bar stays, and the shell keeps the wait on screen (the progress bar until the
   // commit, then the destination's skeleton).
-  const bar = page.getByRole("navigation", { name: "Primary" });
-  await bar.getByRole("link", { name: "Projects" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const bar = page.locator("[data-mobile-bottom-nav]");
+  await bar.getByTestId("phone-tab-work").click();
+  await page.getByTestId("phone-module-projects").click();
+  await expect(page.getByTestId("phone-panel")).toHaveCount(0);
   await expect(bar).toBeVisible();
   await expect(page.getByTestId("nav-progress").or(mainRegion(page).getByTestId("page-skeleton")).first()).toBeVisible();
   release();
@@ -49,9 +50,9 @@ test("the loading surface fits a 320px screen without horizontal scroll (L06)", 
       await route.continue();
     },
   );
-  await page.getByTestId("mobile-more").click();
-  await page.waitForTimeout(800); // the sheet's default prefetch brings the boundary
-  await page.getByRole("dialog").locator('a[href="/calendar"]').click();
+  await page.getByTestId("phone-tab-primary").click();
+  await page.waitForTimeout(800); // the panel's default prefetch brings the boundary
+  await page.getByTestId("phone-panel").locator('a[href="/calendar"]').click();
   await expect(mainRegion(page).getByTestId("page-skeleton")).toBeVisible();
   const whileLoading = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(whileLoading).toBeLessThanOrEqual(0);
@@ -63,14 +64,14 @@ test("+ Create's loading and retry states are reachable in its panel (Q24)", asy
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
   let fail = true;
   await page.route("**/api/quick-create/actions**", (route) => (fail ? route.fulfill({ status: 503, body: "{}" }) : route.continue()));
-  const create = page.getByTestId("mobile-create");
+  const create = page.getByTestId("phone-create");
   await create.click();
   const panel = page.getByTestId("quick-create-panel");
   await expect(panel.getByTestId("quick-create-error")).toBeVisible();
   fail = false;
   await panel.getByTestId("quick-create-retry").tap();
   await expect(panel.getByTestId("quick-create-tasks.task.create")).toBeVisible();
-  // The whole panel is on screen, a bubble floating just above the bottom bar's Create — not hung from the top bar.
+  // The whole panel is on screen, a bubble floating just above the phone Ribbon's Create — not hung from the top bar.
   const box = await panel.boundingBox();
   const button = await create.boundingBox();
   const viewport = page.viewportSize()!;

@@ -1,5 +1,3 @@
-import { ActivityBell } from "@/components/layout/activity-bell";
-import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { getTranslations } from "@/lib/i18n/server";
 import { PageContainer } from "@/components/ui/page-container";
 import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
@@ -17,7 +15,8 @@ import { RouteFocus } from "@/components/layout/route-focus";
 import { SkipLink } from "@/components/layout/skip-link";
 import { BannerSlot, ShellSlotsProvider } from "@/components/layout/shell-slots";
 import { DesktopDock } from "@/components/layout/desktop-dock";
-import { MobileTabsNav } from "@/components/layout/mobile-tabs-nav";
+import { ActionRibbon } from "@/components/layout/action-ribbon";
+import { PocketRibbon } from "@/components/layout/pocket-ribbon";
 import { Ribbon } from "@/components/layout/ribbon";
 import { Topbar } from "@/components/layout/topbar";
 import { ToastProvider } from "@/components/ui/toast";
@@ -54,8 +53,8 @@ import { listWorkspaces } from "@/lib/workspace/workspace.service";
  *
  * Navigation is resolved once, here, and handed to the desktop navigation and
  * the phone's, so the two can never disagree (PRD #3 §99). Which desktop
- * navigation (the Ribbon or the Dock) and which phone navigation (the Thumb
- * bar or Bottom tabs) is the person's choice in Settings › Appearance, read
+ * navigation (the Ribbon or the Dock) and which phone navigation (the Pocket
+ * Ribbon or the Action Ribbon) is the person's choice in Settings › Appearance, read
  * from its cookies so the server draws the right one on the first paint
  * (docs/ui/UI-04-navigation-layouts.md).
  *
@@ -95,8 +94,7 @@ export async function AppShell({
   const [navigation, core, roleLabels] = await Promise.all([resolveWorkspaceNavigation(context), resolveShellCore(context), getTranslations("roles")]);
   recordDuration(Metric.SHELL_CORE_READY_MS, Metric.SHELL_CORE_READY, startedAt, { scope: context.workspace.scopeType });
 
-  // The phone navigation's bell and the account its More sheet names, whichever phone navigation is drawn.
-  const activity = <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} placement="bar" />;
+  // The account the phone navigation's Company tab holds, whichever phone navigation is drawn.
   const account = {
     firstName: context.firstName,
     lastName: context.lastName,
@@ -161,11 +159,11 @@ export async function AppShell({
                     }}
               >
               <BreadcrumbRegistryProvider>
-              {/* A page's tab rows hand their sections to the top bar's section pill, below lg (components/layout/section-menu.tsx). */}
+              {/* A page's tab rows hand their sections to the phone Ribbon's This page below lg, and the module's row to the desktop Ribbon (section-registry.tsx). */}
               <SectionStoreProvider>
               {/* A page's tips and Help fold into its one ⋯ menu, right after its title or status, and below lg its secondary actions too (components/navigation/page-menu.tsx). */}
               <PageMenuProvider>
-              {/* Below md a detail page's main action moves into the one bottom action bar, above the bottom navigation (components/ui/mobile-action-bar.tsx). */}
+              {/* Below md a detail page's main action moves to the phone's bottom: its own bar above the Pocket Ribbon, or into the Action Ribbon (components/ui/mobile-action-bar.tsx). */}
               <MobileActionBarProvider>
               <div>
                 {/* With the Ribbon chosen, it is drawn under the top bar's row, in the same sticky header. */}
@@ -181,20 +179,21 @@ export async function AppShell({
                     include the safe-area insets, which viewport-fit=cover makes real. */}
                 <PageContainer as="main" id="nesto-main" tabIndex={-1} className="outline-none">
                   {children}
-                  {/* The page's main action on a phone, pinned above the bottom navigation; nothing while the page has none.
-                      Inside the main region, after the page's content: it is the page's own, and read after it. */}
-                  <MobileActionBarHost />
+                  {/* With the Pocket Ribbon, the page's main action on a phone, pinned above it; nothing while the page has none.
+                      Inside the main region, after the page's content: it is the page's own, and read after it.
+                      The Action Ribbon carries the page's main actions in its own bar instead. */}
+                  {phoneNav === "pocket" ? <MobileActionBarHost /> : null}
                 </PageContainer>
                 {/* Pull down at the top of a phone screen to read the page again (mobile audit 5c). */}
                 <PullToRefresh />
                 {/* The desktop Dock, when it is the chosen desktop navigation; from lg. */}
                 {desktopNav === "dock" ? <DesktopDock navigation={navigation} /> : null}
-                {/* The phone and tablet-portrait navigation (MOB-02), below lg: the Thumb bar — Home, Projects,
-                    Create, Alerts (the bell) and Menu, placed by lib/navigation/mobile.ts — or Bottom tabs. */}
-                {phoneNav === "tabs" ? (
-                  <MobileTabsNav navigation={navigation} canCreate={core.quickCreate.canOpen} activity={activity} account={account} />
+                {/* The phone and tablet-portrait navigation, below lg: the desktop Ribbon brought to the phone, as the
+                    Pocket Ribbon (the default) or the Action Ribbon (docs/ui/UI-04-navigation-layouts.md). */}
+                {phoneNav === "action" ? (
+                  <ActionRibbon navigation={navigation} canCreate={core.quickCreate.canOpen} account={account} />
                 ) : (
-                  <MobileBottomNav navigation={navigation} canCreate={core.quickCreate.canOpen} activity={activity} account={account} />
+                  <PocketRibbon navigation={navigation} canCreate={core.quickCreate.canOpen} account={account} />
                 )}
               </div>
               </MobileActionBarProvider>

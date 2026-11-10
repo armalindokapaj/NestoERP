@@ -153,36 +153,24 @@ export const en = {
       home: "Home",
       departments: "Departments",
     },
-    /** The phone's Bottom tabs (components/layout/mobile-tabs-nav.tsx). */
-    tabs: {
-      barLabel: "Primary",
-      work: "Work",
-      departments: "Departments",
-      more: "More",
+    /** The phone navigation: the Pocket Ribbon and the Action Ribbon (components/layout/phone-ribbon.tsx). */
+    phone: {
+      label: "Ribbon",
+      ribbon: "Ribbon",
+      tabs: "Ribbon tabs",
+      units: "Units",
       create: "Create",
-    },
-    mobile: {
-      barLabel: "Primary",
-      home: "Home",
-      create: "Create",
-      more: "More",
-      /** The bar's last cell, the hamburger that opens More. */
-      menu: "Menu",
-      moreTitle: "More",
-      general: "General",
-      searchModules: "Search modules",
-      searchModulesPlaceholder: "Search modules…",
-      noModules: "No module matches.",
-      profile: "Profile",
-      account: "Account",
-      /** In the More sheet: reads the page again, as pulling down at its top does (mobile audit 5c). */
+      close: "Close",
+      find: "Find a module",
+      noMatch: "No module matches.",
+      /** Under the Company tab: the profile, Settings, Refresh, the theme and Logout. */
+      you: "You",
+      /** Reads the page again, as pulling down at its top does (mobile audit 5c). */
       refresh: "Refresh this page",
-      pending: "Opening…",
     },
-    /** The section pill at the top right below lg, and the menu of the page's sections it opens. */
+    /** This page, below lg: the section you are on, which opens the page's sections. */
     sectionMenu: {
       trigger: "Page sections: {section}",
-      title: "Page sections",
     },
     /** The Tasks block at the top of Home, below lg. */
     homeTasks: {
@@ -502,8 +490,8 @@ export const en = {
       phoneNav: "Phone navigation",
       phoneNavHint: "How you move around Nesto on a phone or a tablet held upright.",
       phoneNavs: {
-        thumb: { label: "Thumb bar", hint: "Home, Projects, Create, Alerts and Menu, where your thumb rests." },
-        tabs: { label: "Bottom tabs", hint: "Home, Work, Departments, Alerts and More. Each tab opens its own menu." },
+        pocket: { label: "Pocket Ribbon", hint: "The Ribbon's tabs at the bottom, each opening its modules. This page, Units and Create float just above." },
+        action: { label: "Action Ribbon", hint: "Ribbon, the page's main actions, Units and Create. Ribbon opens every tab and module, with a search." },
       },
       defaultChoice: "Default",
       colourScheme: "Nesto theme",

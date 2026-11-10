@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils/cn";
  * highlighted.
  *
  * Below `lg` (phones and tablets) neither is drawn: the sections are a level
- * of the top bar's section pill (components/layout/section-menu.tsx), under
+ * of the phone Ribbon's This page (components/layout/phone-ribbon.tsx), under
  * the project's own, like every other tab row.
  */
 export function SectionNav({ items, label, testId, layout = "column" }: { items: Array<{ href: string; label: string; count?: number | null; exact?: boolean }>; label: string; testId?: string; layout?: "column" | "tabs" }) {
