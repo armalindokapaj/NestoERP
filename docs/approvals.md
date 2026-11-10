@@ -97,6 +97,22 @@ which also makes Approve ask for an explicit confirmation.
 7. With an idempotency key, the outcome is kept in `ApprovalDecisionReceipt`
    and a retry replays it; the same key for a different decision is refused.
 
+### Deciding your own request (2026-11)
+
+Nobody decides what they asked for, submitted, carried out or are named on.
+The one exception is a CEO, or a member holding CEO access: they may decide
+their own only when no other active member of the company (a login, not
+suspended, not barred from that record) holds the grant to decide it at a
+scope that reaches the record — for a chain step, nobody else the step could
+go to. Otherwise the refusal names up to three people who can. When it is
+allowed, the decision writes an `APPROVAL_SELF_APPROVED` activity line on the
+record and an `APPROVAL_SELF_APPROVED` audit event (reason
+`NO_OTHER_APPROVER`). One CEO and one CEO-access holder are each somebody else
+for the other. The Owner's `finance.approval.self`, `sales.approval.self` and
+`legal.approval.self` are unchanged. The rule is
+`lib/core/approvals/self-approval.ts`; every module's own check, the
+Approvals Center and the chain steps call it.
+
 Error codes (`details.code`): `APPROVAL_NOT_FOUND`, `APPROVAL_ALREADY_DECIDED`,
 `APPROVAL_FORBIDDEN`, `APPROVAL_SELF_APPROVAL_BLOCKED`,
 `APPROVAL_SOURCE_CHANGED`, `APPROVAL_PROVIDER_UNAVAILABLE`,
@@ -189,7 +205,8 @@ is no global approve permission — deciding is always the source module's grant
 | Role | Approvals access |
 | --- | --- |
 | Owner | Manage |
-| HR, CEO, Finance, Legal, Sales, Procurement, QA/QC, HSE | Approve (history, delegation) |
+| CEO | Manage, as the Owner (2026-11) |
+| HR, Finance, Legal, Sales, Procurement, QA/QC, HSE | Approve (history, delegation) |
 | Project Manager | Approve, project scope |
 | Group IT, Inventory | View |
 | Architect as company department manager or group head | Approve (history, delegation) |

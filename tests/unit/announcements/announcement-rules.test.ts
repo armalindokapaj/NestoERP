@@ -28,7 +28,8 @@ describe("announcement grants by role (§229-§246)", () => {
       expect(has(role, "announcement.acknowledge"), role).toBe(true);
     }
     expect(addressableAudiences(contextFor("OWNER"))).toEqual(["COMPANY", "DEPARTMENT", "PROJECT", "SELECTED_MEMBERS"]);
-    expect(addressableAudiences(contextFor("CEO"))).toEqual(["COMPANY", "DEPARTMENT", "SELECTED_MEMBERS"]);
+    // The CEO speaks to every audience the Owner does (the user, 2026-11: "CEO does everything").
+    expect(addressableAudiences(contextFor("CEO"))).toEqual(["COMPANY", "DEPARTMENT", "PROJECT", "SELECTED_MEMBERS"]);
     expect(addressableAudiences(contextFor("HR"))).toEqual(["COMPANY", "DEPARTMENT", "SELECTED_MEMBERS"]);
     expect(addressableAudiences(contextFor("GROUP_IT"))).toEqual(["COMPANY"]);
     expect(addressableAudiences(contextFor("PROJECT_MANAGER"))).toEqual(["PROJECT", "SELECTED_MEMBERS"]);

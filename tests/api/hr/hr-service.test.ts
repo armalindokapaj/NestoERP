@@ -365,7 +365,8 @@ describe("compensation confidentiality (PRD #16 §15, §274)", () => {
     expect(can(context, "hr.compensation.view")).toBe(true);
   });
 
-  it.each(["CEO", "GROUP_IT", "PROJECT_MANAGER"] as const)(
+  // The CEO holds pay as the Owner does since 2026-11 ("CEO does everything").
+  it.each(["GROUP_IT", "PROJECT_MANAGER"] as const)(
     "denies %s, who never had the compensation grant",
     async (role) => {
       const context = await loginAs(role);
@@ -571,7 +572,10 @@ describe("leave reason confidentiality (PRD #16 §95, §290)", () => {
   it("omits the reason entirely for everybody else", async () => {
     // A reason may be medical. Absent from the DTO beats null in the DTO:
     // there is nothing to leak through a log, a cache or a serialiser.
-    const context = await loginAs("CEO");
+    // A company-wide leave reader without the reason grant. The CEO was one until
+    // 2026-11, when the CEO came to hold the Owner's HR rights; the grant is taken away here.
+    const ceo = await loginAs("CEO");
+    const context = { ...ceo, permissions: ceo.permissions.filter((permission) => permission !== "hr.leave.reason.view") };
     const dto = await leave.getLeave(context, "leave_002");
 
     expect(can(context, "hr.leave.reason.view")).toBe(false);
@@ -1171,23 +1175,23 @@ describe("overview and reports (PRD #16 §291, §292)", () => {
     expect(overview.visible.leave).toBe(true);
   });
 
-  it("gives the CEO company HR figures without any pay in them (PRD #16 §20, §22)", async () => {
+  it("gives the CEO company HR figures, and pay as the Owner has it since 2026-11 (PRD #16 §20, §22)", async () => {
     const context = await loginAs("CEO");
     const overview = await getHrOverview(context);
 
     expect(overview.headcount).toBeGreaterThan(10);
     expect(JSON.stringify(overview)).not.toContain("Amount");
-    expect(reports.availableReports(context).compensation).toBe(false);
+    expect(reports.availableReports(context).compensation).toBe(true);
   });
 
   it("offers the compensation report only with the compensation grant (PRD #16 §141)", async () => {
     const hr = await loginAs("HR");
-    const ceo = await loginAs("CEO");
+    const pm = await loginAs("PROJECT_MANAGER");
 
     expect(reports.availableReports(hr).compensation).toBe(true);
-    expect(reports.availableReports(ceo).compensation).toBe(false);
+    expect(reports.availableReports(pm).compensation).toBe(false);
 
-    await expectError(reports.compensationReport(ceo), "FORBIDDEN");
+    await expectError(reports.compensationReport(pm), "FORBIDDEN");
     expect((await reports.compensationReport(hr)).length).toBeGreaterThan(0);
   });
 
@@ -1353,9 +1357,10 @@ describe("export (PRD #16 §146, §147)", () => {
   it("refuses an export to a role without the grant", async () => {
     const { exportHr } = await import("@/lib/modules/hr/hr.export");
 
-    const ceo = await loginAs("CEO");
-    expect(can(ceo, "hr.export")).toBe(false);
-    await expectError(exportHr(ceo, "employees", new URLSearchParams()), "FORBIDDEN");
+    // The CEO exports since 2026-11; Finance reads its own HR record and no more.
+    const finance = await loginAs("FINANCE");
+    expect(can(finance, "hr.export")).toBe(false);
+    await expectError(exportHr(finance, "employees", new URLSearchParams()), "FORBIDDEN");
   });
 
   it("quotes every field, so a comma in a name cannot split a row", async () => {

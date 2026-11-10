@@ -167,9 +167,10 @@ test("HR reads the organization as of a date (§247)", async ({ page }) => {
 
 // A test of its own, so a fresh session: signing out by clearing cookies races
 // the previous page's in-flight requests, which set the session again.
-test("the CEO is not offered the organization report (§195)", async ({ page }) => {
+// The CEO was not offered it (§195) until the user's 2026-11 decision: the Owner's HR rights, history included.
+test("the CEO is offered the organization report, as the Owner is", async ({ page }) => {
   await signIn(page, "CEO", { to: "/hr/reports" });
   const reports = page.getByRole("navigation", { name: "Reports" });
   await expect(reports.getByRole("link", { name: "Headcount" })).toBeVisible();
-  await expect(reports.getByRole("link", { name: "Organization" })).toHaveCount(0);
+  await expect(reports.getByRole("link", { name: "Organization" })).toBeVisible();
 });

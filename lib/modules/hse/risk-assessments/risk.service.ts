@@ -254,7 +254,7 @@ export async function getRiskAssessment(
     actions,
     createdBy,
     createdAt: row.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, row, pending?.submittedByMemberId ?? null),
+    capabilities: capabilitiesFor(context, row, await approvals.mayDecideNamed(context, { type: "RISK_ASSESSMENT", recordId: row.id, submittedByMemberId: pending?.submittedByMemberId ?? null })),
   };
 }
 
@@ -554,7 +554,7 @@ export async function approveRiskAssessment(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "RISK_ASSESSMENT", assessmentId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "RISK_ASSESSMENT", recordId: assessmentId, decision: "APPROVED" });
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
@@ -599,7 +599,7 @@ export async function rejectRiskAssessment(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "RISK_ASSESSMENT", assessmentId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "RISK_ASSESSMENT", recordId: assessmentId, decision: "REJECTED" });
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);
 
@@ -834,10 +834,9 @@ function toSummaryDTO(
 function capabilitiesFor(
   context: UserContext,
   row: DetailRow,
-  submittedByMemberId: string | null,
+  /** The self rule's answer for this reader, worked out before (§182; lib/core/approvals/self-approval.ts). */
+  notSelf: boolean,
 ) {
-  const notSelf =
-    submittedByMemberId !== context.membershipId || can(context, "hse.approval.self");
 
   return {
     canEdit: isRiskAssessmentEditable(row.status) && can(context, "hse.risk.update"),

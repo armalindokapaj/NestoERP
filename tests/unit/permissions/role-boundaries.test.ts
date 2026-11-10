@@ -27,7 +27,9 @@ const EXPECTED_APPROVALS: Record<RoleKey, string[]> = {
   // Technical access, never a business decision (E-06 §75).
   GROUP_IT: [],
   HR: ["document.review.decide", "hr.attendance.approve", "hr.leave.approve", "timesheet.approve"],
-  CEO: ["finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.request.approve", "project.unit.sale.approve", "sales.proposal.approve", "timesheet.approve"],
+  // The Owner's decisions in every company module, without the Owner's group ones (the user, 2026-11: "CEO does everything").
+  // Deciding their own is not a grant: lib/core/approvals/self-approval.ts.
+  CEO: ["document.review.decide", "engineering_document.approve", "finance.approval.decide", "finance.budget.approve", "finance.commitment.approve", "finance.expense.approve", "finance.invoice.approve", "hr.attendance.approve", "hr.leave.approve", "hse.approval.decide", "hse.inspection.approve", "hse.permit.approve", "hse.risk.approve", "legal.amendment.approve", "legal.approval.decide", "legal.contract.approve", "procurement.approval.decide", "procurement.order.approve", "procurement.order.finance_approve", "procurement.request.approve", "project.unit.sale.approve", "qaqc.approval.decide", "qaqc.inspection.approve", "qaqc.ncr.approve", "sales.proposal.approve", "submittal.approve", "timesheet.approve"],
   PROJECT_MANAGER: ["document.review.decide", "engineering_document.approve", "submittal.approve", "timesheet.approve"],
   ARCHITECT: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
   ENGINEER: ["document.review.decide", "engineering_document.approve", "submittal.approve"],
@@ -120,7 +122,8 @@ describe("domain boundaries (PRD #47 §143-§149)", () => {
 
   it("reserves compensation to the roles that own pay (§98)", () => {
     const withCompensation = ROLE_KEYS.filter((role) => held(role).includes("hr.compensation.view"));
-    expect(withCompensation.sort()).toEqual(["HR", "OWNER"]);
+    // The CEO holds pay as the Owner does (the user, 2026-11: "CEO does everything").
+    expect(withCompensation.sort()).toEqual(["CEO", "HR", "OWNER"]);
   });
 
   it("reserves Owner assignment to the Owner (§229)", () => {

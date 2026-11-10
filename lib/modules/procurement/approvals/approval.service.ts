@@ -15,6 +15,7 @@ import {
   type StepPlan,
   type StepRow,
 } from "@/lib/core/approvals/approval-steps";
+import { assertOwnDecisionAllowed, mayDecideOwn, namedRefusal, ownStepDecision, recordSelfApproval } from "@/lib/core/approvals/self-approval";
 import {
   notifyApprovalDecided,
   notifyApprovalRequested,
@@ -105,14 +106,31 @@ export function assertCanReject(context: UserContext, type: ProcurementApprovalR
  * and is held by nobody by default. Separation of duties is the rule; the grant
  * is the documented exception.
  */
-export function assertNotSelfApproval(context: UserContext, submittedByMemberId: string): void {
-  if (submittedByMemberId !== context.membershipId) return;
-  if (can(context, "procurement.approval.self")) return;
-  throw new AccessError(
-    "FORBIDDEN",
-    "You submitted this, so somebody else has to decide on it.",
-    { code: "SELF_APPROVAL" },
-  );
+export async function assertNotSelfApproval(
+  context: UserContext,
+  submittedByMemberId: string,
+  decided: { tx: Prisma.TransactionClient; type: ProcurementApprovalRecordType; recordId: string; decision: "APPROVED" | "REJECTED" | "RETURNED" },
+): Promise<void> {
+  // A CEO decides their own only when nobody else could, recorded as such (lib/core/approvals/self-approval.ts).
+  await assertOwnDecisionAllowed(context, {
+    own: submittedByMemberId === context.membershipId,
+    selfPermission: "procurement.approval.self",
+    record: { type: APPROVAL_RECORD[decided.type].recordType, id: decided.recordId },
+    mayDecide: (member) => canApproveType(member, decided.type),
+    refusal: () => new AccessError("FORBIDDEN", "You submitted this, so somebody else has to decide on it.", { code: "SELF_APPROVAL" }),
+    tx: decided.tx,
+    decision: decided.decision,
+  });
+}
+
+/** Whether the self rule lets this reader decide this submission: what the queue's controls ask. */
+async function mayDecideSubmission(context: UserContext, row: { recordType: ProcurementApprovalRecordType; recordId: string; submittedByMemberId: string }): Promise<boolean> {
+  return mayDecideOwn(context, {
+    own: row.submittedByMemberId === context.membershipId,
+    selfPermission: "procurement.approval.self",
+    record: { type: APPROVAL_RECORD[row.recordType].recordType, id: row.recordId },
+    mayDecide: (member) => canApproveType(member, row.recordType),
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -315,15 +333,18 @@ export async function requireActionableStep(
   // cannot approve step two (AUD-10 §4, CW-04).
   assertDecisionGuard(guard, approval, step.stepNumber);
 
+  // The requester decides no step, unless they are a CEO and nobody else could take it (2026-11).
+  const own = await ownStepDecision(context, { submittedByMemberId: approval.submittedByMemberId, selfPermission: "procurement.approval.self", step, steps, canReadAs: orderReadableBy(orderId) });
   const verdict = await stepEligibility(context, step, {
     providerKey: PROVIDER_KEY,
     steps,
     submittedByMemberId: approval.submittedByMemberId,
-    allowSelf: can(context, "procurement.approval.self"),
+    allowSelf: own.own && own.allowed,
     canReadAs: orderReadableBy(orderId),
   });
   if (!verdict.eligible) {
     if (verdict.reason === "SELF_APPROVAL") {
+      if (own.own && !own.allowed && own.others.length > 0) throw namedRefusal(own.others);
       throw new AccessError("FORBIDDEN", "You submitted this, so somebody else has to decide on it.", { code: "SELF_APPROVAL" });
     }
     if (verdict.reason === "RESERVED_FOR_LATER_STEP") {
@@ -340,6 +361,9 @@ export async function requireActionableStep(
     throw new AccessError("FORBIDDEN", `This order is waiting for the ${step.label} decision (step ${step.stepNumber} of ${steps.length}).`, {
       code: "APPROVAL_NOT_CURRENT_APPROVER",
     });
+  }
+  if (own.own && own.allowed && own.because === "NOBODY_ELSE") {
+    await recordSelfApproval(tx, context, { record: { type: "purchase_order", id: orderId }, decision: `STEP_${step.stepNumber}` });
   }
   return { steps, step, onBehalfOfMemberId: verdict.onBehalfOfMemberId };
 }
@@ -419,12 +443,13 @@ async function chainCapabilities(context: UserContext, rows: ApprovalRow[]): Pro
     const steps = chains.get(row.id);
     if (!steps?.length) continue;
     const step = currentStepOf(steps);
+    const own = step ? await ownStepDecision(context, { submittedByMemberId: row.submittedByMemberId, selfPermission: "procurement.approval.self", step, steps, canReadAs: orderReadableBy(row.recordId) }) : null;
     const verdict = step
       ? await stepEligibility(context, step, {
           providerKey: PROVIDER_KEY,
           steps,
           submittedByMemberId: row.submittedByMemberId,
-          allowSelf: can(context, "procurement.approval.self"),
+          allowSelf: Boolean(own?.own && own.allowed),
         })
       : null;
     result.set(row.id, Boolean(verdict?.eligible));
@@ -563,6 +588,9 @@ async function hydrate(
   // An order in a chain is decided by whoever holds its current step, not by the queue's permission.
   const chained = await chainCapabilities(context, rows);
 
+  const selfBlockedIds = new Set<string>();
+  for (const row of rows) if (row.status === "PENDING" && !chained.has(row.id) && !(await mayDecideSubmission(context, row))) selfBlockedIds.add(row.id);
+
   return rows.flatMap((row) => {
     const ref =
       row.recordType === "PURCHASE_REQUEST"
@@ -574,9 +602,7 @@ async function hydrate(
     if (!ref) return [];
 
     const pending = row.status === "PENDING";
-    const selfBlocked =
-      row.submittedByMemberId === context.membershipId &&
-      !can(context, "procurement.approval.self");
+    const selfBlocked = selfBlockedIds.has(row.id);
 
     return [
       {

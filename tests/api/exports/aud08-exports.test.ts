@@ -435,12 +435,12 @@ describe("DT-22 a foreign project or record id exports nothing, never everything
   });
 
   it("refuses an export to a reader without the export grant, however the query is shaped", async () => {
-    const ceo = await loginAs("CEO");
-    for (const [route, path] of [
-      [salesExport, "/api/sales/export?type=leads"],
-      [qaqcExport, "/api/qaqc/export?kind=inspections"],
+    // Readers of each module without its export grant. (The CEO was this reader until 2026-11, when the CEO came to export too.)
+    for (const [route, path, reader] of [
+      [salesExport, "/api/sales/export?type=leads", await loginAs("FINANCE")],
+      [qaqcExport, "/api/qaqc/export?kind=inspections", await loginAs("PROCUREMENT")],
     ] as const) {
-      const response = await call(route, path, ceo);
+      const response = await call(route, path, reader);
       expect(response.status, path).toBe(403);
       expect(response.headers.get("content-disposition"), path).toBeNull();
     }

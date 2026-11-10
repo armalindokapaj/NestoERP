@@ -129,12 +129,24 @@ async function payInvoice(invoiceId: string, amount: string) {
   await prisma.paymentAllocation.create({ data: { companyId: COMPANY.a, paymentId, invoiceId, amount, createdByMemberId: "member_finance" } });
 }
 
-/** A Group reader who may read Finance in every company but export in all but one. */
+/**
+ * A Group reader who may read Finance in every company but export in all but one.
+ *
+ * In that one they are HR with Finance lent at View: the registers, not a copy.
+ * (They were made the CEO here until 2026-11, when the CEO came to export too.)
+ */
 async function withoutExportIn(companyId: string) {
-  const member = await prisma.companyMember.findFirstOrThrow({ where: { companyId, user: { email: "finance@nesto.test" } }, select: { id: true, roleId: true } });
-  const ceo = await prisma.role.findUniqueOrThrow({ where: { key: "CEO" }, select: { id: true } });
-  await prisma.companyMember.update({ where: { id: member.id }, data: { roleId: ceo.id } });
-  restore.push(() => prisma.companyMember.update({ where: { id: member.id }, data: { roleId: member.roleId } }));
+  const member = await prisma.companyMember.findFirstOrThrow({ where: { companyId, user: { email: "finance@nesto.test" } }, select: { id: true, roleId: true, userId: true, company: { select: { parentGroupId: true } } } });
+  const hr = await prisma.role.findUniqueOrThrow({ where: { key: "HR" }, select: { id: true } });
+  await prisma.companyMember.update({ where: { id: member.id }, data: { roleId: hr.id } });
+  const grant = await prisma.accessGrant.create({
+    data: { userId: member.userId, parentGroupId: member.company.parentGroupId, functionKey: "finance", scopeType: "COMPANY", scopeId: companyId, accessLevel: "VIEW", grantedByUserId: member.userId },
+    select: { id: true },
+  });
+  restore.push(async () => {
+    await prisma.accessGrant.delete({ where: { id: grant.id } });
+    await prisma.companyMember.update({ where: { id: member.id }, data: { roleId: member.roleId } });
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -264,13 +276,14 @@ describe("who may export (AUD-01 §7; FA-13, FA-14, FA-21)", () => {
       expect((await call(exportExpensesRoute, "/api/finance/expenses/export", context)).status, `${role} expense export`).toBe(403);
     }
 
-    // The CEO reads both registers and may not take a copy of either.
-    const ceo = await loginAs("CEO");
-    expect((await call(listInvoicesRoute, "/api/finance/invoices", ceo)).status).toBe(200);
-    const refused = await call(exportInvoicesRoute, "/api/finance/invoices/export", ceo);
+    // Legal reads the invoice register and may not take a copy of it. (The CEO
+    // was this example until 2026-11, when the CEO came to export too.)
+    const legal = await loginAs("LEGAL");
+    expect((await call(listInvoicesRoute, "/api/finance/invoices", legal)).status).toBe(200);
+    const refused = await call(exportInvoicesRoute, "/api/finance/invoices/export", legal);
     expect(refused.status).toBe(403);
     expect(refused.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
-    expect(await financeExportEligibility(ceo, "finance.invoice.view")).toEqual({ state: "unavailable" });
+    expect(await financeExportEligibility(legal, "finance.invoice.view")).toEqual({ state: "unavailable" });
 
     // A group person with no Finance anywhere reads an empty list, and exports nothing.
     const hr = await loginAs("HR", { workspace: "GROUP" });

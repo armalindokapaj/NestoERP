@@ -5,6 +5,7 @@ import { AccessError, assertModule, assertPermission } from "@/lib/access/guards
 import type { Permission } from "@/config/permissions";
 import type { UserContext } from "@/lib/context/types";
 import { assertDecisionGuard, requireDecisionGuard, singlePending, type ApprovalGuard, type PendingCycle } from "@/lib/core/approvals/approval-guard";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
@@ -66,14 +67,31 @@ export function assertCanReject(context: UserContext, type: ContractApprovalReco
  * Checked against the *submission*, not the record's author: the person who put
  * the agreement forward is the one who must not wave it through.
  */
-export function assertNotSelfApproval(context: UserContext, submittedByMemberId: string): void {
-  if (submittedByMemberId !== context.membershipId) return;
-  if (can(context, "legal.approval.self")) return;
+export async function assertNotSelfApproval(
+  context: UserContext,
+  submittedByMemberId: string,
+  decided: { tx: Prisma.TransactionClient; type: ContractApprovalRecordType; recordId: string; decision: "APPROVED" | "REJECTED" | "RETURNED" },
+): Promise<void> {
+  // A CEO decides their own only when nobody else could, recorded as such (lib/core/approvals/self-approval.ts).
+  await assertOwnDecisionAllowed(context, {
+    own: submittedByMemberId === context.membershipId,
+    selfPermission: "legal.approval.self",
+    record: { type: APPROVAL_RECORD[decided.type].recordType, id: decided.recordId },
+    mayDecide: (member) => canApproveType(member, decided.type),
+    refusal: () => new AccessError("FORBIDDEN", "You submitted this for approval, so somebody else has to decide it."),
+    tx: decided.tx,
+    decision: decided.decision,
+  });
+}
 
-  throw new AccessError(
-    "FORBIDDEN",
-    "You submitted this for approval, so somebody else has to decide it.",
-  );
+/** Whether the self rule lets this reader decide this submission: what the queue's controls ask. */
+async function mayDecideSubmission(context: UserContext, row: { recordType: ContractApprovalRecordType; recordId: string; submittedByMemberId: string }): Promise<boolean> {
+  return mayDecideOwn(context, {
+    own: row.submittedByMemberId === context.membershipId,
+    selfPermission: "legal.approval.self",
+    record: { type: APPROVAL_RECORD[row.recordType].recordType, id: row.recordId },
+    mayDecide: (member) => canApproveType(member, row.recordType),
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -425,6 +443,9 @@ async function hydrate(
     members.map((member) => [member.id, toMemberRef(member)!]),
   );
 
+  const selfBlockedIds = new Set<string>();
+  for (const row of rows) if (row.status === "PENDING" && !(await mayDecideSubmission(context, row))) selfBlockedIds.add(row.id);
+
   return rows.flatMap((row) => {
     const record =
       row.recordType === "CONTRACT"
@@ -436,8 +457,7 @@ async function hydrate(
     if (!record) return [];
 
     const pending = row.status === "PENDING";
-    const mine = row.submittedByMemberId === context.membershipId;
-    const selfBlocked = mine && !can(context, "legal.approval.self");
+    const selfBlocked = selfBlockedIds.has(row.id);
 
     return [
       {

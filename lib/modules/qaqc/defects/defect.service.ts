@@ -8,6 +8,7 @@ import {
   assertPermission,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import { prisma } from "@/lib/database/prisma";
 import { requireCompanyInspection } from "../qaqc.references";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -222,7 +223,16 @@ export async function getDefect(
     correctiveActions: actions,
     createdBy,
     createdAt: row.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, row),
+    capabilities: capabilitiesFor(
+      context,
+      row,
+      await mayDecideOwn(context, {
+        own: row.resolvedByMemberId === context.membershipId,
+        selfPermission: "qaqc.approval.self",
+        record: { type: "quality_defect", id: row.id },
+        mayDecide: (member) => can(member, "qaqc.defect.close"),
+      }),
+    ),
   };
 }
 
@@ -519,18 +529,18 @@ export async function closeDefect(context: UserContext, defectId: string): Promi
     );
   }
 
-  if (
-    existing.resolvedByMemberId === context.membershipId &&
-    !can(context, "qaqc.approval.self")
-  ) {
-    throw new AccessError(
-      "FORBIDDEN",
-      "You recorded the fix, so somebody else has to confirm it.",
-      { code: "SELF_CLOSE" },
-    );
-  }
-
   await prisma.$transaction(async (tx) => {
+    // Somebody else confirms the fix; a CEO may close their own only when nobody else could (lib/core/approvals/self-approval.ts).
+    await assertOwnDecisionAllowed(context, {
+      own: existing.resolvedByMemberId === context.membershipId,
+      selfPermission: "qaqc.approval.self",
+      record: { type: "quality_defect", id: defectId },
+      mayDecide: (member) => can(member, "qaqc.defect.close"),
+      refusal: () => new AccessError("FORBIDDEN", "You recorded the fix, so somebody else has to confirm it.", { code: "SELF_CLOSE" }),
+      tx,
+      label: existing.defectNumber ?? undefined,
+      decision: "CLOSED",
+    });
     await tx.qualityDefect.update({
       where: { id: defectId },
       data: {
@@ -707,16 +717,13 @@ function toSummaryDTO(
   };
 }
 
-function capabilitiesFor(context: UserContext, row: DetailRow) {
+/** `ownDecisionAllowed`: the self rule's answer for this reader, worked out before (lib/core/approvals/self-approval.ts). */
+function capabilitiesFor(context: UserContext, row: DetailRow, ownDecisionAllowed: boolean) {
   return {
     canEdit: isDefectEditable(row.status) && can(context, "qaqc.defect.update"),
     canAssign: isDefectEditable(row.status) && can(context, "qaqc.defect.assign"),
     canResolve: isDefectResolvable(row.status) && can(context, "qaqc.defect.resolve"),
-    canClose:
-      isDefectCloseable(row.status) &&
-      can(context, "qaqc.defect.close") &&
-      (row.resolvedByMemberId !== context.membershipId ||
-        can(context, "qaqc.approval.self")),
+    canClose: isDefectCloseable(row.status) && can(context, "qaqc.defect.close") && ownDecisionAllowed,
     canReopen: isDefectReopenable(row.status) && can(context, "qaqc.defect.reopen"),
     canCancel: isDefectCancellable(row.status) && can(context, "qaqc.defect.cancel"),
     // Escalating turns "this needs fixing" into a formal non-conformance

@@ -376,9 +376,10 @@ The demo company's Sold rule is the default, Signed contract.
 
 ## Limits
 
-- **The CEO does not collect or contract.** The CEO may approve a sale and read,
-  but holds neither the Legal nor the Finance module's acting grants. (E-05F
-  said this of Admin, which E-06 retired.)
+- **The CEO collects and contracts as the Owner does** (2026-11, superseding
+  "the CEO does not collect or contract"): every module at the Owner's level.
+  A sale the CEO asked to approve is decided by somebody else, unless nobody
+  else in the company can (lib/core/approvals/self-approval.ts).
 - **Finance is not notified when a contract is signed.** It finds new signed
   contracts under *Payment pending* on the project's Finance units.
 - **No "contract nearing completion" notice** (§94 lists it as recommended).

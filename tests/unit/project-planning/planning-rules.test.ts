@@ -33,8 +33,9 @@ describe("planning permissions by role (§80-§95)", () => {
     for (const role of ["PLATFORM_ADMIN", "GROUP_IT", "HR"] as const) expect(permissionsForRole(role).filter((permission) => permission.startsWith("project_planning.")), role).toEqual([]);
   });
 
-  it("keeps the company's planning authority with the Owner", () => {
-    expect(ROLE_KEYS.filter((role) => has(role, "project_planning.settings.manage"))).toEqual(["OWNER"]);
+  it("keeps the company's planning authority with the Owner and the CEO", () => {
+    // The CEO holds the Owner's module settings (the user, 2026-11: "CEO does everything").
+    expect(ROLE_KEYS.filter((role) => has(role, "project_planning.settings.manage"))).toEqual(["OWNER", "CEO"]);
     for (const role of ROLE_KEYS) {
       if (has(role, "project_planning.milestone.reopen")) expect(has(role, "project_planning.milestone.complete"), role).toBe(true);
     }

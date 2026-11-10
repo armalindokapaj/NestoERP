@@ -152,6 +152,7 @@ const ROLE_COMPARISON = /(?:\bcontext|\bctx|\bviewer|\bactor|\bmember|\bexisting
  */
 const ROLE_CHECK_EXCEPTIONS: Record<string, string> = {
   "lib/core/approvals/approval-steps.ts": "a step configured for a role is assigned to that role (PRD #41 §33)",
+  "lib/core/approvals/self-approval.ts": "the user's self-approval rule names the CEO and CEO access (2026-11): it only lifts the refusal of your own request when nobody else could decide it",
   "lib/modules/procurement/approvals/approval.service.ts": "role-assigned procurement approval steps (PRD #41)",
   "lib/core/notifications/attention.conditions.ts": "recipients of a role-assigned approval step",
   "lib/modules/team/team.service.ts": "the company must keep an Owner; Owner changes need team.owner.assign (PRD #14 §94)",

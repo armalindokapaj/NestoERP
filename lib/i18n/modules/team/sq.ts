@@ -127,7 +127,7 @@ export const teamSq: typeof teamEn = {
     removeCeoAccess: "Hiq qasjen e CEO-s",
     giveCeoTitle: "T'i jepet {name} qasja e CEO-s?",
     removeCeoTitle: "T'i hiqet {name} qasja e CEO-s?",
-    giveCeoBase: "{name} e mban rolin, departamentin dhe titullin e punës dhe merr gjithçka që CEO-ja mund të shohë e të bëjë — përfshirë dhënien e qasjes së CEO-s të tjerëve dhe heqjen e saj. Mund ta heqësh në çdo kohë.",
+    giveCeoBase: "{name} e mban rolin, departamentin dhe titullin e punës dhe merr gjithçka që CEO-ja mund të shohë e të bëjë — çdo modul, përfshirë dhënien e qasjes së CEO-s të tjerëve dhe heqjen e saj. Kërkesat e veta i miraton vetëm kur askush tjetër në kompani nuk mund ta bëjë. Mund ta heqësh në çdo kohë.",
     removeCeoBase: "{name} kthehet te ajo që lejon roli i vet. Asgjë që bëri me qasjen e CEO-s nuk zhbëhet.",
     ceoAccessGiven: "Qasja e CEO-s u dha.",
     ceoAccessRemoved: "Qasja e CEO-s u hoq.",

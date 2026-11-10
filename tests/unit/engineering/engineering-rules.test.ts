@@ -92,7 +92,8 @@ describe("permissions and role defaults (§175-§193)", () => {
     expect(accessibleModules("GROUP_IT")).not.toContain("engineering");
     expect(accessibleModules("GROUP_IT")).not.toContain("contractors");
     expect(accessibleModules("HR")).not.toContain("contractors");
-    expect(has("CEO", "rfi.view") && !has("CEO", "rfi.create")).toBe(true);
+    // The CEO works Engineering as the Owner does (the user, 2026-11: "CEO does everything").
+    expect(has("CEO", "rfi.create") && has("CEO", "engineering.settings.manage") && has("CEO", "contractor.archive")).toBe(true);
     expect(has("PROJECT_MANAGER", "project_contractor.manage") && has("PROJECT_MANAGER", "rfi.void") && has("PROJECT_MANAGER", "submittal.approve")).toBe(true);
     expect(has("PROJECT_MANAGER", "engineering.settings.manage")).toBe(false);
     expect(has("ARCHITECT", "engineering_document.approve") && has("ARCHITECT", "rfi.respond")).toBe(true);

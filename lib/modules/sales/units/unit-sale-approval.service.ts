@@ -1,7 +1,9 @@
 import { Prisma } from "@prisma/client";
 
+import { can } from "@/lib/access/can";
 import { AccessError, assertPermission } from "@/lib/access/guards";
 import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
+import { assertOwnDecisionAllowed } from "@/lib/core/approvals/self-approval";
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
@@ -82,7 +84,17 @@ async function decide(context: UserContext, unitId: string, decision: "APPROVED"
     const pending = await pendingSaleApproval(tx, context.companyId, unit.id);
     if (!pending) throw new AccessError("CONFLICT", "This sale is not waiting for a decision.", { code: "APPROVAL_ALREADY_DECIDED" });
     assertApprovalGuard(guard, pending);
-    if (pending.submittedByMemberId === context.membershipId) throw new AccessError("FORBIDDEN", "You cannot decide your own request.", { code: "SELF_APPROVAL" });
+    // Nobody decides their own request; a CEO only when nobody else could, recorded as such (lib/core/approvals/self-approval.ts).
+    await assertOwnDecisionAllowed(context, {
+      own: pending.submittedByMemberId === context.membershipId,
+      record: { type: "project_unit", id: unit.id },
+      mayDecide: (member) => can(member, "project.unit.sale.approve"),
+      refusal: () => new AccessError("FORBIDDEN", "You cannot decide your own request.", { code: "SELF_APPROVAL" }),
+      tx,
+      label: unit.unitCode,
+      projectId: unit.projectId,
+      decision,
+    });
     const reservation = await activeReservation(tx, context.companyId, unit.id);
     if (!reservation || reservation.id !== pending.reservationId) throw fail("SALE_APPROVAL_STALE", "The reservation this approval was asked for has ended.", "CONFLICT");
 

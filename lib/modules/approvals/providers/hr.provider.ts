@@ -2,6 +2,7 @@ import type { LeaveRequestStatus, Prisma } from "@prisma/client";
 
 import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import type { UserContext } from "@/lib/context/types";
+import { mayDecideOwn, namedRefusal, ownDecision } from "@/lib/core/approvals/self-approval";
 import { prisma } from "@/lib/database/prisma";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { approveLeave, leaveSubmissionVersion, rejectLeave } from "@/lib/modules/hr/leave/leave.service";
@@ -85,11 +86,18 @@ function mayDecide(context: UserContext): boolean {
   return can(context, "hr.leave.approve") || can(context, "hr.leave.reject");
 }
 
+function mayDecideOwnLeave(context: UserContext, leaveId: string): Promise<boolean> {
+  return mayDecideOwn(context, { own: true, record: { type: "leave_request", id: leaveId }, mayDecide: (member) => can(member, "hr.leave.approve") });
+}
+
 async function buildItems(context: UserContext, entries: Array<{ row: LeaveRow; sortAt: Date }>): Promise<ProviderItem[]> {
   const locale = await getRequestLocale();
   const rows = entries.map((entry) => entry.row);
   const names = await memberNames(context.companyId, rows.flatMap((row) => [row.companyMemberId, row.approvedByMemberId, row.rejectedByMemberId]));
   const today = startOfToday();
+  // Your own leave is somebody else's to decide, unless the self rule allows it (lib/core/approvals/self-approval.ts).
+  const ownAllowed = new Set<string>();
+  for (const row of rows) if (row.status === "PENDING" && row.companyMemberId === context.membershipId && (await mayDecideOwnLeave(context, row.id))) ownAllowed.add(row.id);
   return entries.flatMap(({ row, sortAt }) => {
     const status = STATUS[row.status];
     if (!status || !row.submittedAt) return [];
@@ -98,7 +106,7 @@ async function buildItems(context: UserContext, entries: Array<{ row: LeaveRow; 
       ? personOrUnknown(names, row.companyMemberId)
       : { memberId: "", name: `${row.employeeProfile.personProfile.firstName} ${row.employeeProfile.personProfile.lastName}` };
     const pending = status === "PENDING";
-    const own = row.companyMemberId === context.membershipId;
+    const own = row.companyMemberId === context.membershipId && !ownAllowed.has(row.id);
     const startsSoon = row.startDate.getTime() - today.getTime() <= 2 * DAY;
     const decidedBy = row.approvedByMemberId ?? row.rejectedByMemberId;
     return [
@@ -258,7 +266,7 @@ export const hrApprovalProvider: ApprovalProvider = {
     if (remaining && remaining.lt(row.days) && row.leaveType === "ANNUAL") {
       warnings.push({ code: "INSUFFICIENT_BALANCE", message: `Only ${remaining.toFixed(1)} days of this leave remain for ${year}.`, severity: "WARNING" as const });
     }
-    if (own && row.status === "PENDING") warnings.push({ code: "SELF_APPROVAL_BLOCKED", message: "This is your own leave, so somebody else decides it.", severity: "INFO" as const });
+    if (own && row.status === "PENDING" && !(await mayDecideOwnLeave(context, row.id))) warnings.push({ code: "SELF_APPROVAL_BLOCKED", message: "This is your own leave, so somebody else decides it.", severity: "INFO" as const });
 
     const documents = await approvalDocuments(context, "leave_request", row.id);
     return {
@@ -311,7 +319,11 @@ export const hrApprovalProvider: ApprovalProvider = {
       throw approvalError("APPROVAL_ALREADY_DECIDED", "This approval was already decided.");
     }
     if (row.companyMemberId === context.membershipId) {
-      throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "This is your own leave, so somebody else has to decide it.", "FORBIDDEN");
+      const own = await ownDecision(context, { own: true, record: { type: "leave_request", id: row.id }, mayDecide: (member) => can(member, "hr.leave.approve") });
+      if (own.own && !own.allowed) {
+        if (own.others.length > 0) throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", namedRefusal(own.others).message, "FORBIDDEN");
+        throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "This is your own leave, so somebody else has to decide it.", "FORBIDDEN");
+      }
     }
     // The submission the reviewer saw; HR checks it again under its own row lock.
     // Without one, the submission just read — never "whatever is pending" at write time.

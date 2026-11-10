@@ -750,7 +750,7 @@ export async function approveRequest(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PURCHASE_REQUEST", recordId: requestId, decision: "APPROVED" });
 
     await applyTransition(tx, {
       machine: purchaseRequestMachine,
@@ -793,7 +793,7 @@ export async function rejectRequest(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PURCHASE_REQUEST", recordId: requestId, decision: "REJECTED" });
 
     await applyTransition(tx, {
       machine: purchaseRequestMachine,
@@ -839,7 +839,7 @@ export async function returnRequest(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "PURCHASE_REQUEST", requestId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PURCHASE_REQUEST", recordId: requestId, decision: "RETURNED" });
 
     await applyTransition(tx, {
       machine: purchaseRequestMachine,

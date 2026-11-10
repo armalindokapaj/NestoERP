@@ -125,17 +125,19 @@ afterAll(async () => {
 });
 
 describe("who opens what (E-02 §7, §38-§46, §105-§111, §178-§186)", () => {
-  it("keeps a contract between the employee and HR: not colleagues, not the CEO, not IT, not another company", async () => {
+  it("keeps a contract between the employee, HR and the company's leadership: not colleagues, not IT, not another company", async () => {
     const contract = await file(hr, { documentId: await uploaded(), category: "EMPLOYMENT_CONTRACT", title: `${PREFIX} Working contract 2026` });
     expect(contract.visibility).toBe("EMPLOYEE_AND_HR");
 
     expect(await visibleIds(hr)).toContain(contract.id);
     expect(await visibleIds(owner)).toContain(contract.id);
+    // The CEO reads the employee file as the Owner does since 2026-11 ("CEO does everything").
+    expect(await visibleIds(ceo)).toContain(contract.id);
     // The employee reads their own allowed contract (§180).
     expect(await visibleIds(engineer)).toContain(contract.id);
     expect(await findReadableDocument(engineer, contract.file.documentId)).not.toBeNull();
     // Nobody else can list it, detect it or open it (§181, §184, §185).
-    for (const reader of [ceo, pm, it_, viewer, finance]) {
+    for (const reader of [pm, it_, viewer, finance]) {
       expect(await visibleIds(reader)).not.toContain(contract.id);
       expect(await findReadableDocument(reader, contract.file.documentId)).toBeNull();
       expect(await loadRecord(reader, "employee_document", contract.id)).toBeNull();
@@ -144,15 +146,16 @@ describe("who opens what (E-02 §7, §38-§46, §105-§111, §178-§186)", () =>
     expect(await findReadableDocument(tenantOwner, contract.file.documentId)).toBeNull();
   });
 
-  it("lets the CEO read the professional file, and never the private or the pay classes", async () => {
+  it("lets the CEO read the file as the Owner does, the private and pay classes included (2026-11)", async () => {
     const diploma = await file(hr, { documentId: await uploaded(), category: "DIPLOMA", title: `${PREFIX} MSc Civil Engineering` });
     const salary = await file(hr, { documentId: await uploaded(), category: "SALARY_CHANGE_DOCUMENT", title: `${PREFIX} Salary letter` });
     const identity = await file(hr, { documentId: await uploaded(), category: "IDENTITY_DOCUMENT", title: `${PREFIX} ID card` });
 
+    // Until 2026-11 the CEO read the professional file only; the user then gave the CEO the Owner's HR rights.
     const seenByCeo = await visibleIds(ceo);
+    const seenByOwner = await visibleIds(owner);
+    for (const id of [diploma.id, salary.id, identity.id]) expect(seenByCeo.includes(id), id).toBe(seenByOwner.includes(id));
     expect(seenByCeo).toContain(diploma.id);
-    expect(seenByCeo).not.toContain(salary.id);
-    expect(seenByCeo).not.toContain(identity.id);
     // An identity paper is HR-only by default: not even the employee sees it (§42).
     expect(identity.visibility).toBe("HR_ONLY");
     expect(await visibleIds(engineer)).not.toContain(identity.id);
@@ -177,8 +180,9 @@ describe("who opens what (E-02 §7, §38-§46, §105-§111, §178-§186)", () =>
   it("opens a management-restricted document to explicit holders and HR, never to the employee (§38, §108)", async () => {
     const letter = await file(hr, { documentId: await uploaded(), category: "EMPLOYMENT_LETTER", title: `${PREFIX} Warning letter`, visibility: "RESTRICTED_MANAGEMENT" });
     expect(await visibleIds(engineer)).not.toContain(letter.id);
-    expect(await findReadableDocument(ceo, letter.file.documentId)).toBeNull();
-    expect(await findReadableDocument(withGrant(ceo, "hr.document.restricted.view"), letter.file.documentId)).not.toBeNull();
+    // The CEO holds the grant as the Owner does (2026-11); a project manager does not.
+    expect(await findReadableDocument(pm, letter.file.documentId)).toBeNull();
+    expect(await findReadableDocument(ceo, letter.file.documentId)).not.toBeNull();
     expect(await visibleIds(hr)).toContain(letter.id);
   });
 
@@ -201,10 +205,10 @@ describe("who opens what (E-02 §7, §38-§46, §105-§111, §178-§186)", () =>
 describe("adding documents (E-02 §47-§56, §197, §198)", () => {
   it("lets the employee add a diploma of their own, never a contract or pay", async () => {
     const mine = await uploaded({ by: engineer });
-    // Before it is filed, it is theirs and HR's — not the CEO's (§54).
+    // Before it is filed, it is theirs and HR's — not a colleague's (§54).
     expect(await findReadableDocument(engineer, mine)).not.toBeNull();
     expect(await findReadableDocument(hr, mine)).not.toBeNull();
-    expect(await findReadableDocument(ceo, mine)).toBeNull();
+    expect(await findReadableDocument(pm, mine)).toBeNull();
 
     expect(await codeOf(file(engineer, { documentId: mine, category: "EMPLOYMENT_CONTRACT" }))).toBe("FORBIDDEN");
     expect(await codeOf(file(engineer, { documentId: mine, category: "SALARY_CHANGE_DOCUMENT" }))).toBe("FORBIDDEN");

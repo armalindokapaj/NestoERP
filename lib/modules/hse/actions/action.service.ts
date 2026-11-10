@@ -16,6 +16,7 @@ import {
 import { assertSameProject } from "@/lib/access/references";
 import { buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
@@ -246,7 +247,16 @@ export async function getAction(
     tasks,
     createdBy,
     createdAt: row.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, row),
+    capabilities: capabilitiesFor(
+      context,
+      row,
+      await mayDecideOwn(context, {
+        own: row.completedByMemberId === context.membershipId,
+        selfPermission: "hse.approval.self",
+        record: { type: "hse_action", id: row.id },
+        mayDecide: (member) => can(member, "hse.action.verify"),
+      }),
+    ),
   };
 }
 
@@ -652,9 +662,8 @@ export async function verifyAction(
     );
   }
 
-  assertNotSelfVerification(context, existing.completedByMemberId);
-
   await prisma.$transaction(async (tx) => {
+    await assertNotSelfVerification(context, existing, tx, "VERIFIED");
     await applyTransition(tx, {
       machine: hseActionMachine,
       action: "verify",
@@ -701,9 +710,8 @@ export async function rejectAction(
     });
   }
 
-  assertNotSelfVerification(context, existing.completedByMemberId);
-
   await prisma.$transaction(async (tx) => {
+    await assertNotSelfVerification(context, existing, tx, "REJECTED");
     await applyTransition(tx, {
       machine: hseActionMachine,
       action: "reject",
@@ -884,17 +892,23 @@ function startOfToday(): Date {
  * `hse.approval.self` is the documented exception, held by nobody by default,
  * so a one-person company can still operate.
  */
-function assertNotSelfVerification(
+async function assertNotSelfVerification(
   context: UserContext,
-  completedByMemberId: string | null,
-): void {
-  if (completedByMemberId !== context.membershipId) return;
-  if (can(context, "hse.approval.self")) return;
-  throw new AccessError(
-    "FORBIDDEN",
-    "You completed this action, so somebody else has to verify it.",
-    { code: "SELF_APPROVAL" },
-  );
+  existing: { id: string; actionNumber: string | null; completedByMemberId: string | null },
+  tx: Prisma.TransactionClient,
+  decision: "VERIFIED" | "REJECTED",
+): Promise<void> {
+  // A CEO may verify their own only when nobody else could, recorded as such (lib/core/approvals/self-approval.ts).
+  await assertOwnDecisionAllowed(context, {
+    own: existing.completedByMemberId === context.membershipId,
+    selfPermission: "hse.approval.self",
+    record: { type: "hse_action", id: existing.id },
+    mayDecide: (member) => can(member, "hse.action.verify"),
+    refusal: () => new AccessError("FORBIDDEN", "You completed this action, so somebody else has to verify it.", { code: "SELF_APPROVAL" }),
+    tx,
+    label: existing.actionNumber ?? undefined,
+    decision,
+  });
 }
 
 async function requireAction(context: UserContext, actionId: string) {
@@ -1210,11 +1224,11 @@ function toSummaryDTO(
   };
 }
 
-function capabilitiesFor(context: UserContext, row: DetailRow) {
-  // Withheld from whoever completed it, so nobody is offered a button that is
-  // certain to fail (PRD #22 §122).
-  const notSelf =
-    row.completedByMemberId !== context.membershipId || can(context, "hse.approval.self");
+/**
+ * `notSelf`: withheld from whoever completed it, so nobody is offered a button
+ * that is certain to fail (PRD #22 §122) — the self rule's answer, worked out before.
+ */
+function capabilitiesFor(context: UserContext, row: DetailRow, notSelf: boolean) {
 
   return {
     canEdit: isActionEditable(row.status) && can(context, "hse.action.update"),

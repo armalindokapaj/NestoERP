@@ -7,7 +7,7 @@ import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures
  * The HR journey (PRD #16 §296–§303).
  *
  * Walks the module as the roles the confidentiality rules are written for: the
- * HR manager who runs it, the CEO who may see figures but not pay, an employee
+ * HR manager who runs it, the CEO who since 2026-11 reads it as the Owner does, an employee
  * who may only see their own, and the Admin and Company IT roles who administer
  * the platform without being given the employment file.
  */
@@ -155,7 +155,8 @@ test.describe("HR role (PRD #16 §296)", () => {
 });
 
 test.describe("CEO (PRD #16 §298)", () => {
-  test("sees company HR figures without any pay in them", async ({ page }) => {
+  // The CEO saw figures without pay (PRD #16 §298) until the user's 2026-11 decision: the Owner's HR rights, pay included.
+  test("sees company HR figures and pay, as the Owner does", async ({ page }) => {
     await signIn(page, "CEO");
 
     await page.goto("/hr");
@@ -165,21 +166,18 @@ test.describe("CEO (PRD #16 §298)", () => {
     await recordTable(page).getByRole("link", { name: /Ethan Cole/ }).click();
     await page.waitForURL(/\/hr\/employees\/[^/]+$/);
 
-    // The tab is absent, not disabled: a locked placeholder would still confirm
-    // that a salary is on file (PRD #16 §317).
     const recordTabs = page.getByRole("navigation", { name: "Employee sections" });
-    await expect(recordTabs.getByRole("link", { name: "Compensation" })).toHaveCount(0);
+    await expect(recordTabs.getByRole("link", { name: "Compensation" })).toBeVisible();
 
     await page.goto("/hr/reports");
-    await expect(page.getByRole("link", { name: "Compensation", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Compensation", exact: true }).first()).toBeVisible();
   });
 
-  test("cannot read a medical leave reason", async ({ page }) => {
+  test("reads a leave reason as the Owner does", async ({ page }) => {
     await signIn(page, "CEO");
     await page.goto("/hr/leave/leave_002");
 
-    await expect(mainRegion(page).getByText(/Flu/)).toHaveCount(0);
-    await expect(mainRegion(page).getByText(/shown only to the person who asked/)).toBeVisible();
+    await expect(mainRegion(page).getByText(/Flu/).first()).toBeVisible();
   });
 });
 

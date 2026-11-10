@@ -408,28 +408,38 @@ describe("approval authority (PRD #15 §18, §19)", () => {
 
   it("stops an approver deciding their own submission (PRD #15 §19)", async () => {
     const ceo = await loginAs("CEO");
+    const decide = (submittedByMemberId: string) =>
+      prisma.$transaction((tx) => approvals.assertNotSelfApproval(ceo, submittedByMemberId, { tx, type: "INVOICE", recordId: "invoice_001", decision: "APPROVED" }));
 
-    // The CEO can approve but does not hold finance.approval.self, so a record
-    // they submitted is one somebody else has to decide.
+    // The CEO approves but does not hold finance.approval.self. They may decide
+    // their own only when nobody else could (2026-11); here the Owner can, so a
+    // record they submitted is one somebody else has to decide, and they are told who.
     expect(ceo.permissions).not.toContain("finance.approval.self");
-    expect(() => approvals.assertNotSelfApproval(ceo, ceo.membershipId)).toThrowError(
-      AccessError,
-    );
+    const refused = await decide(ceo.membershipId).catch((error: unknown) => error);
+    expect(refused).toBeInstanceOf(AccessError);
+    expect((refused as AccessError).details).toMatchObject({ code: "SELF_APPROVAL" });
+    expect(((refused as AccessError).details as { approvers: string[] }).approvers.length).toBeGreaterThan(0);
 
     // Somebody else's submission is fine.
     const finance = await loginAs("FINANCE");
-    expect(() => approvals.assertNotSelfApproval(ceo, finance.membershipId)).not.toThrowError();
+    await expect(decide(finance.membershipId)).resolves.toBeUndefined();
   });
 
-  it("keeps the CEO out of operational create and submit (PRD #15 §285)", async () => {
+  /*
+   * The CEO kept out of create and submit (PRD #15 §285) was the rule until the
+   * user changed it on 2026-11-09 ("CEO does everything"): the CEO raises and
+   * submits invoices as the Owner does, and somebody else decides them.
+   */
+  it("lets the CEO raise and submit an invoice, and leaves the decision to somebody else", async () => {
     const ceo = await loginAs("CEO");
-
-    // Executive visibility and approval authority, not a bookkeeping surface.
-    await expectError(expenses.submitExpense(ceo, "expense_015"), "FORBIDDEN");
-    await expectError(
-      invoices.createInvoice(ceo, invoiceInput()),
-      "FORBIDDEN",
-    );
+    const invoice = await invoices.createInvoice(ceo, invoiceInput());
+    createdInvoices.push(invoice.id);
+    await invoices.submitInvoice(ceo, invoice.id);
+    // The Owner of this company can decide it, so the CEO may not.
+    await expectError(invoices.approveInvoice(ceo, invoice.id, null, await shownCycle("finance", invoice.id)), "FORBIDDEN");
+    const owner = await loginAs("OWNER");
+    await invoices.approveInvoice(owner, invoice.id, null, await shownCycle("finance", invoice.id));
+    expect((await invoices.getInvoice(owner, invoice.id)).status).toBe("APPROVED");
   });
 
   it("lets the Owner approve their own, because they hold finance.approval.self", async () => {

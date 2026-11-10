@@ -325,6 +325,7 @@ export const auditLogEn = {
     APPROVAL_DELEGATION_CREATED: "Approval delegation created",
     APPROVAL_DELEGATION_REVOKED: "Approval delegation revoked",
     APPROVAL_POLICY_UPDATED: "Approval policy updated",
+    APPROVAL_SELF_APPROVED: "Approval self approved",
     TIMESHEET_CREATED: "Timesheet created",
     WORKLOG_CREATED: "Worklog created",
     WORKLOG_UPDATED: "Worklog updated",

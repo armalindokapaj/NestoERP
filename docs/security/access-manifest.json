@@ -394,27 +394,27 @@
     "CEO": {
       "MEMBER": {
         "dashboard": "VIEW/SELF",
-        "calendar": "CONTRIBUTE/COMPANY",
-        "approvals": "APPROVE/COMPANY",
+        "calendar": "MANAGE/COMPANY",
+        "approvals": "MANAGE/COMPANY",
         "announcements": "MANAGE/COMPANY",
         "projects": "MANAGE/COMPANY",
-        "tasks": "VIEW/COMPANY",
+        "tasks": "MANAGE/COMPANY",
         "meetings": "MANAGE/COMPANY",
-        "timesheets": "CONTRIBUTE/COMPANY",
-        "dailyLogs": "VIEW/COMPANY",
-        "workforce": "VIEW/COMPANY",
-        "contractors": "VIEW/COMPANY",
-        "engineering": "VIEW/COMPANY",
-        "clients": "VIEW/COMPANY",
-        "documents": "VIEW/COMPANY",
-        "finance": "APPROVE/COMPANY",
-        "hr": "VIEW/COMPANY",
-        "sales": "APPROVE/COMPANY",
-        "contracts": "APPROVE/COMPANY",
-        "procurement": "APPROVE/COMPANY",
-        "inventory": "VIEW/COMPANY",
-        "qaqc": "VIEW/COMPANY",
-        "hse": "VIEW/COMPANY",
+        "timesheets": "MANAGE/COMPANY",
+        "dailyLogs": "MANAGE/COMPANY",
+        "workforce": "MANAGE/COMPANY",
+        "contractors": "MANAGE/COMPANY",
+        "engineering": "MANAGE/COMPANY",
+        "clients": "MANAGE/COMPANY",
+        "documents": "MANAGE/COMPANY",
+        "finance": "MANAGE/COMPANY",
+        "hr": "MANAGE/COMPANY",
+        "sales": "MANAGE/COMPANY",
+        "contracts": "MANAGE/COMPANY",
+        "procurement": "MANAGE/COMPANY",
+        "inventory": "MANAGE/COMPANY",
+        "qaqc": "MANAGE/COMPANY",
+        "hse": "MANAGE/COMPANY",
         "people": "CONTRIBUTE/GROUP",
         "team": "MANAGE/COMPANY",
         "organization": "VIEW/COMPANY",
@@ -424,27 +424,27 @@
       },
       "COMPANY_MANAGER": {
         "dashboard": "VIEW/SELF",
-        "calendar": "CONTRIBUTE/COMPANY",
-        "approvals": "APPROVE/COMPANY",
+        "calendar": "MANAGE/COMPANY",
+        "approvals": "MANAGE/COMPANY",
         "announcements": "MANAGE/COMPANY",
         "projects": "MANAGE/COMPANY",
-        "tasks": "VIEW/COMPANY",
+        "tasks": "MANAGE/COMPANY",
         "meetings": "MANAGE/COMPANY",
-        "timesheets": "CONTRIBUTE/COMPANY",
-        "dailyLogs": "VIEW/COMPANY",
-        "workforce": "VIEW/COMPANY",
-        "contractors": "VIEW/COMPANY",
-        "engineering": "VIEW/COMPANY",
-        "clients": "VIEW/COMPANY",
-        "documents": "VIEW/COMPANY",
-        "finance": "APPROVE/COMPANY",
-        "hr": "VIEW/COMPANY",
-        "sales": "APPROVE/COMPANY",
-        "contracts": "APPROVE/COMPANY",
-        "procurement": "APPROVE/COMPANY",
-        "inventory": "VIEW/COMPANY",
-        "qaqc": "VIEW/COMPANY",
-        "hse": "VIEW/COMPANY",
+        "timesheets": "MANAGE/COMPANY",
+        "dailyLogs": "MANAGE/COMPANY",
+        "workforce": "MANAGE/COMPANY",
+        "contractors": "MANAGE/COMPANY",
+        "engineering": "MANAGE/COMPANY",
+        "clients": "MANAGE/COMPANY",
+        "documents": "MANAGE/COMPANY",
+        "finance": "MANAGE/COMPANY",
+        "hr": "MANAGE/COMPANY",
+        "sales": "MANAGE/COMPANY",
+        "contracts": "MANAGE/COMPANY",
+        "procurement": "MANAGE/COMPANY",
+        "inventory": "MANAGE/COMPANY",
+        "qaqc": "MANAGE/COMPANY",
+        "hse": "MANAGE/COMPANY",
         "people": "CONTRIBUTE/GROUP",
         "team": "MANAGE/COMPANY",
         "organization": "APPROVE/COMPANY",
@@ -454,27 +454,27 @@
       },
       "GROUP_HEAD": {
         "dashboard": "VIEW/SELF",
-        "calendar": "CONTRIBUTE/COMPANY",
-        "approvals": "APPROVE/COMPANY",
+        "calendar": "MANAGE/COMPANY",
+        "approvals": "MANAGE/COMPANY",
         "announcements": "MANAGE/COMPANY",
         "projects": "MANAGE/COMPANY",
-        "tasks": "VIEW/COMPANY",
+        "tasks": "MANAGE/COMPANY",
         "meetings": "MANAGE/COMPANY",
-        "timesheets": "CONTRIBUTE/COMPANY",
-        "dailyLogs": "VIEW/COMPANY",
-        "workforce": "VIEW/COMPANY",
-        "contractors": "VIEW/COMPANY",
-        "engineering": "VIEW/COMPANY",
-        "clients": "VIEW/COMPANY",
-        "documents": "VIEW/COMPANY",
-        "finance": "APPROVE/COMPANY",
-        "hr": "VIEW/COMPANY",
-        "sales": "APPROVE/COMPANY",
-        "contracts": "APPROVE/COMPANY",
-        "procurement": "APPROVE/COMPANY",
-        "inventory": "VIEW/COMPANY",
-        "qaqc": "VIEW/COMPANY",
-        "hse": "VIEW/COMPANY",
+        "timesheets": "MANAGE/COMPANY",
+        "dailyLogs": "MANAGE/COMPANY",
+        "workforce": "MANAGE/COMPANY",
+        "contractors": "MANAGE/COMPANY",
+        "engineering": "MANAGE/COMPANY",
+        "clients": "MANAGE/COMPANY",
+        "documents": "MANAGE/COMPANY",
+        "finance": "MANAGE/COMPANY",
+        "hr": "MANAGE/COMPANY",
+        "sales": "MANAGE/COMPANY",
+        "contracts": "MANAGE/COMPANY",
+        "procurement": "MANAGE/COMPANY",
+        "inventory": "MANAGE/COMPANY",
+        "qaqc": "MANAGE/COMPANY",
+        "hse": "MANAGE/COMPANY",
         "people": "CONTRIBUTE/GROUP",
         "team": "MANAGE/COMPANY",
         "organization": "APPROVE/GROUP",
@@ -4274,25 +4274,30 @@
         "permissions": ["collaboration.comment.archive_own","collaboration.comment.create","collaboration.comment.edit_own","collaboration.watch","dashboard.view"]
       },
       "calendar": {
-        "accessLevel": "CONTRIBUTE",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["calendar.availability.view","calendar.event.archive","calendar.event.create","calendar.event.edit","calendar.private_event.manage","calendar.reminder.manage","calendar.view"]
+        "permissions": ["calendar.availability.view","calendar.company_event.manage","calendar.event.archive","calendar.event.create","calendar.event.edit","calendar.private_event.manage","calendar.reminder.manage","calendar.view"]
       },
-      "approvals": { "accessLevel": "APPROVE", "scope": "COMPANY", "enabled": true, "permissions": ["approvals.delegation.manage","approvals.history.view","approvals.view"] },
+      "approvals": { "accessLevel": "MANAGE", "scope": "COMPANY", "enabled": true, "permissions": ["approvals.delegation.manage","approvals.history.view","approvals.view"] },
       "announcements": {
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["announcement.acknowledge","announcement.archive","announcement.create","announcement.edit","announcement.manage_company","announcement.manage_department","announcement.manage_selected_members","announcement.pin","announcement.publish","announcement.view"]
+        "permissions": ["announcement.acknowledge","announcement.archive","announcement.create","announcement.edit","announcement.manage_company","announcement.manage_department","announcement.manage_project","announcement.manage_selected_members","announcement.pin","announcement.publish","announcement.view"]
       },
       "projects": {
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["project.activity.view","project.archive","project.building.create","project.building.delete","project.building.update","project.create","project.document.view","project.floor.create","project.floor.delete","project.floor.update","project.manage","project.manager.assign","project.media.manage","project.media.view","project.member.add","project.member.remove","project.member.update","project.member.view","project.restore","project.status.manage","project.structure.manage","project.structure.view","project.task.view","project.type.manage","project.unit.archive","project.unit.contract.amend","project.unit.contract.cancel","project.unit.contract.create","project.unit.contract.documents.manage","project.unit.contract.request","project.unit.contract.review","project.unit.contract.sign_status","project.unit.contract.update","project.unit.create","project.unit.delete","project.unit.documents.manage","project.unit.finance.allocate_payment","project.unit.finance.correct","project.unit.finance.documents.manage","project.unit.finance.issue_invoice","project.unit.finance.manage_schedule","project.unit.finance.record_payment","project.unit.finance.view","project.unit.legal.view","project.unit.mark_sold","project.unit.media.manage","project.unit.move","project.unit.price.manage","project.unit.publication_history.view","project.unit.reopen_sale","project.unit.reservation.extend","project.unit.reservation.release","project.unit.reserve","project.unit.sale.approve","project.unit.sales.view","project.unit.sales_correct","project.unit.sales_status.manage","project.unit.update","project.unit_type.manage","project.update","project.view","project_planning.baseline.manage","project_planning.blockers.manage","project_planning.dependencies.manage","project_planning.manage","project_planning.milestone.complete","project_planning.milestone.create","project_planning.milestone.edit","project_planning.milestone.reopen","project_planning.phase.archive","project_planning.phase.create","project_planning.phase.edit","project_planning.view"]
+        "permissions": ["project.activity.view","project.archive","project.building.create","project.building.delete","project.building.update","project.create","project.document.view","project.floor.create","project.floor.delete","project.floor.update","project.manage","project.manager.assign","project.media.manage","project.media.view","project.member.add","project.member.remove","project.member.update","project.member.view","project.restore","project.status.manage","project.structure.manage","project.structure.view","project.task.view","project.type.manage","project.unit.archive","project.unit.contract.amend","project.unit.contract.cancel","project.unit.contract.create","project.unit.contract.documents.manage","project.unit.contract.request","project.unit.contract.review","project.unit.contract.sign_status","project.unit.contract.update","project.unit.create","project.unit.delete","project.unit.documents.manage","project.unit.finance.allocate_payment","project.unit.finance.correct","project.unit.finance.documents.manage","project.unit.finance.issue_invoice","project.unit.finance.manage_schedule","project.unit.finance.record_payment","project.unit.finance.view","project.unit.legal.view","project.unit.mark_sold","project.unit.media.manage","project.unit.move","project.unit.price.manage","project.unit.publication_history.view","project.unit.reopen_sale","project.unit.reservation.extend","project.unit.reservation.release","project.unit.reserve","project.unit.sale.approve","project.unit.sales.view","project.unit.sales_correct","project.unit.sales_status.manage","project.unit.update","project.unit_type.manage","project.update","project.view","project_planning.baseline.manage","project_planning.blockers.manage","project_planning.dependencies.manage","project_planning.manage","project_planning.milestone.complete","project_planning.milestone.create","project_planning.milestone.edit","project_planning.milestone.reopen","project_planning.phase.archive","project_planning.phase.create","project_planning.phase.edit","project_planning.settings.manage","project_planning.view"]
       },
-      "tasks": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["task.activity.view","task.view"] },
+      "tasks": {
+        "accessLevel": "MANAGE",
+        "scope": "COMPANY",
+        "enabled": true,
+        "permissions": ["task.activity.view","task.archive","task.assign","task.complete","task.create","task.reopen","task.restore","task.status.update","task.update","task.view"]
+      },
       "meetings": {
         "accessLevel": "MANAGE",
         "scope": "COMPANY",
@@ -4300,74 +4305,94 @@
         "permissions": ["meeting.action.convert_to_task","meeting.action.create","meeting.action.manage","meeting.agenda.manage","meeting.cancel","meeting.create","meeting.decision.create","meeting.document.create","meeting.document.view","meeting.edit","meeting.manage","meeting.manage_participants","meeting.minutes.edit","meeting.minutes.finalize","meeting.minutes.reopen","meeting.view"]
       },
       "timesheets": {
-        "accessLevel": "CONTRIBUTE",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["timesheet.approve","timesheet.edit_own","timesheet.project.view","timesheet.reject","timesheet.return","timesheet.submit_own","timesheet.view_own"]
+        "permissions": ["timesheet.approve","timesheet.edit_own","timesheet.project.view","timesheet.reject","timesheet.reopen","timesheet.return","timesheet.settings.manage","timesheet.submit_own","timesheet.team.view","timesheet.view_own"]
       },
-      "dailyLogs": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["daily_log.view"] },
-      "workforce": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["workforce.attendance.view","workforce.view"] },
+      "dailyLogs": {
+        "accessLevel": "MANAGE",
+        "scope": "COMPANY",
+        "enabled": true,
+        "permissions": ["daily_log.activity.manage","daily_log.correct_locked","daily_log.create","daily_log.delay.manage","daily_log.delivery.manage","daily_log.edit","daily_log.equipment.manage","daily_log.hse.manage","daily_log.instruction.manage","daily_log.lock","daily_log.qaqc.manage","daily_log.return","daily_log.review","daily_log.settings.manage","daily_log.submit","daily_log.view","daily_log.visitor.manage","daily_log.void","daily_log.workforce.manage"]
+      },
+      "workforce": {
+        "accessLevel": "MANAGE",
+        "scope": "COMPANY",
+        "enabled": true,
+        "permissions": ["workforce.attendance.manage","workforce.attendance.view","workforce.crew.manage","workforce.project_assignment.manage","workforce.trade.manage","workforce.view"]
+      },
       "contractors": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["contractor.view","contractor_compliance.view","contractor_contact.view","project_contractor.view","work_package.view"]
+        "permissions": ["contractor.archive","contractor.create","contractor.edit","contractor.view","contractor_compliance.manage","contractor_compliance.view","contractor_compliance.waive","contractor_contact.manage","contractor_contact.view","project_contractor.manage","project_contractor.view","work_package.complete","work_package.create","work_package.edit","work_package.view"]
       },
-      "engineering": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["engineering_document.view","rfi.view","submittal.view","transmittal.view"] },
+      "engineering": {
+        "accessLevel": "MANAGE",
+        "scope": "COMPANY",
+        "enabled": true,
+        "permissions": ["engineering.settings.manage","engineering_document.approve","engineering_document.create","engineering_document.edit","engineering_document.review","engineering_document.submit","engineering_document.view","rfi.close","rfi.create","rfi.edit","rfi.open","rfi.respond","rfi.view","rfi.void","submittal.approve","submittal.create","submittal.edit","submittal.review","submittal.submit","submittal.view","transmittal.create","transmittal.issue","transmittal.view","transmittal.void"]
+      },
       "clients": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["client.activity.view","client.document.view","client.project.view","client.view","contact.view"]
+        "permissions": ["client.activity.view","client.archive","client.create","client.document.view","client.project.view","client.restore","client.update","client.view","contact.archive","contact.create","contact.restore","contact.update","contact.view"]
       },
-      "documents": { "accessLevel": "VIEW", "scope": "COMPANY", "enabled": true, "permissions": ["document.activity.view","document.company.view","document.download","document.view"] },
-      "finance": {
-        "accessLevel": "APPROVE",
+      "documents": {
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["finance.activity.view","finance.approval.decide","finance.approval.view","finance.budget.approve","finance.budget.reject","finance.budget.view","finance.cashflow.view","finance.commitment.approve","finance.commitment.reject","finance.commitment.view","finance.company_summary.view","finance.dashboard.view","finance.document.view","finance.expense.approve","finance.expense.reject","finance.expense.view","finance.invoice.approve","finance.invoice.reject","finance.invoice.view","finance.payables.view","finance.payment.view","finance.project_budget.view","finance.project_cost_summary.view","finance.receivables.view","finance.report.view","finance.settings.view","finance.view"]
+        "permissions": ["document.activity.view","document.archive","document.company.create","document.company.view","document.create","document.download","document.restore","document.review.decide","document.review.request","document.update","document.view"]
+      },
+      "finance": {
+        "accessLevel": "MANAGE",
+        "scope": "COMPANY",
+        "enabled": true,
+        "permissions": ["finance.activity.view","finance.approval.decide","finance.approval.view","finance.budget.approve","finance.budget.archive","finance.budget.create","finance.budget.reject","finance.budget.restore","finance.budget.revise","finance.budget.submit","finance.budget.update","finance.budget.view","finance.cashflow.view","finance.commitment.approve","finance.commitment.archive","finance.commitment.cancel","finance.commitment.close","finance.commitment.create","finance.commitment.reject","finance.commitment.restore","finance.commitment.submit","finance.commitment.update","finance.commitment.view","finance.company_summary.view","finance.dashboard.view","finance.document.create","finance.document.view","finance.expense.approve","finance.expense.archive","finance.expense.cancel","finance.expense.create","finance.expense.reject","finance.expense.restore","finance.expense.submit","finance.expense.update","finance.expense.view","finance.export","finance.invoice.approve","finance.invoice.archive","finance.invoice.cancel","finance.invoice.create","finance.invoice.mark_sent","finance.invoice.reject","finance.invoice.restore","finance.invoice.submit","finance.invoice.update","finance.invoice.view","finance.manage","finance.payables.view","finance.payment.create","finance.payment.view","finance.payment.void","finance.project_budget.view","finance.project_cost_detail.view","finance.project_cost_summary.view","finance.receivables.view","finance.report.view","finance.settings.manage","finance.settings.view","finance.view"]
       },
       "hr": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["hr.activity.view","hr.attendance.view","hr.dashboard.view","hr.document.view","hr.employee.view","hr.employment.view","hr.leave.balance.view","hr.leave.view","hr.offboarding.view","hr.onboarding.view","hr.report.view","hr.self.attendance","hr.self.documents","hr.self.documents.upload","hr.self.employment","hr.self.leave","hr.view"]
+        "permissions": ["hr.activity.view","hr.attendance.approve","hr.attendance.create","hr.attendance.update","hr.attendance.view","hr.compensation.update","hr.compensation.view","hr.dashboard.view","hr.document.create","hr.document.finance.view","hr.document.private.manage","hr.document.private.view","hr.document.restricted.view","hr.document.verify","hr.document.view","hr.employee.create_profile","hr.employee.import","hr.employee.manager.assign","hr.employee.status.update","hr.employee.update","hr.employee.update_profile","hr.employee.view","hr.employment.schedule","hr.employment.transfer_entity","hr.employment.update","hr.employment.view","hr.employment_history.correct","hr.employment_history.view","hr.employment_history.view_private","hr.export","hr.leave.approve","hr.leave.balance.manage","hr.leave.balance.view","hr.leave.cancel","hr.leave.create","hr.leave.reason.view","hr.leave.reject","hr.leave.submit","hr.leave.update","hr.leave.view","hr.manage","hr.offboarding.manage","hr.offboarding.view","hr.onboarding.manage","hr.onboarding.view","hr.qualification.manage","hr.qualification.verify","hr.report.view","hr.self.attendance","hr.self.documents","hr.self.documents.upload","hr.self.employment","hr.self.leave","hr.view"]
       },
       "sales": {
-        "accessLevel": "APPROVE",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["sales.activity.view","sales.dashboard.view","sales.document.view","sales.lead.view","sales.opportunity.view","sales.pipeline.view","sales.proposal.approve","sales.proposal.reject","sales.proposal.view","sales.report.view","sales.task.view","sales.view"]
+        "permissions": ["sales.activity.view","sales.client.convert","sales.dashboard.view","sales.document.create","sales.document.view","sales.export","sales.lead.archive","sales.lead.assign","sales.lead.convert","sales.lead.create","sales.lead.disqualify","sales.lead.qualify","sales.lead.restore","sales.lead.update","sales.lead.view","sales.manage","sales.opportunity.archive","sales.opportunity.assign","sales.opportunity.create","sales.opportunity.mark_lost","sales.opportunity.mark_won","sales.opportunity.reopen","sales.opportunity.restore","sales.opportunity.stage.update","sales.opportunity.update","sales.opportunity.view","sales.owner.assign","sales.pipeline.manage","sales.pipeline.view","sales.project.convert","sales.proposal.accept","sales.proposal.approve","sales.proposal.archive","sales.proposal.cancel","sales.proposal.create","sales.proposal.decline","sales.proposal.mark_sent","sales.proposal.reject","sales.proposal.restore","sales.proposal.submit","sales.proposal.update","sales.proposal.view","sales.report.view","sales.task.create","sales.task.view","sales.view"]
       },
       "contracts": {
-        "accessLevel": "APPROVE",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["legal.activity.view","legal.amendment.approve","legal.amendment.reject","legal.amendment.view","legal.approval.decide","legal.approval.view","legal.client_link.view","legal.commercial.view","legal.contract.approve","legal.contract.reject","legal.contract.view","legal.dashboard.view","legal.document.view","legal.export","legal.obligation.view","legal.party.view","legal.project_link.view","legal.report.view","legal.sales_source.view","legal.task.view","legal.view"]
+        "permissions": ["legal.activity.view","legal.amendment.activate","legal.amendment.approve","legal.amendment.archive","legal.amendment.cancel","legal.amendment.create","legal.amendment.mark_sent","legal.amendment.mark_signed","legal.amendment.reject","legal.amendment.submit","legal.amendment.update","legal.amendment.view","legal.approval.decide","legal.approval.view","legal.client_link.view","legal.commercial.view","legal.confidential_terms.view","legal.contract.activate","legal.contract.approve","legal.contract.archive","legal.contract.cancel","legal.contract.complete","legal.contract.create","legal.contract.expire","legal.contract.mark_sent","legal.contract.mark_signed","legal.contract.owner.assign","legal.contract.reject","legal.contract.restore","legal.contract.review","legal.contract.submit_approval","legal.contract.submit_review","legal.contract.terminate","legal.contract.update","legal.contract.view","legal.dashboard.view","legal.document.create","legal.document.view","legal.export","legal.manage","legal.obligation.cancel","legal.obligation.complete","legal.obligation.create","legal.obligation.update","legal.obligation.view","legal.party.manage","legal.party.view","legal.project_link.view","legal.report.view","legal.sales_source.view","legal.task.create","legal.task.view","legal.view"]
       },
       "procurement": {
-        "accessLevel": "APPROVE",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["procurement.activity.view","procurement.approval.decide","procurement.approval.view","procurement.budget.view","procurement.commitment.view","procurement.dashboard.view","procurement.document.create","procurement.document.view","procurement.export","procurement.order.approve","procurement.order.create","procurement.order.reject","procurement.order.submit","procurement.order.update","procurement.order.view","procurement.quote.create","procurement.quote.update","procurement.quote.view","procurement.receipt.create","procurement.receipt.view","procurement.report.view","procurement.request.approve","procurement.request.reject","procurement.request.submit","procurement.request.view","procurement.rfq.create","procurement.rfq.update","procurement.rfq.view","procurement.supplier.create","procurement.supplier.update","procurement.supplier.view","procurement.task.create","procurement.task.view","procurement.view"]
+        "permissions": ["procurement.activity.view","procurement.approval.decide","procurement.approval.view","procurement.budget.view","procurement.commitment.sync","procurement.commitment.view","procurement.dashboard.view","procurement.document.create","procurement.document.view","procurement.export","procurement.manage","procurement.order.approve","procurement.order.archive","procurement.order.cancel","procurement.order.close","procurement.order.create","procurement.order.finance_approve","procurement.order.issue","procurement.order.reject","procurement.order.restore","procurement.order.submit","procurement.order.update","procurement.order.view","procurement.quote.create","procurement.quote.disqualify","procurement.quote.select","procurement.quote.update","procurement.quote.view","procurement.receipt.create","procurement.receipt.update","procurement.receipt.view","procurement.receipt.void","procurement.report.view","procurement.request.approve","procurement.request.archive","procurement.request.cancel","procurement.request.create","procurement.request.reject","procurement.request.restore","procurement.request.submit","procurement.request.update","procurement.request.view","procurement.rfq.cancel","procurement.rfq.close","procurement.rfq.create","procurement.rfq.issue","procurement.rfq.update","procurement.rfq.view","procurement.supplier.archive","procurement.supplier.create","procurement.supplier.restore","procurement.supplier.update","procurement.supplier.view","procurement.task.create","procurement.task.view","procurement.view"]
       },
       "inventory": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["inventory.activity.view","inventory.adjustment.view","inventory.balance.view","inventory.dashboard.view","inventory.document.view","inventory.issue.view","inventory.item.view","inventory.location.view","inventory.low_stock.view","inventory.movement.view","inventory.receipt.view","inventory.report.view","inventory.reservation.view","inventory.return.view","inventory.task.view","inventory.transfer.view","inventory.view","inventory.warehouse.view"]
+        "permissions": ["inventory.activity.view","inventory.adjustment.cancel","inventory.adjustment.create","inventory.adjustment.post","inventory.adjustment.reverse","inventory.adjustment.update","inventory.adjustment.view","inventory.balance.view","inventory.dashboard.view","inventory.document.create","inventory.document.view","inventory.export","inventory.issue.cancel","inventory.issue.create","inventory.issue.post","inventory.issue.reverse","inventory.issue.update","inventory.issue.view","inventory.item.archive","inventory.item.create","inventory.item.restore","inventory.item.update","inventory.item.view","inventory.location.archive","inventory.location.create","inventory.location.restore","inventory.location.update","inventory.location.view","inventory.low_stock.view","inventory.manage","inventory.movement.create","inventory.movement.view","inventory.receipt.create","inventory.receipt.post","inventory.receipt.reverse","inventory.receipt.view","inventory.report.view","inventory.reservation.cancel","inventory.reservation.create","inventory.reservation.fulfill","inventory.reservation.release","inventory.reservation.update","inventory.reservation.view","inventory.return.create","inventory.return.post","inventory.return.view","inventory.task.create","inventory.task.view","inventory.transfer.cancel","inventory.transfer.create","inventory.transfer.post","inventory.transfer.reverse","inventory.transfer.update","inventory.transfer.view","inventory.view","inventory.warehouse.archive","inventory.warehouse.create","inventory.warehouse.restore","inventory.warehouse.update","inventory.warehouse.view"]
       },
       "qaqc": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["qaqc.activity.view","qaqc.approval.view","qaqc.corrective_action.view","qaqc.dashboard.view","qaqc.defect.view","qaqc.document.view","qaqc.inspection.view","qaqc.material.view","qaqc.ncr.view","qaqc.reinspection.view","qaqc.report.view","qaqc.request.view","qaqc.task.view","qaqc.template.view","qaqc.view"]
+        "permissions": ["qaqc.activity.view","qaqc.approval.decide","qaqc.approval.view","qaqc.corrective_action.assign","qaqc.corrective_action.cancel","qaqc.corrective_action.complete","qaqc.corrective_action.create","qaqc.corrective_action.reopen","qaqc.corrective_action.update","qaqc.corrective_action.verify","qaqc.corrective_action.view","qaqc.dashboard.view","qaqc.defect.assign","qaqc.defect.cancel","qaqc.defect.close","qaqc.defect.create","qaqc.defect.reopen","qaqc.defect.resolve","qaqc.defect.update","qaqc.defect.view","qaqc.document.create","qaqc.document.view","qaqc.export","qaqc.inspection.approve","qaqc.inspection.assign","qaqc.inspection.cancel","qaqc.inspection.close","qaqc.inspection.create","qaqc.inspection.execute","qaqc.inspection.reject","qaqc.inspection.reopen","qaqc.inspection.submit","qaqc.inspection.update_draft","qaqc.inspection.view","qaqc.manage","qaqc.material.conditional_accept","qaqc.material.inspect","qaqc.material.reject","qaqc.material.release","qaqc.material.view","qaqc.ncr.approve","qaqc.ncr.assign","qaqc.ncr.cancel","qaqc.ncr.close","qaqc.ncr.create","qaqc.ncr.reject","qaqc.ncr.reopen","qaqc.ncr.submit","qaqc.ncr.update","qaqc.ncr.view","qaqc.reinspection.create","qaqc.reinspection.execute","qaqc.reinspection.view","qaqc.report.view","qaqc.request.assign","qaqc.request.cancel","qaqc.request.create","qaqc.request.update","qaqc.request.view","qaqc.task.create","qaqc.task.view","qaqc.template.archive","qaqc.template.create","qaqc.template.restore","qaqc.template.update","qaqc.template.view","qaqc.view"]
       },
       "hse": {
-        "accessLevel": "VIEW",
+        "accessLevel": "MANAGE",
         "scope": "COMPANY",
         "enabled": true,
-        "permissions": ["hse.action.view","hse.activity.view","hse.approval.view","hse.dashboard.view","hse.document.view","hse.environment.view","hse.hazard.view","hse.incident.view","hse.induction.view","hse.inspection.view","hse.permit.view","hse.ppe.view","hse.report.view","hse.risk.view","hse.stop_work.view","hse.task.view","hse.template.view","hse.toolbox.view","hse.view"]
+        "permissions": ["hse.action.assign","hse.action.cancel","hse.action.complete","hse.action.create","hse.action.reopen","hse.action.update","hse.action.verify","hse.action.view","hse.activity.view","hse.approval.decide","hse.approval.view","hse.dashboard.view","hse.document.create","hse.document.view","hse.environment.close","hse.environment.create","hse.environment.update","hse.environment.view","hse.export","hse.hazard.assess","hse.hazard.assign","hse.hazard.cancel","hse.hazard.close","hse.hazard.control","hse.hazard.create","hse.hazard.reopen","hse.hazard.update","hse.hazard.view","hse.incident.assign","hse.incident.cancel","hse.incident.close","hse.incident.create","hse.incident.investigate","hse.incident.reopen","hse.incident.submit_close","hse.incident.update","hse.incident.view","hse.induction.record","hse.induction.view","hse.induction.void","hse.inspection.approve","hse.inspection.assign","hse.inspection.cancel","hse.inspection.close","hse.inspection.create","hse.inspection.execute","hse.inspection.reject","hse.inspection.submit","hse.inspection.view","hse.manage","hse.permit.activate","hse.permit.approve","hse.permit.cancel","hse.permit.close","hse.permit.create","hse.permit.submit","hse.permit.suspend","hse.permit.update","hse.permit.view","hse.ppe.create","hse.ppe.update","hse.ppe.view","hse.report.view","hse.risk.approve","hse.risk.archive","hse.risk.create","hse.risk.submit","hse.risk.update","hse.risk.view","hse.stop_work.create","hse.stop_work.release","hse.stop_work.view","hse.task.create","hse.task.view","hse.template.archive","hse.template.create","hse.template.restore","hse.template.update","hse.template.view","hse.toolbox.cancel","hse.toolbox.complete","hse.toolbox.create","hse.toolbox.update","hse.toolbox.view","hse.view"]
       },
       "people": {
         "accessLevel": "CONTRIBUTE",

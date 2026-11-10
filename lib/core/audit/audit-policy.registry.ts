@@ -388,6 +388,8 @@ export const AuditAction = {
   APPROVAL_DELEGATION_CREATED: "APPROVAL_DELEGATION_CREATED",
   APPROVAL_DELEGATION_REVOKED: "APPROVAL_DELEGATION_REVOKED",
   APPROVAL_POLICY_UPDATED: "APPROVAL_POLICY_UPDATED",
+  // A CEO deciding their own request because nobody else in the company could (2026-11).
+  APPROVAL_SELF_APPROVED: "APPROVAL_SELF_APPROVED",
 
   // Timesheets (PRD #42 §112, §113, §223): persisted changes only, never entry text.
   TIMESHEET_CREATED: "TIMESHEET_CREATED",
@@ -936,6 +938,8 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.APPROVAL_APPROVED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "decision", "step", "onBehalfOfMemberId", "hasNote"], required: true },
   { actionKey: AuditAction.APPROVAL_REJECTED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "decision", "step", "onBehalfOfMemberId", "hasNote"], required: true },
   { actionKey: AuditAction.APPROVAL_RETURNED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "decision", "step", "onBehalfOfMemberId", "hasNote"], required: true },
+  // Deciding your own request is evidence of its own, kept with the decision (2026-11).
+  { actionKey: AuditAction.APPROVAL_SELF_APPROVED, moduleKey: "approvals", category: "APPROVAL", severity: "CRITICAL", snapshotMode: "CHANGES", allowFields: ["selfApproved", "reason", "recordType", "decision"], required: true },
   { actionKey: AuditAction.APPROVAL_CANCELLED, moduleKey: "approvals", category: "APPROVAL", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "count"], required: false },
   { actionKey: AuditAction.APPROVAL_REASSIGNED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["approvalId", "providerKey", "sourceType", "from", "to"], required: true },
   { actionKey: AuditAction.APPROVAL_DELEGATION_CREATED, moduleKey: "approvals", category: "APPROVAL", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["fromMemberId", "toMemberId", "providerKey", "startsAt", "endsAt", "hasReason"], required: true },

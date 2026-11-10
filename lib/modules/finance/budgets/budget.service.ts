@@ -522,7 +522,7 @@ export async function approveBudget(
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`project_budget_current:${existing.projectId}`}))`;
 
     const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "BUDGET", recordId: budgetId, decision: "APPROVED" });
 
     await moveStatus(tx, context, existing, "approve");
 
@@ -592,7 +592,7 @@ export async function rejectBudget(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "BUDGET", recordId: budgetId, decision: "REJECTED" });
 
     await moveStatus(tx, context, existing, "reject", reason);
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
@@ -626,7 +626,7 @@ export async function returnBudget(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "BUDGET", budgetId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "BUDGET", recordId: budgetId, decision: "RETURNED" });
 
     await moveStatus(tx, context, existing, "return", reason);
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);

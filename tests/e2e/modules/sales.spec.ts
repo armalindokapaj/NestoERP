@@ -7,8 +7,8 @@ import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures
  * The Sales journey (PRD #17 §348–§357).
  *
  * Walks the module as the roles the commercial rules are written for: the sales
- * desk that runs the pipeline, the CEO who approves a price without working the
- * leads, the project manager who receives a won deal, Finance reading value
+ * desk that runs the pipeline, the CEO who approves a price and, since 2026-11,
+ * works the desk too, the project manager who receives a won deal, Finance reading value
  * without the pipeline, and the roles that get no Sales at all.
  */
 const PREFIX = "E2E-Sales";
@@ -236,15 +236,14 @@ test.describe("CEO (PRD #17 §351)", () => {
     await expect(page.getByText("Proposal rejected.").first()).toBeVisible();
   });
 
-  test("is not offered the sales desk's operational controls", async ({ page }) => {
+  // The CEO was kept off the sales desk until the user's 2026-11 decision: "CEO does everything".
+  test("is offered the sales desk's operational controls, as the Owner is", async ({ page }) => {
     await signIn(page, "CEO");
     await page.goto("/sales/opportunities/opportunity_001");
-    await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Edit" }).first()).toBeVisible();
 
-    // No Leads tab at all: the CEO holds `sales.lead.view` but not the create
-    // or edit grants, so the list is read-only rather than absent.
     await page.goto("/sales/leads");
-    await expect(page.getByRole("link", { name: "New lead" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "New lead" }).first()).toBeVisible();
   });
 
   test("sees the pipeline grouped by currency, never summed (PRD #17 §31)", async ({ page }) => {

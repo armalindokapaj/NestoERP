@@ -126,9 +126,9 @@ somebody employed.
 
 | Reader | Sees |
 | --- | --- |
-| HR with `hr.employment_history.view` and HR scope over the employee in the employment's own company (the HR role, the Owner; Group HR in every company it works in) | every row, superseded ones too, who recorded each, HR notes, correction reasons, scheduled changes; private reasons only with `hr.employment_history.view_private` |
+| HR with `hr.employment_history.view` and HR scope over the employee in the employment's own company (the HR role, the Owner, the CEO since 2026-11; Group HR in every company it works in) | every row, superseded ones too, who recorded each, HR notes, correction reasons, scheduled changes; private reasons only with `hr.employment_history.view_private` |
 | The employee (`hr.self.employment`) | their own timeline and rows, without notes, private reasons, corrections or who recorded them; their employments in every company of the group |
-| The CEO, managers, Finance, Group IT, colleagues | the current record where they could already see it; no history — the history endpoints refuse |
+| Managers, Finance, Group IT, colleagues | the current record where they could already see it; no history — the history endpoints refuse |
 
 A supporting document appears only when the reader may open it; otherwise not
 even its name. `GET /api/hr/employees/:employeeId/employment-history` is one

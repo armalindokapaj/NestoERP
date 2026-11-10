@@ -97,9 +97,9 @@ Owning a milestone grants nothing.
 
 | Role | Can |
 | --- | --- |
-| Owner | Everything, company-wide; company rules; move a locked baseline and unlock it (`project_planning.settings.manage`) |
+| Owner, CEO | Everything, company-wide; company rules; move a locked baseline and unlock it (`project_planning.settings.manage`; the CEO since 2026-11) |
 | Project Manager | Keep the plan on their projects: phases, milestones, dates, baseline, dependencies, blockers, completion, reopening, templates, lock |
-| CEO, Finance, Legal, Sales, Procurement, Inventory | Read, on the projects their project scope reaches |
+| Finance, Legal, Sales, Procurement, Inventory | Read, on the projects their project scope reaches |
 | Architect, Engineer, QA/QC, HSE, Viewer | Read their projects' plans |
 | Group IT, HR | None |
 

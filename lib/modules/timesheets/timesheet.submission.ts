@@ -5,6 +5,7 @@ import { AccessError, assertModule, assertPermission } from "@/lib/access/guards
 import type { UserContext } from "@/lib/context/types";
 import { assertApprovalGuard, type ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { closeOpenSteps, createApprovalSteps, currentStepOf, loadApprovalSteps, settleStep, stepEligibility } from "@/lib/core/approvals/approval-steps";
+import { namedRefusal, ownStepDecision, recordSelfApproval } from "@/lib/core/approvals/self-approval";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
@@ -178,9 +179,6 @@ async function decide(context: UserContext, timesheetId: string, outcome: Outcom
     select: { id: true, memberId: true, status: true, version: true, periodStart: true, submissionVersion: true },
   });
   if (!week) throw fail("TIMESHEET_NOT_FOUND", "That timesheet could not be found.", "NOT_FOUND");
-  if (week.memberId === context.membershipId) {
-    throw fail("TIMESHEET_SELF_APPROVAL_BLOCKED", "This is your own timesheet, so somebody else decides it.", "FORBIDDEN");
-  }
   if (week.status !== "SUBMITTED") throw fail("TIMESHEET_ALREADY_DECIDED", "This week is not waiting for a decision.");
 
   const label = weekLabel(dateOf(week.periodStart), SOURCE_LOCALE);
@@ -193,16 +191,26 @@ async function decide(context: UserContext, timesheetId: string, outcome: Outcom
     if (!step) throw fail("TIMESHEET_ALREADY_DECIDED", "This week is not waiting for a decision.");
     assertApprovalGuard(guard, cycle, guard?.stepNumber === undefined ? undefined : step.stepNumber);
 
+    // Your own week is somebody else's to decide; a CEO's only when nobody else could (lib/core/approvals/self-approval.ts).
+    const own = await ownStepDecision(context, { submittedByMemberId: week.memberId, step, steps, canReadAs: timesheetReadableBy(week.id) });
+    if (own.own && !own.allowed) {
+      if (own.others.length > 0) throw namedRefusal(own.others);
+      throw fail("TIMESHEET_SELF_APPROVAL_BLOCKED", "This is your own timesheet, so somebody else decides it.", "FORBIDDEN");
+    }
     const verdict = await stepEligibility(context, step, {
       providerKey: PROVIDER_KEY,
       steps,
       submittedByMemberId: week.memberId,
+      allowSelf: own.own && own.allowed,
       canReadAs: timesheetReadableBy(week.id),
     });
     if (!verdict.eligible) {
       throw fail("APPROVAL_NOT_CURRENT_APPROVER", "This week is waiting for its designated approver.", "FORBIDDEN");
     }
 
+    if (own.own && own.allowed && own.because === "NOBODY_ELSE") {
+      await recordSelfApproval(tx, context, { record: { type: "timesheet", id: week.id }, label: `Timesheet ${label}`, decision: outcome });
+    }
     await settleStep(tx, context, step, outcome, note, verdict.onBehalfOfMemberId);
     await closeOpenSteps(tx, PROVIDER_KEY, cycle.id);
     const settled = await tx.timesheetApproval.updateMany({ where: { id: cycle.id, status: "PENDING" }, data: { status: outcome, decidedByMemberId: context.membershipId, decidedAt: new Date(), decisionNote: note } });

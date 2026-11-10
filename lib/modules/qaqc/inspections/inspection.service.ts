@@ -361,6 +361,7 @@ export async function getInspection(
     createdAt: row.createdAt.toISOString(),
     capabilities: capabilitiesFor(context, row, {
       pendingSubmitter: pending?.submittedByMemberId ?? null,
+      ownDecisionAllowed: await approvals.mayDecideSubmission(context, { recordType: "INSPECTION", recordId: row.id, submittedByMemberId: pending?.submittedByMemberId ?? null }),
       hasFollowUp:
         related.defects.length > 0 ||
         related.ncrs.length > 0 ||
@@ -923,7 +924,7 @@ export async function approveInspection(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "INSPECTION", recordId: inspectionId, decision: "APPROVED" });
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
     const updated = await tx.qualityInspection.updateMany({
@@ -975,7 +976,7 @@ export async function rejectInspection(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "INSPECTION", recordId: inspectionId, decision: "REJECTED" });
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", note);
 
     const updated = await tx.qualityInspection.updateMany({
@@ -1542,6 +1543,8 @@ function capabilitiesFor(
   row: DetailRow,
   state: {
     pendingSubmitter: string | null;
+    /** The self rule's answer for this reader, worked out before (lib/core/approvals/self-approval.ts). */
+    ownDecisionAllowed: boolean;
     hasFollowUp: boolean;
     hasDecisionNote: boolean;
     releaseExists: boolean;
@@ -1557,7 +1560,7 @@ function capabilitiesFor(
   const selfSubmitted = state.pendingSubmitter === context.membershipId;
   const mayDecide =
     isInspectionDecidable(row.status) &&
-    (!selfSubmitted || can(context, "qaqc.approval.self"));
+    (!selfSubmitted || state.ownDecisionAllowed);
 
   const closeable =
     isInspectionCloseable(row.status) &&

@@ -2,6 +2,7 @@ import { Prisma, type FinanceApprovalRecordType } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { assertDecisionGuard, requireDecisionGuard, singlePending, type ApprovalGuard, type PendingCycle } from "@/lib/core/approvals/approval-guard";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import {
   notifyApprovalDecided,
   notifyApprovalRequested,
@@ -80,16 +81,34 @@ export function assertCanReject(context: UserContext, type: FinanceApprovalRecor
  * Separation of duties (PRD #15 §19).
  *
  * Checked against the *submission*, not the record's author: the person who put
- * it forward for approval is the one who must not wave it through.
+ * it forward for approval is the one who must not wave it through. A CEO may
+ * decide their own only when nobody else in the company could, and it is
+ * recorded as self-approved (lib/core/approvals/self-approval.ts).
  */
-export function assertNotSelfApproval(context: UserContext, submittedByMemberId: string): void {
-  if (submittedByMemberId !== context.membershipId) return;
-  if (can(context, "finance.approval.self")) return;
+export async function assertNotSelfApproval(
+  context: UserContext,
+  submittedByMemberId: string,
+  decided: { tx: Prisma.TransactionClient; type: FinanceApprovalRecordType; recordId: string; decision: "APPROVED" | "REJECTED" | "RETURNED" },
+): Promise<void> {
+  await assertOwnDecisionAllowed(context, {
+    own: submittedByMemberId === context.membershipId,
+    selfPermission: "finance.approval.self",
+    record: { type: recordTypeFor(decided.type), id: decided.recordId },
+    mayDecide: (member) => canApproveType(member, decided.type),
+    refusal: () => new AccessError("FORBIDDEN", "You submitted this record, so somebody else has to decide it."),
+    tx: decided.tx,
+    decision: decided.decision,
+  });
+}
 
-  throw new AccessError(
-    "FORBIDDEN",
-    "You submitted this record, so somebody else has to decide it.",
-  );
+/** Whether the self rule lets this reader decide this submission: what the queue's Decide control asks. */
+function mayDecideSubmission(context: UserContext, row: { recordType: FinanceApprovalRecordType; recordId: string; submittedByMemberId: string }): Promise<boolean> {
+  return mayDecideOwn(context, {
+    own: row.submittedByMemberId === context.membershipId,
+    selfPermission: "finance.approval.self",
+    record: { type: recordTypeFor(row.recordType), id: row.recordId },
+    mayDecide: (member) => canApproveType(member, row.recordType),
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -535,6 +554,11 @@ async function hydrate(
     });
   }
 
+  const decidable = new Set<string>();
+  for (const row of rows) {
+    if (row.status === "PENDING" && canApproveType(context, row.recordType) && (await mayDecideSubmission(context, row))) decidable.add(row.id);
+  }
+
   return rows.map((row) => ({
     id: row.id,
     recordType: row.recordType,
@@ -560,10 +584,6 @@ async function hydrate(
           note: row.decisionNote,
         }
       : null,
-    canDecide:
-      row.status === "PENDING" &&
-      canApproveType(context, row.recordType) &&
-      (row.submittedByMemberId !== context.membershipId ||
-        can(context, "finance.approval.self")),
+    canDecide: decidable.has(row.id),
   }));
 }

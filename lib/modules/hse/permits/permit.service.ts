@@ -253,7 +253,7 @@ export async function getPermit(
     actions,
     createdBy,
     createdAt: row.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, row, pending?.submittedByMemberId ?? null, now),
+    capabilities: capabilitiesFor(context, row, await approvals.mayDecideNamed(context, { type: "WORK_PERMIT", recordId: row.id, submittedByMemberId: pending?.submittedByMemberId ?? null, alsoConflicted: [row.requestedByMemberId] }), now),
   };
 }
 
@@ -536,7 +536,7 @@ export async function approvePermit(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "WORK_PERMIT", permitId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.requestedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "WORK_PERMIT", recordId: permitId, decision: "APPROVED", alsoConflicted: [existing.requestedByMemberId] });
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
@@ -584,7 +584,7 @@ export async function rejectPermit(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "WORK_PERMIT", permitId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.requestedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "WORK_PERMIT", recordId: permitId, decision: "REJECTED", alsoConflicted: [existing.requestedByMemberId] });
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);
 
@@ -931,10 +931,10 @@ function toSummaryDTO(
 function capabilitiesFor(
   context: UserContext,
   row: DetailRow,
-  submittedByMemberId: string | null,
+  /** The self rule's answer for this reader, worked out before (§182; lib/core/approvals/self-approval.ts). */
+  notSelf: boolean,
   now: Date,
 ) {
-  const notSelf = !approvals.isSelfDecision(context, submittedByMemberId, row.requestedByMemberId);
   const effective = effectivePermitStatus(row.status, row.validUntil, now);
 
   return {

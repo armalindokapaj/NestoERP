@@ -327,7 +327,7 @@ export const sq: Messages = {
         "Administratori teknik i grupit mëmë. Krijon përdoruesit, konfiguron kompanitë dhe modulet, dhe mbështet NESTO sipas kërkesave të miratuara të biznesit dhe burimeve njerëzore.",
     },
     HR: { label: "Burime njerëzore", description: "Drejton operacionet e personelit, rekrutimin dhe dosjen e punësimit." },
-    CEO: { label: "CEO / Drejtor", description: "Performanca e kompanisë, miratimet, ngritja e projekteve dhe mbikëqyrja strategjike." },
+    CEO: { label: "CEO / Drejtor", description: "Drejton kompaninë: çdo modul, ashtu si Pronari. Vendos për kërkesat e veta vetëm kur askush tjetër në kompani nuk mund ta bëjë." },
     PROJECT_MANAGER: { label: "Menaxher projekti", description: "Drejton projektet, detyrat, ekipet dhe dorëzimin te klientët." },
     ARCHITECT: { label: "Arkitekt", description: "Projektimi, vizatimet, rishikimet dhe dokumentacioni i projektit." },
     ENGINEER: { label: "Inxhinier", description: "Realizimi teknik, inspektimet dhe detyrat inxhinierike." },

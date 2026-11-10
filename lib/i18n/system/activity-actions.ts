@@ -10,6 +10,7 @@
  */
 export const ACTIVITY_ACTION_KEYS: Readonly<Record<string, readonly string[]>> = {
   ANNOUNCEMENT_PUBLISHED: ["published the announcement “{title}”"],
+  APPROVAL_SELF_APPROVED: ["decided their own request, as nobody else in the company could"],
   BUILDING_CREATED: ["added the building {name}"],
   BUILDING_DELETED: ["removed the building {name}"],
   CALENDAR_EVENT_CREATED: ["scheduled {title}"],

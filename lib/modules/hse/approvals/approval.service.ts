@@ -4,6 +4,7 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { assertDecisionGuard, requireDecisionGuard, singlePending, type ApprovalGuard, type PendingCycle } from "@/lib/core/approvals/approval-guard";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
@@ -100,18 +101,30 @@ export function assertCanReject(context: UserContext, type: HseApprovalRecordTyp
  * person who asked for the hot work cannot approve it just because a colleague
  * pressed submit (PRD #47 §85).
  */
-export function assertNotSelfApproval(
+export async function assertNotSelfApproval(
   context: UserContext,
   submittedByMemberId: string,
-  ...alsoConflicted: (string | null | undefined)[]
-): void {
-  if (!isConflicted(context, submittedByMemberId, alsoConflicted)) return;
-  if (can(context, "hse.approval.self")) return;
-  throw new AccessError(
-    "FORBIDDEN",
-    "You submitted this, so somebody else has to decide on it.",
-    { code: "SELF_APPROVAL" },
-  );
+  decided: {
+    tx: Prisma.TransactionClient;
+    type: HseApprovalRecordType;
+    recordId: string;
+    decision: "APPROVED" | "REJECTED" | "RETURNED";
+    /** Others with a stake in the answer: the permit's requester, the inspection's inspector. */
+    alsoConflicted?: (string | null | undefined)[];
+  },
+): Promise<void> {
+  const alsoConflicted = decided.alsoConflicted ?? [];
+  // A CEO decides their own only when nobody else could, recorded as such (lib/core/approvals/self-approval.ts).
+  await assertOwnDecisionAllowed(context, {
+    own: isConflicted(context, submittedByMemberId, alsoConflicted),
+    selfPermission: "hse.approval.self",
+    record: { type: APPROVAL_RECORD[decided.type].recordType, id: decided.recordId },
+    mayDecide: (member) => canApproveType(member, decided.type),
+    barred: [submittedByMemberId, ...alsoConflicted],
+    refusal: () => new AccessError("FORBIDDEN", "You submitted this, so somebody else has to decide on it.", { code: "SELF_APPROVAL" }),
+    tx: decided.tx,
+    decision: decided.decision,
+  });
 }
 
 function isConflicted(
@@ -122,24 +135,22 @@ function isConflicted(
   return [submittedByMemberId, ...alsoConflicted].includes(context.membershipId);
 }
 
-/** Whether a reader named on the record is barred from deciding it (§182). */
-export function isSelfDecision(
+/**
+ * Whether the self rule lets a reader named on the record decide it (§182): what
+ * a page asks before it offers a decision. True for anybody not named on it.
+ */
+export async function mayDecideNamed(
   context: UserContext,
-  submittedByMemberId: string | null,
-  ...alsoConflicted: (string | null | undefined)[]
-): boolean {
-  return isConflicted(context, submittedByMemberId, alsoConflicted) && !can(context, "hse.approval.self");
-}
-
-/** Whether this reader could decide, used to withhold buttons (§182). */
-export function couldDecide(
-  context: UserContext,
-  type: HseApprovalRecordType,
-  submittedByMemberId: string,
-): boolean {
-  if (!canApproveType(context, type) && !canRejectType(context, type)) return false;
-  if (submittedByMemberId !== context.membershipId) return true;
-  return can(context, "hse.approval.self");
+  input: { type: HseApprovalRecordType; recordId: string; submittedByMemberId: string | null; alsoConflicted?: (string | null | undefined)[] },
+): Promise<boolean> {
+  const alsoConflicted = input.alsoConflicted ?? [];
+  return mayDecideOwn(context, {
+    own: isConflicted(context, input.submittedByMemberId, alsoConflicted),
+    selfPermission: "hse.approval.self",
+    record: { type: APPROVAL_RECORD[input.type].recordType, id: input.recordId },
+    mayDecide: (member) => canApproveType(member, input.type),
+    barred: [input.submittedByMemberId, ...alsoConflicted],
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -489,6 +500,13 @@ export async function listApprovalQueue(
     rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId]),
   );
 
+  // Withheld from whoever submitted it, unless the self rule lets them decide it (§182).
+  const decidable = new Set<string>();
+  for (const row of rows) {
+    if (row.status !== "PENDING" || (!canApproveType(context, row.recordType) && !canRejectType(context, row.recordType))) continue;
+    if (await mayDecideNamed(context, { type: row.recordType, recordId: row.recordId, submittedByMemberId: row.submittedByMemberId })) decidable.add(row.id);
+  }
+
   const data: ApprovalQueueItemDTO[] = rows.map((row) => {
     const resolved = byType.get(row.recordType)!.get(row.recordId);
 
@@ -507,9 +525,7 @@ export async function listApprovalQueue(
       decidedBy: row.decidedByMemberId ? (members.get(row.decidedByMemberId) ?? null) : null,
       decidedAt: dateString(row.decidedAt),
       decisionNote: row.decisionNote,
-      canDecide:
-        row.status === "PENDING" &&
-        couldDecide(context, row.recordType, row.submittedByMemberId),
+      canDecide: decidable.has(row.id),
     };
   });
 

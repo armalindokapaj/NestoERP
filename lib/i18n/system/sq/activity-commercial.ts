@@ -246,6 +246,8 @@ export const rows = {
   "restored proposal {proposalNumber}": "riktheu ofertën {proposalNumber}",
   "asked for approval to sell {unitCode}": "kërkoi miratim për të shitur njësinë {unitCode}",
   "approved the sale of {unitCode}": "miratoi shitjen e njësisë {unitCode}",
+  // any approval: a CEO deciding their own request (2026-11)
+  "decided their own request, as nobody else in the company could": "vendosi për kërkesën e vet, pasi askush tjetër në kompani nuk mund ta bënte",
   "rejected the sale of {unitCode}": "refuzoi shitjen e njësisë {unitCode}",
   "changed the asking price of {unitCode} from {shown} to {shown2}": "ndryshoi çmimin e kërkuar të njësisë {unitCode} nga {shown} në {shown2}",
   "reserved {unitCode} until {toISOString}": "rezervoi njësinë {unitCode} deri më {toISOString}",

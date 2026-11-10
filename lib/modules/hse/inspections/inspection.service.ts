@@ -298,7 +298,7 @@ export async function getInspection(
     actions,
     createdBy,
     createdAt: row.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, row, pending?.submittedByMemberId ?? null),
+    capabilities: capabilitiesFor(context, row, await approvals.mayDecideNamed(context, { type: "INSPECTION", recordId: row.id, submittedByMemberId: pending?.submittedByMemberId ?? null, alsoConflicted: [row.executedByMemberId] })),
   };
 }
 
@@ -759,7 +759,7 @@ export async function approveInspection(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.executedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "INSPECTION", recordId: inspectionId, decision: "APPROVED", alsoConflicted: [existing.executedByMemberId] });
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
@@ -808,7 +808,7 @@ export async function rejectInspection(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "INSPECTION", inspectionId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId, existing.executedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "INSPECTION", recordId: inspectionId, decision: "REJECTED", alsoConflicted: [existing.executedByMemberId] });
 
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", decisionNote);
 
@@ -1097,11 +1097,12 @@ function toSummaryDTO(
 function capabilitiesFor(
   context: UserContext,
   row: DetailRow,
-  submittedByMemberId: string | null,
+  /**
+   * Withheld from whoever submitted it, so nobody is offered a button that is
+   * certain to fail (PRD #22 §52, §182): the self rule's answer, worked out before.
+   */
+  notSelf: boolean,
 ) {
-  // Withheld from whoever submitted it, so nobody is offered a button that is
-  // certain to fail (PRD #22 §52, §182).
-  const notSelf = !approvals.isSelfDecision(context, submittedByMemberId, row.executedByMemberId);
 
   return {
     canEdit: isInspectionEditable(row.status) && can(context, "hse.inspection.create"),

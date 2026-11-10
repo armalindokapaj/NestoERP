@@ -223,8 +223,9 @@ describe("HSE records name workers without a login (§70-§74, §270)", () => {
     expect((await inductionsForProject(hse, PROJECT)).map((row) => row.id)).toContain(induction.id);
 
     await expectError(recordInduction(hse, { employeeId: waiting.id, projectId: PROJECT, inductedOn: addDays(TODAY, 1) }), "VALIDATION_ERROR");
-    // Reading HSE is not recording it: the CEO sees inductions and gives none (an engineer on the project may).
-    await expectError(recordInduction(await loginAs("CEO"), { employeeId: waiting.id, projectId: PROJECT, inductedOn: TODAY }), "FORBIDDEN");
+    // Reading HSE is not recording it: QA/QC sees the project's safety position and gives no induction (an engineer on the project may).
+    // The CEO was this example until 2026-11, when the CEO came to work every module as the Owner does.
+    await expectError(recordInduction(await loginAs("QAQC"), { employeeId: waiting.id, projectId: PROJECT, inductedOn: TODAY }), "FORBIDDEN");
 
     await voidInduction(hse, induction.id, "Recorded for the wrong person");
     expect((await workersMissingInduction(hse, PROJECT)).map((row) => row.employeeId)).toContain(inducted.id);

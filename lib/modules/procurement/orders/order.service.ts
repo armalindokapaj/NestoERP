@@ -1004,7 +1004,7 @@ export async function approveOrder(
       }
     } else {
       approvals.assertCanApprove(context, "PURCHASE_ORDER");
-      approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+      await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PURCHASE_ORDER", recordId: orderId, decision: "APPROVED" });
     }
 
     // In a chain the last step's holder concludes it, and may hold the step
@@ -1085,7 +1085,7 @@ async function endOrderApproval(
       await settleStep(tx, context, actionable.step, outcome, reason, actionable.onBehalfOfMemberId);
     } else {
       approvals.assertCanReject(context, "PURCHASE_ORDER");
-      approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+      await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PURCHASE_ORDER", recordId: orderId, decision: outcome });
     }
 
     if (outcome === "REJECTED") {

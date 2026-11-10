@@ -81,8 +81,15 @@ describe("discussion notifications follow the thread's own requirements (PRD #38
   it("does not tell a reader of an employee record about its HR discussion unless they manage employee records", async () => {
     const owner = await loginAs("OWNER");
     const hr = await loginAs("HR");
-    // The CEO reads every employee record but does not hold hr.employee.update.
-    const ceo = await loginAs("CEO");
+    // A reader of every employee record without hr.employee.update: Finance with HR lent at View.
+    // (The CEO was this reader until 2026-11, when the CEO came to hold the Owner's HR rights.)
+    const finance = await loginAs("FINANCE");
+    const parentGroupId = (await prisma.company.findUniqueOrThrow({ where: { id: finance.companyId }, select: { parentGroupId: true } })).parentGroupId;
+    const grant = await prisma.accessGrant.create({
+      data: { userId: finance.userId, parentGroupId, functionKey: "hr", scopeType: "COMPANY", scopeId: finance.companyId, accessLevel: "VIEW", grantedByUserId: owner.userId },
+      select: { id: true },
+    });
+    const reader = { membershipId: finance.membershipId };
     const commentId = unique();
     dedupePrefixes.push(`COMMENT_MENTIONED:${commentId}:`);
     // An employee record is the employment (E-04 §14).
@@ -95,13 +102,14 @@ describe("discussion notifications follow the thread's own requirements (PRD #38
       entityType: "employee",
       entityId: employment.id,
       actorMemberId: owner.membershipId,
-      payload: { commentId, recordLabel: "Employee record", actorName: "Owner", preview: "confidential", mentionedMemberIds: [hr.membershipId, ceo.membershipId] },
+      payload: { commentId, recordLabel: "Employee record", actorName: "Owner", preview: "confidential", mentionedMemberIds: [hr.membershipId, reader.membershipId] },
     });
     expect(status).toBe("PROCESSED");
 
     const recipients = (await prisma.notification.findMany({ where: { dedupeKey: { startsWith: `COMMENT_MENTIONED:${commentId}:` } }, select: { recipientMemberId: true } })).map((row) => row.recipientMemberId);
+    await prisma.accessGrant.delete({ where: { id: grant.id } });
     expect(recipients).toContain(hr.membershipId);
-    expect(recipients).not.toContain(ceo.membershipId);
+    expect(recipients).not.toContain(reader.membershipId);
   });
 
   it("tells nobody about a discussion on a record type that has none", async () => {

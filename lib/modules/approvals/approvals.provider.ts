@@ -198,7 +198,9 @@ export function translateSourceError(error: unknown): never {
     const detailCode = (error.details as { code?: string } | undefined)?.code;
     if (error.code === "FORBIDDEN") {
       const self = detailCode === "SELF_APPROVAL" || /submitted this|your own/i.test(error.message);
-      if (self) throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "You requested this, so somebody else has to decide it.", "FORBIDDEN");
+      // A CEO's refusal names who can decide it instead; those words are kept (lib/core/approvals/self-approval.ts).
+      const named = Array.isArray((error.details as { approvers?: unknown } | undefined)?.approvers);
+      if (self) throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", named ? error.message : "You requested this, so somebody else has to decide it.", "FORBIDDEN");
       throw approvalError(detailCode?.startsWith("APPROVAL_") ? detailCode : "APPROVAL_FORBIDDEN", error.message === "You do not have permission to perform this action." ? "You cannot decide this approval." : error.message, "FORBIDDEN");
     }
     if (error.code === "CONFLICT") {

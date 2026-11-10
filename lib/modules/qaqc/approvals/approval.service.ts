@@ -4,6 +4,7 @@ import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { assertDecisionGuard, requireDecisionGuard, singlePending, type ApprovalGuard, type PendingCycle } from "@/lib/core/approvals/approval-guard";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import type { RecordType } from "@/lib/core/records/record.types";
 import type { Permission } from "@/config/permissions";
@@ -81,14 +82,41 @@ export function assertCanReject(context: UserContext, type: QualityApprovalRecor
  * held by nobody by default. Separation of duties is the rule; the grant is the
  * documented exception.
  */
-export function assertNotSelfApproval(context: UserContext, submittedByMemberId: string): void {
-  if (submittedByMemberId !== context.membershipId) return;
-  if (can(context, "qaqc.approval.self")) return;
-  throw new AccessError(
-    "FORBIDDEN",
-    "You submitted this, so somebody else has to decide on it.",
-    { code: "SELF_APPROVAL" },
-  );
+export async function assertNotSelfApproval(
+  context: UserContext,
+  submittedByMemberId: string,
+  decided: { tx: Prisma.TransactionClient; type: QualityApprovalRecordType; recordId: string; decision: "APPROVED" | "REJECTED" | "RETURNED" },
+): Promise<void> {
+  // A CEO decides their own only when nobody else could, recorded as such (lib/core/approvals/self-approval.ts).
+  await assertOwnDecisionAllowed(context, {
+    own: submittedByMemberId === context.membershipId,
+    selfPermission: "qaqc.approval.self",
+    record: { type: APPROVAL_RECORD[decided.type].recordType, id: decided.recordId },
+    mayDecide: (member) => canApproveType(member, decided.type),
+    refusal: () => new AccessError("FORBIDDEN", "You submitted this, so somebody else has to decide on it.", { code: "SELF_APPROVAL" }),
+    tx: decided.tx,
+    decision: decided.decision,
+  });
+}
+
+/** Whether the self rule lets this reader decide this submission: what a page asks before it offers a decision. */
+export async function mayDecideSubmission(
+  context: UserContext,
+  row: { recordType: QualityApprovalRecordType; recordId: string; submittedByMemberId: string | null },
+): Promise<boolean> {
+  return mayDecideOwn(context, {
+    own: row.submittedByMemberId === context.membershipId,
+    selfPermission: "qaqc.approval.self",
+    record: { type: APPROVAL_RECORD[row.recordType].recordType, id: row.recordId },
+    mayDecide: (member) => canApproveType(member, row.recordType),
+  });
+}
+
+/** The pending submissions on this page the self rule lets this reader decide. */
+async function selfDecidable(context: UserContext, rows: ApprovalRow[]): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (const row of rows) if (row.status === "PENDING" && (await mayDecideSubmission(context, row))) ids.add(row.id);
+  return ids;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -287,8 +315,9 @@ export async function historyFor(
     rows.flatMap((row) => [row.submittedByMemberId, row.decidedByMemberId]),
   );
 
+  const decidable = await selfDecidable(context, rows);
   return rows.map((row) =>
-    toDTO(context, row, members, { number: "", title: "", href: "" }),
+    toDTO(context, row, members, { number: "", title: "", href: "" }, decidable),
   );
 }
 
@@ -303,6 +332,7 @@ function toDTO(
   row: ApprovalRow,
   members: Map<string, { memberId: string; fullName: string; active: boolean }>,
   record: RecordRef,
+  decidable: Set<string>,
 ): QualityApprovalDTO {
   const submittedBy = members.get(row.submittedByMemberId) ?? null;
 
@@ -324,11 +354,7 @@ function toDTO(
      * that is certain to fail (PRD #21 §165). This mirrors the service check
      * rather than replacing it.
      */
-    canDecide:
-      row.status === "PENDING" &&
-      canApproveType(context, row.recordType) &&
-      (row.submittedByMemberId !== context.membershipId ||
-        can(context, "qaqc.approval.self")),
+    canDecide: row.status === "PENDING" && canApproveType(context, row.recordType) && decidable.has(row.id),
   };
 }
 
@@ -435,9 +461,10 @@ export async function listApprovals(context: UserContext, query: ApprovalListQue
     });
   }
 
+  const decidable = await selfDecidable(context, rows);
   const data = rows
     .filter((row) => refs.has(row.recordId))
-    .map((row) => toDTO(context, row, members, refs.get(row.recordId)!));
+    .map((row) => toDTO(context, row, members, refs.get(row.recordId)!, decidable));
 
   return { data, pagination: paginationMeta(total, query.page, query.limit) };
 }
