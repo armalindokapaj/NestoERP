@@ -114,7 +114,7 @@ export function PlatformSearch({ endpoint = "/api/platform-admin/search", recent
         title={`${t("search.ariaTrigger")} (${mac ? "⌘K" : "Ctrl+K"})`}
         data-testid="admin-search-trigger"
       >
-        <Search className="size-5" strokeWidth={1.6} aria-hidden="true" />
+        <Search className="size-5" aria-hidden="true" />
       </button>
       <GlassPanel
         open={open}

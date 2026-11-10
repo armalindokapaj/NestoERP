@@ -87,7 +87,7 @@ test.describe("phones: cards, sort, staged filters (MW-05, MW-06)", () => {
       const card = cards(page).first();
       const link = card.locator("a[data-card-link]");
       await expect(link).toHaveCount(1);
-      await expect(card.locator("svg.lucide-chevron-right")).toBeVisible();
+      await expect(card.locator("[data-card-chevron]").first()).toBeVisible();
       if (list.hasStatus) await expect(card.locator("dt", { hasText: /^Status$/ })).toBeVisible();
 
       // The stretched link answers at the card's corners, not only on the title text.

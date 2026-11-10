@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type LucideIcon } from "@/components/icons";
+import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type IconComponent } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";
@@ -20,7 +20,7 @@ import { FormSelect } from "@/components/ui/form-select";
  * menu read together with this chunk.
  */
 
-const ICONS: Record<string, LucideIcon> = { SquareCheckBig, Presentation, FileText, FolderKanban, NotebookPen, Building2, Target, ReceiptText, Wallet, ShoppingCart, ClipboardCheck, HardHat, TriangleAlert };
+const ICONS: Record<string, IconComponent> = { SquareCheckBig, Presentation, FileText, FolderKanban, NotebookPen, Building2, Target, ReceiptText, Wallet, ShoppingCart, ClipboardCheck, HardHat, TriangleAlert };
 const SEARCH_FROM = 8;
 
 export type QuickCreateBodyProps = {

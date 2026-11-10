@@ -697,7 +697,7 @@ verification scripts.
 | Group | Notes |
 | --- | --- |
 | Colour | White surfaces `#FFFFFF`, canvas `#F7F7F6`, stone `#F2F2F1`, graphite `#15171C`, one indigo accent `#465CFF`. Status colours only where they carry meaning. |
-| Type | Geist for the interface, Instrument Serif for the wordmark and the dashboard heading — nothing else. `text-hero / display / page / section / card / body / table / meta / micro` — 56 / 36 / 28 / 20 / 16 / 14 / 13 / 12 / 11px. Nothing goes below 11px. |
+| Type | The Nesto theme's four faces (docs/ui/UI-03-nesto-theme.md §4): IBM Plex Sans for the interface, IBM Plex Mono for labels, Newsreader italic for standfirsts, Archivo for headings and figures — nothing else. `text-hero / display / page / section / card / body / table / meta / micro` — 56 / 36 / 28 / 20 / 16 / 14 / 13 / 12 / 11px. Nothing goes below 11px. |
 | Radius | 8 buttons and inputs · 10 small cards · 12 dashboard cards · 14 dialogs · 16 feature cards. |
 | Shadow | Three steps only: `shadow-card`, `shadow-menu`, `shadow-dialog`. |
 | Motion | 150 / 180 / 220ms on `cubic-bezier(0.2, 0.8, 0.2, 1)`, applied as the default for every `transition-*`. Honours `prefers-reduced-motion`. |

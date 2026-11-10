@@ -43,7 +43,7 @@ export function OrganizationMark({
       data-mark={showLogo ? "logo" : "initials"}
       className={cn(
         "grid shrink-0 place-items-center overflow-hidden leading-none",
-        showLogo ? "bg-surface font-semibold ring-1 ring-line" : "border border-accent bg-transparent font-serif font-normal look2:font-display text-accent-strong",
+        showLogo ? "bg-surface font-semibold ring-1 ring-line" : "border border-accent bg-transparent text-accent-strong font-display",
         sizes[size],
         className,
       )}

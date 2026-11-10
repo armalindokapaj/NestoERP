@@ -36,7 +36,7 @@ export function SidebarToggle() {
           type="button"
           onClick={toggle}
           aria-label={label}
-          className="hidden size-8 shrink-0 place-items-center rounded-md look2:rounded-full text-fg-subtle transition-colors hover:bg-hover hover:text-fg xl:-ml-5 xl:grid touch:size-11"
+          className="hidden size-8 shrink-0 place-items-center text-fg-subtle transition-colors hover:bg-hover hover:text-fg xl:-ml-5 xl:grid touch:size-11 rounded-full"
         >
           <Icon aria-hidden="true" className="size-4" />
         </button>

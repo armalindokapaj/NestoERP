@@ -12,7 +12,7 @@ import {
   FolderKanban,
   HardHat,
   History,
-  type LucideIcon,
+  type IconComponent,
   Megaphone,
   NotebookPen,
   Package,
@@ -54,7 +54,7 @@ import type { SearchHome, SearchShortcut, SearchState } from "@/components/layou
 /** Search names a few record types differently from the navigable registry. */
 const SEARCH_TO_NAVIGABLE: Record<string, NavigableType | undefined> = { ncr: "non_conformance_report", hse_incident: "incident" };
 
-const ENTITY_ICONS: Record<string, LucideIcon> = {
+const ENTITY_ICONS: Record<string, IconComponent> = {
   calendar_event: CalendarDays,
   meeting: Presentation,
   project: FolderKanban,

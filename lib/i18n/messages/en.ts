@@ -473,16 +473,12 @@ export const en = {
       collapsedNavigation: "Collapsed navigation",
       collapsedNavigationHint:
         "Show the sidebar as an icon rail. On tablet-sized screens the rail is always used, whatever this is set to.",
-      colourScheme: "Colour scheme",
-      colourSchemeHint: "Follow your operating system, or pin NESTO to light or dark.",
-      themes: { system: "System", light: "Light", dark: "Dark" },
+      colourScheme: "Nesto theme",
+      colourSchemeHint: "Day or Night. This browser keeps your choice.",
+      themes: { light: "Day", dark: "Night" },
       density: "Density",
       densityHint: "Comfortable spacing, tuned for long working sessions.",
       densityLater: "Selectable density arrives with the settings module.",
-      look: "Theme",
-      lookHint: "Theme 1 is the original interface. Theme 2 is the newer one: cooler colours, condensed titles and small capital labels. Each has a light and a dark colour scheme.",
-      looks: { "1": "Theme 1", "2": "Theme 2" },
-      notSaved: "This browser did not keep the change. It lasts until you leave the page.",
     },
 
     profile: {

@@ -9,7 +9,7 @@ import {
   FileCheck,
   Handshake,
   Landmark,
-  type LucideIcon,
+  type IconComponent,
   Scale,
   ShieldCheck,
   ShoppingCart,
@@ -34,7 +34,7 @@ import { englishApprovals, useApprovalsTranslations } from "./approvals-text";
  * is carried by colour alone (§103).
  */
 
-export const SOURCE_ICONS: Record<ApprovalProviderKey, LucideIcon> = {
+export const SOURCE_ICONS: Record<ApprovalProviderKey, IconComponent> = {
   finance: Landmark,
   procurement: ShoppingCart,
   hr: Users,

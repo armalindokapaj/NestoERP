@@ -85,7 +85,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<"thead">
   return (
     <thead
       className={cn(
-        "sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur-sm look2:border-fg",
+        "sticky top-0 z-10 border-b bg-surface/95 backdrop-blur-sm border-fg",
         // Version 2: a sticky layer is a solid ground, so no row shows through it (UI-02 §6.3).
         className,
       )}
@@ -159,7 +159,7 @@ export function TableHeaderCell({
     <th
       aria-sort={sort}
       className={cn(
-        "h-(--nesto-height-row-head) px-4 text-left text-micro font-semibold uppercase tracking-[0.08em] text-fg-subtle look2:font-mono look2:font-medium look2:tracking-[0.1em]",
+        "h-(--nesto-height-row-head) px-4 text-left text-micro uppercase text-fg-subtle font-mono font-medium tracking-[0.1em]",
         numeric && "text-right",
         className,
       )}

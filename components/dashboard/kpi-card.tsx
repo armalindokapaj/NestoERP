@@ -1,6 +1,5 @@
 import Link from "@/components/navigation/nav-link";
 
-import { getIcon } from "@/components/layout/nav-icon";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import type { ResolvedKpi } from "@/lib/modules/dashboard/dashboard.types";
 import { cn } from "@/lib/utils/cn";
@@ -21,26 +20,18 @@ import { rowText } from "./row-text";
  */
 export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
   const t = await getTranslations("dashboard");
-  const Icon = getIcon(kpi.definition.icon);
 
   const body = (
     <>
-      {/* Theme 2: the reference's figure — the number first, its name under it in mono capitals, no icon tile. */}
-      <div className="flex items-center gap-2.5 md:gap-3 look2:mt-2">
-        <span
-          aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9 look2:hidden"
-        >
-          <Icon className="size-4" strokeWidth={1.6} />
-        </span>
+      {/* The figure first, its name under it in mono capitals (docs/ui/UI-03-nesto-theme.md §5). */}
+      <div className="flex items-center gap-2.5 md:gap-3 mt-2">
         {/* Two lines, not an ellipsis: a 2-up phone grid leaves ~90px for "Open Quality Items" (AUD-04 §4, MW-01). */}
-        <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.1em]">
+        <p className="line-clamp-2 min-w-0 break-words font-medium text-fg-muted font-mono text-micro uppercase tracking-[0.1em]">
           {kpiLabel(t, kpi.definition.key, kpi.definition.label)}
         </p>
       </div>
 
-      {/* Version 2: the 30/36 dashboard metric (UI-02 §6.2). */}
-      <p className="mt-3 font-serif font-normal look2:font-display text-display tabular-nums text-fg md:mt-4 look2:order-first look2:mt-0 look2:text-[2.75rem] look2:leading-none look2:[font-variation-settings:'wdth'_70]">{kpi.value}</p>
+      <p className="tabular-nums text-fg font-display order-first mt-0 text-[2.75rem] leading-none [font-variation-settings:'wdth'_70]">{kpi.value}</p>
       {/* An incomplete figure says so in its hint, never passing for a whole count (AUD-10 §4, CW-03). */}
       {kpi.hint ? <p className={cn("mt-1 text-meta", kpi.incomplete ? "text-warning-strong" : "text-fg-subtle")} data-testid={kpi.incomplete ? "kpi-incomplete" : undefined}>{rowText(t, kpi.hint)}</p> : null}
     </>
@@ -51,9 +42,9 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
 
   if (breakdown) {
     return (
-      <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col" data-testid="kpi-by-company">
+      <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 flex flex-col" data-testid="kpi-by-company">
         {href ? (
-          <Link navSource="dashboard" href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 look2:flex look2:flex-col">
+          <Link navSource="dashboard" href={href} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 flex flex-col">
             {body}
           </Link>
         ) : (
@@ -84,7 +75,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
   }
 
   if (!href) {
-    return <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col">{body}</div>;
+    return <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 flex flex-col">{body}</div>;
   }
 
   return (
@@ -92,7 +83,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
       href={href}
       data-kpi-card=""
       className={cn(
-        "nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 block p-4 transition-colors hover:border-line-strong md:p-5 look2:flex look2:flex-col",
+        "nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 transition-colors hover:border-line-strong md:p-5 flex flex-col",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
       )}
     >

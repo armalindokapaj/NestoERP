@@ -61,7 +61,7 @@ export default async function FullViewPage() {
             <div className="max-w-3xl">
               <p className="nesto-rise nesto-eyebrow text-fg-subtle">{fv.eyebrow} · {copy.category}</p>
 
-              <h1 className="nesto-rise nesto-rise-2 mt-6 text-balance font-serif look2:font-display text-page leading-[1.05] text-fg sm:text-display lg:text-hero">
+              <h1 className="nesto-rise nesto-rise-2 mt-6 text-balance text-page leading-[1.05] text-fg sm:text-display lg:text-hero font-display">
                 {hero.headline.map((line) => (
                   <span key={line} className="block">
                     {line}
@@ -270,7 +270,7 @@ export default async function FullViewPage() {
             </article>
           ))}
         </div>
-        <p className="mt-8 max-w-3xl font-serif look2:font-display text-section leading-snug text-fg">{fv.rozaris.principle}</p>
+        <p className="mt-8 max-w-3xl text-section leading-snug text-fg font-display">{fv.rozaris.principle}</p>
       </Section>
 
       {/* 10 — Pricing model (§63): the philosophy, never figures (§88) */}

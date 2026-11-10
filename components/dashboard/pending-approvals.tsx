@@ -97,7 +97,7 @@ export async function PendingApprovalsFigure({ context, definition }: { context:
         <h2 id={`kpi-${definition.key}`} className="truncate text-body font-semibold leading-5 text-fg">
           {kpiLabel(t, kpi.definition.key, kpi.definition.label)}
         </h2>
-        <span className="shrink-0 font-serif look2:font-display text-[1.625rem] leading-none tabular-nums text-fg" data-testid="approvals-count">
+        <span className="shrink-0 text-[1.625rem] leading-none tabular-nums text-fg font-display" data-testid="approvals-count">
           {kpi.value}
         </span>
       </div>

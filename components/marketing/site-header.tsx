@@ -86,7 +86,7 @@ export function SiteHeader({
               aria-label={copy.openMenu}
               className="grid size-11 shrink-0 place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover lg:hidden"
             >
-              <Menu aria-hidden="true" className="size-[22px]" strokeWidth={1.6} />
+              <Menu aria-hidden="true" className="size-[22px]" />
             </button>
 
             {/* The same menu as the app's hamburger: from the right, canvas ground, gold accents, rounded cards, a pinned foot. */}
@@ -100,7 +100,7 @@ export function SiteHeader({
                   aria-label={copy.closeMenu}
                   className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"
                 >
-                  <X aria-hidden="true" className="size-5" strokeWidth={1.6} />
+                  <X aria-hidden="true" className="size-5" />
                 </button>
               </div>
 
@@ -118,7 +118,7 @@ export function SiteHeader({
                         )}
                       >
                         {link.label}
-                        <ChevronRight aria-hidden="true" strokeWidth={1.6} className="size-4 shrink-0 text-accent-strong" />
+                        <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-accent-strong" />
                       </Link>
                     </li>
                   ))}

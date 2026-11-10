@@ -1,5 +1,4 @@
-import type { ComponentType } from "react";
-import { Boxes, Building2, FolderKanban, History, LayoutDashboard, Orbit, Settings2, Users } from "@/components/icons";
+import { Boxes, Building2, FolderKanban, History, LayoutDashboard, Orbit, Settings2, Users, type IconComponent } from "@/components/icons";
 
 import type { PlatformPermission } from "@/config/platform";
 
@@ -13,7 +12,7 @@ export type AdminDestination = {
   key: string;
   label: string;
   href: string;
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: IconComponent;
   permission: PlatformPermission;
   /** Below the separator (§5). */
   utility?: boolean;

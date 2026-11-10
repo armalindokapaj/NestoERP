@@ -134,7 +134,7 @@ function UnitRecord({ slideId, demo, v }: { slideId: string; demo: DemoState; v:
   return (
     <Frame title={`${v.unit} A-204 · ${v.demoProject}`}>
       <div className="flex items-center justify-between gap-3">
-        <p className="font-serif look2:font-display text-page leading-none text-fg">A-204</p>
+        <p className="text-page leading-none text-fg font-display">A-204</p>
         <StatusBadge status={demo.unitStatus} v={v} />
       </div>
       <p className="mt-1 text-table text-fg-muted">112 m² · {fill(v.floor, { n: 2 })}</p>
@@ -169,7 +169,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-line bg-canvas p-3">
       <p className="text-micro text-fg-muted">{label}</p>
-      <p className="mt-1 font-serif look2:font-display text-section leading-none text-fg">{value}</p>
+      <p className="mt-1 text-section leading-none text-fg font-display">{value}</p>
     </div>
   );
 }
@@ -210,7 +210,7 @@ export function StoryVisual({ visual, slideId, persona, demo, onDemo, v }: Visua
       return (
         <Frame title={projectName}>
           <p className="text-micro text-fg-subtle">{companyName}</p>
-          <p className="mt-1 font-serif look2:font-display text-section text-fg">{projectName}</p>
+          <p className="mt-1 text-section text-fg font-display">{projectName}</p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             {[v.team, v.documents, v.budget, v.permissions].map((item) => <div key={item} className="rounded-md border border-line bg-canvas px-3 py-2 text-table text-fg-muted">{item}</div>)}
           </div>

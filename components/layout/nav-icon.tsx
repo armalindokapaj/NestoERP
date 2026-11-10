@@ -88,7 +88,7 @@ import {
   CircleDot,
   Wrench,
   Hammer,
-  type LucideIcon,
+  type IconComponent,
 } from "@/components/icons";
 
 import {
@@ -109,7 +109,7 @@ import {
  * edge-safe and serialisable; this map turns a name into a component. Keeping
  * it explicit means the bundle only contains icons NESTO actually uses.
  */
-const registry: Record<string, LucideIcon> = {
+const registry: Record<string, IconComponent> = {
   NestoApprovals,
   NestoAuditLog,
   NestoFinance,
@@ -208,8 +208,8 @@ const registry: Record<string, LucideIcon> = {
   Wallet,
 };
 
-export function getIcon(name: string): LucideIcon {
+export function getIcon(name: string): IconComponent {
   return registry[name] ?? Circle;
 }
 
-export type { LucideIcon };
+export type { IconComponent };

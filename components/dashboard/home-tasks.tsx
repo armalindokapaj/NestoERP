@@ -50,7 +50,7 @@ export async function HomeTasks({ context }: { context: UserContext }) {
         {rows.map((entry) => (
           <li key={entry.key} className="border-b border-line">
             <Link href={entry.href} navSource="dashboard" className={cn(row, "text-fg")} data-testid={`home-tasks-${entry.key}`}>
-              <entry.icon aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong" />
+              <entry.icon aria-hidden="true" className="size-[18px] shrink-0 text-accent-strong" />
               <span className="min-w-0 flex-1 truncate">{entry.label}</span>
               <Suspense fallback={<CountPending />}>
                 <TaskCount stats={stats} count={entry.count} urgent={entry.urgent} unavailable={t("homeTasks.countUnavailable")} />
@@ -61,7 +61,7 @@ export async function HomeTasks({ context }: { context: UserContext }) {
         ))}
         <li>
           <Link href={item.href} navSource="dashboard" className={cn(row, "text-accent-strong")} data-testid="home-tasks-all">
-            <ListChecks aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0" />
+            <ListChecks aria-hidden="true" className="size-[18px] shrink-0" />
             <span className="min-w-0 flex-1 truncate">{t("homeTasks.all")}</span>
             <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
           </Link>

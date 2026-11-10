@@ -6,14 +6,8 @@ import { cookies } from "next/headers";
 import { ScrollToTop } from "@/components/navigation/scroll-to-top";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
-import { archivo, geistMono, instrumentSerif, manrope, newsreader, plexMono, plexSans } from "@/lib/fonts";
-import { getLook } from "@/lib/layout/look-server";
-import { lookAttribute } from "@/lib/layout/look-state";
-import {
-  readThemeChoice,
-  themeAttribute,
-  THEME_COOKIE,
-} from "@/lib/layout/theme-state";
+import { archivo, newsreader, plexMono, plexSans } from "@/lib/fonts";
+import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
 import { getLocale, getSiteCopy } from "@/lib/i18n/server";
 import { messages } from "@/lib/i18n/messages";
 import { siteUrl } from "@/lib/marketing/site-url";
@@ -79,20 +73,12 @@ export default async function RootLayout({
   /* Rendered server-side so the first paint is already in the right scheme
      and the right language. */
   const cookieStore = await cookies();
-  const theme = themeAttribute(readThemeChoice(cookieStore.get(THEME_COOKIE)?.value));
+  const theme = readThemeChoice(cookieStore.get(THEME_COOKIE)?.value);
   const locale = await getLocale();
-  /* The look ("Theme 1" / "Theme 2"), on <html> for the same reason. Look 1 renders no attribute. */
-  const look = await getLook();
 
   return (
-    <html
-      lang={locale}
-      data-theme={theme}
-      data-look={lookAttribute(look)}
-    >
-      <body
-        className={`${manrope.variable} ${geistMono.variable} ${instrumentSerif.variable} ${plexSans.variable} ${plexMono.variable} ${newsreader.variable} ${archivo.variable} antialiased`}
-      >
+    <html lang={locale} data-theme={theme}>
+      <body className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} ${archivo.variable} antialiased`}>
         <I18nProvider locale={locale} messages={messages[locale]}>
           <SessionLifecycle />
           <NativeBootstrap />

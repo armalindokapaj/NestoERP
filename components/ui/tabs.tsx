@@ -21,8 +21,8 @@ export function TabsList({
     <TabsPrimitive.List
       className={cn(
         "flex max-w-full items-center gap-1 overflow-x-auto overscroll-x-contain shadow-[inset_0_-1px_0_var(--nesto-border)] [scrollbar-width:thin]",
-        // Theme 2: the segmented control — a white pill track with a hairline, the active tab an ink pill.
-        "look2:w-fit look2:gap-0.5 look2:rounded-full look2:bg-surface look2:p-[3px] look2:shadow-[0_0_0_1px_var(--nesto-border)] look2:[scrollbar-width:none]",
+        // The segmented control — a white pill track with a hairline, the active tab an ink pill.
+        "w-fit gap-0.5 rounded-full bg-surface p-[3px] shadow-[0_0_0_1px_var(--nesto-border)] [scrollbar-width:none]",
         className,
       )}
       {...props}
@@ -39,7 +39,7 @@ export function TabsTrigger({
       className={cn(
         "shrink-0 whitespace-nowrap border-b-2 border-transparent px-3 py-2.5 text-table font-medium text-fg-muted transition-colors touch:min-h-11",
         "hover:text-fg data-[state=active]:border-accent data-[state=active]:text-fg",
-        "look2:rounded-full look2:border-b-0 look2:px-3.5 look2:py-2 look2:data-[state=active]:bg-primary look2:data-[state=active]:text-primary-fg",
+        "rounded-full border-b-0 px-3.5 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-fg",
         // Inside a scroll box an outside outline is clipped: the ring is drawn within (AUD-04 §3).
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         className,

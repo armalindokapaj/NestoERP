@@ -18,7 +18,7 @@ export function Switch({
         "touch:after:absolute touch:after:-inset-x-1 touch:after:-inset-y-3 touch:after:content-['']",
         // The off track is the 3:1 control border, not a divider grey (AUD-11 AV-10); forced colours
         // keep a drawn track and a thumb whose position is the state (AV-15).
-        "data-[state=checked]:bg-accent data-[state=unchecked]:bg-control forced-colors:border-[ButtonText] look2:data-[state=checked]:bg-primary",
+        "data-[state=unchecked]:bg-control forced-colors:border-[ButtonText] data-[state=checked]:bg-primary",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}

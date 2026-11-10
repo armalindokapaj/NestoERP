@@ -57,7 +57,7 @@ export const NavigationContent = forwardRef<
               isActive ? "bg-accent/10 text-accent-strong" : "text-fg/60 hover:bg-fg/5 hover:text-fg"
             )}
           >
-            <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+            <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
             <span className="whitespace-nowrap text-xs font-medium leading-none">{label}</span>
             {isActive && <span className="absolute inset-x-0 bottom-0 h-1 bg-accent" aria-hidden="true" />}
           </button>

@@ -138,9 +138,6 @@ importers:
       gsap:
         specifier: ^3.15.0
         version: 3.15.0
-      lucide-react:
-        specifier: ^1.44.0
-        version: 1.44.0(react@19.1.0)
       mapbox-gl:
         specifier: ^3.27.0
         version: 3.31.0
@@ -3307,11 +3304,6 @@ packages:
   lru-cache@11.5.3:
     resolution: {integrity: sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==}
     engines: {node: 20 || >=22}
-
-  lucide-react@1.44.0:
-    resolution: {integrity: sha512-2egNApH4hX4j/qdCgRublh88+9u3mEhz9iSlW5ckm4kaQEqZbXbMr0l5u5JZLy8nmWRx2dbHGQkEDYz6C9aCgw==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -7400,10 +7392,6 @@ snapshots:
   lru-cache@10.4.3: {}
 
   lru-cache@11.5.3: {}
-
-  lucide-react@1.44.0(react@19.1.0):
-    dependencies:
-      react: 19.1.0
 
   magic-string@0.30.21:
     dependencies:

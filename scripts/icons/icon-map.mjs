@@ -1,8 +1,9 @@
 /**
- * Every icon the product draws, and the Carbon glyph Theme 2 draws in its place.
- * Keys are the Lucide names the code imports; values are Carbon icon names
- * (https://carbondesignsystem.com/elements/icons/library/), or SPINNER for the
- * drafting arc that replaces Lucide's loaders.
+ * Every icon the product draws: the name the code imports, and the Carbon glyph
+ * it draws (https://carbondesignsystem.com/elements/icons/library/), or SPINNER
+ * for the drafting arc. The names are the ones the code already used, so a call
+ * site reads the same; the choice follows meaning, not shape
+ * (docs/ui/UI-03-nesto-theme.md §6).
  */
 export const CARBON_FOR = {
   AlarmClock: "alarm",

@@ -170,15 +170,12 @@ function NativeRuntime() {
     })();
 
     const applyStatusBar = () => {
-      const explicit = document.documentElement.getAttribute("data-theme");
-      const dark = explicit ? explicit === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const dark = document.documentElement.getAttribute("data-theme") === "dark";
       void services.lifecycle.setStatusBar(dark ? "dark" : "light");
     };
     applyStatusBar();
     const observer = new MutationObserver(applyStatusBar);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", applyStatusBar);
 
     const interval = window.setInterval(() => void checkSecurity(), REPORT_INTERVAL_MS);
 
@@ -232,7 +229,6 @@ function NativeRuntime() {
       offLogout();
       window.clearInterval(interval);
       observer.disconnect();
-      media.removeEventListener("change", applyStatusBar);
       off.forEach((fn) => fn());
     };
   }, [services, router, checkCompatibility, checkSecurity, engageLock]);

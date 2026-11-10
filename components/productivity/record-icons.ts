@@ -1,11 +1,11 @@
-import { Boxes, Building2, ClipboardCheck, FileSignal, FileText, Flag, FolderKanban, HardHat, NotebookPen, Presentation, ReceiptText, ShoppingCart, SquareCheckBig, type LucideIcon } from "@/components/icons";
+import { Boxes, Building2, ClipboardCheck, FileSignal, FileText, Flag, FolderKanban, HardHat, NotebookPen, Presentation, ReceiptText, ShoppingCart, SquareCheckBig, type IconComponent } from "@/components/icons";
 
 import type { Translate } from "@/lib/i18n/translator";
 import type { NavigableType } from "@/lib/modules/productivity/navigable.types";
 
 /** The shared record-type icons and relative times for Favorites and Recent Work (PRD #45; Fast Re-entry §58, §171). */
 
-export const ENTITY_ICON: Record<NavigableType, LucideIcon> = {
+export const ENTITY_ICON: Record<NavigableType, IconComponent> = {
   project: FolderKanban,
   project_milestone: Flag,
   task: SquareCheckBig,

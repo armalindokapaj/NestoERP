@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { AlertCircle, Box, CalendarPlus, CheckSquare, ClipboardList, FilePlus2, type LucideIcon } from "@/components/icons";
+import { AlertCircle, Box, CalendarPlus, CheckSquare, ClipboardList, FilePlus2, type IconComponent } from "@/components/icons";
 
 import { numberText } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
@@ -7,7 +7,7 @@ import type { ProjectMobileSummary, ProjectWorkItem } from "@/lib/modules/projec
 
 export type ProjectQuickAction = { key: "task" | "document" | "siteDiary" | "meeting"; href: string };
 
-const ACTION_ICONS: Record<ProjectQuickAction["key"], LucideIcon> = { task: CheckSquare, document: FilePlus2, siteDiary: ClipboardList, meeting: CalendarPlus };
+const ACTION_ICONS: Record<ProjectQuickAction["key"], IconComponent> = { task: CheckSquare, document: FilePlus2, siteDiary: ClipboardList, meeting: CalendarPlus };
 const ACTION_LABELS = { task: "newTask", document: "addDocument", siteDiary: "siteDiary", meeting: "newMeeting" } as const;
 
 /**

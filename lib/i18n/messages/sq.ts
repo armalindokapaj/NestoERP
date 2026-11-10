@@ -457,16 +457,12 @@ export const sq: Messages = {
       collapsedNavigation: "Navigim i ngushtuar",
       collapsedNavigationHint:
         "Shfaq shiritin anësor vetëm me ikona. Në ekranet me madhësi tableti përdoret gjithmonë ky variant, pavarësisht këtij cilësimi.",
-      colourScheme: "Skema e ngjyrave",
-      colourSchemeHint: "Ndiqni sistemin operativ ose fiksoni NESTO në të çelët ose të errët.",
-      themes: { system: "Sistemi", light: "E çelët", dark: "E errët" },
+      colourScheme: "Tema Nesto",
+      colourSchemeHint: "Ditë ose Natë. Ky shfletues e mban zgjedhjen tuaj.",
+      themes: { light: "Ditë", dark: "Natë" },
       density: "Dendësia",
       densityHint: "Hapësira komode, e përshtatur për seanca të gjata pune.",
       densityLater: "Zgjedhja e dendësisë vjen me modulin e cilësimeve.",
-      look: "Tema",
-      lookHint: "Tema 1 është ndërfaqja origjinale. Tema 2 është më e reja: ngjyra më të ftohta, tituj të ngushtë dhe etiketa të vogla me shkronja të mëdha. Secila ka skemë të çelët dhe të errët.",
-      looks: { "1": "Tema 1", "2": "Tema 2" },
-      notSaved: "Ky shfletues nuk e ruajti ndryshimin. Ai vlen derisa të largoheni nga faqja.",
     },
 
     profile: {

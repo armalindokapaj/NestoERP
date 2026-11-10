@@ -72,14 +72,14 @@ export function MetricCell({
     <div
       aria-busy={loading || undefined}
       className={cn(
-        "relative min-w-0 border-b border-r border-line px-(--nesto-space-card) py-3 look2:border-b-0 look2:px-4 look2:pb-1 look2:pt-3",
+        "relative min-w-0 border-r border-line py-3 border-b-0 px-4 pb-1 pt-3",
         href &&
           "transition-colors hover:bg-row-hover has-[[data-metric-link]:focus-visible]:outline-2 has-[[data-metric-link]:focus-visible]:-outline-offset-2 has-[[data-metric-link]:focus-visible]:outline-ring",
         className,
       )}
       {...props}
     >
-      <dt className="text-meta font-medium text-fg-muted look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.1em]">
+      <dt className="font-medium text-fg-muted font-mono text-micro uppercase tracking-[0.1em]">
         {href ? (
           <Link
             href={href}
@@ -92,7 +92,7 @@ export function MetricCell({
           label
         )}
       </dt>
-      <dd className="mt-1 text-metric font-semibold text-fg [overflow-wrap:anywhere] look2:mt-1.5 look2:font-display look2:text-[2.5rem] look2:leading-none look2:font-medium look2:max-md:text-[2rem]">
+      <dd className="text-fg [overflow-wrap:anywhere] mt-1.5 font-display text-[2.5rem] leading-none font-medium tabular-nums max-md:text-[2rem]">
         {loading ? <Skeleton aria-hidden="true" className="h-[calc(var(--nesto-text-metric)*var(--nesto-leading-metric))] w-24 max-w-full" /> : value}
       </dd>
       {scope || comparison ? (

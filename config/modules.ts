@@ -6,7 +6,7 @@
  * desktop sidebar, the mobile drawer, middleware and the module shell
  * (PRD #3 §99).
  *
- * Icons are stored as lucide icon *names* rather than components so the file
+ * Icons are stored as *names* (components/layout/nav-icon.tsx) rather than components so the file
  * stays edge-safe and serialisable across the server/client boundary.
  */
 import type { AccessLevel } from "./access";
@@ -93,7 +93,7 @@ export type ModuleDefinition = {
   label: string;
   description: string;
   route: string;
-  /** lucide-react icon name, resolved by components/layout/nav-icon.tsx */
+  /** Icon name, resolved by components/layout/nav-icon.tsx. */
   icon: string;
   group: ModuleGroup;
   /** Permission required to open any route under this module. */

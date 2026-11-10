@@ -20,7 +20,7 @@ export function SelectTrigger({
       className={cn(
         // 44px tall under touch (AUD-04 §3, MW-19). 36px with a mouse; version 2 gives it the
         // one control height of the density, the same as a text field (UI-02 §6.4).
-        "flex h-(--nesto-height-action) w-full items-center justify-between gap-2 rounded-md border border-control bg-surface px-3 text-body text-fg touch:h-11 look2:rounded-[10px]",
+        "flex h-(--nesto-height-action) w-full items-center justify-between gap-2 border border-control bg-surface px-3 text-body text-fg touch:h-11 rounded-[10px]",
         // The outline was removed with only a 1px border change left; a solid 2px ring now (AUD-11 AV-04).
         "transition-colors hover:bg-hover focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         "disabled:cursor-not-allowed disabled:opacity-60",
@@ -56,7 +56,7 @@ export function SelectContent({
         <div
           className={cn(
             // Never taller than the space Radix measured, so a long list scrolls on a short screen.
-            "nesto-popup-glass flex max-h-[min(18rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] flex-col overflow-hidden rounded-lg look2:rounded-[14px] look2:p-1.5 border border-line bg-surface p-1 shadow-lg shadow-black/5",
+            "nesto-popup-glass flex max-h-[min(18rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] flex-col overflow-hidden border border-line bg-surface shadow-lg shadow-black/5 rounded-[14px] p-1.5",
             className,
           )}
         >
@@ -80,7 +80,7 @@ export function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-md py-2 pl-2.5 pr-8 text-body text-fg outline-none touch:min-h-11 look2:rounded-[9px]",
+        "relative flex cursor-pointer select-none items-center py-2 pl-2.5 pr-8 text-body text-fg outline-none touch:min-h-11 rounded-[9px]",
         // Keyboard focus also draws the ring inside the row; a pointer highlight stays the quiet tint (AUD-11 AV-04).
         "focus:bg-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,

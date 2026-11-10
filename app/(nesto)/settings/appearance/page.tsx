@@ -3,13 +3,11 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
-import { LookPreference } from "@/components/settings/display-preferences";
 import { NavigationPreference } from "@/components/settings/navigation-preference";
 import { ThemePreference } from "@/components/settings/theme-preference";
 import { Divider } from "@/components/ui/divider";
 import { requireSettingsSection } from "../settings-access";
 import { getTranslations } from "@/lib/i18n/server";
-import { getLook } from "@/lib/layout/look-server";
 import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,7 +21,6 @@ export default async function AppearanceSettingsPage() {
   const cookieStore = await cookies();
   const theme = readThemeChoice(cookieStore.get(THEME_COOKIE)?.value);
   const t = await getTranslations("settings");
-  const look = await getLook();
 
   return (
     <div className="space-y-5">
@@ -33,13 +30,9 @@ export default async function AppearanceSettingsPage() {
       />
 
       <section className="nesto-card p-6">
-        <NavigationPreference />
-
-        <Divider className="my-5" />
-
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-card font-semibold text-fg look2:font-display">{t("appearance.colourScheme")}</p>
+            <p className="text-card text-fg font-display">{t("appearance.colourScheme")}</p>
             <p className="mt-1 text-table text-fg-muted">{t("appearance.colourSchemeHint")}</p>
           </div>
           <ThemePreference initial={theme} />
@@ -47,12 +40,12 @@ export default async function AppearanceSettingsPage() {
 
         <Divider className="my-5" />
 
-        <LookPreference initial={look} />
+        <NavigationPreference />
 
         <Divider className="my-5" />
 
         <div>
-          <p className="text-card font-semibold text-fg look2:font-display">{t("appearance.density")}</p>
+          <p className="text-card text-fg font-display">{t("appearance.density")}</p>
           <p className="mt-1 text-table text-fg-muted">{t("appearance.densityHint")}</p>
         </div>
 

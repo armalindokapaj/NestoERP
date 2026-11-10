@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { LucideIcon } from "@/components/icons";
+import type { IconComponent } from "@/components/icons";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -23,9 +23,9 @@ export function Icon({
   className,
   ...props
 }: {
-  icon: LucideIcon;
+  icon: IconComponent;
   size?: IconSize;
-} & Omit<React.ComponentProps<LucideIcon>, "size">) {
+} & Omit<React.ComponentProps<IconComponent>, "size">) {
   return (
     <Component
       aria-hidden="true"

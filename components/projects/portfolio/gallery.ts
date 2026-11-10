@@ -10,13 +10,13 @@
  * the shell's content width capped, a card stays a card on an ultra-wide
  * screen (§157).
  */
-export const GALLERY_GRID = "grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-3 lg:gap-x-6 min-[1440px]:grid-cols-4 look2:max-sm:grid-cols-2 look2:max-sm:gap-x-3 look2:max-sm:gap-y-7";
+export const GALLERY_GRID = "grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-3 lg:gap-x-6 min-[1440px]:grid-cols-4 max-sm:grid-cols-2 max-sm:gap-x-3 max-sm:gap-y-7";
 
 /**
  * The portrait render from two columns up (§41). A phone's one full-width
  * column shows it landscape, so a screen holds more than one project (§152).
  */
-export const COVER_ASPECT = "aspect-[4/3] sm:aspect-[3/4] look2:max-sm:aspect-[3/4]";
+export const COVER_ASPECT = "aspect-[4/3] sm:aspect-[3/4] max-sm:aspect-[3/4]";
 
 /** "1 project", "11 projects". */
 export function projectCountLabel(count: number): string {

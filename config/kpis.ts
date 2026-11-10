@@ -12,7 +12,7 @@ export type KpiDefinition = {
   module: ModuleKey;
   permission: Permission;
   label: string;
-  /** lucide icon name. */
+  /** Icon name, resolved by components/layout/nav-icon.tsx. */
   icon: string;
   /** Where clicking the card leads (PRD #4 §21). */
   href?: string;

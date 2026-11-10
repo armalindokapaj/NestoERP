@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils/cn";
  * something is a button that contains one.
  */
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium max-w-full look2:font-mono look2:uppercase look2:tracking-[0.06em] look2:max-md:tracking-[0.02em]",
+  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium max-w-full font-mono uppercase tracking-[0.06em] max-md:tracking-[0.02em]",
   {
     variants: {
       /* nowrap keeps a short status on one line; `wrap` lets a long label break instead of overflowing (MOB-01 §35). */
@@ -44,8 +44,8 @@ export type BadgeProps = React.ComponentProps<"span"> &
   };
 
 /**
- * Theme 2 draws each tone's mark before the label, the way the reference
- * draws a tower's status on its elevation (styles/look-2.css, "Status marks"):
+ * Each tone draws its mark before the label, the way the reference draws a
+ * tower's status on its elevation (styles/globals.css, "Status marks"):
  * solid for done, hatched for needing attention, an outline for in review,
  * dashed for draft or archived, crossed for rejected. The shape carries the
  * state as well as the colour. A badge with an icon of its own draws no mark.

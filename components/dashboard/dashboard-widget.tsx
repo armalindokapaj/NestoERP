@@ -236,7 +236,7 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
             const content = (
               <div className="flex min-w-0 items-center gap-3.5 py-3.5">
                 <span aria-hidden="true" className={cn("grid size-10 shrink-0 place-items-center rounded-full", tone.circle)}>
-                  <ToneIcon className="size-[18px]" strokeWidth={1.8} />
+                  <ToneIcon className="size-[18px]" />
                 </span>
                 <div className="min-w-0 flex-1">
                   {/* On the group's list every alert names its company (Workspace Context §45, §71). */}
@@ -244,7 +244,7 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
                   <p className="text-body font-semibold text-fg">
                     {split ? (
                       <>
-                        <span className={cn("font-serif look2:font-display text-[1.625rem] font-normal leading-none", tone.figure)}>{split.figure}</span> {split.rest}
+                        <span className={cn("text-[1.625rem] leading-none font-display", tone.figure)}>{split.figure}</span> {split.rest}
                       </>
                     ) : (
                       item.title

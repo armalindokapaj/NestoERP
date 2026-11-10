@@ -286,21 +286,21 @@ test.describe("AV-14 themes", () => {
     expect(html).toMatch(/<html[^>]*data-theme="dark"/);
   });
 
-  test("system follows the OS; a pinned choice ignores it; portals match", async ({ page }) => {
+  test("Day by default whatever the OS says; Night only when chosen; portals match", async ({ page }) => {
     await signIn(page, "OWNER");
     await page.context().clearCookies({ name: "nesto.theme" });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.goto("/dashboard");
-    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
-    const systemDark = await canvas(page);
-    await page.emulateMedia({ colorScheme: "light" });
-    const systemLight = await canvas(page);
-    expect(systemDark).not.toBe(systemLight);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    const day = await canvas(page);
+
+    await useTheme(page, "dark");
+    await page.reload();
+    expect(await canvas(page)).not.toBe(day);
 
     await useTheme(page, "light");
     await page.reload();
-    await page.emulateMedia({ colorScheme: "dark" });
-    expect(await canvas(page)).toBe(systemLight);
+    expect(await canvas(page)).toBe(day);
 
     // A portal (the account panel) is painted in the pinned scheme too. Its box is the one inside the placed shell.
     await page.getByTestId("account-trigger").click();
@@ -315,11 +315,11 @@ test.describe("AV-14 themes", () => {
     const checked = group.getByRole("radio", { checked: true });
     await checked.focus();
     await page.keyboard.press("End");
-    await expect(group.getByRole("radio", { name: /dark/i })).toBeFocused();
-    await expect(group.getByRole("radio", { name: /dark/i })).toHaveAttribute("aria-checked", "true");
+    await expect(group.getByRole("radio", { name: /night/i })).toBeFocused();
+    await expect(group.getByRole("radio", { name: /night/i })).toHaveAttribute("aria-checked", "true");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.keyboard.press("Home");
-    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     expect(await page.evaluate(() => (window as unknown as { __aud11?: number }).__aud11)).toBe(1);
     // One Tab stop for the whole group.
     await expect(group.locator('[role=radio][tabindex="0"]')).toHaveCount(1);

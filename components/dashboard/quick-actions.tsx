@@ -32,7 +32,7 @@ export async function QuickActions({ actions }: { actions: QuickActionDefinition
               "md:inline-flex md:h-8 md:min-h-0 md:flex-row md:gap-2 md:whitespace-nowrap md:rounded-full md:border-line-strong md:px-3 md:py-0 md:text-table md:font-medium md:hover:bg-hover md:active:bg-surface md:touch:h-11 md:touch:min-w-11",
             )}
           >
-            <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0 text-accent-strong md:size-4 md:text-current" />
+            <Icon aria-hidden="true" className="size-[22px] shrink-0 text-accent-strong md:size-4 md:text-current" />
             <span className="max-w-full break-words">{quickActionLabel(t, action.key, action.label)}</span>
           </Link>
         );
