@@ -42,7 +42,10 @@ export type MobileAccount = {
 };
 
 /**
- * The phone and tablet-portrait shell's bottom navigation (MOB-02 §10-§15).
+ * The phone and tablet-portrait shell's bottom navigation (MOB-02 §10-§15):
+ * the Thumb bar, the default phone navigation. Bottom tabs, the other choice
+ * in Settings › Appearance, is components/layout/mobile-tabs-nav.tsx and
+ * shares this file's cells and More sheet (docs/ui/UI-04-navigation-layouts.md).
  *
  * Presentation only. It renders what `resolveMobileNavigation` places from the
  * groups the one navigation resolver produced for this person, so a
@@ -229,10 +232,10 @@ export function MobileBottomNav({
 
 /* A bar cell: icon over a label in small mono capitals, the whole cell the target. The destination the app is at
    is an ink pill (gold at Night) and carries aria-current. */
-const cellClass =
+export const cellClass =
   "relative flex h-[52px] w-full flex-col items-center justify-center gap-1 rounded-full px-1 font-mono text-[0.625rem] font-medium uppercase leading-tight tracking-[0.06em] text-fg-subtle transition-colors hover:text-fg data-[active=true]:bg-primary data-[active=true]:text-primary-fg data-[active=true]:shadow-none data-[active=true]:hover:text-primary-fg";
 
-function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
+export function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
   const t = useTranslations("modules");
   const shell = useTranslations("shell");
   const Icon = getIcon(item.icon);
@@ -257,7 +260,7 @@ function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
   );
 }
 
-function BarButton({
+export function BarButton({
   icon: Icon,
   label,
   active = false,
@@ -300,7 +303,7 @@ function BarButton({
 /* More                                                                        */
 /* -------------------------------------------------------------------------- */
 
-function MoreBody({
+export function MoreBody({
   groups,
   account,
   footer,
@@ -390,7 +393,7 @@ function MoreBody({
   );
 }
 
-function MoreLink({ item, active, onDone }: { item: NavigationItem; active: boolean; onDone: () => void }) {
+export function MoreLink({ item, active, onDone }: { item: NavigationItem; active: boolean; onDone: () => void }) {
   const modules = useTranslations("modules");
   const Icon = getIcon(item.icon);
   const pending = usePendingDestination(item.href);

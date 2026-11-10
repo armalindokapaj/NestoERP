@@ -164,7 +164,7 @@ reference has none. Every pair is measured by Day and at Night by
 | Role | Face | Variable | Used by |
 | --- | --- | --- | --- |
 | Sans | IBM Plex Sans (variable) | `--font-nesto-sans` | body, controls |
-| Mono | IBM Plex Mono 400/500/600 | `--font-nesto-mono` | `nesto-eyebrow`, labels, table headings, badges, sidebar rows, indexes |
+| Mono | IBM Plex Mono 400/500/600 | `--font-nesto-mono` | `nesto-eyebrow`, labels, table headings, badges, navigation labels, indexes |
 | Serif | Newsreader (variable, italic) | `--font-nesto-serif` | `nesto-standfirst` |
 | Display | Archivo (variable width) | `--font-nesto-display` | `font-display`, headings, figures |
 
@@ -211,7 +211,7 @@ Everything below is a class on the component or a rule in `styles/globals.css`.
 | Reference | Nesto | Where |
 | --- | --- | --- |
 | Masthead and its ink rule | Top bar on an ink rule. + Create is an ink pill and the company switcher a white pill | `components/layout/topbar.tsx` |
-| Mono navigation | Sidebar rows in mono capitals with Carbon icons; the active row is an ink pill | `sidebar-nav.tsx` |
+| Navigation | The Ribbon or the Dock on a desktop, the Thumb bar or Bottom tabs on a phone (UI-04); the current module is an ink pill | `ribbon.tsx`, `desktop-dock.tsx`, `mobile-bottom-nav.tsx`, `mobile-tabs-nav.tsx` |
 | Hero, outlined second word, square full stop | The dashboard's `Company overview.`: Archivo at width 62, from 4rem to 7.5rem. "overview" is outlined and indented with a gold square for the full stop, and the block rises from focus | `welcome-header.tsx`, admin `sections.tsx` |
 | Hero figures | KPI cards lead with the figure (2.75rem, width 70) under the gold tick, over a mono label. The icon tile is gone | `kpi-card.tsx` |
 | Facts under hairlines | A record header's facts (contract value, floors, completion, manager) form a grid of figures, each under its own hairline. On a phone they take the full width, two columns | `page-header.tsx` (`FACTS`) |
@@ -392,7 +392,7 @@ pages used classes the stylesheet does not define.
 - **The type checker** should run where the Prisma client can be generated.
   Here its errors match `main`'s, file for file and code for code.
 - **Long Albanian labels.** They truncate sooner in mono capitals, most
-  visibly in the phone's bottom bar and the sidebar.
+  visibly in the phone's bottom bar and the desktop navigation.
 - **Titles drawn as `<p>`.** A title written as a paragraph stays in Plex Sans
   unless it carries `font-display`.
 - **Stale references.** Comments in about fifteen files still mention version

@@ -138,6 +138,29 @@ export const en = {
       department: "Department",
       company: "Company",
     },
+    /** The desktop Ribbon (components/layout/ribbon.tsx). */
+    ribbon: {
+      label: "Ribbon",
+      home: "Home",
+      /** Above the tab the page you are on adds, as Office marks its contextual tabs. */
+      thisPage: "This page",
+      sections: "Sections",
+      modules: "Modules",
+    },
+    /** The desktop Dock (components/layout/desktop-dock.tsx). */
+    dock: {
+      label: "Main navigation",
+      home: "Home",
+      departments: "Departments",
+    },
+    /** The phone's Bottom tabs (components/layout/mobile-tabs-nav.tsx). */
+    tabs: {
+      barLabel: "Primary",
+      work: "Work",
+      departments: "Departments",
+      more: "More",
+      create: "Create",
+    },
     mobile: {
       barLabel: "Primary",
       home: "Home",
@@ -470,9 +493,19 @@ export const en = {
     },
 
     appearance: {
-      collapsedNavigation: "Collapsed navigation",
-      collapsedNavigationHint:
-        "Show the sidebar as an icon rail. On tablet-sized screens the rail is always used, whatever this is set to.",
+      desktopNav: "Desktop navigation",
+      desktopNavHint: "How you move around Nesto on a computer. This browser keeps your choice.",
+      desktopNavs: {
+        ribbon: { label: "Ribbon", hint: "Tabs under the top bar, like Office. The page you are on adds its own tab." },
+        dock: { label: "Dock", hint: "Tabs along the bottom. Each one opens its own menu." },
+      },
+      phoneNav: "Phone navigation",
+      phoneNavHint: "How you move around Nesto on a phone or a tablet held upright.",
+      phoneNavs: {
+        thumb: { label: "Thumb bar", hint: "Home, Projects, Create, Alerts and Menu, where your thumb rests." },
+        tabs: { label: "Bottom tabs", hint: "Home, Work, Departments, Alerts and More. Each tab opens its own menu." },
+      },
+      defaultChoice: "Default",
       colourScheme: "Nesto theme",
       colourSchemeHint: "Day or Night. This browser keeps your choice.",
       themes: { light: "Day", dark: "Night" },

@@ -20,7 +20,7 @@ import { chooseWorkspace, DEMO_PASSWORD, dropOrphanedStreamSegments, mainRegion,
 const AURELIA = "company_demo_a";
 const GROUP = "NESTO Demo Group";
 
-/** No arrow, chevron, caret or dropdown sign, in any state (§4, §74, §92): the sidebar's header draws no icon at all. */
+/** No arrow, chevron, caret or dropdown sign, in any state (§4, §74, §92): the top bar's workspace header draws no icon at all. */
 async function expectNoArrow(header: Locator) {
   await expect(header.locator("svg")).toHaveCount(0);
   await expect(header.locator('[class*="chevron"], [class*="caret"], [class*="arrow"]')).toHaveCount(0);
@@ -68,10 +68,10 @@ test.describe("identity (§72, §73, §86, §91, §96)", () => {
     await expect(header).toHaveAttribute("data-scope", "COMPANY");
     // One line: the organization is not written above the workspace, here or anywhere in the header (§7, §8).
     await expect(header.getByTestId("organization-name")).toHaveCount(0);
-    await expect(page.getByTestId("sidebar-header")).not.toContainText("Solo Studio Holding");
+    await expect(page.getByTestId("topbar-home")).not.toContainText("Solo Studio Holding");
     // Nothing to switch: no switcher in the top bar, and nothing in the header to press (§46).
     await expect(workspaceSwitcher(page)).toHaveCount(0);
-    await expect(page.getByTestId("sidebar-header").getByRole("button")).toHaveCount(0);
+    await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);
     expect((await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } })).status()).toBe(403);
     await expectNoArrow(header);
   });
@@ -90,7 +90,7 @@ test.describe("identity (§72, §73, §86, §91, §96)", () => {
     await expectNoArrow(header);
   });
 
-  test("the sidebar header names the workspace alone and is the way to its dashboard, from any part of it (§2, §7, §18)", async ({ page }) => {
+  test("the top bar's workspace header names the workspace alone and is the way to its dashboard, from any part of it (§2, §7, §18)", async ({ page }) => {
     await signIn(page, "OWNER", { company: AURELIA, to: "/projects" });
     const header = workspaceHeader(page);
     // A link: the same destination as the Dashboard item, and no part of a switch.
@@ -415,28 +415,6 @@ test.describe("switching (§28-§37, §78-§83)", () => {
 });
 
 test.describe("widths (§47-§49, §84, §85)", () => {
-  test("collapsed: the mark alone, the workspace's name on hover; it still leads home, and the switcher still switches (§47, §84)", async ({ page }) => {
-    await signIn(page, "MULTI_COMPANY", { to: "/tasks" });
-    await page.getByRole("button", { name: "Collapse sidebar" }).click();
-    const header = workspaceHeader(page);
-    await expect(header.getByTestId("workspace-label")).toBeHidden();
-    await expect(header.getByTestId("organization-mark")).toBeVisible();
-    await expectNoArrow(header);
-    await header.hover();
-    // The workspace's own name, alone, as the expanded header writes it.
-    await expect(page.getByTestId("organization-tooltip").first()).toHaveText("Aurelia Construction");
-    await header.click();
-    await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(workspacePanel(page)).toHaveCount(0);
-    // The rail takes nothing from the top bar: the switch is where it was.
-    await workspaceSwitcher(page).click();
-    await expect(workspacePanel(page).getByTestId("workspace-option").first()).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(workspacePanel(page)).toHaveCount(0);
-    await page.getByRole("button", { name: "Expand sidebar" }).click();
-    await expect(header.getByTestId("workspace-label")).toBeVisible();
-  });
-
   test("a phone: the top bar's header is the switch — the workspace's name and a small chevron — and its popup hangs under it, a pointer on the header (§48, §85; MOB-02 §23)", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });

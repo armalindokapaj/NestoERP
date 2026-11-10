@@ -127,6 +127,25 @@ export const sq: Messages = {
       department: "Departamenti",
       company: "Kompania",
     },
+    ribbon: {
+      label: "Shiriti",
+      home: "Kreu",
+      thisPage: "Kjo faqe",
+      sections: "Seksionet",
+      modules: "Modulet",
+    },
+    dock: {
+      label: "Navigimi kryesor",
+      home: "Kreu",
+      departments: "Departamentet",
+    },
+    tabs: {
+      barLabel: "Kryesore",
+      work: "Puna",
+      departments: "Departamentet",
+      more: "Më shumë",
+      create: "Krijo",
+    },
     mobile: {
       barLabel: "Kryesore",
       home: "Kryefaqja",
@@ -454,9 +473,19 @@ export const sq: Messages = {
     },
 
     appearance: {
-      collapsedNavigation: "Navigim i ngushtuar",
-      collapsedNavigationHint:
-        "Shfaq shiritin anësor vetëm me ikona. Në ekranet me madhësi tableti përdoret gjithmonë ky variant, pavarësisht këtij cilësimi.",
+      desktopNav: "Navigimi në kompjuter",
+      desktopNavHint: "Si lëvizni nëpër Nesto në kompjuter. Ky shfletues e mban zgjedhjen tuaj.",
+      desktopNavs: {
+        ribbon: { label: "Shiriti", hint: "Skeda nën shiritin e sipërm, si në Office. Faqja ku ndodheni shton skedën e vet." },
+        dock: { label: "Doku", hint: "Skeda përgjatë fundit të ekranit. Secila hap menunë e vet." },
+      },
+      phoneNav: "Navigimi në telefon",
+      phoneNavHint: "Si lëvizni nëpër Nesto në telefon ose në tablet të mbajtur drejt.",
+      phoneNavs: {
+        thumb: { label: "Shiriti i gishtit", hint: "Kreu, Projektet, Krijo, Njoftimet dhe Menyja, aty ku pushon gishti." },
+        tabs: { label: "Skedat poshtë", hint: "Kreu, Puna, Departamentet, Njoftimet dhe Më shumë. Secila skedë hap menunë e vet." },
+      },
+      defaultChoice: "Parazgjedhje",
       colourScheme: "Tema Nesto",
       colourSchemeHint: "Ditë ose Natë. Ky shfletues e mban zgjedhjen tuaj.",
       themes: { light: "Ditë", dark: "Natë" },

@@ -1,10 +1,10 @@
+import type * as React from "react";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { SectionMenu } from "@/components/layout/section-menu";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { QuickCreate } from "@/components/layout/quick-create";
-import { WorkspaceSwitcher } from "@/components/layout/organization-workspace-header";
-import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { OrganizationWorkspaceHeader, WorkspaceSwitcher } from "@/components/layout/organization-workspace-header";
 import { AccountPanel } from "@/components/shell/account-panel";
 import { can, canAccessModule } from "@/lib/access/can";
 import { getTranslations } from "@/lib/i18n/server";
@@ -26,6 +26,12 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * Every panel opened from this bar starts on the breadcrumb bar's top line
  * (lib/layout/topbar-line.ts), so they read as one family.
  *
+ * From `lg` the bar starts with the workspace's own name, the way to its
+ * dashboard, and with the Ribbon chosen in Settings the Ribbon is drawn under
+ * the bar's row, inside the same sticky header: `--nesto-shell-header-h` then
+ * covers both, so every layer pinned under the header still lines up
+ * (docs/ui/UI-04-navigation-layouts.md).
+ *
  * Below `lg` (phones and tablets) the bell lives in the bottom bar, and the top
  * right is the page's section pill — "Sales ▾" — which opens the page's tabs as
  * a menu, as the tab rows are not drawn there (components/layout/section-menu.tsx).
@@ -36,11 +42,14 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
 export async function Topbar({
   context,
   core,
+  ribbon,
 }: {
   context: UserContext;
   core: ShellCoreDTO;
+  /** The desktop Ribbon, when it is the chosen navigation (components/layout/ribbon.tsx). */
+  ribbon?: React.ReactNode;
 }) {
-  const t = await getTranslations("roles");
+  const [t, shell] = await Promise.all([getTranslations("roles"), getTranslations("shell")]);
   // The profile names the workspace beside the role, and switches nothing (OW §43, §66).
   const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
   // Company Settings is offered only where its own page would open (settings-access.ts), never by title.
@@ -50,14 +59,22 @@ export async function Topbar({
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
     // element the box that `position: fixed` children are placed in, which pinned the phone's
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
-    <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 border-fg max-md:pl-[max(1.25rem,env(safe-area-inset-left))] max-md:pr-[max(1.25rem,env(safe-area-inset-right))]">
+    <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) flex-col border-b bg-canvas border-fg">
+      <div data-topbar-row className="flex min-h-0 flex-1 items-center gap-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 max-md:pl-[max(1.25rem,env(safe-area-inset-left))] max-md:pr-[max(1.25rem,env(safe-area-inset-right))]">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <MobileHeader />
 
-        {/* The navigation collapse control sits out here rather than in the
-            sidebar: the rail header has one slot and the organization's mark
-            already owns it (PRD #3 §14, OW §47). */}
-        <SidebarToggle />
+        {/* From lg: the workspace's own name, the way to its dashboard. */}
+        <div className="max-w-60 shrink-0 max-lg:hidden" data-testid="topbar-home">
+          <OrganizationWorkspaceHeader variant="home" />
+        </div>
+        {/* A demonstration tenant says so on every page (D-01 §68). */}
+        {context.parentGroup.isDemo ? (
+          <span title={shell("demoDisclaimer")} data-testid="demo-notice" className="inline-flex shrink-0 rounded-full border border-line px-2 py-px text-micro font-medium text-fg-muted max-lg:hidden">
+            <span aria-hidden="true">{shell("demoData")}</span>
+            <span className="sr-only">{shell("demoDisclaimer")}</span>
+          </span>
+        ) : null}
 
         {/* The company switcher, first: built like + Create, which follows it; only where there is another workspace to enter. */}
         <WorkspaceSwitcher />
@@ -95,6 +112,8 @@ export async function Topbar({
         {/* Below lg: the page's sections, as the pill at the top right; nothing on a page without them. */}
         <SectionMenu />
       </div>
+      </div>
+      {ribbon}
     </header>
   );
 }

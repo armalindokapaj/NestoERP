@@ -46,7 +46,7 @@ function AdminIdentity() {
   return link;
 }
 
-/* The platform's navigation row (components/layout/sidebar-nav.tsx): a light accent ground, accent icon and text, a 2px left marker;
+/* The platform's navigation row (it once matched the company sidebar, which UI-04 replaced): a light accent ground, accent icon and text, a 2px left marker;
    in version 2 the same neutral rows, selection tint and short gold rule as there (UI-02 §7.1). */
 function NavRow({ item, active, dense, onNavigate }: { item: AdminDestination; active: boolean; dense: boolean; onNavigate?: () => void }) {
   const { isRail } = useSidebar();
@@ -98,7 +98,7 @@ function Navigation({ permissions, utility = false, dense = false, onNavigate }:
   );
 }
 
-/** The collapse control lives in the top bar, as the platform's does (components/layout/sidebar-toggle.tsx). */
+/** The collapse control lives in the platform's top bar. */
 function SidebarToggle() {
   const { state, toggle } = useSidebar();
   const t = useTranslations("admin");

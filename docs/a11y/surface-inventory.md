@@ -4,6 +4,8 @@ Shared/shell rows first, then every module and Platform Admin area. Findings are
 
 ## Shell and shared components
 
+> 2026-11-10: the sidebar rows below (sidebar-nav.tsx, the rail, the rail's demo notice) describe the shell before [UI-04](../ui/UI-04-navigation-layouts.md). The desktop navigation is now the Ribbon (a named tab list with tab panels, `aria-current` on the current module) or the Dock (popover menus); the demo notice is in the top bar.
+
 | Module | Surface | Components | Keyboard path | Accessible names | Live states | Theme status | Token exceptions | Finding | Test evidence |
 |---|---|---|---|---|---|---|---|---|---|
 | Shell | skip link | components/layout/skip-link.tsx, app-shell.tsx | first Tab → Enter → focus #nesto-main (no URL hash) | "Skip to main content" / sq | — | surface/fg on focus | label strings local until `shell.skipToMain` is in lib/i18n/messages | D: no skip link existed (app-shell.tsx:119 main had no bypass) → added | e2e "first Tab is Skip…"; SR unrun |

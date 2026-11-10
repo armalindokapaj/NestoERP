@@ -212,14 +212,14 @@ export async function openSection(page: Page, name: string, row?: string | RegEx
 }
 
 /**
- * The workspace header at the top of the sidebar (OW §2, §18): the workspace
- * being worked in, by its own name, and the way to its dashboard. It switches
- * nothing — that is `workspaceSwitcher`, in the top bar. Scoped to the sidebar,
- * because a phone's top bar and the tablet's navigation drawer carry a header
- * of their own, and there the header is still the switch (§48, §49).
+ * The workspace header at the start of the desktop top bar (OW §2, §18): the
+ * workspace being worked in, by its own name, and the way to its dashboard. It
+ * switches nothing — that is `workspaceSwitcher`, beside it. Scoped to the
+ * desktop top bar, because a phone's top bar and the tablet's navigation drawer
+ * carry a header of their own, and there the header is still the switch (§48, §49).
  */
 export function workspaceHeader(page: Page) {
-  return page.getByTestId("sidebar-header").getByTestId("organization-header");
+  return page.getByTestId("topbar-home").getByTestId("organization-header");
 }
 
 /**
@@ -239,8 +239,8 @@ export function workspacePanel(page: Page) {
 /**
  * Switches the workspace the way a person does: the top bar's switcher, then
  * the option (OW §3, §20). Resolves once the switcher names the new workspace:
- * it is the control in view wherever it can be pressed (the sidebar, and its
- * header with it, is folded away below 1024px), and its name changes only when
+ * it is the control in view wherever it can be pressed (the top bar's
+ * workspace header is drawn from 1024px only), and its name changes only when
  * the switch has committed (§33).
  */
 export async function chooseWorkspace(page: Page, name: string | RegExp) {
@@ -258,18 +258,51 @@ function escapeRegExp(text: string) {
 }
 
 /**
- * The desktop sidebar's navigation. It is resolved once and drawn as three
- * stacked lists (components/layout/sidebar.tsx): Dashboard, Projects and Tasks
- * pinned at the top, Support and Settings at the foot, and the rest scrolling
- * between them. The locator is all three, so a destination or the current item
- * is found wherever it sits — narrow it with `.first()` where one element is
- * asked for. It leaves out the header's own link to the dashboard, which is no
- * item of the navigation, and the drawer's copy of the list. Matched by
- * structure, not by role: below 1024px the sidebar is folded away, and its
- * links are still what the drawer is compared with.
+ * The desktop navigation: the Ribbon, the default (components/layout/ribbon.tsx;
+ * docs/ui/UI-04-navigation-layouts.md). One tab per navigation group shows that
+ * group's modules, and a module page adds a tab of its own sections, so a
+ * module is found by pressing its group's tab first (`navigationLink`).
  */
-export function sidebar(page: Page) {
-  return page.locator('aside:has([data-testid="sidebar-header"]) nav');
+export function mainNavigation(page: Page) {
+  return page.locator("[data-ribbon]");
+}
+
+function groupTabs(page: Page) {
+  return mainNavigation(page).locator('[role="tab"]:not([data-testid="ribbon-tab-page"])');
+}
+
+/** Every module the Ribbon offers this person, by href, across its group tabs. */
+export async function navigationHrefs(page: Page): Promise<string[]> {
+  const hrefs: string[] = [];
+  for (const tab of await groupTabs(page).all()) {
+    await tab.click();
+    hrefs.push(...(await mainNavigation(page).locator('a[data-testid^="ribbon-module-"]').evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""))));
+  }
+  return hrefs;
+}
+
+/** Every module the Ribbon offers this person, by name. */
+export async function navigationNames(page: Page): Promise<string[]> {
+  const names: string[] = [];
+  for (const tab of await groupTabs(page).all()) {
+    await tab.click();
+    names.push(...(await mainNavigation(page).locator('a[data-testid^="ribbon-module-"]').allInnerTexts()).map((name) => name.trim()));
+  }
+  return names;
+}
+
+/** A module's button in the Ribbon, by name or href, with its group's tab pressed so it is in view. */
+export async function navigationLink(page: Page, target: string | { href: string }) {
+  const find = () =>
+    typeof target === "string"
+      ? mainNavigation(page).locator('a[data-testid^="ribbon-module-"]').getByText(target, { exact: true }).locator("xpath=ancestor-or-self::a")
+      : mainNavigation(page).locator(`a[data-testid^="ribbon-module-"][href="${target.href}"]`);
+  if ((await find().count()) > 0) return find().first();
+  for (const tab of await groupTabs(page).all()) {
+    await tab.click();
+    if ((await find().count()) > 0) return find().first();
+  }
+  return find().first();
 }
 
 export async function expectAccessDenied(page: Page, path: string) {

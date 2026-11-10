@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { sidebar, signIn, type DemoRole } from "../fixtures";
+import { mainNavigation, navigationNames, signIn, type DemoRole } from "../fixtures";
 
 /**
  * Navigation per role (PRD #9 §166).
@@ -64,17 +64,17 @@ const EXPECTATIONS: {
 ];
 
 for (const expectation of EXPECTATIONS) {
-  test(`${expectation.role}: sidebar shows exactly its modules`, async ({ page }) => {
+  test(`${expectation.role}: the navigation shows exactly its modules`, async ({ page }) => {
     await signIn(page, expectation.role);
 
-    const nav = sidebar(page);
+    const names = await navigationNames(page);
 
     for (const label of expectation.visible) {
-      await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+      expect(names, label).toContain(label);
     }
 
     for (const label of expectation.hidden) {
-      await expect(nav.getByRole("link", { name: label, exact: true })).toHaveCount(0);
+      expect(names, label).not.toContain(label);
     }
   });
 
@@ -106,17 +106,16 @@ test("keeps the parent module active on nested routes (PRD #3 §13)", async ({ p
     await page.goto(path);
     // The legacy list link lands on the Projects page (Projects Workspace Grid §184): let it, before the next page is asked for.
     if (path === "/projects/all") await expect(page).toHaveURL(/\/projects$/);
-    const active = sidebar(page).locator('[aria-current="page"]');
-    await expect(active, path).toHaveText("Projects");
+    await expect(mainNavigation(page), path).toHaveAttribute("data-current-label", "Projects");
   }
 });
 
 test("Company B hides its disabled modules (PRD #9 §164)", async ({ page }) => {
   await signIn(page, "OWNER_B");
 
-  const nav = sidebar(page);
-  await expect(nav.getByRole("link", { name: "Projects", exact: true })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Finance", exact: true })).toHaveCount(0);
+  const names = await navigationNames(page);
+  expect(names).toContain("Projects");
+  expect(names).not.toContain("Finance");
 
   await page.goto("/finance");
   await expect(page).toHaveURL(/\/module-unavailable/);
@@ -126,7 +125,7 @@ test("Company B hides its disabled modules (PRD #9 §164)", async ({ page }) => 
 /**
  * Personal settings belong to everyone (PRD #5 §39).
  *
- * The sidebar's Settings item is the *company* settings module, so it stays
+ * The navigation's Settings item is the *company* settings module, so it stays
  * with the four roles that administer the company. The user menu is a different
  * door: Profile and Appearance describe the person, so every role must be able
  * to reach them. Gating the menu link on the module was how twelve of the
@@ -136,8 +135,8 @@ for (const role of ["VIEWER", "ENGINEER", "FINANCE"] as const) {
   test(`${role}: reaches personal settings from the user menu`, async ({ page }) => {
     await signIn(page, role);
 
-    // No company Settings in the sidebar — that part is unchanged.
-    await expect(sidebar(page).getByRole("link", { name: "Settings", exact: true })).toHaveCount(0);
+    // No company Settings in the navigation — that part is unchanged.
+    expect(await navigationNames(page)).not.toContain("Settings");
 
     await page.getByTestId("account-trigger").click();
     await page.getByTestId("account-panel").getByRole("link", { name: "Account Settings", exact: true }).click();

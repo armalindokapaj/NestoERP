@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Request } from "../pw";
 
-import { expectAccessDenied, mainRegion, sidebar, signIn, workspaceHeader } from "../fixtures";
+import { expectAccessDenied, mainRegion, navigationHrefs, navigationLink, signIn, workspaceHeader } from "../fixtures";
 
 /**
  * Immediate navigation response (NAV-01 §15): loading boundaries, pending
@@ -55,15 +55,14 @@ async function prefetched(page: Page, pathname: string) {
 test.describe("loading and pending feedback (L01, N01, N03, N04, N06)", () => {
   test("a held destination shows the pending mark and its skeleton; the shell stays usable and aria-current waits for the commit", async ({ page }) => {
     await signIn(page, "FINANCE", { to: "/dashboard" });
-    const nav = sidebar(page);
-    const target = nav.locator('a[href="/finance"]');
+    const target = await navigationLink(page, { href: "/finance" });
     await expect(target).toBeVisible();
-    // A sidebar module link is prepared on deliberate intent, not on sight (NAV-03 PREFETCH-01).
+    // A navigation module link is prepared on deliberate intent, not on sight (NAV-03 PREFETCH-01).
     await target.hover();
     await prefetched(page, "/finance");
     const release = await holdNavigation(page, "/finance");
 
-    const dashboard = nav.locator('a[href="/dashboard"]');
+    const dashboard = page.locator('[data-ribbon] a[href="/dashboard"]');
     await target.click();
     // The prefetched boundary lets the route commit at once: the active item follows the URL and
     // the skeleton owns the wait. Before the commit, the item carries its pending mark.
@@ -92,8 +91,7 @@ test.describe("loading and pending feedback (L01, N01, N03, N04, N06)", () => {
       await route.continue();
     });
     await signIn(page, "FINANCE", { to: "/dashboard" });
-    const nav = sidebar(page);
-    const target = nav.locator('a[href="/finance"]');
+    const target = await navigationLink(page, { href: "/finance" });
     await target.click();
     await expect(target.getByTestId("nav-pending-hint")).toBeVisible();
     await expect(page.getByTestId("nav-progress")).toHaveAttribute("data-source", "sidebar");
@@ -114,30 +112,30 @@ test.describe("loading and pending feedback (L01, N01, N03, N04, N06)", () => {
       await route.continue();
     });
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    const nav = sidebar(page);
-    await nav.locator('a[href="/tasks"]').click();
+    await (await navigationLink(page, { href: "/tasks" })).click();
     await expect(page.getByTestId("nav-progress")).toHaveAttribute("data-source", "sidebar");
-    await nav.locator('a[href="/documents"]').click();
+    await (await navigationLink(page, { href: "/documents" })).click();
     await expect(page).toHaveURL(/\/documents$/);
     releaseA();
     await expect(page.getByTestId("nav-progress")).toHaveCount(0);
     await page.waitForTimeout(300);
     await expect(page).toHaveURL(/\/documents$/);
-    await expect(nav.locator('a[href="/documents"]')).toHaveAttribute("aria-current", "page");
+    await expect(page.locator("[data-ribbon]")).toHaveAttribute("data-current-href", "/documents");
   });
 
   test("a modified click and the current page begin nothing in this tab", async ({ page, context }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/tasks" });
-    const nav = sidebar(page);
+    const documents = await navigationLink(page, { href: "/documents" });
     const opened = context.waitForEvent("page");
-    await nav.locator('a[href="/documents"]').click({ modifiers: [process.platform === "darwin" ? "Meta" : "Control"] });
+    await documents.click({ modifiers: [process.platform === "darwin" ? "Meta" : "Control"] });
     await (await opened).close();
     await expect(page).toHaveURL(/\/tasks$/);
     await expect(page.getByTestId("nav-progress")).toHaveCount(0);
 
-    await nav.locator('a[href="/tasks"]').click();
+    const tasks = await navigationLink(page, { href: "/tasks" });
+    await tasks.click();
     await expect(page.getByTestId("nav-progress")).toHaveCount(0);
-    await expect(nav.locator('a[href="/tasks"]').getByTestId("nav-pending-hint")).toHaveCount(0);
+    await expect(tasks.getByTestId("nav-pending-hint")).toHaveCount(0);
   });
 
   test("a query-only link whose page the framework would hold still commits promptly (N05, vercel/next.js#86151)", async ({ page }) => {
@@ -187,11 +185,11 @@ test.describe("+ Create loads on demand (Q01-Q10, Q15, Q22, Q23)", () => {
   test("ordinary browsing with Create closed makes no Quick Create request", async ({ page }) => {
     const counted = countQuickCreate(page);
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    const hrefs = await sidebar(page).locator("a[href^='/']").evaluateAll((links) => links.map((link) => link.getAttribute("href")!));
+    const hrefs = await navigationHrefs(page);
     const route = hrefs.filter((href) => href !== "/dashboard").slice(0, 5);
     for (let index = 0; index < 10; index += 1) {
       const href = route[index % route.length] ?? "/dashboard";
-      await sidebar(page).locator(`a[href="${href}"]`).click();
+      await (await navigationLink(page, { href })).click();
       await expect(page).toHaveURL(new RegExp(`${href.replace(/[/-]/g, "\\$&")}$`));
     }
     await page.reload();
@@ -322,7 +320,7 @@ test.describe("+ Create loads on demand (Q01-Q10, Q15, Q22, Q23)", () => {
     });
     await page.getByTestId("quick-create-button").click();
     await expect(page.getByTestId("quick-create-loading")).toBeVisible();
-    await sidebar(page).locator('a[href="/tasks"]').click();
+    await (await navigationLink(page, { href: "/tasks" })).click();
     await expect(page).toHaveURL(/\/tasks$/);
     await expect(page.getByTestId("quick-create-panel")).toHaveCount(0);
     release();
