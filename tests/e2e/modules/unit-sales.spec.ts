@@ -24,7 +24,9 @@ const FLOOR = "flr_e05e_e2e_1";
 const OFFER = "unit_e05e_e2e_101";
 const SECOND = "unit_e05e_e2e_102";
 const DRAFT = "unit_e05e_e2e_103";
-const UNITS = [OFFER, SECOND, DRAFT];
+/** Published, never priced: the side panel prices it and puts it on sale (2026-11-09). Its code stays out of the "Q-10" searches. */
+const SPARE = "unit_e05e_e2e_201";
+const UNITS = [OFFER, SECOND, DRAFT, SPARE];
 const PREFIX = "E05E E2E";
 
 test.describe.configure({ mode: "serial" });
@@ -64,7 +66,7 @@ test.beforeAll(async () => {
   await db.projectBuilding.create({ data: { id: BUILDING, companyId: COMPANY, projectId: PROJECT, name: "E05E Quay", nameKey: "E05E QUAY", sortOrder: 98, createdBy: "seed" } });
   await db.projectFloor.create({ data: { id: FLOOR, companyId: COMPANY, projectId: PROJECT, buildingId: BUILDING, levelType: "STANDARD", number: 1, name: "Floor 1", floorKey: "STANDARD:1", sortOrder: 1, createdBy: "seed" } });
   const unit = (id: string, code: string, sortOrder: number, publicationStatus: "PUBLISHED" | "DRAFT") => ({ id, companyId: COMPANY, projectId: PROJECT, floorId: FLOOR, unitCode: code, unitCodeKey: code, unitTypeId: apartment.id, sortOrder, createdBy: "seed", saleableArea: "105.00", internalArea: "90.00", grossArea: "105.00", bedrooms: 2, bathrooms: 1, publicationStatus });
-  await db.projectUnit.createMany({ data: [unit(OFFER, "Q-101", 1, "PUBLISHED"), unit(SECOND, "Q-102", 2, "PUBLISHED"), unit(DRAFT, "Q-103", 3, "DRAFT")] });
+  await db.projectUnit.createMany({ data: [unit(OFFER, "Q-101", 1, "PUBLISHED"), unit(SECOND, "Q-102", 2, "PUBLISHED"), unit(DRAFT, "Q-103", 3, "DRAFT"), unit(SPARE, "R-201", 4, "PUBLISHED")] });
   // Q-102 is already on sale, priced, for the Sales Manager's reservation.
   await db.unitCommercialProfile.create({ data: { companyId: COMPANY, projectId: PROJECT, unitId: SECOND, status: "FOR_SALE", askingPrice: "160000.00", currency: "EUR", statusChangedAt: new Date() } });
 });
@@ -106,6 +108,11 @@ test("Sales prices a unit, puts it on sale, reserves it for a new client and dea
   await rate.fill("2000");
   await expect(price.getByTestId("price-per-sqm-total")).toHaveText("105.00 m² saleable × €2,000 = €210,000");
   await price.getByLabel("Reason for the change").fill("Launch price list");
+  // A new price on a unit not for sale offers "Also put it on sale", ticked; unticked, the unit stays held back (2026-11-09).
+  const onSale = price.getByTestId("price-put-on-sale").getByRole("checkbox");
+  await expect(onSale).toBeChecked();
+  await onSale.click();
+  await expect(onSale).not.toBeChecked();
   await price.getByRole("button", { name: "Save price" }).click();
   await expect(page.getByTestId("asking-price")).toHaveText("€210,000");
   await expect(page.getByTestId("price-per-sqm")).toHaveText("€2,000/m²");
@@ -162,7 +169,8 @@ test("the Sales Manager reopens the sale, reserves a unit for an existing client
   await reserve.getByRole("searchbox", { name: "Search clients" }).fill("ACME");
   await reserve.getByTestId("reserve-client-results").getByRole("button", { name: /ACME Developments/ }).click();
   await expect(reserve.getByTestId("reserve-client")).toContainText("ACME Developments");
-  await expect(reserve.getByLabel("Deal")).not.toHaveValue("");
+  // A Nesto dropdown, not a native select: a deal is chosen once it no longer shows its placeholder.
+  await expect(reserve.getByLabel("Deal")).not.toHaveAttribute("data-placeholder", /.*/);
   await reserve.getByRole("button", { name: "Reserve", exact: true }).click();
   await expect(status(page)).toHaveText("Reserved");
   await expect(page.getByTestId("reservation-client")).toHaveText("ACME Developments");
@@ -195,8 +203,14 @@ test("the inventory filters by status and searches, and a draft unit cannot be o
   // Nothing on screen is reserved or sold, so there are no Client, Deal or Expires columns.
   await expect(page.getByTestId("sales-table").getByRole("columnheader", { name: "Expires" })).toHaveCount(0);
 
-  // A row opens the unit's Sales section, where it is sold (2026-11-09).
+  // A row opens the unit in the side panel; Open full page goes on to its Sales section, where it is sold (2026-11-09).
   await rows.first().getByRole("link", { name: "Q-103" }).click();
+  const panel = page.getByTestId("unit-panel");
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("Q-103");
+  await expect(panel.getByTestId("commercial-status")).toHaveText("Not Priced");
+  // A draft cannot be offered, from the panel either.
+  await expect(panel.getByTestId("unit-panel-putOnSale")).toHaveCount(0);
+  await panel.getByTestId("unit-panel-open-page").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Q-103");
   await expect(page).toHaveURL(/\/units\/[^/]+\/sales$/);
   await expect(page.getByTestId("unit-not-sellable")).toContainText("This Unit is not published for Sales use.");
@@ -238,6 +252,50 @@ test("Sales offers a row's own actions, and prices ticked units together (2026-1
   await expect(rows.filter({ hasText: "Q-103" }).getByTestId("commercial-status")).toHaveText("Not For Sale");
   const profile = await db.unitCommercialProfile.findFirstOrThrow({ where: { unitId: DRAFT }, select: { askingPrice: true, status: true } });
   expect([profile.askingPrice?.toFixed(2), profile.status]).toEqual(["150000.00", "NOT_FOR_SALE"]);
+});
+
+test("the side panel prices a unit not for sale and also puts it on sale (2026-11-09)", async ({ page }) => {
+  await signIn(page, "SALES", { to: `/projects/${PROJECT}/sales` });
+  await page.getByRole("searchbox", { name: "Search units" }).fill("R-201");
+  const rows = page.getByTestId("sales-table").getByTestId("sales-row");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().getByTestId("commercial-status")).toHaveText("Not Priced");
+
+  // An empty Total price offers a faint Add, which opens the panel with the cursor in the price.
+  await rows.first().getByTestId("unit-add-price").click();
+  const panel = page.getByTestId("unit-panel");
+  await expect(panel.getByTestId("unit-panel-title")).toHaveText("R-201 · Apartment · Floor 1");
+  await expect(page).toHaveURL(new RegExp(`[?&]unit=${SPARE}`));
+  await expect(panel.locator("#panel-asking-price")).toBeFocused();
+
+  // Per m² of the sale area first, saying which area; the tick to put it on sale is on.
+  await panel.locator("#panel-asking-price").fill("1500");
+  await expect(panel.getByTestId("unit-price-line")).toContainText("105.00 m² saleable");
+  const tick = panel.getByTestId("panel-put-on-sale").getByRole("checkbox");
+  await expect(tick).toBeChecked();
+  await panel.getByTestId("unit-panel-save").click();
+  await expect(panel.getByTestId("commercial-status")).toHaveText("For Sale");
+  await expect(rows.first().getByTestId("commercial-status")).toHaveText("For Sale");
+  const profile = await db.unitCommercialProfile.findFirstOrThrow({ where: { unitId: SPARE }, select: { askingPrice: true, status: true, priceBasis: true } });
+  expect([profile.askingPrice?.toFixed(2), profile.status, profile.priceBasis]).toEqual(["157500.00", "FOR_SALE", "SALEABLE_AREA"]);
+
+  // Now for sale, the panel offers what Sales does next: reserve, hold, take off sale. Take it off again.
+  await expect(panel.getByTestId("unit-panel-reserve")).toBeVisible();
+  await panel.getByTestId("unit-panel-takeOff").click();
+  await page.getByRole("dialog", { name: "Take R-201 off sale?" }).getByRole("button", { name: "Take off sale" }).click();
+  await expect(panel.getByTestId("commercial-status")).toHaveText("Not For Sale");
+
+  // Escape closes the panel; the list stays, its search kept. A toast still on screen is the top layer and
+  // takes the first Escape (Radix), so the change's toast is let go first.
+  const toasts = page.locator("li[data-swipe-direction][data-state=open]");
+  if (await toasts.count()) {
+    await page.keyboard.press("Escape");
+    await expect(toasts).toHaveCount(0);
+  }
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(page).not.toHaveURL(/[?&]unit=/);
+  await expect(page.getByRole("searchbox", { name: "Search units" })).toHaveValue("R-201");
 });
 
 test("an Architect sees a unit's commercial status, but not its sale", async ({ page }) => {

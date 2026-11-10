@@ -90,7 +90,8 @@ export type FinanceSummaryDTO = {
   /** Paid over contract value, one decimal; null without a value (§39). */
   progressPercent: string | null;
   /** Other units the same contract sells: the figures are the contract's, not split per unit (§91). */
-  sharedWithUnits: Array<{ id: string; unitCode: string }>;
+  /** The other units the contract sells; `label` is how people read each, "T-502". */
+  sharedWithUnits: Array<{ id: string; unitCode: string; label: string }>;
 };
 
 export type InstallmentDTO = {

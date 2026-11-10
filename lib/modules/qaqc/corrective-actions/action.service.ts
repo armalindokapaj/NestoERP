@@ -13,6 +13,7 @@ import {
   assertPermission,
 } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import { NotificationEvent } from "@/lib/core/notifications/notification.events";
 import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.service";
 import { prisma } from "@/lib/database/prisma";
@@ -234,7 +235,16 @@ export async function getAction(
     cancelledAt: dateString(row.cancelledAt),
     createdBy,
     createdAt: row.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, row),
+    capabilities: capabilitiesFor(
+      context,
+      row,
+      await mayDecideOwn(context, {
+        own: row.completedByMemberId === context.membershipId,
+        selfPermission: "qaqc.approval.self",
+        record: { type: "corrective_action", id: row.id },
+        mayDecide: (member) => can(member, "qaqc.corrective_action.verify"),
+      }),
+    ),
   };
 }
 
@@ -573,18 +583,18 @@ export async function verifyAction(
     );
   }
 
-  if (
-    existing.completedByMemberId === context.membershipId &&
-    !can(context, "qaqc.approval.self")
-  ) {
-    throw new AccessError(
-      "FORBIDDEN",
-      "You completed this action, so somebody else has to verify it.",
-      { code: "SELF_VERIFY" },
-    );
-  }
-
   await prisma.$transaction(async (tx) => {
+    // Somebody else verifies it; a CEO may verify their own only when nobody else could (lib/core/approvals/self-approval.ts).
+    await assertOwnDecisionAllowed(context, {
+      own: existing.completedByMemberId === context.membershipId,
+      selfPermission: "qaqc.approval.self",
+      record: { type: "corrective_action", id: actionId },
+      mayDecide: (member) => can(member, "qaqc.corrective_action.verify"),
+      refusal: () => new AccessError("FORBIDDEN", "You completed this action, so somebody else has to verify it.", { code: "SELF_VERIFY" }),
+      tx,
+      label: existing.actionNumber ?? undefined,
+      decision: "VERIFIED",
+    });
     await applyTransition(tx, {
       machine: correctiveActionMachine,
       action: "verify",
@@ -935,17 +945,14 @@ function toSummaryDTO(
   };
 }
 
-function capabilitiesFor(context: UserContext, row: DetailRow) {
+/** `ownDecisionAllowed`: the self rule's answer for this reader, worked out before (lib/core/approvals/self-approval.ts). */
+function capabilitiesFor(context: UserContext, row: DetailRow, ownDecisionAllowed: boolean) {
   return {
     canEdit: isActionEditable(row.status) && can(context, "qaqc.corrective_action.update"),
     canAssign: isActionEditable(row.status) && can(context, "qaqc.corrective_action.assign"),
     canComplete:
       isActionCompletable(row.status) && can(context, "qaqc.corrective_action.complete"),
-    canVerify:
-      isActionVerifiable(row.status) &&
-      can(context, "qaqc.corrective_action.verify") &&
-      (row.completedByMemberId !== context.membershipId ||
-        can(context, "qaqc.approval.self")),
+    canVerify: isActionVerifiable(row.status) && can(context, "qaqc.corrective_action.verify") && ownDecisionAllowed,
     canReopen: isActionReopenable(row.status) && can(context, "qaqc.corrective_action.reopen"),
     canCancel: isActionCancellable(row.status) && can(context, "qaqc.corrective_action.cancel"),
     canViewDocuments: can(context, "qaqc.document.view") && can(context, "document.view"),

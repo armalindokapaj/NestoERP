@@ -64,7 +64,7 @@ export async function notifyFinance(
     entityId: unit.unitId,
     actorMemberId: actor,
     projectId: unit.projectId,
-    payload: { memberIds, unitCode: input.contract.units.filter((row) => !row.released).map((row) => row.unitCode).join(", ") || unit.unitCode, contractNumber: input.contract.contractNumber, contractId: input.contract.id, amountLabel: input.amountLabel ?? null, paymentId: input.paymentId ?? null },
+    payload: { memberIds, unitCode: input.contract.units.filter((row) => !row.released).map((row) => row.label).join(", ") || unit.label, contractNumber: input.contract.contractNumber, contractId: input.contract.id, amountLabel: input.amountLabel ?? null, paymentId: input.paymentId ?? null },
   });
 }
 

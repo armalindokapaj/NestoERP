@@ -12,7 +12,9 @@ import { cleanupSessions, loginAs, loginAsMembership, PROJECT, prisma } from "..
  * A project's price list against the real database (2026-11): a floor priced at
  * a rate per m², every parking space at one price, single units by hand — each
  * change with the history, activity and audit a one-unit change leaves, and the
- * whole save refused when one unit is stale, sold or not the project's.
+ * whole save refused when one unit is stale, sold or not the project's — and,
+ * with "Also put them on sale", the units it priced that were not for sale
+ * moved on sale one by one, with the ones that could not named.
  *
  * A building this suite adds to Riverside Residences (project_a); everything it
  * makes is removed.
@@ -38,6 +40,8 @@ async function cleanup() {
   const units = await prisma.projectUnit.findMany({ where: { floorId: { in: floors.map((row) => row.id) } }, select: { id: true } });
   const unitIds = units.map((row) => row.id);
   await prisma.unitPriceHistory.deleteMany({ where: { unitId: { in: unitIds } } });
+  await prisma.unitCommercialStatusHistory.deleteMany({ where: { unitId: { in: unitIds } } });
+  await prisma.notificationEventOutbox.deleteMany({ where: { entityId: { in: unitIds } } });
   await prisma.unitCommercialProfile.deleteMany({ where: { unitId: { in: unitIds } } });
   await prisma.activity.deleteMany({ where: { entityId: { in: unitIds } } });
   await prisma.auditEvent.deleteMany({ where: { entityId: { in: unitIds } } });
@@ -243,5 +247,79 @@ describe("saving prices", () => {
     await refused(save(finance, input), "FORBIDDEN");
     await refused(save(ownerB, input), "NOT_FOUND");
     expect(await prisma.unitCommercialProfile.count({ where: { unitId: a.id } })).toBe(0);
+  });
+});
+
+describe("also putting the priced units on sale (2026-11-09)", () => {
+  const status = async (unitId: string) => (await prisma.unitCommercialProfile.findFirst({ where: { unitId }, select: { status: true } }))?.status ?? null;
+  /** The SALES role without the sale-status grant: it may price, not offer. */
+  const priceOnly = () => ({ ...sales, permissions: sales.permissions.filter((permission) => permission !== "project.unit.sales_status.manage") });
+
+  it("puts the units it priced that were not for sale on sale, and names the ones that cannot go", async () => {
+    const fresh = await newUnit();
+    const offered = await newUnit();
+    const archived = await newUnit();
+    await save(sales, { prices: [{ unitId: offered.id, askingPrice: "90000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 }] });
+    await prisma.unitCommercialProfile.update({ where: { unitId: offered.id }, data: { status: "FOR_SALE" } });
+    await prisma.projectUnit.update({ where: { id: archived.id }, data: { publicationStatus: "ARCHIVED" } });
+
+    expect((await getPriceList(sales, RIVERSIDE)).canManageStatus).toBe(true);
+    const result = await save(sales, {
+      putOnSale: true,
+      prices: [
+        { unitId: fresh.id, askingPrice: "120000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 },
+        { unitId: offered.id, askingPrice: "95000", priceBasis: "SALEABLE_AREA", expectedVersion: 2 },
+        { unitId: archived.id, askingPrice: "130000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 },
+      ],
+    });
+    expect(result.saved).toBe(3);
+    expect(result.putOnSale).toEqual({ moved: [fresh.id], skipped: [expect.objectContaining({ id: archived.id, label: archived.unitCode, reason: "not_sellable" })] });
+    expect([await status(fresh.id), await status(offered.id), await status(archived.id)]).toEqual(["FOR_SALE", "FOR_SALE", "NOT_FOR_SALE"]);
+    // The archived unit keeps the price it was given; it is simply not offered.
+    expect((await getUnitSales(sales, archived.id)).askingPrice).toBe("130000.00");
+    // The list answered is read after the move.
+    expect(ours(result.list).floors[1]!.units.find((unit) => unit.id === fresh.id)).toMatchObject({ status: "FOR_SALE", version: 3 });
+    expect(await prisma.unitCommercialStatusHistory.count({ where: { unitId: fresh.id, toStatus: "FOR_SALE" } })).toBe(1);
+  });
+
+  it("leaves the status alone without the tick, and for a price cleared", async () => {
+    const a = await newUnit();
+    const b = await newUnit();
+    await save(sales, { prices: [{ unitId: b.id, askingPrice: "90000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 }] });
+    const without = await save(sales, { prices: [{ unitId: a.id, askingPrice: "120000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 }] });
+    expect(without.putOnSale).toBeUndefined();
+    const cleared = await save(sales, { putOnSale: true, prices: [{ unitId: b.id, askingPrice: "", priceBasis: "SALEABLE_AREA", expectedVersion: 2 }] });
+    expect(cleared.putOnSale).toEqual({ moved: [], skipped: [] });
+    expect([await status(a.id), await status(b.id)]).toEqual(["NOT_FOR_SALE", "NOT_FOR_SALE"]);
+  });
+
+  it("refuses the tick to somebody who may price but not offer, before saving anything", async () => {
+    const a = await newUnit();
+    const input = { putOnSale: true, prices: [{ unitId: a.id, askingPrice: "120000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 }] };
+    await refused(save(priceOnly(), input), "FORBIDDEN");
+    expect(await prisma.unitCommercialProfile.count({ where: { unitId: a.id } })).toBe(0);
+    expect((await getPriceList(priceOnly(), RIVERSIDE)).canManageStatus).toBe(false);
+    // Without the tick the same person prices as before.
+    expect((await save(priceOnly(), { ...input, putOnSale: false })).saved).toBe(1);
+  });
+
+  it("moves nothing when the save is refused: a stale unit, or another company's", async () => {
+    const a = await newUnit();
+    const b = await newUnit();
+    await save(owner, { prices: [{ unitId: b.id, askingPrice: "99000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 }] });
+    await refused(
+      save(sales, {
+        putOnSale: true,
+        prices: [
+          { unitId: a.id, askingPrice: "120000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 },
+          { unitId: b.id, askingPrice: "120000", priceBasis: "SALEABLE_AREA", expectedVersion: 0 },
+        ],
+      }),
+      "CONFLICT",
+      "UNIT_SALES_STALE",
+    );
+    await refused(save(ownerB, { putOnSale: true, prices: [{ unitId: a.id, askingPrice: "1", priceBasis: "FIXED_UNIT_PRICE", expectedVersion: 0 }] }), "NOT_FOUND");
+    expect([await status(a.id), await status(b.id)]).toEqual([null, "NOT_FOR_SALE"]);
+    expect(await prisma.unitCommercialStatusHistory.count({ where: { unitId: { in: [a.id, b.id] } } })).toBe(0);
   });
 });

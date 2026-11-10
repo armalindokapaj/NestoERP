@@ -908,12 +908,12 @@ describe("authorisation (PRD #21 §23–§30)", () => {
     await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
   });
 
-  it("gives the CEO a view without routine mutation (§25)", async () => {
+  // The CEO viewed without routine mutation (§25) until the user's 2026-11 decision: "CEO does everything".
+  it("gives the CEO the Owner's Quality work", async () => {
     const context = await loginAs("CEO");
-    if (!can(context, "qaqc.view")) return;
-
-    expect(can(context, "qaqc.inspection.execute")).toBe(false);
-    expect(can(context, "qaqc.defect.create")).toBe(false);
+    expect(can(context, "qaqc.view")).toBe(true);
+    expect(can(context, "qaqc.inspection.execute")).toBe(true);
+    expect(can(context, "qaqc.defect.create")).toBe(true);
   });
 
   it("gives nobody the self-approval grant by default (§165)", async () => {

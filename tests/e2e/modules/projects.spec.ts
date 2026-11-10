@@ -35,7 +35,8 @@ test.describe("Project Manager (PRD #9 §153)", () => {
     await page.goto("/projects/project_a");
 
     await expect(page.getByRole("heading", { name: "Riverside Residences" })).toBeVisible();
-    await expect(page.getByText("PRJ-001").first()).toBeVisible();
+    // The compact header below lg carries the code too (1716bd9c); from lg it is hidden and the hero shows it.
+    await expect(page.getByText("PRJ-001").filter({ visible: true }).first()).toBeVisible();
     await page.getByRole("button", { name: "More project actions" }).click();
     await expect(page.getByRole("menuitem", { name: "Edit project" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Manage project media" })).toBeVisible();

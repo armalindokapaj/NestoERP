@@ -171,7 +171,7 @@ export async function getExpense(
     approvals: history,
     createdBy: creator,
     createdAt: expense.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, expense, settlement.outstanding.greaterThan(0)),
+    capabilities: await approvals.withOwnDecisionRule(context, "EXPENSE", expense.id, capabilitiesFor(context, expense, settlement.outstanding.greaterThan(0))),
   };
 }
 
@@ -364,7 +364,7 @@ export async function approveExpense(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "EXPENSE", expenseId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "EXPENSE", recordId: expenseId, decision: "APPROVED" });
 
     await moveStatus(tx, context, existing, "approve");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
@@ -409,7 +409,7 @@ export async function rejectExpense(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "EXPENSE", expenseId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "EXPENSE", recordId: expenseId, decision: "REJECTED" });
 
     await moveStatus(tx, context, existing, "reject", reason);
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
@@ -455,7 +455,7 @@ export async function returnExpense(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "EXPENSE", expenseId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "EXPENSE", recordId: expenseId, decision: "RETURNED" });
 
     await moveStatus(tx, context, existing, "return", reason);
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);

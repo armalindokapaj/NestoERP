@@ -16,7 +16,7 @@ import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { SUPPORTED_CURRENCIES } from "@/lib/modules/finance/finance.currency";
 import { compareDecimal, parseDecimalInput } from "@/lib/forms/decimal";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
-import { PRICE_ENTRIES, priceFromRate, priceToSave, saleArea, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { changesAskingPrice, PRICE_ENTRIES, priceFromRate, priceToSave, saleArea, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
 import { areaKind, rateLabel } from "@/components/project-structure/unit-price-fields";
 import { SALES_NOTES_MAX, SALES_REASON_MAX, type UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
@@ -24,7 +24,10 @@ import { OUTCOME_COPY, outcomeOf } from "@/lib/unsaved/outcome";
 import { cn } from "@/lib/utils/cn";
 import { useSalesTranslations } from "@/components/sales/sales-text";
 import { FormSelect } from "@/components/ui/form-select";
+import { putOnSaleWithPrice, salesExpectedVersion } from "@/lib/modules/sales/units/unit-sales.rules";
 import { moneyLabel } from "./commercial-status";
+import { PutOnSaleTick } from "./put-on-sale";
+import { useToast } from "@/components/ui/toast";
 
 /**
  * The dialogs a unit's sale is changed through (E-05E §10, §16-§31, §48). Each
@@ -41,7 +44,8 @@ import { moneyLabel } from "./commercial-status";
  * Discard.
  */
 
-type Submit = (url: string, body: Record<string, unknown>, success: string) => Promise<void>;
+/** Sends one change and says it was made; answers with what the server answered (a price save's new version, say). */
+type Submit = (url: string, body: Record<string, unknown>, success: string) => Promise<unknown>;
 
 /** A date input's value for an instant, in the reader's own calendar. */
 export function dateValue(iso: string | Date): string {
@@ -315,8 +319,27 @@ function CurrencySelect({ id, value, onChange }: { id: string; value: string; on
  * saved, on its saved basis, so a notes-only save records no price change.
  */
 export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; onClose: () => void; sales: UnitSalesDTO; submit: Submit }) {
-  const request = useDialogRequest(submit);
   const t = useSalesTranslations();
+  const toast = useToast();
+  // "Also put it on sale" (2026-11-09): the unit's own Put on sale, right after the price saved, when ticked.
+  const offersSale = putOnSaleWithPrice({ canManageStatus: sales.capabilities.canManageStatus, status: sales.status, sellable: sales.sellable });
+  const [putOnSale, setPutOnSale] = React.useState(true);
+  const moveOnSale = React.useRef(false);
+  const priceSubmit = React.useCallback<Submit>(
+    async (url, body, success) => {
+      const saved = (await submit(url, body, success)) as { version?: unknown } | undefined;
+      if (!moveOnSale.current || typeof saved?.version !== "number") return saved;
+      // The price is saved whatever happens next: a unit that cannot go on sale is said, not refused.
+      try {
+        await submit(`/api/project-units/${sales.unitId}/sales/status`, { action: "put_on_sale", expectedVersion: saved.version }, t("putOnSale.moved", { unit: sales.unitLabel }));
+      } catch (error) {
+        toast({ tone: "warning", title: t("putOnSale.stayed", { unit: sales.unitLabel }), description: failureMessage(error) });
+      }
+      return saved;
+    },
+    [submit, sales.unitId, sales.unitLabel, t, toast],
+  );
+  const request = useDialogRequest(priceSubmit);
   const locale = useLocale();
   const areas = { saleableArea: sales.saleableArea, grossArea: sales.grossArea };
   const { area, basis } = saleArea(areas);
@@ -348,6 +371,7 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
     setNotes(sales.salesNotes ?? "");
     setReason("");
     setRateError(null);
+    setPutOnSale(true);
     request.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -357,7 +381,7 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
     reveal(priceInput.current);
     priceInput.current.focus();
   }, [rateError]);
-  const changed = useOpenedWith(open, [entry, price, currency, notes, reason]);
+  const changed = useOpenedWith(open, [entry, price, currency, notes, reason, putOnSale]);
   const perSqm = entry === "PER_SQM" && perSqmAllowed;
   const rateRule = { label: t("unitDialogs.ratePerSqm"), ...MONEY_RULE };
   // The total the typed rate gives, shown before anything is saved.
@@ -366,6 +390,9 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
   // A rate converted from the total and left as it was stands for that total.
   const kept = perSqm ? untouchedTotal(price, entry, lastSwitch) : null;
   const total = rate === null ? null : (kept ?? priceFromRate(rate, area));
+  // Offered only for a price that changes, as the unit form and the side panel do: saving the notes or the
+  // reason alone, or clearing the price, never puts a held-back unit on sale.
+  const showSaleTick = offersSale && changesAskingPrice(priceToSave(perSqm ? (total ?? "") : price.trim(), currency, sales, areas), sales, currency);
 
   function chooseEntry(next: PriceEntry) {
     if (next === entry || (next === "PER_SQM" && !perSqmAllowed)) return;
@@ -388,9 +415,11 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
       typedTotal = untouchedTotal(price, entry, lastSwitch) ?? priceFromRate(typed.value, area)!;
     }
     setRateError(null);
-    const { askingPrice, priceBasis } = priceToSave(typedTotal, currency, sales, areas);
-    return { askingPrice, currency, priceBasis, salesNotes: notes, reason, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) };
+    const saving = priceToSave(typedTotal, currency, sales, areas);
+    moveOnSale.current = offersSale && putOnSale && changesAskingPrice(saving, sales, currency);
+    return { ...saving, currency, salesNotes: notes, reason, expectedVersion: salesExpectedVersion(sales.version) };
   }
+
   const send = (payload: Record<string, unknown>) => request.send(`/api/project-units/${sales.unitId}/sales`, payload, t("unitDialogs.priceSaved", { unit: sales.unitLabel }));
 
   return (
@@ -482,6 +511,7 @@ export function PriceDialog({ open, onClose, sales, submit }: { open: boolean; o
           </p>
         ) : null}
       </div>
+      {showSaleTick ? <PutOnSaleTick checked={putOnSale} onChange={setPutOnSale} label={t("putOnSale.one")} hint={t("putOnSale.oneHint", { unit: sales.unitLabel })} disabled={request.pending} testId="price-put-on-sale" /> : null}
       <Field label={t("unitDialogs.changeReason")} htmlFor="sales-price-reason" error={request.fields.reason}>
         <Input id="sales-price-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={SALES_REASON_MAX} placeholder={t("unitDialogs.changeReasonPlaceholder")} />
       </Field>
@@ -605,7 +635,7 @@ export function ReopenDialog({ open, onClose, sales, submit }: { open: boolean; 
         setTouched(true);
         if (blank) return;
         void request
-          .send(`/api/project-units/${sales.unitId}/reopen-sale`, { to, reason, ...(to === "RESERVED" && endOfDay(day) ? { expiresAt: endOfDay(day) } : {}), ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, t("unitDialogs.reopened", { unit: sales.unitLabel }))
+          .send(`/api/project-units/${sales.unitId}/reopen-sale`, { to, reason, ...(to === "RESERVED" && endOfDay(day) ? { expiresAt: endOfDay(day) } : {}), expectedVersion: salesExpectedVersion(sales.version) }, t("unitDialogs.reopened", { unit: sales.unitLabel }))
           .then((failed) => (failed ? null : onClose()));
       }}
     >
@@ -791,7 +821,7 @@ export function ReserveDialog({ open, onClose, sales, submit }: { open: boolean;
       ...(day !== defaultDay && endOfDay(day) ? { expiresAt: endOfDay(day) } : {}),
       ...(price ? { agreedPrice: price, currency } : {}),
       notes,
-      ...(sales.version > 0 ? { expectedVersion: sales.version } : {}),
+      expectedVersion: salesExpectedVersion(sales.version),
     };
     const failed = await request.send(`/api/project-units/${sales.unitId}/reservations`, body, t("unitDialogs.reserved", { unit: sales.unitLabel }));
     if (!failed) return onClose();

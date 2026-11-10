@@ -5,7 +5,8 @@ import { STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
  * Project structure on a phone (E-05B §33): no tree, a Building and a Floor
- * dropdown, units as cards, search, and a card opening the unit page. Reads
+ * dropdown, units as cards, search, and a card opening the unit in a
+ * full-height sheet, and from there its page. Reads
  * only, so nothing needs putting back.
  */
 
@@ -24,7 +25,14 @@ test("finds a unit by building and floor on a phone", async ({ page }) => {
   await expect(cards).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+  // A card opens the unit in a full-height sheet (2026-11-09); Open full page goes on to the unit page.
   await cards.first().getByRole("link").click();
+  const panel = page.getByTestId("unit-panel");
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("B-104");
+  const box = (await panel.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(page.viewportSize()!.width - 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await panel.getByTestId("unit-panel-open-page").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("B-104");
   await expect(page.getByTestId("unit-location")).toContainText("Block B · Floor 1");
 });

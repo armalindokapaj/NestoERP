@@ -7,8 +7,8 @@ import { expectAccessDenied, mainRegion, recordTable, signIn } from "../fixtures
  * The Procurement journey (PRD #19 §327–§334).
  *
  * Walks the module as the roles its rules are written for: the buyer who runs
- * the purchasing, the CEO who approves what the buyer submitted and may not
- * approve their own, the project manager who sees the buying on jobs they run,
+ * the purchasing, the CEO who approves what the buyer submitted and approves
+ * their own only when nobody else can (2026-11), the project manager who sees the buying on jobs they run,
  * and the roles that get no Procurement at all.
  *
  * The rules worth walking in a browser rather than only asserting in a service

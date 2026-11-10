@@ -3,11 +3,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { updateUnitSchema } from "@/lib/modules/project-structure/structure.schema";
-import { listProjectUnits, listProjectUnitSelection } from "@/lib/modules/project-structure/structure.service";
+import { listProjectUnits, listProjectUnitSelection, unitIdsMatchingCode } from "@/lib/modules/project-structure/structure.service";
 import { updateUnit } from "@/lib/modules/project-structure/structure.units";
 import { unitBulkSchema } from "@/lib/modules/project-structure/unit-bulk.schema";
 import { runStructureBulk } from "@/lib/modules/project-structure/unit-bulk.service";
 import { runSalesBulk } from "@/lib/modules/sales/units/unit-sales.bulk";
+import { updateCommercialDetails } from "@/lib/modules/sales/units/unit-sales.service";
 import { listSalesSelection } from "@/lib/modules/sales/units/unit-sales.inventory";
 import { parseInventoryQuery } from "@/lib/modules/sales/units/unit-sales.schema";
 import { cleanupSessions, COMPANY, loginAs, PROJECT, prisma } from "../../helpers";
@@ -259,6 +260,37 @@ describe("set price", () => {
     const version = await salesVersion(unit.id);
     const outcome = await selling(sales, { action: "price", units: [{ id: unit.id, version: version + 1 }], entry: "TOTAL", amount: "100000" });
     expect(outcome.skipped).toEqual([expect.objectContaining({ id: unit.id, reason: "changed" })]);
+  });
+
+  it("skips a unit ticked with no sales record that somebody priced since, instead of overwriting their price (review 2026-11-10)", async () => {
+    const theirs = await newUnit();
+    const untouched = await newUnit();
+    // Ticked while neither had a sales record.
+    const refs = [{ id: theirs.id, version: 0 }, { id: untouched.id, version: 0 }];
+    // Meanwhile somebody prices one of them on its own page.
+    await updateCommercialDetails(owner, theirs.id, { askingPrice: "150000", priceBasis: "SALEABLE_AREA", currency: "EUR", salesNotes: null, reason: null });
+
+    const outcome = await selling(sales, { action: "price", units: refs, entry: "TOTAL", amount: "120000" });
+    expect(outcome.updated.map((row) => row.id)).toEqual([untouched.id]);
+    expect(outcome.skipped).toEqual([expect.objectContaining({ id: theirs.id, reason: "changed" })]);
+    expect((await prisma.unitCommercialProfile.findUniqueOrThrow({ where: { unitId: theirs.id }, select: { askingPrice: true } })).askingPrice?.toFixed(2)).toBe("150000.00");
+    expect((await prisma.unitCommercialProfile.findUniqueOrThrow({ where: { unitId: untouched.id }, select: { askingPrice: true } })).askingPrice?.toFixed(2)).toBe("120000.00");
+
+    // The same holds for a sale-status change ticked at version 0.
+    const status = await selling(sales, { action: "status", units: [{ id: theirs.id, version: 0 }], change: "put_on_sale" });
+    expect(status.skipped).toEqual([expect.objectContaining({ id: theirs.id, reason: "changed" })]);
+  });
+});
+
+/* Finding units by the code people read ---------------------------------------------- */
+
+describe("a code search outside the unit lists (review 2026-11-10)", () => {
+  it("finds a unit by T-501, T501 and 501, and never another company's", async () => {
+    const unit = await newUnit();
+    for (const q of [`${CODE}-${unit.unitCode}`, `${CODE}${unit.unitCode}`, `${CODE.toLowerCase()} ${unit.unitCode}`, unit.unitCode]) {
+      expect(await unitIdsMatchingCode(COMPANY_A, q, 500), q).toContain(unit.id);
+    }
+    expect(await unitIdsMatchingCode(COMPANY.b, `${CODE}-${unit.unitCode}`, 500)).not.toContain(unit.id);
   });
 });
 

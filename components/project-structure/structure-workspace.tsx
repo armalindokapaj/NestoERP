@@ -26,6 +26,8 @@ import { canChangeTogether, fetchSelection, SelectionHelp, useUnitBulk } from ".
 import { rowFromUnit, selectedFromRow, type UnitListRow } from "./unit-list/unit-list-row";
 import { UnitListTable } from "./unit-list/unit-list-table";
 import { UnitListToolbar } from "./unit-list/unit-list-toolbar";
+import { UnitPanel } from "./unit-panel/unit-panel";
+import { keepOpenUnit, useUnitPanelNav } from "./unit-panel/use-unit-panel";
 import { FormSelect } from "@/components/ui/form-select";
 
 /**
@@ -52,6 +54,9 @@ import { FormSelect } from "@/components/ui/form-select";
  * those and opens Edit details — or Set price when only prices are missing.
  * The Prices page's "skipped, no area" note opens this tab with `tick=no-area`
  * and its floor, which ticks the units it skipped once, on arrival.
+ *
+ * A row opens the unit in the side panel beside the list (2026-11-09), named
+ * in the address as `?unit=`; an empty cell's "Add" opens it on that field.
  */
 
 type Selection = { buildingId: string | null; floorId: string | null };
@@ -88,7 +93,8 @@ function writeUrl(selection: Selection, filters: UnitFilters, page: number) {
   params.delete("floorId");
   if (floor) params.set("floor", floor);
   else if (building) params.set("building", building);
-  url.search = params.toString();
+  // The open unit's panel stays open as the list's own query changes.
+  url.search = keepOpenUnit(params).toString();
   window.history.replaceState(window.history.state, "", url.toString());
 }
 
@@ -108,6 +114,8 @@ export function StructureWorkspace({
   initialPage,
   initialUnits,
   initialTick = null,
+  initialOpenUnit = null,
+  canViewSales = false,
 }: {
   initial: ProjectStructureDTO;
   initialSelection: Selection;
@@ -116,6 +124,10 @@ export function StructureWorkspace({
   initialUnits: UnitListDTO | null;
   /** Ticks these units once on arrival: `no-area`, the units the Prices page skipped for having no area. */
   initialTick?: "no-area" | null;
+  /** The unit the address opens in the side panel (`?unit=`). */
+  initialOpenUnit?: string | null;
+  /** Whether the person may see the units' sales: the panel's price and sale status. */
+  canViewSales?: boolean;
 }) {
   const toast = useToast();
   const t = useTranslations("projects");
@@ -139,6 +151,7 @@ export function StructureWorkspace({
   const [dialog, setDialog] = React.useState<DialogState>(null);
   const [pending, setPending] = React.useState(false);
   const firstLoad = React.useRef(true);
+  const panel = useUnitPanelNav(initialOpenUnit);
 
   const caps = structure.capabilities;
   const projectId = structure.project.id;
@@ -632,6 +645,9 @@ export function StructureWorkspace({
               onPage={setPage}
               loading={loading}
               href={(row) => `/projects/${projectId}/units/${row.id}`}
+              onOpen={(row, field) => panel.open(row.id, field)}
+              openId={panel.openId}
+              addable={{ details: caps.canUpdateUnit, price: caps.canManagePrice }}
               selection={
                 canTick
                   ? {
@@ -838,6 +854,9 @@ export function StructureWorkspace({
         {body}
       </section>
 
+      {/* The unit side panel: what a row opens (2026-11-09). */}
+      <UnitPanel projectId={projectId} nav={panel} ids={rows.map((row) => row.id)} types={structure.unitTypes} canViewSales={canViewSales} fullHref={(id) => `/projects/${projectId}/units/${id}`} onChanged={() => void reloadAll()} />
+
       {/* Dialogs ---------------------------------------------------------------- */}
       {dialog?.kind === "building" ? (
         <BuildingDialog
@@ -896,6 +915,7 @@ export function StructureWorkspace({
           unit={dialog.unit}
           types={structure.unitTypes}
           canManagePrice={caps.canManagePrice}
+          canManageSaleStatus={caps.canManageSaleStatus}
           onSaved={() => {
             void reloadAll();
             const owner = structure.buildings.find((candidate) => candidate.floors.some((level) => level.id === dialog.floor.id));

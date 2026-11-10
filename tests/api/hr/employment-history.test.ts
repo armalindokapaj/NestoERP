@@ -323,10 +323,11 @@ describe("corrections (E-03 §42-§44, §171, §211, §224)", () => {
 });
 
 describe("who sees history (E-03 §56-§62, §191-§200, §245)", () => {
-  it("keeps the history from the CEO, IT, Finance and colleagues, while the CEO still sees the current record", async () => {
+  it("keeps the history from IT, Finance and colleagues; the CEO reads it as the Owner does (2026-11)", async () => {
     const engineer = await employmentOf("engineer@nesto.test");
     await expect(employees.getEmployee(ceo, engineer.id)).resolves.toMatchObject({ memberId: engineer.companyMemberId });
-    await expect(getEmploymentHistory(ceo, engineer.id)).rejects.toBeInstanceOf(AccessError);
+    // The CEO was kept from it until the user's 2026-11 decision: "CEO does everything".
+    await expect(getEmploymentHistory(ceo, engineer.id)).resolves.toMatchObject({ view: "HR" });
     for (const role of ["GROUP_IT", "FINANCE", "ARCHITECT"] as const) {
       await expect(getEmploymentHistory(await loginAs(role), engineer.id)).rejects.toBeInstanceOf(AccessError);
       await expect(getPersonEmploymentHistory(await loginAs(role), engineer.personProfileId)).rejects.toBeInstanceOf(AccessError);
@@ -440,8 +441,10 @@ describe("as of a date (E-03 §141-§144, §178, §214, §247)", () => {
     expect(count(now, "Engineering") - count(then, "Engineering")).toBeGreaterThanOrEqual(1);
     expect((await getOrganizationReport(hr, { asOf: "2019-01-01" })).headcount).toBe(0);
     expect(now.headcount).toBeGreaterThan(20);
-    // The CEO has no history view, so no organization report either (§59, §195).
-    await expect(getOrganizationReport(ceo, {})).rejects.toBeInstanceOf(AccessError);
+    // The CEO reads history since 2026-11, and so the organization report (§59, §195).
+    expect((await getOrganizationReport(ceo, {})).headcount).toBeGreaterThan(0);
+    // Finance has no history view, so no organization report either.
+    await expect(getOrganizationReport(await loginAs("FINANCE"), {})).rejects.toBeInstanceOf(AccessError);
   });
 
   it("leaves every employment in step with its history after all of the above (§215)", async () => {

@@ -7,8 +7,8 @@ import { expectAccessDenied, mainRegion, recordTable, signIn, switchCompany } fr
  * The Legal / Contracts journey (PRD #18 §453–§462).
  *
  * Walks the module as the roles its rules are written for: Legal, who runs the
- * agreements; the CEO, who approves what Legal submitted and may not approve
- * their own; the project manager, who sees the contracts on jobs they run and
+ * agreements; the CEO, who approves what Legal submitted, drafts as the Owner
+ * does since 2026-11, and approves their own only when nobody else can; the project manager, who sees the contracts on jobs they run and
  * no money; Sales, who hands a won deal over; and the roles that get no Legal
  * at all.
  *

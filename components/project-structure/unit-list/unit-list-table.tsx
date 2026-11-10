@@ -17,6 +17,7 @@ import { formatDate } from "@/lib/i18n/format";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { pageWindow } from "@/lib/modules/shared/list-query";
 import { UNIT_SALE_STATUS_LABELS } from "@/lib/modules/sales/units/unit-sales.types";
+import { isPlainClick, offersAdd, type PanelField } from "@/lib/modules/project-structure/unit-panel.rules";
 import { cn } from "@/lib/utils/cn";
 import { areaText, countText } from "../structure-ui";
 import type { UnitListKind } from "../unit-filters";
@@ -32,7 +33,12 @@ import type { UnitListRow } from "./unit-list-row";
  * same tick boxes and the same phone and tablet cards.
  *
  * The whole row opens the unit; the tick box and the menu at the row's ends do
- * not. A tick box is drawn only for somebody who may change units together.
+ * not. With `onOpen` (2026-11-09) a click — or Enter on the code — opens the
+ * unit in the side panel beside the list; the code stays a real link, so a
+ * modified or middle click opens its page. An empty Bedrooms, Gross, Area or
+ * Total price cell offers a faint "Add" to somebody who may fill it in, which
+ * opens the panel on that field. A tick box is drawn only for somebody who may
+ * change units together.
  * Rows are tinted by sale status — green for sale, orange reserved, red sold —
  * which is also said in words: a badge on Sales, a screen-reader line and a
  * colour key on Units.
@@ -43,6 +49,8 @@ import type { UnitListRow } from "./unit-list-row";
 
 /** Narrower cell padding than the table's default, so the columns fit beside the structure tree. */
 const FIT = "[&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-3 [&_td:last-child]:px-2 [&_th:last-child]:px-2";
+/** Sales with its Client, Deal and Expires columns: 8px a side, so the row's menu stays in view at 1440px. */
+const FIT_DEAL = "[&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3";
 
 export type UnitListSelection = {
   isSelected: (id: string) => boolean;
@@ -82,6 +90,22 @@ export function ColourKey() {
   );
 }
 
+/** An empty cell's faint "Add": opens the unit's panel on that field. */
+function AddCell({ row, field, onOpen }: { row: UnitListRow; field: PanelField; onOpen: (row: UnitListRow, field: PanelField) => void }) {
+  const t = useTranslations("projects");
+  return (
+    <button
+      type="button"
+      className="tap-target rounded text-meta text-fg-subtle/80 underline-offset-2 hover:text-accent-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      aria-label={t("unitPanel.addFor", { field: t(`unitPanel.field.${field}`), code: row.label })}
+      onClick={() => onOpen(row, field)}
+      data-testid={`unit-add-${field}`}
+    >
+      {t("unitPanel.add")}
+    </button>
+  );
+}
+
 function RowTick({ row, selection }: { row: UnitListRow; selection: UnitListSelection }) {
   const t = useTranslations("projects");
   return <Checkbox checked={selection.isSelected(row.id)} onCheckedChange={() => selection.toggle(row)} aria-label={t("unitList.tick", { code: row.label })} data-testid="unit-tick" />;
@@ -100,6 +124,9 @@ export function UnitListTable({
   rowMenu,
   cardActions,
   deal,
+  onOpen,
+  openId = null,
+  addable = { details: false, price: false },
 }: {
   kind: UnitListKind;
   rows: UnitListRow[];
@@ -118,6 +145,12 @@ export function UnitListTable({
   cardActions?: (row: UnitListRow, index: number) => React.ReactNode;
   /** Sales: which reservation columns to draw — only once a unit on screen is reserved or sold. */
   deal?: { show: boolean; client: boolean; deal: boolean };
+  /** Opens a unit in the side panel instead of its page, on the field an empty cell's "Add" names. */
+  onOpen?: (row: UnitListRow, field?: PanelField) => void;
+  /** The unit the panel shows, marked in the list. */
+  openId?: string | null;
+  /** Who may fill an empty cell in: the details (bedrooms, areas) and the price. */
+  addable?: { details: boolean; price: boolean };
 }) {
   const locale = useLocale();
   const t = useTranslations("projects");
@@ -131,11 +164,22 @@ export function UnitListTable({
   // The table from md on Units (no tree beside it below lg); from lg on Sales, which is wider (mobile audit 2d).
   const tableShown = sales ? "hidden lg:block" : "hidden md:block";
   const cardsShown = sales ? "lg:hidden" : "md:hidden";
+  /** A plain click on the code opens the panel; a modified or middle click goes on to the page. */
+  const openFromLink = (row: UnitListRow) =>
+    onOpen
+      ? (event: React.MouseEvent<HTMLAnchorElement>) => {
+          if (!isPlainClick(event)) return;
+          event.preventDefault();
+          onOpen(row);
+        }
+      : undefined;
+  /** The cell's value, or its "Add" while it is empty and the reader may fill it in. */
+  const orAdd = (row: UnitListRow, field: PanelField, value: React.ReactNode) => (onOpen && offersAdd(row, field, addable) ? <AddCell row={row} field={field} onOpen={onOpen} /> : value);
 
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
       <div className={tableShown}>
-        <Table label={sales ? t("unitList.salesTable") : t("unitTable.units")} data-testid={ids.table} className={FIT}>
+        <Table label={sales ? t("unitList.salesTable") : t("unitTable.units")} data-testid={ids.table} className={showDeal ? FIT_DEAL : FIT}>
           <TableHead>
             <tr>
               {selection ? (
@@ -175,10 +219,13 @@ export function UnitListTable({
                 data-status={sales ? row.saleStatus : row.status}
                 interactive
                 selected={selection?.isSelected(row.id)}
-                className={COMMERCIAL_ROW_TINT[row.status]}
+                aria-current={openId === row.id ? "true" : undefined}
+                className={cn(COMMERCIAL_ROW_TINT[row.status], openId === row.id && "[&>td]:shadow-[inset_0_1px_0_var(--nesto-accent),inset_0_-1px_0_var(--nesto-accent)]")}
                 onClick={(event) => {
-                  // Anywhere on the row opens the unit; the tick box, the menu and the client and deal links keep their own.
-                  if (opensRow(event)) nav.push(href(row));
+                  // Anywhere on the row opens the unit; the tick box, the menu, the "Add"s and the client and deal links keep their own.
+                  if (!opensRow(event)) return;
+                  if (onOpen) onOpen(row);
+                  else nav.push(href(row));
                 }}
               >
                 {selection ? (
@@ -187,7 +234,7 @@ export function UnitListTable({
                   </TableCell>
                 ) : null}
                 <TableCell className="whitespace-nowrap">
-                  <Link href={href(row)} className="font-medium text-fg hover:text-accent-strong">
+                  <Link href={href(row)} className="font-medium text-fg hover:text-accent-strong" onClick={openFromLink(row)} data-testid="unit-open">
                     {row.label}
                   </Link>
                   {sales ? <span className="block text-meta text-fg-subtle">{unitTypeName(row.typeName, locale)}</span> : <StatusWords row={row} />}
@@ -195,16 +242,23 @@ export function UnitListTable({
                   {row.archived ? <Badge className="ml-2" data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
                 </TableCell>
                 {sales ? null : <TableCell>{unitTypeName(row.typeName, locale)}</TableCell>}
-                <TableCell className="whitespace-nowrap">{floorName(row.floorName, locale)}</TableCell>
-                <TableCell numeric>{countText(row.bedrooms)}</TableCell>
+                {/* A long floor name ("Ground Floor Mezzanine") wraps, so Sales' reservation columns fit at 1440px and Units at 1024px. */}
+                <TableCell className={sales ? "min-w-[7.5rem]" : "min-w-[6.5rem]"}>{floorName(row.floorName, locale)}</TableCell>
+                <TableCell numeric>{orAdd(row, "bedrooms", countText(row.bedrooms))}</TableCell>
                 {sales ? (
                   <TableCell numeric className="whitespace-nowrap" data-testid="sales-area" data-basis={row.saleAreaBasis}>
-                    {areaText(row.saleArea, locale)}
-                    {areaWord(row) ? <span className="block text-meta text-fg-subtle">{areaWord(row)}</span> : null}
+                    {orAdd(
+                      row,
+                      "area",
+                      <>
+                        {areaText(row.saleArea, locale)}
+                        {areaWord(row) ? <span className="block text-meta text-fg-subtle">{areaWord(row)}</span> : null}
+                      </>,
+                    )}
                   </TableCell>
                 ) : (
                   <TableCell numeric className="whitespace-nowrap">
-                    {areaText(row.grossArea, locale)}
+                    {orAdd(row, "gross", areaText(row.grossArea, locale))}
                   </TableCell>
                 )}
                 {sales ? (
@@ -213,7 +267,7 @@ export function UnitListTable({
                   </TableCell>
                 ) : null}
                 <TableCell numeric className="whitespace-nowrap" data-testid="unit-price">
-                  {price(row)}
+                  {orAdd(row, "price", price(row))}
                 </TableCell>
                 {sales ? (
                   <TableCell numeric className="whitespace-nowrap text-fg-muted">
@@ -221,9 +275,10 @@ export function UnitListTable({
                   </TableCell>
                 ) : null}
                 {showDeal && deal?.client ? (
-                  <TableCell className="max-w-[10rem] truncate">
+                  <TableCell>
+                    {/* A table cell ignores max-width, so the link carries it: a long name is cut, not the row's menu. */}
                     {row.client ? (
-                      <Link href={`/clients/${row.client.id}`} className="hover:underline">
+                      <Link href={`/clients/${row.client.id}`} className="block max-w-[8rem] truncate hover:underline" title={row.client.name}>
                         {row.client.name}
                       </Link>
                     ) : (
@@ -232,9 +287,9 @@ export function UnitListTable({
                   </TableCell>
                 ) : null}
                 {showDeal && deal?.deal ? (
-                  <TableCell className="max-w-[10rem] truncate">
+                  <TableCell>
                     {row.deal ? (
-                      <Link href={`/sales/opportunities/${row.deal.id}`} className="hover:underline">
+                      <Link href={`/sales/opportunities/${row.deal.id}`} className="block max-w-[8rem] truncate hover:underline" title={row.deal.name}>
                         {row.deal.name}
                       </Link>
                     ) : (
@@ -262,6 +317,7 @@ export function UnitListTable({
               key={row.id}
               data={{ "data-testid": ids.card, "data-unit-code": row.unitCode, "data-status": sales ? row.saleStatus : row.status }}
               href={href(row)}
+              onOpen={openFromLink(row)}
               selection={selection ? <span className="grid size-11 place-items-center"><RowTick row={row} selection={selection} /></span> : undefined}
               selected={selection?.isSelected(row.id)}
               title={

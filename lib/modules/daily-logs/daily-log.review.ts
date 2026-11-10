@@ -5,6 +5,7 @@ import { can } from "@/lib/access/can";
 import { assertPermission } from "@/lib/access/guards";
 import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
+import { assertOwnDecisionAllowed } from "@/lib/core/approvals/self-approval";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionFor } from "@/lib/core/notifications/attention.service";
@@ -108,18 +109,28 @@ export async function submitDailyLog(context: UserContext, dailyLogId: string, i
   return { reviewerMemberId };
 }
 
-function assertNotSubmitter(context: UserContext, log: ReadableLog) {
-  if (log.submittedByMemberId === context.membershipId) {
-    throw fail("DAILY_LOG_SELF_REVIEW_BLOCKED", "You submitted this log, so somebody else reviews it.", "FORBIDDEN");
-  }
+/**
+ * Somebody else reviews what you submitted. A CEO may review their own only
+ * when nobody else could, recorded as self-approved (lib/core/approvals/self-approval.ts).
+ */
+async function assertNotSubmitter(context: UserContext, log: ReadableLog, tx: Prisma.TransactionClient, decision: "REVIEWED" | "RETURNED") {
+  await assertOwnDecisionAllowed(context, {
+    own: log.submittedByMemberId === context.membershipId,
+    record: { type: "daily_log", id: log.id },
+    mayDecide: (member) => can(member, "daily_log.review"),
+    refusal: () => fail("DAILY_LOG_SELF_REVIEW_BLOCKED", "You submitted this log, so somebody else reviews it.", "FORBIDDEN"),
+    tx,
+    projectId: log.projectId,
+    decision,
+  });
 }
 
 export async function reviewDailyLog(context: UserContext, dailyLogId: string, input: { expectedVersion: number }) {
   const log = await findReadableLog(context, dailyLogId);
   assertPermission(context, "daily_log.review");
   if (log.status !== "SUBMITTED") throw fail("DAILY_LOG_NOT_SUBMITTED", "Only a submitted log is reviewed.", "CONFLICT");
-  assertNotSubmitter(context, log);
   await prisma.$transaction(async (tx) => {
+    await assertNotSubmitter(context, log, tx, "REVIEWED");
     await transition(tx, log, input.expectedVersion, ["SUBMITTED"], { status: "REVIEWED", reviewedAt: new Date(), reviewedByMemberId: context.membershipId });
     await resolveReviewAttention(tx, context.companyId, log.id);
     await enqueueNotificationEvent(tx, {
@@ -140,9 +151,9 @@ export async function returnDailyLog(context: UserContext, dailyLogId: string, i
   const log = await findReadableLog(context, dailyLogId);
   assertPermission(context, "daily_log.return");
   if (log.status !== "SUBMITTED") throw fail("DAILY_LOG_NOT_SUBMITTED", "Only a submitted log is returned.", "CONFLICT");
-  assertNotSubmitter(context, log);
   if (!input.reason.trim()) throw fail("DAILY_LOG_REASON_REQUIRED", "Say what needs correcting.");
   await prisma.$transaction(async (tx) => {
+    await assertNotSubmitter(context, log, tx, "RETURNED");
     await transition(tx, log, input.expectedVersion, ["SUBMITTED"], { status: "CORRECTION_REQUIRED", returnedAt: new Date(), returnedByMemberId: context.membershipId, returnReason: input.reason });
     await resolveReviewAttention(tx, context.companyId, log.id);
     await enqueueNotificationEvent(tx, {

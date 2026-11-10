@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
  * continue" runs the same checks and request as its button (AUD-03 §3, §4).
  */
 
-export type Submit = (url: string, body: Record<string, unknown>, success: string, method?: string) => Promise<void>;
+export type Submit = (url: string, body: Record<string, unknown>, success: string, method?: string) => Promise<unknown>;
 
 export type DialogField =
   | { name: string; label: string; kind: "text" | "textarea"; required?: boolean; initial?: string; hint?: string; max?: number }

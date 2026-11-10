@@ -599,7 +599,7 @@ export async function approveContract(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "CONTRACT", recordId: contractId, decision: "APPROVED" });
 
     await moveStatus(tx, context, existing, "approve");
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
@@ -627,7 +627,7 @@ export async function rejectContract(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "CONTRACT", recordId: contractId, decision: "REJECTED" });
 
     // Back to review rather than to draft: the reviewer's work is not undone by
     // a rejected approval (PRD #18 §114).
@@ -664,7 +664,7 @@ export async function returnContractForRevision(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "CONTRACT", contractId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "CONTRACT", recordId: contractId, decision: "RETURNED" });
 
     await moveStatus(tx, context, existing, "return_for_revision", {}, reason);
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);

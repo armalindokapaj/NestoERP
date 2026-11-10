@@ -298,7 +298,7 @@ export async function approveProposal(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PROPOSAL", recordId: proposalId, decision: "APPROVED" });
 
     await assertOpportunityOpen(tx, context, existing.opportunityId);
     await moveStatus(tx, context, existing, "APPROVED");
@@ -329,7 +329,7 @@ export async function rejectProposal(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PROPOSAL", recordId: proposalId, decision: "REJECTED" });
 
     await moveStatus(tx, context, existing, "REJECTED");
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", reason);
@@ -364,7 +364,7 @@ export async function returnProposal(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "PROPOSAL", proposalId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "PROPOSAL", recordId: proposalId, decision: "RETURNED" });
 
     await moveStatus(tx, context, existing, "DRAFT");
     await approvals.decideApproval(tx, context, approval.id, "RETURNED", reason);

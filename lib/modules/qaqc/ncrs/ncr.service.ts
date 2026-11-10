@@ -282,6 +282,7 @@ export async function getNcr(context: UserContext, ncrId: string): Promise<NcrDe
     createdAt: row.createdAt.toISOString(),
     capabilities: capabilitiesFor(context, row, {
       pendingSubmitter: pending?.submittedByMemberId ?? null,
+      ownDecisionAllowed: await approvals.mayDecideSubmission(context, { recordType: "NCR", recordId: row.id, submittedByMemberId: pending?.submittedByMemberId ?? null }),
       gaps,
     }),
   };
@@ -685,7 +686,7 @@ export async function approveNcr(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "NCR", ncrId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "NCR", recordId: ncrId, decision: "APPROVED" });
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", note);
 
     const updated = await tx.nonConformanceReport.updateMany({
@@ -737,7 +738,7 @@ export async function rejectNcr(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "NCR", ncrId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "NCR", recordId: ncrId, decision: "REJECTED" });
     await approvals.decideApproval(tx, context, approval.id, "REJECTED", note);
 
     // Back to whoever owns it, with the rejection on the record (PRD #21 §135).
@@ -1193,11 +1194,11 @@ function toSummaryDTO(
 function capabilitiesFor(
   context: UserContext,
   row: DetailRow,
-  state: { pendingSubmitter: string | null; gaps: string[] },
+  state: { pendingSubmitter: string | null; ownDecisionAllowed: boolean; gaps: string[] },
 ) {
   const selfSubmitted = state.pendingSubmitter === context.membershipId;
   const mayDecide =
-    isNcrDecidable(row.status) && (!selfSubmitted || can(context, "qaqc.approval.self"));
+    isNcrDecidable(row.status) && (!selfSubmitted || state.ownDecisionAllowed);
 
   return {
     canEdit: isNcrRecordEditable(row.status) && can(context, "qaqc.ncr.update"),

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/database/prisma";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { buildDocumentAccessWhere, findReadableDocument } from "@/lib/modules/documents/document.parent-access";
 import { formatFileSize, isPreviewable } from "@/lib/modules/documents/document.files";
-import { decideReview } from "@/lib/modules/documents/versions/review.service";
+import { decideReview, mayReviewOwnRequest } from "@/lib/modules/documents/versions/review.service";
 import {
   approvalError,
   dateRange,
@@ -105,7 +105,8 @@ async function buildItems(context: UserContext, entries: Array<{ row: ReviewRow;
     const pending = row.status === "PENDING";
     const mine = row.reviewerMemberId === context.membershipId;
     const lent = !mine && lenders.includes(row.reviewerMemberId) && pending && (await stillReviewable(context.companyId, row.reviewerMemberId, row.documentId));
-    const self = row.requestedByMemberId === context.membershipId;
+    // Your own request is somebody else's to review, unless the self rule allows it (lib/core/approvals/self-approval.ts).
+    const self = row.requestedByMemberId === context.membershipId && !(pending && mine && (await mayReviewOwnRequest(context, row.documentId)));
     const able = pending && (mine || lent) && !self && can(context, "document.review.decide");
     const overdue = pending && row.dueAt !== null && row.dueAt < today;
     items.push({
@@ -359,7 +360,7 @@ export const documentReviewProvider: ApprovalProvider = {
       if (row.decidedByMemberId === context.membershipId && row.status === wanted) return { outcome: wanted, alreadyApplied: true };
       throw approvalError("APPROVAL_ALREADY_DECIDED", "This approval was already decided.");
     }
-    if (row.requestedByMemberId === context.membershipId) {
+    if (row.requestedByMemberId === context.membershipId && !(await mayReviewOwnRequest(context, row.documentId))) {
       throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "You asked for this review, so somebody else has to decide it.", "FORBIDDEN");
     }
     try {

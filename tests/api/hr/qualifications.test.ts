@@ -140,10 +140,10 @@ describe("what colleagues, the person and HR see (E-02 §32-§37, §103, §111, 
     expect(asHr).toContain(hrOnly.id);
     expect(asHr).toContain(restricted.id);
 
-    // The CEO reads HR's professional file but not what HR restricted to private records.
+    // The CEO reads HR's file as the Owner does, restricted records included (2026-11).
     const asCeo = (await tab(ceo)).records!.map((row) => row.id);
     expect(asCeo).toContain(hrOnly.id);
-    expect(asCeo).not.toContain(restricted.id);
+    expect(asCeo).toContain(restricted.id);
     // The person may not pick what is HR's to set.
     expect(await codeOf(add(engineer, { type: "SKILL", title: "Hidden from me", visibility: "HR_ONLY" }))).toBe("VALIDATION_ERROR");
   });

@@ -146,7 +146,7 @@ access.
 | --- | --- | --- |
 | Owner | Manage, company | Reopen, settings |
 | HR | Manage, company | Reopen, settings |
-| CEO / Director | Contribute, company | + project hours, approve, return, reject |
+| CEO / Director | Manage, company | As the Owner: reopen, settings (2026-11); decides their own week only when nobody else can |
 | Group IT, Architect, Engineer, Legal, Sales, Procurement, Inventory, QA/QC, HSE | Contribute, self | Log and submit own time |
 | Finance | Contribute, self | + project hours (no descriptions) |
 | Project Manager | Approve, project | Team and project views for the projects they run |

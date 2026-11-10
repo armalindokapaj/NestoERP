@@ -11,6 +11,9 @@ import { canChangeTogether, fetchSelection, SelectionHelp, useUnitBulk } from "@
 import { rowFromInventory, selectedFromRow, type UnitListRow } from "@/components/project-structure/unit-list/unit-list-row";
 import { UnitListTable } from "@/components/project-structure/unit-list/unit-list-table";
 import { UnitListToolbar } from "@/components/project-structure/unit-list/unit-list-toolbar";
+import { UnitPanel } from "@/components/project-structure/unit-panel/unit-panel";
+import { keepOpenUnit, useUnitPanelNav } from "@/components/project-structure/unit-panel/use-unit-panel";
+import type { UnitTypeOption } from "@/lib/modules/project-structure/structure.types";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { salesLabel } from "@/lib/i18n/modules/sales/labels";
@@ -36,6 +39,10 @@ import { useSalesTranslations } from "@/components/sales/sales-text";
  * menu offers what the reader may do to that unit: open it, set its price, put
  * it on sale or take it off, and reserve or release it on its Sales section
  * with the dialog open (`?action=`).
+ *
+ * A row opens the unit in the side panel beside the list (2026-11-09) — its
+ * details, price and sale-status changes — named in the address as `?unit=`;
+ * "Open full page" goes on to its Sales section.
  */
 
 export type InventoryFilters = UnitListFilters;
@@ -44,7 +51,7 @@ const QUICK: Array<UnitSaleStatus | ""> = ["", "FOR_SALE", "NOT_PRICED", "ON_HOL
 
 type Place = { id: string; name: string; floors: Array<{ id: string; name: string }> };
 
-export type InventoryActions = { canReserve: boolean; canRelease: boolean; canManagePrice: boolean; canManageStatus: boolean };
+export type InventoryActions = { canReserve: boolean; canRelease: boolean; canManagePrice: boolean; canManageStatus: boolean; canUpdateUnit: boolean };
 
 function queryString(filters: InventoryFilters, page: number): string {
   const params = filterParams(filters, "sales");
@@ -59,13 +66,16 @@ export function SalesInventory({
   buildings,
   unitTypes,
   actions,
+  initialOpenUnit = null,
 }: {
   projectId: string;
   initial: InventoryDTO;
   initialFilters: InventoryFilters;
   buildings: Place[];
-  unitTypes: Array<{ id: string; name: string }>;
+  unitTypes: UnitTypeOption[];
   actions: InventoryActions;
+  /** The unit the address opens in the side panel (`?unit=`). */
+  initialOpenUnit?: string | null;
 }) {
   const t = useSalesTranslations();
   const tp = useTranslations("projects");
@@ -78,6 +88,7 @@ export function SalesInventory({
   const [reloadKey, setReloadKey] = React.useState(0);
   const firstLoad = React.useRef(true);
   const active = activeCount(filters, "sales");
+  const panel = useUnitPanelNav(initialOpenUnit);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setFilters((current) => (current.q === search ? current : { ...current, q: search })), 300);
@@ -86,7 +97,8 @@ export function SalesInventory({
 
   React.useEffect(() => {
     const url = new URL(window.location.href);
-    url.search = queryString(filters, page);
+    // The open unit's panel stays open as the list's own query changes.
+    url.search = keepOpenUnit(new URLSearchParams(queryString(filters, page))).toString();
     window.history.replaceState(window.history.state, "", url.toString());
     if (firstLoad.current) {
       firstLoad.current = false;
@@ -326,11 +338,16 @@ export function SalesInventory({
             }
             rowMenu={rowMenu}
             cardActions={cardActions}
+            onOpen={(row, field) => panel.open(row.id, field)}
+            openId={panel.openId}
+            addable={{ details: actions.canUpdateUnit, price: actions.canManagePrice }}
           />
           {bulk.bar}
         </div>
       )}
       {bulk.dialogs}
+      {/* The unit side panel: what a row opens (2026-11-09). */}
+      <UnitPanel projectId={projectId} nav={panel} ids={rows.map((row) => row.id)} types={unitTypes} canViewSales fullHref={(id) => `/projects/${projectId}/units/${id}/sales`} onChanged={reload} />
     </div>
   );
 }

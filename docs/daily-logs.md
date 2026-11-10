@@ -93,7 +93,7 @@ project (projects module + `project.view` + project scope) and hold
 | Owner | Manage, company | Everything, including company settings |
 | Project Manager | Manage, project | Write, review, return, lock, void, correct; their project's rules |
 | Engineer | Contribute, assigned | Start, write every section, submit |
-| CEO / Director | View, company | Read |
+| CEO / Director | Manage, company | As the Owner, company rules included (2026-11); reviews their own log only when nobody else can |
 | Architect | View, assigned | Read; work activities and instructions |
 | Procurement | View, company | Read; deliveries |
 | Inventory | View, company | Read |

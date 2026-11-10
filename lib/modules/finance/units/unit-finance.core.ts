@@ -5,6 +5,7 @@ import { AccessError } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
 import { companyDays } from "@/lib/core/notifications/company-day";
 import { prisma } from "@/lib/database/prisma";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { readableUnitWhere, structureOpen } from "@/lib/modules/project-structure/structure.permissions";
 import { fail, findReadableUnit } from "@/lib/modules/project-structure/structure.service";
 import { paidByContract, paidByInstallment } from "../finance.settlement";
@@ -64,7 +65,8 @@ export type FinanceContract = {
   clientId: string | null;
   opportunityId: string | null;
   ownerMemberId: string;
-  units: Array<{ unitId: string; unitCode: string; projectId: string; released: boolean }>;
+  /** `label` is the unit as people read it, "T-501" (2026-11-09): what notices and pages name it by. */
+  units: Array<{ unitId: string; unitCode: string; label: string; projectId: string; released: boolean }>;
 };
 
 /**
@@ -87,13 +89,13 @@ export async function findFinanceContract(context: UserContext, contractId: stri
       clientId: true,
       opportunityId: true,
       ownerMemberId: true,
-      units: { orderBy: { createdAt: "asc" }, select: { unitId: true, releasedAt: true, unit: { select: { unitCode: true, projectId: true } } } },
+      units: { orderBy: { createdAt: "asc" }, select: { unitId: true, releasedAt: true, unit: { select: { unitCode: true, projectId: true, floor: { select: { building: { select: { code: true } } } } } } } },
     },
   });
   if (!contract) throw fail("CONTRACT_NOT_FOUND", "That contract could not be found.", "NOT_FOUND");
   // Found first, refused second: another company's contract is not found whatever the reader's own modules (§105).
   if (!financeCapabilities(context).canView) throw new AccessError("FORBIDDEN", "You cannot see this unit's finance.");
-  return { ...contract, units: contract.units.map((row) => ({ unitId: row.unitId, unitCode: row.unit.unitCode, projectId: row.unit.projectId, released: row.releasedAt !== null })) };
+  return { ...contract, units: contract.units.map((row) => ({ unitId: row.unitId, unitCode: row.unit.unitCode, label: unitLabel(row.unit.floor.building.code, row.unit.unitCode), projectId: row.unit.projectId, released: row.releasedAt !== null })) };
 }
 
 /** The unit's one live contract, if it has one (§8). */

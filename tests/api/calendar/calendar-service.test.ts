@@ -215,19 +215,30 @@ describe("visibility of Calendar-owned events (§49-§53, §181)", () => {
   });
 });
 
+/**
+ * A company-wide HR reader who does not decide leave. The CEO was one until
+ * 2026-11, when the CEO came to hold the Owner's HR rights; the decision is
+ * taken away here.
+ */
+async function hrReaderWithoutDecision() {
+  const ceo = await loginAs("CEO");
+  return { ...ceo, permissions: ceo.permissions.filter((permission) => permission !== "hr.leave.approve") };
+}
+
 describe("HR privacy and busy-only (§47, §48, §180, §182)", () => {
   const range = { from: new Date("2026-09-01T00:00:00Z"), to: new Date("2026-10-20T00:00:00Z") };
 
-  it("shows the leave type to those who decide leave, 'Unavailable' to the CEO and the project manager, and nothing to others", async () => {
-    const find = async (role: Parameters<typeof loginAs>[0]) =>
-      (await getCalendar(await loginAs(role), range, {})).events.filter((row) => row.sourceId === "leave_006");
+  it("shows the leave type to those who decide leave, 'Unavailable' to other HR readers and the project manager, and nothing to others", async () => {
+    const inCalendar = async (context: Awaited<ReturnType<typeof loginAs>>) => (await getCalendar(context, range, {})).events.filter((row) => row.sourceId === "leave_006");
+    const find = async (role: Parameters<typeof loginAs>[0]) => inCalendar(await loginAs(role));
 
     const hr = await find("HR");
     expect(hr).toHaveLength(1);
     expect(hr[0].title).toContain("Parental leave");
+    // The CEO decides leave as the Owner does since 2026-11 ("CEO does everything").
+    expect((await find("CEO"))[0]?.title).toContain("Parental leave");
 
-    for (const role of ["CEO", "PROJECT_MANAGER"] as const) {
-      const rows = await find(role);
+    for (const rows of [await inCalendar(await hrReaderWithoutDecision()), await find("PROJECT_MANAGER")]) {
       for (const row of rows) {
         expect(row.privacyMode).toBe("BUSY_ONLY");
         expect(row.title).toMatch(/— Unavailable$/);
@@ -239,8 +250,7 @@ describe("HR privacy and busy-only (§47, §48, §180, §182)", () => {
   });
 
   it("carries nothing in a busy-only event beyond a name and a time", async () => {
-    const ceo = await loginAs("CEO");
-    const busy = (await getCalendar(ceo, range, {})).events.filter((row) => row.privacyMode === "BUSY_ONLY");
+    const busy = (await getCalendar(await hrReaderWithoutDecision(), range, {})).events.filter((row) => row.privacyMode === "BUSY_ONLY");
     expect(busy.length).toBeGreaterThan(0);
     for (const row of busy) {
       expect(row.href).toBe("");

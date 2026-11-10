@@ -56,6 +56,7 @@ export const rows = {
   "You are named on this record, so somebody else decides it.": "Ju jeni emëruar në këtë regjistrim, ndaj e vendos dikush tjetër.",
   "Waiting for an approver.": "Në pritje të një miratuesi.",
   "You requested this, so somebody else has to decide it.": "Këtë e kërkuat ju, ndaj duhet ta vendosë dikush tjetër.",
+  "You asked for this, so somebody else has to decide it. {0} can.": "Këtë e kërkuat ju, ndaj duhet ta vendosë dikush tjetër. Mund ta vendosë {0}.",
   "Give a reason.": "Jepni një arsye.",
   "This request was resubmitted since you opened it. Review the latest version.": "Kjo kërkesë u ridorëzua që kur e hapët. Shqyrtoni versionin më të fundit.",
   "This approval was already decided.": "Për këtë miratim është marrë tashmë vendim.",

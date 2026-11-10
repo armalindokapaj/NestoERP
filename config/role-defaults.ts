@@ -1103,10 +1103,18 @@ const MATRIX: Record<RoleKey, RoleMatrixRow> = {
     calendar: "M/C", approvals: "A/C", announcements: "M/C", meetings: "C/C", timesheets: "M/C", workforce: "M/C", projects: "V/C", tasks: "C/S", documents: "C/D", hr: "M/C",
     team: "M/C", company: "V/C", settings: "V/S", support: "V/C", organization: "V/C",
   },
+  /*
+   * The CEO runs the company: every business module at the Owner's level and
+   * scope — create, edit, approve, export and the module's own settings (the
+   * user, 2026-11: "CEO does everything"). It was an approver and viewer before;
+   * a CEO, and everybody holding CEO access, could not raise an invoice or
+   * reserve a unit. Deciding their own request is the one limit, and it is not
+   * in this matrix: lib/core/approvals/self-approval.ts.
+   */
   CEO: {
-    calendar: "C/C", approvals: "A/C", announcements: "M/C", meetings: "M/C", timesheets: "C/C", dailyLogs: "V/C", workforce: "V/C", contractors: "V/C", engineering: "V/C", projects: "M/C", tasks: "V/C", clients: "V/C", documents: "V/C",
-    finance: "A/C", hr: "V/C", sales: "A/C", contracts: "A/C",
-    procurement: "A/C", inventory: "V/C", qaqc: "V/C", hse: "V/C",
+    calendar: "M/C", approvals: "M/C", announcements: "M/C", meetings: "M/C", timesheets: "M/C", dailyLogs: "M/C", workforce: "M/C", contractors: "M/C", engineering: "M/C", projects: "M/C", tasks: "M/C", clients: "M/C", documents: "M/C",
+    finance: "M/C", hr: "M/C", sales: "M/C", contracts: "M/C",
+    procurement: "M/C", inventory: "M/C", qaqc: "M/C", hse: "M/C",
     // The CEO administers the company's own users (CEO Users & Roles §4):
     // Team manage at company scope, and Settings read so Company Settings
     // opens its Users and Roles sections. Owner and Group IT stay out of reach.
@@ -1285,55 +1293,21 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
   },
   CEO: {
     /*
-     * Commercial status, prices and reservations of every unit, read (E-05E §39);
-     * its contract and collection too, and approving a sale where the Sold rule
-     * asks (E-05F §56).
-     *
-     * And setting projects up: creating them, keeping their details and status,
-     * the company's project and unit types, and the buildings, floors and units
-     * of each (E-05A §29, §62; E-05B §59). A Company Admin held this before
-     * E-06; with administration now technical and group-level, the company's
-     * executive takes it.
+     * The Owner's module extras, so the CEO works every module as the Owner
+     * does (the user, 2026-11): notices to a project, the company's daily-log
+     * and planning rules, project and unit types, archiving units, and every
+     * side of a unit — its sale, contract and collection, and approving a sale
+     * where the Sold rule asks. The rest of the projects module is the ladder's.
      */
+    announcements: { extra: ["announcement.manage_project"] },
+    dailyLogs: { extra: ["daily_log.settings.manage"] },
     projects: {
       extra: [
-        "project.unit.sales.view",
-        "project.unit.legal.view",
-        "project.unit.finance.view",
-        "project.unit.sale.approve",
-        "project.create",
-        "project.update",
-        "project.status.manage",
+        "project_planning.settings.manage",
         "project.type.manage",
         "project.unit_type.manage",
-        "project.structure.manage",
-        "project.building.create",
-        "project.building.update",
-        "project.building.delete",
-        "project.floor.create",
-        "project.floor.update",
-        "project.floor.delete",
-        "project.unit.create",
-        "project.unit.update",
-        "project.unit.delete",
-        "project.unit.move",
-        /*
-         * The CEO runs the company's projects and units end to end (user,
-         * 2026-09-29): the project's team, media and lifecycle, and on each unit
-         * its documents, media and publication, and its Sales, Legal and Finance
-         * work. Deciding a sale stays separate: nobody approves their own request.
-         */
-        "project.manage",
-        "project.archive",
-        "project.restore",
-        "project.manager.assign",
-        "project.member.add",
-        "project.member.update",
-        "project.member.remove",
-        "project.media.manage",
-        "project.unit.documents.manage",
-        "project.unit.media.manage",
         "project.unit.archive",
+        "project.unit.sales.view",
         "project.unit.sales_status.manage",
         "project.unit.price.manage",
         "project.unit.reserve",
@@ -1342,6 +1316,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.mark_sold",
         "project.unit.reopen_sale",
         "project.unit.sales_correct",
+        "project.unit.sale.approve",
+        "project.unit.legal.view",
         "project.unit.contract.request",
         "project.unit.contract.create",
         "project.unit.contract.update",
@@ -1350,6 +1326,7 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.contract.cancel",
         "project.unit.contract.documents.manage",
         "project.unit.contract.amend",
+        "project.unit.finance.view",
         "project.unit.finance.manage_schedule",
         "project.unit.finance.issue_invoice",
         "project.unit.finance.record_payment",
@@ -1358,83 +1335,27 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.finance.correct",
       ],
     },
-    /**
-     * Time summaries by project, and the decision on the weeks they are the
-     * designated approver of — without everybody's entry text (PRD #42 §132).
-     */
-    timesheets: { extra: ["timesheet.project.view", "timesheet.approve", "timesheet.return", "timesheet.reject"] },
-    // Executive visibility without the bookkeeping surface (PRD #5 §16,
-    // PRD #15 §285): overview, approvals, reports and read access, with no
-    // operational create/edit controls and no self-approval.
-    finance: {
-      extra: ["finance.company_summary.view"],
-      deny: [
-        "finance.invoice.create",
-        "finance.invoice.update",
-        "finance.invoice.submit",
-        "finance.invoice.mark_sent",
-        "finance.payment.create",
-        "finance.expense.create",
-        "finance.expense.update",
-        "finance.expense.submit",
-        "finance.budget.create",
-        "finance.budget.update",
-        "finance.budget.submit",
-        "finance.commitment.create",
-        "finance.commitment.update",
-        "finance.commitment.submit",
-        "finance.export",
-        "finance.document.create",
+    // The finance step on large purchase orders, as the Owner holds it (PRD #41 §143).
+    procurement: { extra: ["procurement.order.finance_approve"] },
+    // The confidential terms, as the Owner reads them (PRD #18 §23).
+    contracts: { extra: ["legal.confidential_terms.view"] },
+    // Pay, the private reasons, correcting history and the restricted files of the employee file, as the Owner (PRD #16 §17, E-03, E-02).
+    hr: {
+      extra: [
+        "hr.compensation.view",
+        "hr.compensation.update",
+        "hr.employment_history.view_private",
+        "hr.employment_history.correct",
+        "hr.document.finance.view",
+        "hr.document.restricted.view",
       ],
     },
-    /**
-     * Commercial approval without the sales desk (PRD #17 §13, §23, §351).
-     *
-     * The CEO reads the pipeline, decides proposals and runs the reports. They
-     * do not work leads or edit opportunities: APPROVE sits above CONTRIBUTE on
-     * the ladder, so without this the approver would also be an operator.
+    /*
+     * Not the Owner's `finance.approval.self`, `sales.approval.self` or
+     * `legal.approval.self`: those decide your own without conditions. The CEO
+     * decides their own only when nobody else in the company could
+     * (lib/core/approvals/self-approval.ts).
      */
-    sales: {
-      deny: [
-        "sales.lead.create",
-        "sales.lead.update",
-        "sales.lead.qualify",
-        "sales.lead.disqualify",
-        "sales.opportunity.create",
-        "sales.opportunity.update",
-        "sales.opportunity.stage.update",
-        "sales.proposal.create",
-        "sales.proposal.update",
-        "sales.proposal.submit",
-        "sales.task.create",
-        "sales.document.create",
-        "sales.export",
-      ],
-    },
-    /**
-     * The approver, not the legal desk (PRD #18 §26, §398).
-     *
-     * The CEO reads the portfolio, decides contracts and amendments, and runs
-     * the reports. They do not draft agreements, edit parties or record
-     * obligations: APPROVE sits above CONTRIBUTE on the ladder, so without this
-     * the person signing contracts off would also be writing them.
-     */
-    contracts: {
-      deny: [
-        "legal.contract.create",
-        "legal.contract.update",
-        "legal.contract.submit_review",
-        "legal.party.manage",
-        "legal.obligation.create",
-        "legal.obligation.update",
-        "legal.amendment.create",
-        "legal.amendment.update",
-        "legal.amendment.submit",
-        "legal.document.create",
-        "legal.task.create",
-      ],
-    },
-    procurement: { deny: ["procurement.request.create", "procurement.request.update"] },
     // The CEO may rename their company (user, 2026-10-02); nothing else on it.
     company: { extra: ["company.name.update"] },
     // CEO access (2026-11): in a tenant of one company the CEO gives members

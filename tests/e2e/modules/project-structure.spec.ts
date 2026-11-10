@@ -50,7 +50,8 @@ async function bulkAdd(page: Page, prefix: string, start: string, end: string) {
   await dialog.getByLabel(/^Digits/).fill("0");
   await expect(dialog.getByTestId("bulk-code-sample")).toContainText(`${prefix}${start}`);
   await dialog.getByRole("button", { name: "Next" }).click();
-  await expect(dialog.getByLabel(/^Type/)).toHaveValue(/.+/);
+  // A Nesto dropdown, not a native select: chosen once it no longer shows its placeholder.
+  await expect(dialog.getByLabel(/^Type/)).not.toHaveAttribute("data-placeholder", /.*/);
   return dialog;
 }
 
@@ -164,8 +165,12 @@ test("the project manager sets up a project's buildings, floors and units", asyn
   await expect(one).toBeHidden();
 
   // The unit page: a new code and a new floor, the same unit (§52, §55, §83).
+  // A row opens the unit in the side panel (2026-11-09); its Open full page goes on to the unit page.
   await chooseFloor(page, "Floor 2");
   await page.getByTestId("unit-table").getByRole("link", { name: "T-201" }).click();
+  const panel = page.getByTestId("unit-panel");
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("T-201");
+  await panel.getByTestId("unit-panel-open-page").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("T-201");
   const unitUrl = page.url();
   await expect(page.getByTestId("unit-location")).toContainText("Tower · Floor 2");
@@ -233,6 +238,57 @@ test("the project manager ticks units and changes them together (2026-11-09)", a
   await expect(bar).toBeHidden();
 });
 
+test("a row opens the unit in the side panel, which steps through the list and saves its details (2026-11-09)", async ({ page }) => {
+  await signIn(page, "PM_B", { to: `/projects/${PROJECT}/units` });
+  await chooseFloor(page, "Floor 1");
+  const rows = page.getByTestId("unit-table").getByTestId("unit-row");
+  await expect(rows).toHaveCount(2);
+  const panel = page.getByTestId("unit-panel");
+
+  // A click anywhere on the row opens the panel over the list; the address names the unit.
+  await rows.first().getByRole("cell").nth(2).click();
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("T-101");
+  await expect(panel.getByTestId("unit-panel-position")).toHaveText("1 of 2");
+  await expect(page).toHaveURL(/[?&]unit=/);
+  await expect(page.getByTestId("unit-table")).toBeAttached();
+
+  // Next and Previous step through the list as shown, by button and by Alt+↓ / Alt+↑.
+  await panel.getByTestId("unit-panel-next").click();
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("T-102");
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("T-101");
+
+  // The details are the Edit unit dialog's fields; net and gross are worked out as they are typed.
+  await panel.getByLabel("Bedrooms").selectOption("1");
+  await panel.locator("#panel-balconyArea").fill("4.5");
+  await expect(panel.getByTestId("panel-grossArea-sum")).toHaveValue("85.00");
+  await panel.getByTestId("unit-panel-save").click();
+  await expect(panel.getByTestId("unit-panel-save")).toBeDisabled();
+  const saved = await db.projectUnit.findFirstOrThrow({ where: { projectId: PROJECT, unitCode: "T-101" }, select: { bedrooms: true, grossArea: true } });
+  expect([saved.bedrooms, saved.grossArea?.toFixed(2)]).toEqual([1, "85.00"]);
+  await expect(rows.first()).toContainText("85.00 m²");
+
+  // Unsaved input asks before stepping on; Escape closes the panel and the list is as it was.
+  await panel.getByLabel("Bedrooms").selectOption("2");
+  await panel.getByTestId("unit-panel-next").click();
+  await page.getByTestId("unsaved-prompt").getByTestId("unsaved-discard").click();
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("T-102");
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(page).not.toHaveURL(/[?&]unit=/);
+  await expect(heading(page)).toHaveText("Floor 1 — Tower");
+
+  // Back closes a panel the list opened; a link with ?unit= opens it.
+  await rows.nth(1).getByRole("link", { name: "T-102" }).click();
+  await expect(panel).toBeVisible();
+  await page.goBack();
+  await expect(panel).toBeHidden();
+  await expect(heading(page)).toHaveText("Floor 1 — Tower");
+  const t102 = await db.projectUnit.findFirstOrThrow({ where: { projectId: PROJECT, unitCode: "T-102" }, select: { id: true } });
+  await page.goto(`/projects/${PROJECT}/units?unit=${t102.id}`);
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("T-102");
+});
+
 test("sales reads the units without changing them (§80)", async ({ page }) => {
   await signIn(page, "SALES", { to: `/projects/${STRUCTURE_SEED.riverside}/units?floor=${STRUCTURE_SEED.floors.a1}` });
   await expect(heading(page)).toHaveText("Floor 1 — Block A");
@@ -240,7 +296,13 @@ test("sales reads the units without changing them (§80)", async ({ page }) => {
   await expect(mainRegion(page).getByRole("button", { name: "Add units" })).toHaveCount(0);
   await expect(mainRegion(page).getByRole("button", { name: /^Actions for/ })).toHaveCount(0);
 
+  // The side panel reads the unit's details without a form to change them; its price is Sales' to set.
   await mainRegion(page).getByTestId("unit-table").getByRole("link", { name: "A-104" }).click();
+  const panel = page.getByTestId("unit-panel");
+  await expect(panel.getByTestId("unit-panel-title")).toContainText("A-104");
+  await expect(panel.getByTestId("unit-panel-read")).toBeVisible();
+  await expect(panel.locator("#panel-internalArea")).toHaveCount(0);
+  await panel.getByTestId("unit-panel-open-page").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("A-104");
   await expect(mainRegion(page).getByRole("button", { name: "Edit" })).toHaveCount(0);
 });

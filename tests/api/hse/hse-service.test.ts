@@ -1576,11 +1576,13 @@ describe("who sees what (PRD #22 §18, §23, §24, §244–§248)", () => {
     await expect(loginAs("PLATFORM_ADMIN")).rejects.toThrow();
   });
 
-  it("the CEO reads the company position but mutates nothing (§25)", async () => {
+  // The CEO read and changed nothing (§25) until the user's 2026-11 decision: "CEO does everything".
+  it("the CEO reads the company position and works it as the Owner does", async () => {
     const ceo = await loginAs("CEO");
     expect(can(ceo, "hse.hazard.view")).toBe(true);
-    expect(can(ceo, "hse.hazard.create")).toBe(false);
-    expect(can(ceo, "hse.incident.close")).toBe(false);
+    expect(can(ceo, "hse.hazard.create")).toBe(true);
+    expect(can(ceo, "hse.incident.close")).toBe(true);
+    expect(can(ceo, "hse.approval.self")).toBe(false);
 
     const list = await hazards.listHazards(ceo, hazardQuery);
     expect(list.data.length).toBeGreaterThan(0);

@@ -328,14 +328,15 @@ test.describe("access (PRD #22 §18, §23, §24, §407, §408)", () => {
     });
   }
 
-  test("the CEO reads the company position and mutates nothing (§25)", async ({ page }) => {
+  // The CEO read and changed nothing (§25) until the user's 2026-11 decision: "CEO does everything".
+  test("the CEO reads the company position and reports into it, as the Owner does", async ({ page }) => {
     await signIn(page, "CEO");
     // Searched rather than expected on the first page: the list is ordered by
     // last update, and a fresh seed leaves this hazard the oldest of 35.
     await page.goto("/hse/hazards?search=HZ-2026-0001");
 
     await expect(recordTable(page).getByText("HZ-2026-0001").first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /report a hazard/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /report a hazard/i }).first()).toBeVisible();
   });
 
   /*

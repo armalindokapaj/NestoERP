@@ -3,6 +3,7 @@ import type { CredentialVerificationStatus, EmployeeDocumentCategory, EmployeeDo
 import { can } from "@/lib/access/can";
 import { AccessError, invalidRecordLink, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { holdsCeoRights, namedRefusal, ownDecision, recordSelfApproval, type OwnDecision } from "@/lib/core/approvals/self-approval";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
@@ -14,11 +15,14 @@ import { prisma } from "@/lib/database/prisma";
 import { findReadableDocument } from "@/lib/modules/documents/document.parent-access";
 import { dayOf, dbDay, todayDay } from "@/lib/modules/hr/employment/employment.dates";
 import { personName, PERSON_NAME_SELECT } from "@/lib/modules/hr/hr.person";
+import { buildEmployeeScopeWhere } from "@/lib/modules/hr/hr.scope";
 import {
   addableCategories,
   EMPLOYEE_RECORD_TYPE,
   hrManageableClasses,
   hrReachesEmployment,
+  hrReadableClasses,
+  HR_VISIBLE,
   readableEmployeeDocumentWhere,
   readableLinkWhere,
   SELF_VISIBLE,
@@ -134,11 +138,51 @@ type Reader = {
   self: boolean;
   /** HR reaches the employment: in scope, not their own. */
   hr: boolean;
+  /** Their own documents they may check all the same, by id (`ownCheck`); empty for nearly everybody. */
+  ownChecks: ReadonlySet<string>;
 };
+
+const NONE: ReadonlySet<string> = new Set();
 
 async function readerOf(context: UserContext, employment: Employment): Promise<Reader> {
   const self = employment.companyMemberId !== null && employment.companyMemberId === context.membershipId;
-  return { self, hr: !self && (await hrReachesEmployment(context, employment.id)) };
+  return { self, hr: !self && (await hrReachesEmployment(context, employment.id)), ownChecks: NONE };
+}
+
+/**
+ * Somebody's own document is never theirs to check (§74), with one exception
+ * (lib/core/approvals/self-approval.ts): a CEO, or a CEO-access holder, who may
+ * verify documents and whose HR scope would reach the employment were it not
+ * their own, may check their own when nobody else in the company could. It is
+ * then recorded as self-approved. Only the check itself: everything else about
+ * their own file stays the employee's.
+ */
+async function ownCheck(context: UserContext, reader: Reader, employment: Employment, link: LinkRow): Promise<OwnDecision> {
+  if (!reader.self) return { own: false };
+  const refused: OwnDecision = { own: true, allowed: false, others: [] };
+  if (!holdsCeoRights(context) || !can(context, "hr.document.verify") || !can(context, "hr.document.view")) return refused;
+  if (!CATEGORY_RULES[link.category].verifiable || link.verificationStatus !== "UNVERIFIED" || link.archivedAt !== null) return refused;
+  // Only what HR would read on somebody else's file: never a file the employee keeps from HR.
+  if (!HR_VISIBLE.includes(link.visibility) || !hrReadableClasses(context).includes(CATEGORY_RULES[link.category].class)) return refused;
+  const inScope = await prisma.employeeProfile.count({ where: { AND: [buildEmployeeScopeWhere(context), { companyId: context.companyId, id: employment.id }] } });
+  if (!inScope) return refused;
+  return ownDecision(context, {
+    own: true,
+    record: { type: "employee_document", id: link.id },
+    mayDecide: (member) => can(member, "hr.document.verify"),
+    reaches: (member) => hrReachesEmployment(member, employment.id),
+  });
+}
+
+/** The reader, with which of these links of their own they may check. */
+async function withOwnChecks(context: UserContext, reader: Reader, employment: Employment, links: LinkRow[]): Promise<Reader> {
+  if (!reader.self || !holdsCeoRights(context)) return reader;
+  const ids = new Set<string>();
+  for (const link of links) {
+    const own = await ownCheck(context, reader, employment, link);
+    if (own.own && own.allowed) ids.add(link.id);
+  }
+  return ids.size > 0 ? { ...reader, ownChecks: ids } : reader;
 }
 
 /** Whether this reader manages this link's category as HR (§49-§52). */
@@ -157,7 +201,7 @@ function actionsFor(context: UserContext, reader: Reader, link: LinkRow): Employ
   const hr = managesAsHr(context, reader, link.category);
   const own = ownFiling(context, reader, link);
   const open = !archived && status !== "SUPERSEDED";
-  const checkable = reader.hr && CATEGORY_RULES[link.category].verifiable && can(context, "hr.document.verify") && status === "UNVERIFIED" && !archived;
+  const checkable = (reader.hr || reader.ownChecks.has(link.id)) && CATEGORY_RULES[link.category].verifiable && can(context, "hr.document.verify") && status === "UNVERIFIED" && !archived;
   return {
     canEdit: open && (hr || (own && (status === "UNVERIFIED" || status === "REJECTED"))),
     canVerify: checkable,
@@ -313,7 +357,8 @@ export async function listEmployeeDocuments(context: UserContext, employeeId: st
     versionNumbers([...links.map((link) => link.document.currentVersionId), ...unfiled.map((row) => row.currentVersionId)]),
   ]);
 
-  const documents = sortLinks(links.map((link) => toDTO(context, reader, link, names, versions, today)));
+  const checker = await withOwnChecks(context, reader, employment, links);
+  const documents = sortLinks(links.map((link) => toDTO(context, checker, link, names, versions, today)));
   const order = new Map(DOCUMENT_GROUPS.map((group, index) => [group.key, index]));
   const summaryRows = summaries
     .map(
@@ -376,7 +421,7 @@ export async function listEmployeeDocuments(context: UserContext, employeeId: st
 export async function getEmployeeDocument(context: UserContext, employeeId: string, linkId: string): Promise<EmployeeDocumentDTO> {
   const employment = await loadEmployment(context, employeeId);
   const link = await findReadableLink(context, employment.id, linkId);
-  const reader = await readerOf(context, employment);
+  const reader = await withOwnChecks(context, await readerOf(context, employment), employment, [link]);
   const [names, versions] = await Promise.all([memberNames(context.companyId, [link.verifiedByMemberId, link.createdByMemberId]), versionNumbers([link.document.currentVersionId])]);
   return toDTO(context, reader, link, names, versions, todayDay());
 }
@@ -632,13 +677,18 @@ type Decision = { action: "verify" | "reject" | "resubmit"; note: string | null;
 
 async function decide(context: UserContext, employeeId: string, linkId: string, decision: Decision): Promise<EmployeeDocumentDTO> {
   const employment = await loadEmployment(context, employeeId);
-  const reader = await readerOf(context, employment);
+  const plain = await readerOf(context, employment);
   const link = await findReadableLink(context, employment.id, linkId);
+  const own: OwnDecision = decision.action === "resubmit" ? { own: false } : await ownCheck(context, plain, employment, link);
+  const reader = own.own && own.allowed ? { ...plain, ownChecks: new Set([link.id]) } : plain;
   const actions = actionsFor(context, reader, link);
   const allowed = decision.action === "verify" ? actions.canVerify : decision.action === "reject" ? actions.canReject : actions.canResubmit;
   if (!allowed) {
-    // Somebody's own document is never theirs to check (§74), and HR's own records are not evidence to check.
-    if (reader.self && decision.action !== "resubmit") throw fail("EMPLOYEE_DOCUMENT_SELF_VERIFICATION", "You cannot verify your own document.", "FORBIDDEN");
+    // Somebody's own document is never theirs to check (§74) — a CEO's only when nobody else could, and HR's own records are not evidence to check.
+    if (reader.self && decision.action !== "resubmit") {
+      if (own.own && !own.allowed && own.others.length > 0) throw namedRefusal(own.others);
+      throw fail("EMPLOYEE_DOCUMENT_SELF_VERIFICATION", "You cannot verify your own document.", "FORBIDDEN");
+    }
     if (!CATEGORY_RULES[link.category].verifiable && decision.action !== "resubmit") throw fail("EMPLOYEE_DOCUMENT_NOT_VERIFIABLE", `A ${CATEGORY_RULES[link.category].label.toLowerCase()} is HR's own record and is not verified.`, "CONFLICT");
     assertTransitionAllowed(employeeDocumentVerificationMachine, { currentState: link.verificationStatus, action: decision.action, context, reason: decision.note });
     throw new AccessError("FORBIDDEN");
@@ -652,6 +702,10 @@ async function decide(context: UserContext, employeeId: string, linkId: string, 
   const to: CredentialVerificationStatus = decision.action === "verify" ? "VERIFIED" : decision.action === "reject" ? "REJECTED" : "UNVERIFIED";
 
   await runInTransaction(`hr.employee_document.${decision.action}`, async (tx) => {
+    // Their own, checked because nobody else could: written down as self-approved.
+    if (own.own && own.allowed && own.because === "NOBODY_ELSE") {
+      await recordSelfApproval(tx, context, { record: { type: "employee_document", id: link.id }, label: auditLabel(link.category, employment), decision: to });
+    }
     // Guarded on the status and version the verifier read: of two verifiers acting at once, one wins (§192).
     await applyTransition(tx, {
       machine: employeeDocumentVerificationMachine,

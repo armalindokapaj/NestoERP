@@ -126,7 +126,7 @@ export const teamEn = {
     removeCeoAccess: "Remove CEO access",
     giveCeoTitle: "Give {name} CEO access?",
     removeCeoTitle: "Remove {name}'s CEO access?",
-    giveCeoBase: "{name} keeps their role, department and job title, and gets everything the CEO can see and do on top of them — including giving CEO access to others and taking it away. You can remove it at any time.",
+    giveCeoBase: "{name} keeps their role, department and job title, and gets everything the CEO can see and do on top of them — every module, including giving CEO access to others and taking it away. They approve their own requests only when nobody else in the company can. You can remove it at any time.",
     removeCeoBase: "{name} goes back to what their own role allows. Nothing they did with CEO access is undone.",
     ceoAccessGiven: "CEO access given.",
     ceoAccessRemoved: "CEO access removed.",

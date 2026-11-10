@@ -78,7 +78,7 @@ function summaryDTO(unitId: string, contract: FinanceContract | null, facts: Con
     nextDue: facts.nextDue ? { installmentId: facts.nextDue.id, label: facts.nextDue.label, amount: toAmountString(facts.nextDue.outstanding), dueDate: businessDateString(facts.nextDue.dueDate) } : null,
     financialStatus: facts.financialStatus,
     progressPercent: facts.progressPercent,
-    sharedWithUnits: contract.units.filter((row) => !row.released && row.unitId !== unitId).map((row) => ({ id: row.unitId, unitCode: row.unitCode })),
+    sharedWithUnits: contract.units.filter((row) => !row.released && row.unitId !== unitId).map((row) => ({ id: row.unitId, unitCode: row.unitCode, label: row.label })),
   };
 }
 

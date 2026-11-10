@@ -336,7 +336,7 @@ export const en = {
         "Technical administrator for the parent group. Provisions users, configures companies and modules, and supports NESTO according to approved business and HR requirements.",
     },
     HR: { label: "HR", description: "Owns people operations, recruitment and the employment record." },
-    CEO: { label: "CEO / Director", description: "Company performance, approvals, project setup and strategic oversight." },
+    CEO: { label: "CEO / Director", description: "Runs the company: every module, as the Owner does. Decides their own requests only when nobody else in the company can." },
     PROJECT_MANAGER: { label: "Project Manager", description: "Runs projects, tasks, teams and client delivery." },
     ARCHITECT: { label: "Architect", description: "Design work, drawings, reviews and project documentation." },
     ENGINEER: { label: "Engineer", description: "Technical delivery, inspections and engineering tasks." },

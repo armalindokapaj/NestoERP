@@ -263,7 +263,7 @@ export async function getIncident(
     }),
     createdBy,
     createdAt: row.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, row, pending?.submittedByMemberId ?? null),
+    capabilities: capabilitiesFor(context, row, await approvals.mayDecideNamed(context, { type: "INCIDENT_CLOSE", recordId: row.id, submittedByMemberId: pending?.submittedByMemberId ?? null })),
   };
 }
 
@@ -731,7 +731,7 @@ export async function closeIncident(
 
   await prisma.$transaction(async (tx) => {
     const approval = await approvals.requirePendingApproval(tx, context, "INCIDENT_CLOSE", incidentId, guard);
-    approvals.assertNotSelfApproval(context, approval.submittedByMemberId);
+    await approvals.assertNotSelfApproval(context, approval.submittedByMemberId, { tx, type: "INCIDENT_CLOSE", recordId: incidentId, decision: "APPROVED" });
 
     await approvals.decideApproval(tx, context, approval.id, "APPROVED", decisionNote);
 
@@ -951,10 +951,9 @@ function toSummaryDTO(
 function capabilitiesFor(
   context: UserContext,
   row: DetailRow,
-  submittedByMemberId: string | null,
+  /** The self rule's answer for this reader, worked out before (§182; lib/core/approvals/self-approval.ts). */
+  notSelf: boolean,
 ) {
-  const notSelf =
-    submittedByMemberId !== context.membershipId || can(context, "hse.approval.self");
 
   return {
     canEdit: isIncidentRecordEditable(row.status) && can(context, "hse.incident.update"),

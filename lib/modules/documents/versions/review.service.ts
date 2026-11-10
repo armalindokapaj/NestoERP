@@ -6,6 +6,7 @@ import { AccessError } from "@/lib/access/guards";
 import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
 import { delegationBetween } from "@/lib/core/approvals/approval-delegations";
+import { mayDecideOwn, recordSelfApproval, type DeciderTest } from "@/lib/core/approvals/self-approval";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { applyTransition } from "@/lib/core/state/transition";
@@ -34,7 +35,10 @@ import { resolveAttentionFor } from "@/lib/core/notifications/attention.service"
  *
  *   - a reviewer is only ever somebody who could open the document right now
  *     (same company, active, parent record in scope, `document.review.decide`)
- *   - nobody reviews a version they asked to have reviewed (PRD #38 §62)
+ *   - nobody reviews a version they asked to have reviewed (PRD #38 §62) —
+ *     except a CEO, or a CEO-access holder, when nobody else in the company
+ *     could review the document, and then it is recorded as self-approved
+ *     (lib/core/approvals/self-approval.ts)
  *   - approving a document approves the document: no invoice, contract, order
  *     or safety record changes because a file on it was approved (PRD #38 §64)
  */
@@ -84,6 +88,25 @@ async function reviewDelegation(context: UserContext, review: { reviewerMemberId
   return reviewerStill ? review.reviewerMemberId : null;
 }
 
+/** Who else could review this document, as the self rule asks it: the right to decide reviews, and the document open to them. */
+function ownReviewTest(documentId: string): DeciderTest {
+  return {
+    record: { type: "document", id: documentId },
+    mayDecide: (member) => can(member, "document.review.decide"),
+    reaches: async (member) => Boolean(await findReadableDocument(member, documentId)),
+  };
+}
+
+/**
+ * Whether this person may review a version of this document they ask to have
+ * reviewed themselves: a CEO who could review it, when nobody else in the
+ * company could (lib/core/approvals/self-approval.ts). Everybody else never.
+ */
+export async function mayReviewOwnRequest(context: UserContext, documentId: string): Promise<boolean> {
+  if (!can(context, "document.review.decide")) return false;
+  return mayDecideOwn(context, { own: true, ...ownReviewTest(documentId) });
+}
+
 export type EligibleReviewerDTO = { memberId: string; fullName: string; jobTitle: string | null };
 
 /** Members who could review this document: the question asked in their own contexts. */
@@ -121,10 +144,15 @@ export async function listEligibleReviewers(
     select: { id: true, jobTitle: true, user: { select: { firstName: true, lastName: true } } },
   });
   const eligible = new Set(await eligibleReviewerIds(context.companyId, document.id, candidates.map((row) => row.id)));
-  return candidates
+  const others = candidates
     .filter((row) => eligible.has(row.id))
     .slice(0, 20)
     .map((row) => ({ memberId: row.id, fullName: `${row.user.firstName} ${row.user.lastName}`, jobTitle: row.jobTitle }));
+  // A CEO nobody else could review for is their own reviewer, or the document could never be approved.
+  if (others.length > 0 || !(await mayReviewOwnRequest(context, document.id))) return others;
+  const self = await prisma.companyMember.findFirst({ where: { companyId: context.companyId, id: context.membershipId }, select: { id: true, jobTitle: true, user: { select: { firstName: true, lastName: true } } } });
+  const matches = !term || `${self?.user.firstName ?? ""} ${self?.user.lastName ?? ""}`.toLowerCase().includes(term.toLowerCase());
+  return self && matches ? [{ memberId: self.id, fullName: `${self.user.firstName} ${self.user.lastName}`, jobTitle: self.jobTitle }] : [];
 }
 
 export async function requestReview(
@@ -152,7 +180,7 @@ export async function requestReview(
     throw new AccessError("CONFLICT", "VERSION_ALREADY_DECIDED");
   }
 
-  if (input.reviewerMemberId === context.membershipId) {
+  if (input.reviewerMemberId === context.membershipId && !(await mayReviewOwnRequest(context, document.id))) {
     throw new AccessError("VALIDATION_ERROR", "SELF_REVIEW_NOT_ALLOWED");
   }
   const [eligible] = await eligibleReviewerIds(context.companyId, document.id, [input.reviewerMemberId]);
@@ -256,8 +284,9 @@ export async function decideReview(
   if ((review.reviewerMemberId !== context.membershipId && !onBehalfOf) || !can(context, "document.review.decide")) {
     throw new AccessError("FORBIDDEN", "This review is assigned to someone else.");
   }
-  // Belt and braces: the request refused it, and a changed membership must not create it.
-  if (review.requestedByMemberId === context.membershipId) throw new AccessError("FORBIDDEN", "SELF_REVIEW_NOT_ALLOWED");
+  // Asked again at the decision, not taken from the request: somebody who joined since could review it now.
+  const own = review.requestedByMemberId === context.membershipId;
+  if (own && !(await mayReviewOwnRequest(context, document.id))) throw new AccessError("FORBIDDEN", "SELF_REVIEW_NOT_ALLOWED");
   if (decision === "REJECTED" && !note?.trim()) throw new AccessError("VALIDATION_ERROR", "REJECTION_NOTE_REQUIRED");
 
   return prisma.$transaction(async (tx) => {
@@ -283,6 +312,8 @@ export async function decideReview(
     const current = await tx.documentReview.findFirst({ where: { id: review.id, companyId: context.companyId }, select: { status: true } });
     if (!current) throw new AccessError("NOT_FOUND");
     if (current.status !== "PENDING") throw new AccessError("CONFLICT", "REVIEW_ALREADY_DECIDED");
+    // Their own request, allowed because nobody else could review it: written down as self-approved.
+    if (own) await recordSelfApproval(tx, context, { record: { type: "document", id: document.id }, label: document.name, projectId: document.projectId, decision });
     await applyTransition(tx, {
       machine: documentReviewMachine,
       action: decision === "APPROVED" ? "approve" : "reject",

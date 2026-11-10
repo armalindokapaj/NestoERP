@@ -75,8 +75,9 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
           initial={inventory}
           initialFilters={filters}
           buildings={structure.buildings.map((building) => ({ id: building.id, name: building.name, floors: building.floors.map((floor) => ({ id: floor.id, name: floor.name })) }))}
-          unitTypes={structure.unitTypes.map((type) => ({ id: type.id, name: type.name }))}
-          actions={{ canReserve: caps.canReserve, canRelease: caps.canRelease, canManagePrice: caps.canManagePrice, canManageStatus: caps.canManageStatus }}
+          unitTypes={structure.unitTypes}
+          actions={{ canReserve: caps.canReserve, canRelease: caps.canRelease, canManagePrice: caps.canManagePrice, canManageStatus: caps.canManageStatus, canUpdateUnit: structure.capabilities.canUpdateUnit }}
+          initialOpenUnit={typeof search.unit === "string" && search.unit ? search.unit : null}
         />
       )}
     </div>

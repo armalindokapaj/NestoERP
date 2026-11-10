@@ -83,7 +83,7 @@ export function emptyTechnical(unitTypeId = ""): TechnicalValues {
  * The net and gross areas the typed areas make, for the form to show. `null`
  * while a part cannot be read — the field's own error says why.
  */
-function shownAreas(values: TechnicalValues, category: UnitTypeOption["category"]): { netArea: string | null; grossArea: string | null } {
+export function shownAreas(values: TechnicalValues, category: UnitTypeOption["category"]): { netArea: string | null; grossArea: string | null } {
   const read = {} as Record<EnteredAreaField, string | null>;
   for (const field of ENTERED_AREA_FIELDS) {
     const parsed = parseOptionalDecimal(values.areas[field], areaRule(AREA_LABELS[field]));
@@ -155,8 +155,12 @@ export function warningsFor(values: TechnicalValues, types: UnitTypeOption[], t:
   return findings.map((finding) => (finding.kind === "count" ? t(`unitWarnings.${finding.field}`, { category: t(`unitCategory.${type.category}`).toLowerCase() }) : t("unitWarnings.saleableBelowInternal")));
 }
 
-/** The technical half of the form, shared by a single unit and a batch's defaults (§42). */
-export function TechnicalFields({ idPrefix, values, onChange, types, errors, currentTypeId }: { idPrefix: string; values: TechnicalValues; onChange: (values: TechnicalValues) => void; types: UnitTypeOption[]; errors: Record<string, string>; currentTypeId?: string }) {
+/**
+ * The technical half of the form, shared by a single unit, a batch's defaults
+ * (§42) and the unit side panel, whose narrow column takes the areas two to a
+ * row (`dense`).
+ */
+export function TechnicalFields({ idPrefix, values, onChange, types, errors, currentTypeId, dense = false }: { idPrefix: string; values: TechnicalValues; onChange: (values: TechnicalValues) => void; types: UnitTypeOption[]; errors: Record<string, string>; currentTypeId?: string; dense?: boolean }) {
   const [more, setMore] = React.useState(false);
   const t = useTranslations("projects");
   const locale = useLocale();
@@ -199,7 +203,7 @@ export function TechnicalFields({ idPrefix, values, onChange, types, errors, cur
 
       <fieldset>
         <legend className="mb-2 text-meta font-semibold text-fg">{t("unitDialog.areas")}</legend>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className={cn("grid grid-cols-2 gap-3", !dense && "sm:grid-cols-4")}>
           {areaFields.map((field) =>
             workedOut(field) ? (
               // A sum, never typed: shown as it will be saved, and worked out again by the server.
@@ -310,6 +314,7 @@ export function UnitDialog({
   unit,
   types,
   canManagePrice = false,
+  canManageSaleStatus = false,
   onSaved,
 }: {
   open: boolean;
@@ -319,6 +324,8 @@ export function UnitDialog({
   types: UnitTypeOption[];
   /** Whether the person may set prices (Sales' `project.unit.price.manage`): the dialog then carries the asking price too. */
   canManagePrice?: boolean;
+  /** Whether a new unit's price may also put it on sale (Sales' `project.unit.sales_status.manage`); a saved unit's record says so itself. */
+  canManageSaleStatus?: boolean;
   onSaved: (id: string) => void;
 }) {
   const t = useTranslations("projects");
@@ -333,7 +340,7 @@ export function UnitDialog({
           {floor.buildingName} · {floorName(floor.name, locale)}
         </DialogDescription>
         {/* Mounted per opening: each opening starts from the unit as loaded. */}
-        <UnitForm floor={floor} unit={unit} types={types} canManagePrice={canManagePrice} onSaved={onSaved} onDone={() => onOpenChange(false)} />
+        <UnitForm floor={floor} unit={unit} types={types} canManagePrice={canManagePrice} canManageSaleStatus={canManageSaleStatus} onSaved={onSaved} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
@@ -344,6 +351,7 @@ function UnitForm({
   unit,
   types,
   canManagePrice,
+  canManageSaleStatus,
   onSaved,
   onDone,
 }: {
@@ -351,6 +359,7 @@ function UnitForm({
   unit?: UnitDTO;
   types: UnitTypeOption[];
   canManagePrice: boolean;
+  canManageSaleStatus: boolean;
   onSaved: (id: string) => void;
   onDone: () => void;
 }) {
@@ -366,7 +375,7 @@ function UnitForm({
   // they work out (2026-11-09); saved through Sales after the unit.
   const grossArea = shownAreas(technical, types.find((type) => type.id === technical.unitTypeId)?.category ?? "OTHER").grossArea;
   const saleable = parseOptionalDecimal(technical.areas.saleableArea, areaRule(AREA_LABELS.saleableArea));
-  const price = useUnitPrice({ unitId: unit?.id, enabled: canManagePrice, areas: { saleableArea: saleable.ok ? saleable.value : null, grossArea } });
+  const price = useUnitPrice({ unitId: unit?.id, enabled: canManagePrice, areas: { saleableArea: saleable.ok ? saleable.value : null, grossArea }, canManageStatus: canManageSaleStatus });
   // The building's code goes before the unit's in every list ("T-501"); shown beside the field, never typed.
   const buildingCode = (unit?.building.code ?? floor.buildingCode ?? "").trim();
   const named = (value: string) => unitLabel(buildingCode || null, value);
@@ -375,7 +384,7 @@ function UnitForm({
   // (E-05D §53, AUD-03 §3): the unit registers with the tab's coordinator.
   const persist = React.useRef<() => Promise<SaveOutcome>>(async () => INVALID);
   const editor = useValuesEditor(
-    { code, technical, price: price.touched ? [price.view.entry, price.view.text] : null },
+    { code, technical, price: price.touched ? [price.view.entry, price.view.text, price.view.putOnSale] : null },
     { module: "units", saveKind: unit ? "save" : "create", label: unit ? t("unitDialog.editorLabel", { code: unit.label }) : t("unitDialog.newLabel", { floor: floor.name }), save: () => persist.current() },
   );
 
@@ -440,7 +449,7 @@ function UnitForm({
           </Field>
         </div>
         <TechnicalFields idPrefix="unit" values={technical} onChange={setTechnical} types={types} errors={errors} currentTypeId={unit?.unitType.id} />
-        <UnitPriceFields price={price} />
+        <UnitPriceFields price={price} unitLabel={code.trim() ? named(code.trim()) : undefined} />
       </fieldset>
       <Warnings items={warningsFor(technical, types, t)} />
       <DialogFooter>

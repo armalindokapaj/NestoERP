@@ -88,7 +88,7 @@ export const roles: Record<RoleKey, RoleDefinition> = {
     code: "05",
     label: "CEO / Director",
     department: "Executive",
-    description: "Company performance, approvals, project setup and strategic oversight.",
+    description: "Runs the company: every module, as the Owner does. Decides their own requests only when nobody else in the company can.",
   },
   PROJECT_MANAGER: {
     key: "PROJECT_MANAGER",

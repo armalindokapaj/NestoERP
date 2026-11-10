@@ -329,7 +329,7 @@ describe("module access (PRD #17 §16, §355, §356)", () => {
     },
   );
 
-  it("gives the CEO company reach without the sales desk (PRD #17 §351)", async () => {
+  it("gives the CEO company reach and the sales desk (PRD #17 §351; the user, 2026-11)", async () => {
     const context = await loginAs("CEO");
 
     const result = await opportunities.listOpportunities(context, opportunityQuery);
@@ -337,11 +337,11 @@ describe("module access (PRD #17 §16, §355, §356)", () => {
       await prisma.opportunity.count({ where: { companyId: context.companyId, archivedAt: null } }),
     );
 
-    // Approval authority, no operational controls.
+    // Approval authority and, since 2026-11 ("CEO does everything"), the sales desk too.
     expect(can(context, "sales.proposal.approve")).toBe(true);
-    expect(can(context, "sales.lead.create")).toBe(false);
-    expect(can(context, "sales.opportunity.update")).toBe(false);
-    expect(can(context, "sales.proposal.create")).toBe(false);
+    expect(can(context, "sales.lead.create")).toBe(true);
+    expect(can(context, "sales.opportunity.update")).toBe(true);
+    expect(can(context, "sales.proposal.create")).toBe(true);
   });
 
   it("gives Finance commercial value but not the leads (PRD #17 §17, §352)", async () => {
@@ -1279,14 +1279,19 @@ describe("proposal approval (PRD #17 §329, §330)", () => {
    */
   it("refuses a decision by whoever submitted it", async () => {
     const ceo = await loginAs("CEO");
+    const decide = (submittedByMemberId: string) =>
+      prisma.$transaction((tx) => approvals.assertNotSelfApproval(ceo, submittedByMemberId, { tx, type: "PROPOSAL", recordId: "proposal_004", decision: "APPROVED" }));
 
-    expect(() => approvals.assertNotSelfApproval(ceo, ceo.membershipId)).toThrow(AccessError);
-    expect(() => approvals.assertNotSelfApproval(ceo, "somebody_else")).not.toThrow();
+    // A CEO decides their own only when nobody else could (2026-11); the Owner can here.
+    await expect(decide(ceo.membershipId)).rejects.toBeInstanceOf(AccessError);
+    await expect(decide("somebody_else")).resolves.toBeUndefined();
   });
 
   it("lets the Owner past it, because they hold the explicit grant", async () => {
     const owner = await loginAs("OWNER");
-    expect(() => approvals.assertNotSelfApproval(owner, owner.membershipId)).not.toThrow();
+    await expect(
+      prisma.$transaction((tx) => approvals.assertNotSelfApproval(owner, owner.membershipId, { tx, type: "PROPOSAL", recordId: "proposal_004", decision: "APPROVED" })),
+    ).resolves.toBeUndefined();
   });
 
   it("lets the Owner approve their own, because they hold the explicit grant", async () => {
@@ -1643,11 +1648,13 @@ describe("reports (PRD #17 §339)", () => {
 
 describe("CSV export (PRD #17 §171)", () => {
   it("refuses a reader without the export grant", async () => {
-    const ceo = await loginAs("CEO");
-    expect(can(ceo, "sales.export")).toBe(false);
+    // The CEO exports since 2026-11 ("CEO does everything"); Finance reads sales and does not.
+    expect(can(await loginAs("CEO"), "sales.export")).toBe(true);
+    const finance = await loginAs("FINANCE");
+    expect(can(finance, "sales.export")).toBe(false);
 
     await expect(
-      exportSales(ceo, "opportunities", new URLSearchParams()),
+      exportSales(finance, "opportunities", new URLSearchParams()),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 

@@ -4,6 +4,7 @@ import { can, canAccessModule, isModuleEnabled } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission, type SecurityReasonCode } from "@/lib/access/guards";
 import { buildTaskScopeWhere } from "@/lib/access/scope";
 import type { UserContext } from "@/lib/context/types";
+import { mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { subscribeStakeholders } from "@/lib/core/collaboration/collaboration.service";
@@ -469,7 +470,10 @@ export async function getDailyLog(context: UserContext, dailyLogId: string): Pro
   const editable = isEditable(status);
   const sections = Object.fromEntries([...SECTION_KEYS, "qaqc", "hse"].map((section) => [section, canEditSection(context, status, section as never)])) as DailyLogDetailDTO["capabilities"]["sections"];
   const canCreateTask = editable && can(context, "daily_log.edit") && canAccessModule(context, "tasks") && can(context, "task.create");
-  const submitter = row.submittedByMemberId === context.membershipId;
+  // Somebody else reviews what you submitted, unless the self rule allows it (lib/core/approvals/self-approval.ts).
+  const submitter =
+    row.submittedByMemberId === context.membershipId &&
+    !(status === "SUBMITTED" && (await mayDecideOwn(context, { own: true, record: { type: "daily_log", id: row.id }, mayDecide: (member) => can(member, "daily_log.review") })));
 
   const HISTORY: Record<DailyLogHistoryEntry["step"], { label: string; tone: DailyLogHistoryEntry["tone"] }> = {
     DAILY_LOG_CREATED: { label: "Started", tone: "neutral" },

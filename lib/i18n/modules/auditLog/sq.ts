@@ -328,6 +328,7 @@ export const auditLogSq: En = {
     APPROVAL_DELEGATION_CREATED: "Delegimi i miratimit u krijua",
     APPROVAL_DELEGATION_REVOKED: "Delegimi i miratimit u shfuqizua",
     APPROVAL_POLICY_UPDATED: "Politika e miratimit u përditësua",
+    APPROVAL_SELF_APPROVED: "Kërkesa e vet u miratua, pasi askush tjetër nuk mund ta vendoste",
     TIMESHEET_CREATED: "Fleta e orëve u krijua",
     WORKLOG_CREATED: "Regjistrimi i orëve u krijua",
     WORKLOG_UPDATED: "Regjistrimi i orëve u përditësua",

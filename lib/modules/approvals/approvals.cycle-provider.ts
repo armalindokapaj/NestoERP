@@ -5,6 +5,7 @@ import type { UserContext } from "@/lib/context/types";
 import type { ApprovalGuard } from "@/lib/core/approvals/approval-guard";
 import { delegationsTo, type ActiveDelegation } from "@/lib/core/approvals/approval-delegations";
 import { currentStepOf, loadApprovalStepsFor, stepEligibility, type StepRow } from "@/lib/core/approvals/approval-steps";
+import { namedRefusal, ownDecision, ownStepDecision, type OwnDecision } from "@/lib/core/approvals/self-approval";
 import { moduleAndPermissions, recordDefinition } from "@/lib/core/records/record.registry";
 import type { RecordType } from "@/lib/core/records/record.types";
 import { prisma } from "@/lib/database/prisma";
@@ -203,8 +204,20 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
     return reachable;
   }
 
-  function selfAllowed(context: UserContext, adapter: RecordAdapter): boolean {
-    return Boolean(adapter.selfPermission && can(context, adapter.selfPermission));
+  /**
+   * Whether the self rule lets this person decide a record they asked for or
+   * are named on (lib/core/approvals/self-approval.ts): the module's own self
+   * grant, or a CEO when nobody else could decide it. The module's service
+   * checks the same rule again, and records a self-approval, when it decides.
+   */
+  async function ownAllowed(context: UserContext, adapter: RecordAdapter, row: CycleRow, named: readonly string[]): Promise<OwnDecision> {
+    return ownDecision(context, {
+      own: true,
+      selfPermission: adapter.selfPermission,
+      record: { type: adapter.recordType, id: row.recordId },
+      mayDecide: (member) => adapter.canApprove(member),
+      barred: [row.submittedByMemberId, ...named],
+    });
   }
 
   async function matchClause(context: UserContext, query: ProviderQuery, flags: ReadFlags): Promise<object | null> {
@@ -302,11 +315,18 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         const step = currentStepOf(steps);
         if (!step) continue;
         delegations ??= await delegationsTo(context.companyId, context.membershipId, config.key);
+        const own = await ownStepDecision(context, {
+          submittedByMemberId: row.submittedByMemberId,
+          selfPermission: adapter.selfPermission,
+          step,
+          steps,
+          canReadAs: config.chain.canReadAs(row.recordId),
+        });
         const verdict = await stepEligibility(context, step, {
           providerKey: config.key,
           steps,
           submittedByMemberId: row.submittedByMemberId,
-          allowSelf: selfAllowed(context, adapter),
+          allowSelf: own.own && own.allowed,
           canReadAs: config.chain.canReadAs(row.recordId),
           delegations,
         });
@@ -335,14 +355,20 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
         );
         continue;
       }
-      if (row.submittedByMemberId === context.membershipId && !selfAllowed(context, adapter)) {
-        result.set(row.id, { eligible: false, onBehalfOf: null, blocked: "You requested this, so somebody else decides it." });
-        continue;
-      }
       // The module's own separation of duties, not only "who submitted it" (AUD-10 §4, A8).
-      if (excluded.get(`${row.recordType}:${row.recordId}`)?.includes(context.membershipId) && !selfAllowed(context, adapter)) {
-        result.set(row.id, { eligible: false, onBehalfOf: null, blocked: adapter.excludedReason ?? "You are named on this record, so somebody else decides it." });
-        continue;
+      const named = excluded.get(`${row.recordType}:${row.recordId}`) ?? [];
+      const mine = row.submittedByMemberId === context.membershipId;
+      if (mine || named.includes(context.membershipId)) {
+        // Only somebody who could decide it at all is asked about the self rule.
+        const own: OwnDecision = anyGrant(context, adapter) ? await ownAllowed(context, adapter, row, named) : { own: true, allowed: false, others: [] };
+        if (own.own && !own.allowed) {
+          result.set(row.id, {
+            eligible: false,
+            onBehalfOf: null,
+            blocked: mine ? "You requested this, so somebody else decides it." : (adapter.excludedReason ?? "You are named on this record, so somebody else decides it."),
+          });
+          continue;
+        }
       }
       const able = anyGrant(context, adapter);
       result.set(row.id, { eligible: able, onBehalfOf: null, blocked: able ? null : "Waiting for an approver." });
@@ -662,11 +688,18 @@ export function createCycleProvider(config: CycleProviderConfig): ApprovalProvid
     if (input.expectedVersion !== undefined && input.expectedVersion !== version) {
       throw approvalError("APPROVAL_SOURCE_CHANGED", "This approval moved on since you opened it. Review the latest version.");
     }
-    if (steps.length === 0 && row.submittedByMemberId === context.membershipId && !selfAllowed(context, adapter)) {
-      throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "You requested this, so somebody else has to decide it.", "FORBIDDEN");
-    }
-    if (steps.length === 0 && !selfAllowed(context, adapter) && (await excludedFor(context, [row])).get(`${row.recordType}:${row.recordId}`)?.includes(context.membershipId)) {
-      throw approvalError("APPROVAL_SEPARATION_OF_DUTIES", adapter.excludedReason ?? "You are named on this record, so somebody else has to decide it.", "FORBIDDEN");
+    if (steps.length === 0) {
+      const named = (await excludedFor(context, [row])).get(`${row.recordType}:${row.recordId}`) ?? [];
+      const mine = row.submittedByMemberId === context.membershipId;
+      if (mine || named.includes(context.membershipId)) {
+        const own = await ownAllowed(context, adapter, row, named);
+        if (own.own && !own.allowed) {
+          // A CEO is told who can decide it instead (lib/core/approvals/self-approval.ts).
+          if (own.others.length > 0) throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", namedRefusal(own.others).message, "FORBIDDEN");
+          if (mine) throw approvalError("APPROVAL_SELF_APPROVAL_BLOCKED", "You requested this, so somebody else has to decide it.", "FORBIDDEN");
+          throw approvalError("APPROVAL_SEPARATION_OF_DUTIES", adapter.excludedReason ?? "You are named on this record, so somebody else has to decide it.", "FORBIDDEN");
+        }
+      }
     }
 
     const guard: ApprovalGuard = { approvalId: row.id, ...(current ? { stepNumber: current.stepNumber } : {}) };

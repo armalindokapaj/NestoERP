@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "../pw";
 
 import { db, removeTestDocuments } from "../db";
@@ -6,66 +8,74 @@ import { mainRegion, signIn } from "../fixtures";
 /**
  * Mobile browser behaviour (PRD #9 §182, §184; PRD #3 §6, §21–§28).
  *
- * NESTO on a phone is a website inside a browser, not an imitation of a native
- * app: a sticky header with a hamburger, a left drawer, and no permanent bottom
- * navigation (PRD #3 §6).
+ * NESTO on a phone is a website inside a browser. Below 1024px the sidebar is
+ * gone and a bottom bar takes its place: Home, Projects, Create, Alerts and
+ * Menu (commit 4ec692d8). Menu, the bar's last cell, opens the More drawer
+ * with every other module; it replaced the top bar's hamburger.
  */
 test.describe("mobile navigation", () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER");
   });
 
-  test("hides the desktop sidebar and shows the hamburger", async ({ page }) => {
+  const bar = (page: Page) => page.locator("[data-mobile-bottom-nav]");
+  const menu = (page: Page) => bar(page).getByTestId("mobile-more");
+  const drawer = (page: Page) => page.getByRole("dialog", { name: "More" });
+
+  test("hides the desktop sidebar and shows the bottom bar's Menu", async ({ page }) => {
     await page.goto("/dashboard");
 
     await expect(page.getByRole("complementary")).toBeHidden();
-    await expect(page.getByRole("button", { name: /open navigation/i })).toBeVisible();
+    await expect(menu(page)).toBeVisible();
+    await expect(menu(page)).toHaveText("Menu");
+    // The hamburger left the top bar: Menu is the one way in.
+    await expect(page.getByRole("button", { name: /open navigation/i })).toHaveCount(0);
   });
 
   test("opens the drawer, navigates, and closes on selection (PRD #3 §27)", async ({ page }) => {
     await page.goto("/dashboard");
 
-    await page.getByRole("button", { name: /open navigation/i }).click();
-    const drawer = page.getByRole("dialog");
-    await expect(drawer).toBeVisible();
+    await menu(page).click();
+    await expect(drawer(page)).toBeVisible();
 
-    await drawer.getByRole("link", { name: "Projects", exact: true }).click();
+    // Tasks left the bar for Menu (4ec692d8).
+    await drawer(page).getByRole("link", { name: "Tasks", exact: true }).click();
 
-    await expect(page).toHaveURL(/\/projects/);
-    await expect(drawer).toBeHidden();
+    await expect(page).toHaveURL(/\/tasks$/);
+    await expect(drawer(page)).toHaveCount(0);
   });
 
   test("closes the drawer on Escape (PRD #3 §27)", async ({ page }) => {
     await page.goto("/dashboard");
 
-    await page.getByRole("button", { name: /open navigation/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await menu(page).click();
+    await expect(drawer(page)).toBeVisible();
 
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(drawer(page)).toHaveCount(0);
+    // Focus goes back to the cell that opened it.
+    await expect(menu(page)).toBeFocused();
   });
 
-  test("has no permanent bottom app navigation (PRD #3 §6)", async ({ page }) => {
+  test("keeps the bottom bar pinned to the foot of the screen while the page scrolls", async ({ page }) => {
     await page.goto("/dashboard");
 
-    const navigations = page.getByRole("navigation");
-    const count = await navigations.count();
-
-    for (let index = 0; index < count; index += 1) {
-      const box = await navigations.nth(index).boundingBox();
-      if (!box) continue;
-      const viewport = page.viewportSize()!;
-      // Nothing pinned to the bottom edge of the screen.
-      expect(box.y).toBeLessThan(viewport.height - 60);
-    }
+    const viewport = page.viewportSize()!;
+    const before = (await bar(page).boundingBox())!;
+    // The bar floats just above the bottom edge (its inset), whatever the page's length.
+    expect(before.y + before.height).toBeGreaterThan(viewport.height - 40);
+    expect(before.y + before.height).toBeLessThanOrEqual(viewport.height);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const after = (await bar(page).boundingBox())!;
+    expect(Math.round(after.y)).toBe(Math.round(before.y));
   });
 
   test("shows the drawer's own close control", async ({ page }) => {
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: /open navigation/i }).click();
+    await menu(page).click();
 
-    await page.getByRole("button", { name: /close navigation/i }).click();
-    await expect(page.getByRole("dialog")).toBeHidden();
+    await drawer(page).getByRole("button", { name: /close navigation/i }).click();
+    await expect(drawer(page)).toHaveCount(0);
   });
 });
 
@@ -122,7 +132,9 @@ test.describe("mobile module layout (PRD #9 §184)", () => {
     await page.goto("/projects/project_a");
 
     await expect(page.getByRole("heading", { name: "Riverside Residences" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
+    // A phone draws no breadcrumb bar (2c77d9c9): the project names itself in its compact header (1716bd9c).
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeHidden();
+    await expect(page.getByTestId("project-phone-identity")).toContainText("Riverside Residences");
     // Below 1024px the project's tabs are the top bar's section pill, not a tab row.
     await expect(page.getByTestId("section-menu-trigger")).toHaveAccessibleName("Page sections: Overview");
     await expect(page.getByRole("navigation", { name: "Project sections" })).toHaveCount(0);

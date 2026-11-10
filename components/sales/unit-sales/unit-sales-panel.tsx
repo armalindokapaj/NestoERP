@@ -25,7 +25,9 @@ import { salesLabel } from "@/lib/i18n/modules/sales/labels";
 import { useSalesTranslations } from "@/components/sales/sales-text";
 import { soldMissingText } from "./sold-missing";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
-import { CorrectDialog, dateValue, PriceDialog, ReasonDialog, ReopenDialog, ReserveDialog } from "./unit-sales-dialogs";
+import { CorrectDialog, PriceDialog, ReopenDialog } from "./unit-sales-dialogs";
+import { SaleStatusDialogs } from "./sale-status-dialogs";
+import { salesExpectedVersion, saleStatusOffers } from "@/lib/modules/sales/units/unit-sales.rules";
 
 /**
  * A unit's Sales section (E-05E §15, §19-§31, §55): where the sale stands, the
@@ -49,19 +51,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
   const [pending, setPending] = React.useState(false);
 
   const status = sales.status;
-  const offer = {
-    putOnSale: caps.canManageStatus && status === "NOT_FOR_SALE" && sales.sellable,
-    takeOff: caps.canManageStatus && status === "FOR_SALE",
-    hold: caps.canManageStatus && status === "FOR_SALE",
-    releaseHold: caps.canManageStatus && status === "ON_HOLD",
-    reserve: caps.canReserve && (status === "FOR_SALE" || status === "ON_HOLD") && sales.sellable,
-    extend: caps.canExtend && Boolean(reservation),
-    release: caps.canRelease && Boolean(reservation),
-    sold: caps.canMarkSold && status === "RESERVED",
-    reopen: caps.canReopen && status === "SOLD",
-    correct: caps.canCorrect && Boolean(reservation),
-    price: caps.canManagePrice && status !== "SOLD",
-  };
+  const offer = saleStatusOffers({ status, sellable: sales.sellable, hasReservation: Boolean(reservation), capabilities: caps });
 
   React.useEffect(() => {
     if (initialAction === "reserve" && offer.reserve) setOpen("reserve");
@@ -71,34 +61,22 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
   }, []);
 
   const submit = React.useCallback(
-    async (url: string, body: Record<string, unknown>, success: string) => {
-      await structureApi(url, { method: url.endsWith("/sales") ? "PATCH" : "POST", body });
+    async (url: string, body: Record<string, unknown>, success: string): Promise<unknown> => {
+      const answer = await structureApi(url, { method: url.endsWith("/sales") ? "PATCH" : "POST", body });
       toast({ title: success });
       // The one-shot `?action=` goes without a navigation: the dialog that just
       // saved is still on screen, and a navigation would ask about it (AUD-03 §5).
       if (initialAction) window.history.replaceState(window.history.state, "", pathname);
       router.refresh();
+      return answer;
     },
     [toast, router, pathname, initialAction],
   );
 
-  async function quick(action: "put_on_sale" | "take_off_sale" | "release_hold", success: string) {
-    setPending(true);
-    try {
-      await submit(`/api/project-units/${sales.unitId}/sales/status`, { action, ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }, success);
-      setOpen(null);
-    } catch (error) {
-      setOpen(null);
-      toast({ title: failureMessage(error, t("unitSales.failed")), tone: "danger" });
-    } finally {
-      setPending(false);
-    }
-  }
-
   async function markSold() {
     setPending(true);
     try {
-      await submit(`/api/project-units/${sales.unitId}/mark-sold`, sales.version > 0 ? { expectedVersion: sales.version } : {}, t("unitSales.isSold", { unit: sales.unitLabel }));
+      await submit(`/api/project-units/${sales.unitId}/mark-sold`, { expectedVersion: salesExpectedVersion(sales.version) }, t("unitSales.isSold", { unit: sales.unitLabel }));
       setOpen(null);
     } catch (error) {
       setOpen(null);
@@ -344,55 +322,10 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
       <FieldsDialog open={open === "requestApproval"} onClose={() => setOpen(null)} title={t("unitSales.requestTitle", { unit: sales.unitLabel })} description={t("unitSales.requestDescription")} confirmLabel={t("unitSales.askForApproval")} url={`/api/project-units/${sales.unitId}/sale-approval`} fields={[{ name: "note", label: t("unitSales.noteForApprover"), kind: "textarea" }]} success={t("unitSales.requestSuccess")} submit={submit} testId="request-sale-approval-dialog" />
       <FieldsDialog open={open === "approveSale"} onClose={() => setOpen(null)} title={t("unitSales.approveTitle", { unit: sales.unitLabel })} description={t("unitSales.approveDescription")} confirmLabel={t("unitSales.approve")} url={`/api/project-units/${sales.unitId}/sale-approval/approve`} fields={[{ name: "note", label: t("unitSales.note"), kind: "textarea" }]} success={t("unitSales.approveSuccess")} submit={submit} />
       <FieldsDialog open={open === "rejectSale"} onClose={() => setOpen(null)} title={t("unitSales.rejectTitle", { unit: sales.unitLabel })} confirmLabel={t("unitSales.reject")} url={`/api/project-units/${sales.unitId}/sale-approval/reject`} fields={[{ name: "note", label: t("unitSales.reason"), kind: "textarea", required: true }]} success={t("unitSales.rejectSuccess")} submit={submit} />
-      <ReserveDialog open={open === "reserve"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <ReopenDialog open={open === "reopen"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <CorrectDialog open={open === "correct"} onClose={() => setOpen(null)} sales={sales} submit={submit} />
-      <ReasonDialog
-        open={open === "hold"}
-        onClose={() => setOpen(null)}
-        title={t("unitSales.holdTitle", { unit: sales.unitLabel })}
-        description={t("unitSales.holdDescription")}
-        confirmLabel={t("unitSales.hold")}
-        url={`/api/project-units/${sales.unitId}/sales/status`}
-        body={{ action: "hold", ...(sales.version > 0 ? { expectedVersion: sales.version } : {}) }}
-        success={t("unitSales.holdSuccess", { unit: sales.unitLabel })}
-        submit={submit}
-        date={{ label: t("unitSales.reviewHoldOn"), field: "holdUntil", required: false, min: dateValue(new Date()) }}
-        testId="hold-dialog"
-      />
-      {reservation ? (
-        <>
-          <ReasonDialog
-            open={open === "extend"}
-            onClose={() => setOpen(null)}
-            title={t("unitSales.extendTitle", { unit: sales.unitLabel })}
-            description={t("unitSales.extendDescription", { date: formatDate(reservation.expiresAt, locale) })}
-            confirmLabel={t("unitSales.extend")}
-            url={`/api/unit-reservations/${reservation.id}/extend`}
-            body={{ expectedVersion: reservation.version }}
-            success={t("unitSales.extendSuccess", { unit: sales.unitLabel })}
-            submit={submit}
-            date={{ label: t("unitSales.newExpiry"), field: "expiresAt", required: true, initial: dateValue(new Date(new Date(reservation.expiresAt).getTime() + sales.defaults.reservationDays * 86_400_000)), min: dateValue(reservation.expiresAt) }}
-            testId="extend-dialog"
-          />
-          <ReasonDialog
-            open={open === "release"}
-            onClose={() => setOpen(null)}
-            title={t("unitSales.releaseTitle", { unit: sales.unitLabel })}
-            description={t("unitSales.releaseDescription")}
-            confirmLabel={t("unitSales.release")}
-            url={`/api/unit-reservations/${reservation.id}/release`}
-            body={{ expectedVersion: reservation.version }}
-            success={t("unitSales.releaseSuccess", { unit: sales.unitLabel })}
-            submit={submit}
-            testId="release-dialog"
-          />
-        </>
-      ) : null}
-
-      <ConfirmDialog open={open === "putOnSale"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.putOnSaleTitle", { unit: sales.unitLabel })} description={t("unitSales.putOnSaleDescription")} confirmLabel={t("unitSales.putOnSale")} destructive={false} pending={pending} onConfirm={() => void quick("put_on_sale", t("unitSales.forSale", { unit: sales.unitLabel }))} />
-      <ConfirmDialog open={open === "takeOff"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.takeOffTitle", { unit: sales.unitLabel })} description={t("unitSales.takeOffDescription")} confirmLabel={t("unitSales.takeOffSale")} pending={pending} onConfirm={() => void quick("take_off_sale", t("unitSales.noLongerForSale", { unit: sales.unitLabel }))} />
-      <ConfirmDialog open={open === "releaseHold"} onOpenChange={(value) => !value && setOpen(null)} title={t("unitSales.releaseHoldTitle", { unit: sales.unitLabel })} description={t("unitSales.releaseHoldDescription")} confirmLabel={t("unitSales.releaseHold")} destructive={false} pending={pending} onConfirm={() => void quick("release_hold", t("unitSales.forSaleAgain", { unit: sales.unitLabel }))} />
+      {/* Put on sale, take off sale, hold, release the hold, reserve, extend and release: the side panel's dialogs too (2026-11-09). */}
+      <SaleStatusDialogs open={open} onClose={() => setOpen(null)} sales={sales} submit={submit} />
       <ConfirmDialog
         open={open === "sold"}
         onOpenChange={(value) => !value && setOpen(null)}

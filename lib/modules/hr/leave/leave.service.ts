@@ -2,6 +2,7 @@ import { Prisma, type LeaveRequestStatus } from "@prisma/client";
 
 import { can } from "@/lib/access/can";
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
+import { assertOwnDecisionAllowed, mayDecideOwn } from "@/lib/core/approvals/self-approval";
 import type { UserContext } from "@/lib/context/types";
 import { prisma } from "@/lib/database/prisma";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
@@ -150,9 +151,9 @@ export async function listLeave(context: UserContext, query: LeaveListQuery) {
     LIST_READ,
   );
 
-  const deciders = await deciderNames(context.companyId, rows);
+  const [deciders, ownAllowed] = await Promise.all([deciderNames(context.companyId, rows), ownDecidable(context, rows)]);
   return {
-    data: rows.map((row) => toDTO(context, row, deciders)),
+    data: rows.map((row) => toDTO(context, row, deciders, ownAllowed)),
     pagination: window,
   };
 }
@@ -176,7 +177,7 @@ export async function getLeave(
     throw new AccessError("NOT_FOUND");
   }
 
-  return toDTO(context, row, await deciderNames(context.companyId, [row]));
+  return toDTO(context, row, await deciderNames(context.companyId, [row]), await ownDecidable(context, [row]));
 }
 
 /** An employee's balances for a year (PRD #16 §79). */
@@ -409,13 +410,13 @@ export async function approveLeave(
   const submittedAt = requireSubmission(submission);
 
   const existing = await requireLeave(context, leaveId);
-  assertNotSelfApproval(context, existing);
   assertDecidable(existing, submittedAt);
 
   await prisma.$transaction(async (tx) => {
     // First, before anything is written: the submission decided is the one the
     // approver saw, read under the row lock (AUD-10 §4, A2).
     await lockSubmission(tx, existing, submittedAt);
+    await assertNotSelfApproval(context, existing, tx, "APPROVED");
 
     await assertNoOverlap(
       tx,
@@ -498,11 +499,11 @@ export async function rejectLeave(
   requireDecisionNote(note, "Say why the leave is being rejected.");
 
   const existing = await requireLeave(context, leaveId);
-  assertNotSelfApproval(context, existing);
   assertDecidable(existing, submittedAt);
 
   await prisma.$transaction(async (tx) => {
     await lockSubmission(tx, existing, submittedAt);
+    await assertNotSelfApproval(context, existing, tx, "REJECTED");
 
     await moveStatus(tx, existing, "REJECTED", {
       rejectedByMemberId: context.membershipId,
@@ -755,13 +756,32 @@ function assertMayEdit(context: UserContext, row: LeaveRow): void {
   assertPermission(context, "hr.leave.update");
 }
 
-/** Nobody decides their own request (PRD #16 §90, §194). */
-function assertNotSelfApproval(context: UserContext, row: LeaveRow): void {
-  if (!isSelf(context, row.employeeProfile.companyMemberId)) return;
-  throw new AccessError(
-    "FORBIDDEN",
-    "This is your own leave, so somebody else has to decide it.",
-  );
+/**
+ * Nobody decides their own request (PRD #16 §90, §194). A CEO may decide their
+ * own only when nobody else in the company could, and it is recorded as
+ * self-approved (lib/core/approvals/self-approval.ts).
+ */
+async function assertNotSelfApproval(context: UserContext, row: LeaveRow, tx: Prisma.TransactionClient, decision: "APPROVED" | "REJECTED"): Promise<void> {
+  await assertOwnDecisionAllowed(context, {
+    own: isSelf(context, row.employeeProfile.companyMemberId),
+    record: { type: "leave_request", id: row.id },
+    mayDecide: (member) => can(member, "hr.leave.approve"),
+    refusal: () => new AccessError("FORBIDDEN", "This is your own leave, so somebody else has to decide it."),
+    tx,
+    label: "Leave request",
+    decision,
+  });
+}
+
+/** Of these rows, the reader's own pending leave the self rule lets them decide. */
+async function ownDecidable(context: UserContext, rows: LeaveRow[]): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (row.status !== "PENDING" || !isSelf(context, row.employeeProfile.companyMemberId)) continue;
+    const allowed = await mayDecideOwn(context, { own: true, record: { type: "leave_request", id: row.id }, mayDecide: (member) => can(member, "hr.leave.approve") });
+    if (allowed) ids.add(row.id);
+  }
+  return ids;
 }
 
 async function moveStatus(
@@ -868,8 +888,10 @@ async function deciderNames(companyId: string, rows: LeaveRow[]): Promise<Map<st
   return new Map(members.map((member) => [member.id, `${member.user.firstName} ${member.user.lastName}`]));
 }
 
-function toDTO(context: UserContext, row: LeaveRow, deciders: Map<string, string>): LeaveRequestDTO {
+function toDTO(context: UserContext, row: LeaveRow, deciders: Map<string, string>, ownAllowed: Set<string>): LeaveRequestDTO {
   const own = isSelf(context, row.employeeProfile.companyMemberId);
+  // Your own leave is decided by somebody else, unless the self rule allows it (lib/core/approvals/self-approval.ts).
+  const notOwn = !own || ownAllowed.has(row.id);
   const person = row.employeeProfile.personProfile;
   const user = row.employeeProfile.companyMember?.user ?? null;
 
@@ -911,8 +933,8 @@ function toDTO(context: UserContext, row: LeaveRow, deciders: Map<string, string
         isLeaveSubmittable(row.status) &&
         (mayEditOwn || can(context, "hr.leave.submit") || can(context, "hr.leave.update")),
       // Never on your own request, whatever grants you hold (PRD #16 §194).
-      canApprove: row.status === "PENDING" && !own && can(context, "hr.leave.approve"),
-      canReject: row.status === "PENDING" && !own && can(context, "hr.leave.reject"),
+      canApprove: row.status === "PENDING" && notOwn && can(context, "hr.leave.approve"),
+      canReject: row.status === "PENDING" && notOwn && can(context, "hr.leave.reject"),
       canCancel:
         canTransitionLeave(row.status, "CANCELLED") &&
         (row.status === "APPROVED"

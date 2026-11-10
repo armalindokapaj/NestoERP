@@ -582,13 +582,15 @@ describe("self-service stops at the self (RP-09)", () => {
       const submit = await routeHandlers("/api/hr/leave/[leaveId]/submit");
       expect((await callRoute(submit.POST!, "POST", `/api/hr/leave/${leaveId}/submit`, params, {})).status).toBeLessThan(300);
 
-      // Deciding is hr.leave.approve: not the person who asked, not a reader of HR (CEO: hr V/C), not the Viewer.
+      // Deciding is hr.leave.approve: not the person who asked, not a reader of HR without it, not the Viewer.
+      // (The CEO was that reader until 2026-11, when the CEO came to hold the Owner's HR rights.)
       const approve = await routeHandlers("/api/hr/leave/[leaveId]/approve");
       const pending = await rowText("leave_requests", leaveId);
       // The submission the page showed (AUD-10 A2): without it every decision is 428, which would hide whether a refusal was about access.
       const shown = { submittedAt: (await prisma.leaveRequest.findUniqueOrThrow({ where: { id: leaveId }, select: { submittedAt: true } })).submittedAt!.toISOString() };
-      for (const key of ["engineer", "ceo", "viewer"] as const) {
-        actAs(actors[key]);
+      const readerOnly = { ...actors.ceo, permissions: actors.ceo.permissions.filter((permission) => permission !== "hr.leave.approve") };
+      for (const [key, context] of [["engineer", actors.engineer], ["reader without the grant", readerOnly], ["viewer", actors.viewer]] as const) {
+        actAs(context);
         const outcome = await callRoute(approve.POST!, "POST", `/api/hr/leave/${leaveId}/approve`, params, shown);
         expect(notARefusal(outcome), `${key}: ${JSON.stringify(outcome.body)}`).toBeNull();
       }

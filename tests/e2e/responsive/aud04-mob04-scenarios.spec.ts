@@ -22,6 +22,12 @@ async function openFirstRecord(page: Page, role: DemoRole, list: string, hrefPat
     .first();
   await expect(link).toBeVisible();
   await link.click();
+  // A unit opens in the side panel first (2026-11-09); its Open full page is the detail.
+  const panel = page.getByTestId("unit-panel");
+  if (/\/units$/.test(new URL(page.url()).pathname)) {
+    await expect(panel).toBeVisible();
+    await panel.getByTestId("unit-panel-open-page").click();
+  }
   await page.waitForURL(hrefPattern);
   await expect(mainRegion(page).getByRole("heading", { level: 1 }).first()).toBeVisible();
 }
@@ -59,17 +65,34 @@ test("project overview stays a structured page, not an endless column", async ({
 });
 
 test.describe("employee field-level visibility", () => {
-  test("an HR role sees Compensation; the CEO does not (a locked tab would confirm a salary exists)", async ({ page }) => {
+  test("HR and the CEO see Compensation; a reader without pay does not (a locked tab would confirm a salary exists)", async ({ page, browser }, testInfo) => {
     await openFirstRecord(page, "HR", "/hr/employees", /\/hr\/employees\/[^/]+$/);
     // The record's sections: its tab row from 1024px, the top bar's section menu below it.
-    const sections = async () => (sectionsInMenu(page) ? openSectionMenu(page) : page.getByRole("navigation", { name: /employee sections/i }));
-    await expect((await sections()).getByRole("link", { name: "Compensation" })).toBeVisible();
-    const url = page.url();
-    await page.context().clearCookies();
-    await signIn(page, "CEO", { to: new URL(url).pathname });
-    const tabs = await sections();
+    const sections = async (on: Page) => (sectionsInMenu(on) ? openSectionMenu(on) : on.getByRole("navigation", { name: /employee sections/i }));
+    await expect((await sections(page)).getByRole("link", { name: "Compensation" })).toBeVisible();
+    const path = new URL(page.url()).pathname;
+    // Each reader in a browser of their own, at this project's size.
+    const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, baseURL } = testInfo.project.use;
+    const as = async (role: DemoRole, to: string) => {
+      const context = await browser.newContext({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, baseURL });
+      const other = await context.newPage();
+      await signIn(other, role, { to });
+      return { other, close: () => context.close() };
+    };
+
+    // The CEO holds HR pay since 2026-11 (the CEO works in every module, as the Owner does).
+    const ceo = await as("CEO", path);
+    await expect((await sections(ceo.other)).getByRole("link", { name: "Compensation" })).toBeVisible();
+    await ceo.close();
+
+    // A project manager reads the people on their projects, not their pay: no tab at all.
+    const manager = await as("PROJECT_MANAGER", "/hr/employees");
+    await mainRegion(manager.other).locator('a[href^="/hr/employees/"]').filter({ visible: true }).first().click();
+    await manager.other.waitForURL(/\/hr\/employees\/[^/]+$/);
+    const tabs = await sections(manager.other);
     await expect(tabs.getByRole("link", { name: "Overview", exact: true })).toBeVisible();
     await expect(tabs.getByRole("link", { name: "Compensation" })).toHaveCount(0);
+    await manager.close();
   });
 });
 

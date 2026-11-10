@@ -131,7 +131,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
             ) : null}
             {summary.sharedWithUnits.length ? (
               <p className="mt-3 text-meta text-fg-subtle">
-                {t("panel.shared", { units: summary.sharedWithUnits.map((unit) => unit.unitCode).join(", ") })}
+                {t("panel.shared", { units: summary.sharedWithUnits.map((unit) => unit.label).join(", ") })}
               </p>
             ) : null}
             {caps.canRecordPayment && collecting ? (

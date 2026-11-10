@@ -10,6 +10,7 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { businessDateString } from "../finance.fields";
 import { toAmountString } from "../finance.money";
 import { paidByInstallment } from "../finance.settlement";
@@ -48,7 +49,7 @@ type Row = {
 async function contractContext(companyId: string, contractId: string) {
   return prisma.contract.findFirst({
     where: { companyId, id: contractId },
-    select: { id: true, contractNumber: true, projectId: true, units: { where: { releasedAt: null }, orderBy: { createdAt: "asc" }, select: { unitId: true, unit: { select: { unitCode: true, projectId: true } } } } },
+    select: { id: true, contractNumber: true, projectId: true, units: { where: { releasedAt: null }, orderBy: { createdAt: "asc" }, select: { unitId: true, unit: { select: { unitCode: true, projectId: true, floor: { select: { building: { select: { code: true } } } } } } } } },
   });
 }
 
@@ -77,7 +78,7 @@ async function notice(companyId: string, row: Row, kind: "overdue" | "due", toda
           memberIds,
           installmentId: row.id,
           installmentLabel: row.label,
-          unitCode: contract.units.map((unit) => unit.unit.unitCode).join(", "),
+          unitCode: contract.units.map((unit) => unitLabel(unit.unit.floor.building.code, unit.unit.unitCode)).join(", "),
           contractNumber: contract.contractNumber,
           dueDate: businessDateString(row.dueDate),
           dueLabel: days <= 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`,

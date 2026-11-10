@@ -26,13 +26,15 @@ vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: (
  * planted value is a leak, whatever the field is called. Who may see what is
  * written here from the grants, independently of the services:
  *
- *   pay (`hr.compensation.view`)            Owner, HR — nobody else, and no
+ *   pay (`hr.compensation.view`)            Owner, CEO, HR — nobody else, and no
  *                                           self-service exception (PRD #16 §17)
- *   employment contract, EMPLOYEE_AND_HR    Owner, HR, and the employee (E-02 §105)
- *   letter, HR_ONLY                         Owner, HR — not the employee (§106)
- *   note, RESTRICTED_MANAGEMENT             Owner, HR — not the employee, not
- *                                           the CEO without the explicit grant (§107)
- *   legal notes (`legal.confidential_terms.view`)  Owner, Legal (PRD #18 §23)
+ *   employment contract, EMPLOYEE_AND_HR    Owner, CEO, HR, and the employee (E-02 §105)
+ *   letter, HR_ONLY                         Owner, CEO, HR — not the employee (§106)
+ *   note, RESTRICTED_MANAGEMENT             Owner, CEO, HR — not the employee (§107)
+ *   legal notes (`legal.confidential_terms.view`)  Owner, CEO, Legal (PRD #18 §23)
+ *
+ * The CEO reads what the Owner reads since the user's 2026-11 decision ("CEO
+ * does everything"); until then the CEO saw none of the first five.
  *   commercial notes (`legal.commercial.view`)     Owner, Legal, CEO, Finance —
  *                                           not the Project Manager (PRD #18 §22)
  *
@@ -68,7 +70,6 @@ const ALL: Secret[] = ["pay", "payNote", "contract", "hrOnly", "restricted", "le
 
 /** Who must see nothing of which secrets: the expectation table above, as data. */
 const MUST_NOT_SEE: Partial<Record<RoleKey, Secret[]>> = {
-  CEO: ["pay", "payNote", "contract", "hrOnly", "restricted", "legal"],
   FINANCE: ["pay", "payNote", "contract", "hrOnly", "restricted", "legal"],
   LEGAL: ["pay", "payNote", "contract", "hrOnly", "restricted"],
   PROJECT_MANAGER: ALL,
@@ -210,7 +211,9 @@ describe("private values stay with their grants across every read (RP-11)", () =
       ["ARCHITECT", "/api/hr/employees/[employeeId]/documents", employee, "", ["contract"]],
       ["OWNER", "/api/contracts/[contractId]", contract, "", ["legal", "commercial"]],
       ["LEGAL", "/api/contracts/[contractId]", contract, "", ["legal", "commercial"]],
-      ["CEO", "/api/contracts/[contractId]", contract, "", ["commercial"]],
+      ["CEO", "/api/contracts/[contractId]", contract, "", ["legal", "commercial"]],
+      ["CEO", "/api/hr/employees/[employeeId]/compensation", employee, "", ["pay", "payNote"]],
+      ["CEO", "/api/hr/employees/[employeeId]/documents", employee, "", ["contract", "hrOnly", "restricted"]],
       ["FINANCE", "/api/contracts/[contractId]", contract, "", ["commercial"]],
     ];
     const missing: string[] = [];
@@ -226,9 +229,9 @@ describe("private values stay with their grants across every read (RP-11)", () =
   it("gives the designated readers a download link to the files they may open, and nobody else", async () => {
     const download = await routeHandlers("/api/documents/[documentId]/download");
     const preview = await routeHandlers("/api/documents/[documentId]/preview");
-    const allowed: [RoleKey, keyof typeof FIX.documents][] = [["HR", "contract"], ["HR", "hrOnly"], ["HR", "restricted"], ["OWNER", "restricted"], ["ARCHITECT", "contract"]];
+    const allowed: [RoleKey, keyof typeof FIX.documents][] = [["HR", "contract"], ["HR", "hrOnly"], ["HR", "restricted"], ["OWNER", "restricted"], ["CEO", "contract"], ["CEO", "restricted"], ["ARCHITECT", "contract"]];
     const denied: [RoleKey, keyof typeof FIX.documents][] = [
-      ...(["CEO", "FINANCE", "LEGAL", "PROJECT_MANAGER", "ENGINEER", "VIEWER", "GROUP_IT"] as RoleKey[]).flatMap((role) => (["contract", "hrOnly", "restricted"] as const).map((key): [RoleKey, keyof typeof FIX.documents] => [role, key])),
+      ...(["FINANCE", "LEGAL", "PROJECT_MANAGER", "ENGINEER", "VIEWER", "GROUP_IT"] as RoleKey[]).flatMap((role) => (["contract", "hrOnly", "restricted"] as const).map((key): [RoleKey, keyof typeof FIX.documents] => [role, key])),
       ["ARCHITECT", "hrOnly"],
       ["ARCHITECT", "restricted"],
     ];
@@ -359,11 +362,14 @@ describe("a decision needs the record in sight and the grant (RP-12)", () => {
     const pending = await prisma.leaveRequest.findFirstOrThrow({ where: { companyId: COMPANY.a, status: "PENDING", companyMemberId: actor("ENGINEER").membershipId }, select: { id: true } });
     const restore = await captureCompanyRows(COMPANY.a);
     try {
-      // Sight without the grant: the CEO reads HR company-wide (hr V/C) but holds no `hr.leave.approve`.
+      // Sight without the grant: a company-wide HR reader without `hr.leave.approve`. The CEO was one
+      // until 2026-11, when the CEO came to hold the Owner's HR rights; the grant is taken away here.
       const detail = await get("CEO", "/api/approvals/[providerKey]/[approvalId]", { providerKey: "hr", approvalId: pending.id });
       expect(detail.status).toBe(200);
+      const ceo = actor("CEO");
+      const readerOnly = { ...ceo, permissions: ceo.permissions.filter((permission) => permission !== "hr.leave.approve" && permission !== "hr.leave.reject") };
       const before = await prisma.leaveRequest.findUniqueOrThrow({ where: { id: pending.id } });
-      for (const [who, context] of [["ceo", actor("CEO")], ["engineer", actor("ENGINEER")], ["finance", actor("FINANCE")]] as const) {
+      for (const [who, context] of [["reader without the grant", readerOnly], ["engineer", actor("ENGINEER")], ["finance", actor("FINANCE")]] as const) {
         const outcome = await decide(context, "hr", pending.id, "approve");
         expect([403, 404], `${who}: ${outcome.status} ${textOf(outcome.body)}`).toContain(outcome.status);
       }

@@ -89,7 +89,7 @@ test("the bell opens the Activity Center without reading anything, and View all 
   try {
     await signIn(page, "ENGINEER", { to: "/dashboard" });
     await expect(page.getByTestId("notification-badge")).toBeVisible();
-    await page.getByTestId("notification-bell").click();
+    await page.getByTestId("notification-bell").filter({ visible: true }).click();
     const panel = page.getByRole("dialog", { name: "Activity Center" });
     await expect(panel.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
     const item = panel.getByTestId("activity-item").filter({ hasText: "E2E activity: pour check" });
@@ -104,7 +104,7 @@ test("the bell opens the Activity Center without reading anything, and View all 
     await page.waitForURL(/\/tasks\/task_006$/);
     await expect.poll(async () => (await db.notification.findUniqueOrThrow({ where: { id: row.id } })).readState).toBe("READ");
 
-    await page.getByTestId("notification-bell").click();
+    await page.getByTestId("notification-bell").filter({ visible: true }).click();
     await page.getByTestId("activity-view-all").click();
     await expect(page).toHaveURL(/\/activity$/);
     await expect(page.getByRole("heading", { level: 1, name: "Activity Center" })).toBeVisible();

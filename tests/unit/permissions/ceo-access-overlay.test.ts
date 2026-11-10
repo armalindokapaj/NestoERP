@@ -37,7 +37,7 @@ describe("the CEO overlay", () => {
     // Projects: Finance reads, the CEO manages.
     expect(own.projects.accessLevel).not.toBe("MANAGE");
     expect(both.projects).toMatchObject({ accessLevel: ceo.projects.accessLevel, scope: "COMPANY" });
-    // Finance: Finance manages it already; the CEO approves. The higher stays.
+    // Finance: both manage it (the CEO since 2026-11). The level stays.
     expect(both.finance.accessLevel).toBe(own.finance.accessLevel);
   });
 

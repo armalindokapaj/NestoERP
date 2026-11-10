@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { convertPriceEntry, hasSaleArea, prevailingPrice, prevailingRate, priceFromRate, priceToSave, rateFromPrice, saleArea, saleRate, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
-import { pricePerSqm, saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
+import { changesAskingPrice, convertPriceEntry, hasSaleArea, prevailingPrice, prevailingRate, priceFromRate, priceToSave, rateFromPrice, saleArea, saleRate, savedPriceBox, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { pricePerSqm, salesExpectedVersion, saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
 import { priceListSaveSchema } from "@/lib/modules/sales/units/unit-pricing.schema";
 import { MAX_PRICE_LIST_CHANGES } from "@/lib/modules/sales/units/unit-pricing.types";
 
@@ -216,6 +216,59 @@ describe("what a single unit's price is sent with", () => {
     expect(priceToSave("200000.00", "USD", legacy, gross)).toEqual({ askingPrice: "200000.00", priceBasis: "GROSS_AREA" });
     // What the server will refuse goes as typed, for the server to say why.
     expect(priceToSave("1,200", "EUR", legacy, gross)).toEqual({ askingPrice: "1,200", priceBasis: "GROSS_AREA" });
+  });
+});
+
+describe("whether a save sets a new price (review 2026-11-10)", () => {
+  const priced = { askingPrice: "200000.00", currency: "EUR", priceBasis: "GROSS_AREA" as const };
+  const unpriced = { askingPrice: null, currency: null, priceBasis: "FIXED_UNIT_PRICE" as const };
+  const gross = { saleableArea: null, grossArea: "100.00" };
+
+  it("does not for the price as saved, so saving the notes alone never puts a held-back unit on sale", () => {
+    expect(changesAskingPrice(priceToSave("200000.00", "EUR", priced, gross), priced, "EUR")).toBe(false);
+    expect(changesAskingPrice(priceToSave("200 000", "EUR", priced, gross), priced, "EUR")).toBe(false);
+    // The rate the total opened as, left alone, stands for that total.
+    const box = savedPriceBox(priced.askingPrice, gross.grossArea, "PER_SQM");
+    expect(changesAskingPrice(priceToSave(untouchedTotal(box.text, box.entry, box.last)!, "EUR", priced, gross), priced, "EUR")).toBe(false);
+  });
+
+  it("does not when the price is cleared or none is typed", () => {
+    expect(changesAskingPrice(priceToSave("", "EUR", priced, gross), priced, "EUR")).toBe(false);
+    expect(changesAskingPrice(priceToSave("", "EUR", unpriced, gross), unpriced, "EUR")).toBe(false);
+  });
+
+  it("does for a new amount, a first price, or the same amount in another currency", () => {
+    expect(changesAskingPrice(priceToSave("210000", "EUR", priced, gross), priced, "EUR")).toBe(true);
+    expect(changesAskingPrice(priceToSave("150000", "EUR", unpriced, gross), unpriced, "EUR")).toBe(true);
+    expect(changesAskingPrice(priceToSave("200000.00", "USD", priced, gross), priced, "USD")).toBe(true);
+  });
+});
+
+describe("the price box before anybody touches it (review 2026-11-10)", () => {
+  it("is the saved total as its rate on the area as it is now, and stands for that exact total", () => {
+    // Priced at 200,000 on 100 m² of gross area; a saleable area of 95 is typed in the same dialog.
+    const before = savedPriceBox("200000.00", "100.00", "PER_SQM");
+    expect(before.text).toBe("2000.00");
+    const after = savedPriceBox("200000.00", "95.00", "PER_SQM");
+    expect(after.entry).toBe("PER_SQM");
+    expect(after.convertedOn).toBe("95.00");
+    // The rate shown moves; the total it stands for does not: nothing is re-priced.
+    expect(after.text).not.toBe(before.text);
+    expect(untouchedTotal(after.text, after.entry, after.last)).toBe("200000.00");
+  });
+
+  it("shows the total itself without an area, or when it shows Total, and is empty without a price", () => {
+    expect(savedPriceBox("200000.00", null, "PER_SQM")).toEqual({ entry: "TOTAL", text: "200000.00", last: null, convertedOn: null });
+    expect(savedPriceBox("200000.00", "100.00", "TOTAL")).toEqual({ entry: "TOTAL", text: "200000.00", last: null, convertedOn: null });
+    expect(savedPriceBox(null, "100.00", "PER_SQM")).toEqual({ entry: "PER_SQM", text: "", last: null, convertedOn: null });
+  });
+});
+
+describe("the version a sales change is checked against (review 2026-11-10)", () => {
+  it("is the version seen, and 1 for a unit that had no sales record, never left out", () => {
+    expect(salesExpectedVersion(0)).toBe(1);
+    expect(salesExpectedVersion(1)).toBe(1);
+    expect(salesExpectedVersion(4)).toBe(4);
   });
 });
 

@@ -109,7 +109,8 @@ test("Project Overview from 1024px: the ⋯ follows the status on the hero, hold
 
 test("A module page from 1024px: Help and What is this? are in the ⋯ right after the title", async ({ page }) => {
   test.skip(page.viewportSize()!.width < 1024, "desktop; below 1024px the ⋯ ends the title's row (next test)");
-  await signIn(page, "PROJECT_MANAGER", { to: "/tasks" });
+  // All tasks, not the Tasks overview: the list carries the "What is this?" tip (tasks-list.tsx); the overview has none.
+  await signIn(page, "PROJECT_MANAGER", { to: "/tasks/all" });
   const header = mainRegion(page).locator('[data-page-header="module"]');
   await expect(header.getByTestId("module-help-entry")).toBeHidden();
   const more = header.getByTestId("page-menu");
@@ -128,7 +129,8 @@ test("A module page from 1024px: Help and What is this? are in the ⋯ right aft
 
 test("A module page below 1024px: Help is in the ⋯ at the end of the title's line, not a row of its own", async ({ page }) => {
   test.skip(page.viewportSize()!.width >= 1024, "phones and tablets");
-  await signIn(page, "PROJECT_MANAGER", { to: "/tasks" });
+  // All tasks, not the Tasks overview: the list carries the "What is this?" tip (tasks-list.tsx); the overview has none.
+  await signIn(page, "PROJECT_MANAGER", { to: "/tasks/all" });
   const header = mainRegion(page).locator('[data-page-header="module"]');
   await expect(header.getByTestId("module-help-entry")).toBeHidden();
   const more = header.getByTestId("page-menu");
