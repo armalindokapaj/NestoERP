@@ -54,9 +54,7 @@ function productionSources(): string[] {
  * Registered for a capability V0.1 does not have. Each must stay justified
  * here rather than quietly lingering in the registry.
  */
-const NOT_YET_IMPLEMENTED: Record<string, string> = {
-  REPORT_EXPORTED_XLSX: "V0.1 exports CSV only; no XLSX writer ships (PRD #28 §171).",
-};
+const NOT_YET_IMPLEMENTED: Record<string, string> = {};
 
 describe("audit policy coverage", () => {
   const sources = productionSources();

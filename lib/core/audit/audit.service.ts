@@ -4,6 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { currentRequestContext } from "@/lib/core/observability/request-context";
 import type { UserContext } from "@/lib/context/types";
 import { applyRedaction } from "./audit-redaction";
+import { currentAuditSource } from "./audit-source";
 import { findAuditPolicy } from "./audit-policy.registry";
 import type { AuditChange, AuditContext, RecordAuditInput } from "./audit.types";
 
@@ -63,6 +64,13 @@ async function write(
   return client.auditEvent.create({ data: auditRow(context, input) });
 }
 
+/** The event's metadata, with the source the work runs under (`withAuditSource`) unless it names its own. */
+function metadataOf(input: RecordAuditInput): Prisma.InputJsonValue | undefined {
+  const source = currentAuditSource();
+  if (!source) return input.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined;
+  return { source, ...(input.metadata ?? {}) } as Prisma.InputJsonValue;
+}
+
 /** The row one event becomes: the policy's module, category and severity, its redacted snapshots, the request's ids. */
 function auditRow(context: AuditContext, input: RecordAuditInput): Prisma.AuditEventCreateManyInput {
   const policy = findAuditPolicy(input.actionKey);
@@ -97,7 +105,7 @@ function auditRow(context: AuditContext, input: RecordAuditInput): Prisma.AuditE
     afterJson: snapshot === "BEFORE_AFTER" ? (after as Prisma.InputJsonValue) ?? undefined : undefined,
     changesJson: changes ? (changes as unknown as Prisma.InputJsonValue) : undefined,
     reason: input.reason?.slice(0, 2000) ?? null,
-    metadataJson: input.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined,
+    metadataJson: metadataOf(input),
     // The request's own ids when the caller did not pass any, so a decision,
     // its outbox event and its audit share one correlation (PRD #32 §34, PRD #41 §229).
     correlationId: context.correlationId ?? currentRequestContext()?.correlationId ?? null,

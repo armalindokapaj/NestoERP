@@ -234,6 +234,10 @@ const OWNED: Record<string, string[]> = {
   // requests (E-05D). The Documents they point at stay the Documents domain's.
   // …and the project's sites, where its work happens on the ground (E-04 §38).
   "project-structure": ["projectSite", "projectBuilding", "projectFloor", "projectUnit", "projectUnitType", "unitPublication", "unitMedia", "unitDocumentLink", "unitPublicationApproval"],
+  // A project's Units linked to a Google Sheet and what the two last agreed (2026-11-10). Its own
+  // domain because a sync changes units through project structure's services and prices through
+  // Sales', and neither of those may depend on the other.
+  "unit-sheet": ["projectUnitSheetLink", "projectUnitSheetBaseline"],
   "project-planning": [
     "projectPhase",
     "projectMilestone",
@@ -541,5 +545,10 @@ export const CASCADE_EXCEPTIONS: Array<{ from: string; to: string; reason: strin
     from: "TimesheetApproverAssignment.member",
     to: "CompanyMember",
     reason: "Routing for a person who is gone. The subject cascades; the approver on the same row restricts, so somebody who decides for others cannot be removed out from under them.",
+  },
+  {
+    from: "ProjectUnitSheetBaseline.unit",
+    to: "ProjectUnit",
+    reason: "What a linked Google Sheet and NESTO last agreed about a unit (2026-11-10): the sync's working memory, not history. A unit that may be deleted at all has nothing pointing at it (E-05B §56), and its sheet baseline must not be the one thing that stops it; the sync's own audit event is the history.",
   },
 ];
