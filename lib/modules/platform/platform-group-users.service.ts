@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
+import { recheckDevicesAfterAccessChange } from "@/lib/auth/device.service";
 import { createProvisionedUser } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
@@ -133,7 +134,7 @@ export async function addGroupUserAs(context: GroupActor, raw: unknown): Promise
   const username = input.mode === "new" && input.username ? normaliseUsername(input.username) : null;
   if (username && usernameProblem(username)) throw new AccessError("VALIDATION_ERROR", "Usernames use lowercase letters, numbers, dots, hyphens and underscores.", { field: "username" });
 
-  return prisma.$transaction(async (tx) => {
+  const added = await prisma.$transaction(async (tx) => {
     await lockGroup(tx, group.id);
     let userId: string;
     let accountUsername: string;
@@ -171,8 +172,11 @@ export async function addGroupUserAs(context: GroupActor, raw: unknown): Promise
     if (replaced) {
       await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_CEO_REPLACED, entity: { type: "ParentGroup", id: group.id, label: group.name }, before: { groupId: group.id, userId: replaced.userId, roleKey: "OWNER" }, after: { groupId: group.id, userId, roleKey: "OWNER" }, reason: input.reason }, { tx });
     }
-    return created ? { userId, username: accountUsername, temporaryPassword: DEFAULT_PASSWORD } : { userId, username: accountUsername };
+    return { result: created ? { userId, username: accountUsername, temporaryPassword: DEFAULT_PASSWORD } : { userId, username: accountUsername }, replacedUserId: replaced?.userId ?? null };
   });
+  // A seat's role, and the company rows it gives, can make or end a group owner: the seated and the replaced CEO's phones hear it now.
+  await recheckDevicesAfterAccessChange([added.result.userId, added.replacedUserId]);
+  return added.result;
 }
 
 /**
@@ -211,6 +215,7 @@ export async function removeGroupUserAs(context: GroupActor, raw: unknown): Prom
     const ended = input.alsoRemoveCompanyAccess ? await endGroupRole(tx, group.id, input.userId, null) : 0;
     await recordPlatformAction(context, group.id, { actionKey: AuditAction.PLATFORM_GROUP_USER_REMOVED, entity: { type: "User", id: input.userId, label: `${seat.user.firstName} ${seat.user.lastName} · ${group.name}` }, before: { groupId: group.id, userId: input.userId, status: "ACTIVE" }, after: { groupId: group.id, userId: input.userId, status: "INACTIVE", companyAccessEnded: ended }, reason: input.reason }, { tx });
   });
+  await recheckDevicesAfterAccessChange([input.userId]);
 }
 
 /** Accounts of this group that may be given a seat: not the platform's own, not already holding one. */

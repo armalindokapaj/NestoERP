@@ -2,6 +2,7 @@ import type { CompanyAccessMode, Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
+import { recheckDevicesAfterAccessChange } from "@/lib/auth/device.service";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
@@ -227,7 +228,7 @@ export async function writeCompanyPolicy(tx: Tx, input: { seatId: string; parent
 export async function updateGroupUserAccess(actor: GroupActor, raw: unknown): Promise<CompanyAccessState> {
   const input = groupUserAccessUpdateSchema.parse(raw);
   assertGroupCan(actor, "users.manage", input.groupId);
-  return prisma.$transaction(async (tx) => {
+  const state = await prisma.$transaction(async (tx) => {
     const seat = await tx.parentGroupMember.findUnique({
       where: { parentGroupId_userId: { parentGroupId: input.groupId, userId: input.userId } },
       select: { id: true, status: true, roleId: true, accessVersion: true, companyAccessMode: true, role: { select: { key: true } }, user: { select: { firstName: true, lastName: true } }, parentGroup: { select: { id: true, name: true, status: true, kind: true } }, companies: { select: { companyId: true } } },
@@ -265,4 +266,7 @@ export async function updateGroupUserAccess(actor: GroupActor, raw: unknown): Pr
     if (before.mode === "SELECTED" && removed.length > 0) await audit(AuditAction.GROUP_COMPANY_ACCESS_REVOKED, { mode: after.mode, companyIds: removed });
     return { ...after, version: seat.accessVersion + 1 };
   });
+  // The companies the seat reaches, with its role, came or went: so may the person's ownership and the levels binding them.
+  await recheckDevicesAfterAccessChange([input.userId]);
+  return state;
 }

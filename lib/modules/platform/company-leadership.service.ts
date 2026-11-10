@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { MEMBERSHIP_ROLE_KEYS, roles as roleDefinitions, type RoleKey } from "@/config/roles";
 import { AccessError, assertFound } from "@/lib/access/guards";
+import { recheckDevicesAfterAccessChange } from "@/lib/auth/device.service";
 import { createProvisionedUser } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
@@ -316,7 +317,7 @@ export async function assignCompanyCeo(actor: GroupActor, raw: unknown): Promise
   const input = ceoAssignSchema.parse(raw);
   const company = await authorise(actor, input.companyId, "ceo.manage");
   assertOpen(company);
-  return prisma.$transaction(async (tx) => {
+  const assigned = await prisma.$transaction(async (tx) => {
     await lockCompany(tx, company.id);
     const sitting = await currentCeo(tx, company.id);
     if (sitting) {
@@ -332,6 +333,9 @@ export async function assignCompanyCeo(actor: GroupActor, raw: unknown): Promise
     await recordPlatformAction(actor, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_CEO_ASSIGNED, entity: { type: "CompanyMember", id: person.membershipId, label: `${person.name} · ${company.name}` }, before: { companyId: company.id }, after: { companyId: company.id, userId: person.userId, newAccount: person.newAccount, reactivated: person.reactivated, previousRoleKey: person.previousRoleKey, source: actor.roleKey }, reason: input.reason }, { tx, companyId: company.id });
     return { userId: person.userId, username: person.username, changed: true, temporaryPassword: person.temporaryPassword };
   });
+  // An existing membership re-roled to CEO may have been an Owner's (the user, 2026-11-10): their phones hear it now.
+  if (assigned.changed) await recheckDevicesAfterAccessChange([assigned.userId]);
+  return assigned;
 }
 
 /**
@@ -343,7 +347,7 @@ export async function replaceCompanyCeo(actor: GroupActor, raw: unknown): Promis
   const input = ceoReplaceSchema.parse(raw);
   const company = await authorise(actor, input.companyId, "ceo.manage");
   assertOpen(company);
-  return prisma.$transaction(async (tx) => {
+  const { assigned, outgoingUserId } = await prisma.$transaction(async (tx) => {
     await lockCompany(tx, company.id);
     const sitting = await currentCeo(tx, company.id);
     if (!sitting) throw new AccessError("CONFLICT", "Company leadership has changed. Refresh and review the current CEO before continuing.", { code: "LEADERSHIP_CHANGED" });
@@ -356,8 +360,11 @@ export async function replaceCompanyCeo(actor: GroupActor, raw: unknown): Promis
     const person = await provisionCeo(tx, actor, company, input);
     await point(tx, company.id, null, person.membershipId);
     await recordPlatformAction(actor, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_CEO_REPLACED, entity: { type: "CompanyMember", id: person.membershipId, label: `${person.name} · ${company.name}` }, before: { companyId: company.id, userId: sitting.userId }, after: { companyId: company.id, userId: person.userId, previousAccess: input.previous.action, previousRoleKey: outgoing.remainingRoleKey ?? undefined, newAccount: person.newAccount, source: actor.roleKey }, reason: input.reason }, { tx, companyId: company.id });
-    return { userId: person.userId, username: person.username, changed: true, temporaryPassword: person.temporaryPassword };
+    return { assigned: { userId: person.userId, username: person.username, changed: true, temporaryPassword: person.temporaryPassword }, outgoingUserId: sitting.userId };
   });
+  // The incoming CEO's old row and the outgoing CEO's kept role can each make or end a group owner.
+  await recheckDevicesAfterAccessChange([assigned.userId, outgoingUserId]);
+  return assigned;
 }
 
 /** Leaves the company without a CEO, where administration is not lost with them (§48-§51). */
@@ -365,7 +372,7 @@ export async function removeCompanyCeo(actor: GroupActor, raw: unknown): Promise
   const input = ceoRemoveSchema.parse(raw);
   const company = await authorise(actor, input.companyId, "ceo.manage");
   assertOpen(company);
-  await prisma.$transaction(async (tx) => {
+  const outgoingUserId = await prisma.$transaction(async (tx) => {
     await lockCompany(tx, company.id);
     const sitting = await currentCeo(tx, company.id);
     if (!sitting) throw new AccessError("CONFLICT", "Company leadership has changed. Refresh and review the current CEO before continuing.", { code: "LEADERSHIP_CHANGED" });
@@ -379,7 +386,10 @@ export async function removeCompanyCeo(actor: GroupActor, raw: unknown): Promise
     const outgoing = await endDesignation(tx, actor, company, { id: sitting.id, userId: sitting.userId }, input.previous);
     await point(tx, company.id, sitting.id, null);
     await recordPlatformAction(actor, company.parentGroupId, { actionKey: AuditAction.PLATFORM_COMPANY_CEO_REMOVED, entity: { type: "CompanyMember", id: sitting.id, label: `${sitting.user.firstName} ${sitting.user.lastName} · ${company.name}` }, before: { companyId: company.id, userId: sitting.userId }, after: { companyId: company.id, userId: sitting.userId, previousAccess: input.previous.action, remainingRoleKey: outgoing.remainingRoleKey ?? undefined, source: actor.roleKey }, reason: input.reason }, { tx, companyId: company.id });
+    return sitting.userId;
   });
+  // The kept role may be Owner, or the access may end: their phones hear it now.
+  await recheckDevicesAfterAccessChange([outgoingUserId]);
 }
 
 /**

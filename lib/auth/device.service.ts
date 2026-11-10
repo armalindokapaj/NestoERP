@@ -507,3 +507,21 @@ export async function recomputeDeviceCompliance(userIds: readonly string[]): Pro
   }
   return changed;
 }
+
+/**
+ * After a person's access changed — a company membership or a group seat
+ * given, re-roled, suspended, restored or ended — their devices' stored
+ * compliance is worked out again, because which levels bind them may have
+ * changed with it: a company joined or left, or the group owner's exemption
+ * from Company levels gained or lost (the user, 2026-11-10; review of
+ * 63b961f3). Every request reads the stored answer (build-context), so
+ * waiting for the app to call in would leave a demoted Owner's phone exempt
+ * until then. Called after the change commits; only people with an active
+ * device cost more than one read.
+ */
+export async function recheckDevicesAfterAccessChange(userIds: readonly (string | null | undefined)[]): Promise<number> {
+  const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return 0;
+  const holders = await prisma.deviceRegistration.findMany({ where: { userId: { in: ids }, status: "ACTIVE" }, select: { userId: true }, distinct: ["userId"] });
+  return holders.length ? recomputeDeviceCompliance(holders.map((row) => row.userId)) : 0;
+}

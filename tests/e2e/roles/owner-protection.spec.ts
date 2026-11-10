@@ -36,10 +36,20 @@ async function registerPhone(page: Page, installId: string): Promise<string> {
   return (await db.deviceRegistration.findFirstOrThrow({ where: { installId }, select: { id: true } })).id;
 }
 
+/**
+ * Group IT as the group's own seat-only administrator, for the drawer test
+ * below: the seed seat given its role, the seed company memberships set
+ * aside, all put back after.
+ */
+let itSeat: { id: string; roleId: string | null } | null = null;
+let itMemberships: { id: string; status: "ACTIVE" | "INVITED" | "SUSPENDED" | "INACTIVE" }[] = [];
+
 test.beforeAll(removeDevices);
 
 test.afterAll(async () => {
   await removeDevices();
+  if (itSeat) await db.parentGroupMember.update({ where: { id: itSeat.id }, data: { roleId: itSeat.roleId } });
+  for (const row of itMemberships) await db.companyMember.update({ where: { id: row.id }, data: { status: row.status } });
   await db.$disconnect();
 });
 
@@ -101,4 +111,36 @@ test("the Owner sees their own phone with its actions", async ({ page }) => {
   await expect(mainRegion(page).getByTestId("device-admin-detail")).toBeVisible();
   await expect(mainRegion(page).getByTestId("device-owner-protected")).toHaveCount(0);
   await expect(mainRegion(page).getByTestId("admin-device-actions")).toBeVisible();
+});
+
+test("Group IT's drawers show the Owner as protected and offer nothing the server would refuse", async ({ page }) => {
+  // The group's Users area is the seat-only administrator's (Admin PRD #9): Group IT's seed seat, with no company of its own.
+  itSeat = await db.parentGroupMember.findUniqueOrThrow({ where: { parentGroupId_userId: { parentGroupId: "group_demo_nesto", userId: "user_it" } }, select: { id: true, roleId: true } });
+  itMemberships = await db.companyMember.findMany({ where: { userId: "user_it" }, select: { id: true, status: true } });
+  const groupIt = await db.role.findUniqueOrThrow({ where: { key: "GROUP_IT" }, select: { id: true } });
+  await db.parentGroupMember.update({ where: { id: itSeat.id }, data: { roleId: groupIt.id } });
+  await db.companyMember.updateMany({ where: { id: { in: itMemberships.map((row) => row.id) } }, data: { status: "INACTIVE" } });
+  await signIn(page, "GROUP_IT");
+
+  // Company Users: the Owner's row says why, and the menu has no Suspend or Remove.
+  await page.goto("/group/companies/company_demo_a/users?user=user_owner");
+  const drawer = page.getByTestId("company-user-drawer");
+  await expect(drawer.getByTestId("company-user-owner-protected")).toBeVisible();
+  await drawer.getByTestId("company-user-more").click();
+  await expect(page.getByRole("menuitem", { name: /suspend|remove/i })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Anyone else keeps them.
+  await page.goto("/group/companies/company_demo_a/users?user=user_viewer");
+  await expect(drawer.getByTestId("company-user-owner-protected")).toHaveCount(0);
+  await drawer.getByTestId("company-user-more").click();
+  await expect(page.getByRole("menuitem", { name: /suspend/i })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // The group's Users tab: the Owner is shown, with no way to change their access.
+  await page.goto("/group/users?user=user_owner");
+  const groupDrawer = page.getByTestId("group-user-drawer");
+  await expect(groupDrawer.getByTestId("group-user-owner-protected")).toBeVisible();
+  await expect(groupDrawer.getByTestId("group-user-edit-access")).toHaveCount(0);
+  await expect(groupDrawer.getByTestId("group-user-more")).toHaveCount(0);
 });

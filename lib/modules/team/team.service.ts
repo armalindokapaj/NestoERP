@@ -2,6 +2,7 @@ import { isMembershipRoleKey } from "@/config/roles";
 import { setTemporaryPassword } from "@/lib/auth/identity";
 import { generateTemporaryPassword, temporaryPasswordExpiry } from "@/lib/auth/temporary-password";
 import { revokeSessions } from "@/lib/auth/session-store";
+import { recheckDevicesAfterAccessChange } from "@/lib/auth/device.service";
 import { Prisma, type MembershipStatus } from "@prisma/client";
 
 import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/access/guards";
@@ -351,6 +352,8 @@ export async function updateMember(
       );
     }
   });
+  // A role in or out of OWNER moves the group owner's exemption from Company policy: their phones hear it now.
+  if (roleChanged) await recheckDevicesAfterAccessChange([existing.userId]);
   // A role or placement changed: nothing later in this request answers from before it (NAV-02 CTX-04).
   invalidateRequestScope();
 
@@ -542,6 +545,8 @@ async function changeMembershipStatus(
       { tx },
     );
   });
+  // The companies that bind them, and whether they own the group, may have changed with it.
+  await recheckDevicesAfterAccessChange([existing.userId]);
   invalidateRequestScope();
 }
 
@@ -808,7 +813,7 @@ function toDetailDTO(
       canViewActivity: can(context, "team.activity.view"),
       // Given only while the tenant has one company; a holder keeps it, and it can be taken away, after a second.
       canGiveCeoAccess: mayManageCeoAccess && context.parentGroup.standalone && row.status === "ACTIVE" && !row.ceoAccess,
-      canRemoveCeoAccess: mayManageCeoAccess && row.ceoAccess,
+      canRemoveCeoAccess: mayManageCeoAccess && row.ceoAccess && !groupOwnerShielded,
     },
     guards,
   };

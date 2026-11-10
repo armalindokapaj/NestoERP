@@ -201,6 +201,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                 {detail.accountStatus !== "ACTIVE" ? <p role="alert" className="rounded-lg border border-line bg-warning-soft p-2.5 text-table text-fg">{t("groupUser.accountSuspended", { name })}</p> : null}
                 {suspended ? <p role="status" className="rounded-lg border border-line bg-warning-soft p-2.5 text-table text-fg">{t("groupUser.accessSuspendedNote", { name })}</p> : null}
                 {removed ? <p role="status" className="rounded-lg border border-line p-2.5 text-table text-fg-muted">{t("groupUser.removedNote", { name, group: groupName })}</p> : null}
+                {detail.ownerProtected ? <p role="status" className="rounded-lg border border-line p-2.5 text-table text-fg-muted" data-testid="group-user-owner-protected">{t("groupUser.ownerProtected", { name })}</p> : null}
 
                 <section aria-labelledby="gu-overview" className="space-y-2">
                   <h2 id="gu-overview" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("groupUser.groupAccess")}</h2>
@@ -328,7 +329,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                       {preview.directCompanies.length > 0 ? (
                         <div><p className="font-medium">{t("groupUser.directRemain")}</p><ul className="list-disc pl-5">{preview.directCompanies.map((row) => <li key={row.name}>{row.name} — {adminRoleName(tr, row.role)}</li>)}</ul><p className="text-meta text-fg-muted">{t("groupUser.directRemainNote")}</p></div>
                       ) : null}
-                      {preview.blocked ? <p role="alert" className="text-danger">{preview.blocked === "SELF" ? t("groupUser.blockedSelf") : t("groupUser.blockedLastAdmin", { name, group: groupName })}</p> : null}
+                      {preview.blocked ? <p role="alert" className="text-danger">{preview.blocked === "SELF" ? t("groupUser.blockedSelf") : preview.blocked === "OWNER_PROTECTED" ? t("groupUser.ownerProtected", { name }) : t("groupUser.blockedLastAdmin", { name, group: groupName })}</p> : null}
                       {preview.directCompanies.length > 0 && !preview.blocked ? <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={alsoDirect} onChange={(event) => setAlsoDirect(event.target.checked)} />{t("groupUsers.alsoCompanies")}</label> : null}
                     </div>
                   ) : !error ? <Skeleton className="mt-3 h-24 w-full" /> : null}

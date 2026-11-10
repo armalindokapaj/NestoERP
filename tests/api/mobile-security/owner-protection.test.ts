@@ -2,11 +2,17 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { syncDevice } from "@/lib/auth/device.service";
 import { hasRecentAuthentication } from "@/lib/auth/recent-auth";
+import { resolveContextForSession } from "@/lib/context/build-context";
 import type { UserContext } from "@/lib/context/types";
 import { effectivePolicyForUser } from "@/lib/core/security/mobile-policy.service";
 import { authorizationSnapshotFor } from "@/lib/core/sync/authorization.service";
+import { placeMembership } from "@/lib/modules/organization/departments/placement.door";
+import { updateCompanyUserAccess } from "@/lib/modules/platform/company-users.service";
+import { platformActor } from "@/lib/modules/platform/group-actor";
 import { actOnOwnDevice, adminActOnDevice, getDevice, getPolicyView, listDevices, restoreOwnDevice, savePolicy } from "@/lib/modules/security/security.service";
-import { cleanupSessions, COMPANY, loginAs, prisma } from "../../helpers";
+import { updateMemberSchema } from "@/lib/modules/team/team.schema";
+import { updateMember } from "@/lib/modules/team/team.service";
+import { cleanupSessions, COMPANY, loginAs, loginAsPlatformAdmin, prisma } from "../../helpers";
 
 /**
  * The group owner is protected (the user, 2026-11-10: "Group owner is
@@ -65,8 +71,10 @@ afterAll(async () => {
   await prisma.auditEvent.deleteMany({ where: { entityType: "Device", entityId: { in: devices } } });
   await prisma.authEvent.deleteMany({ where: { OR: devices.map((id) => ({ metadata: { path: ["deviceId"], equals: id } })) } });
   await prisma.deviceRegistration.deleteMany({ where: { id: { in: devices } } });
-  await prisma.auditEvent.deleteMany({ where: { actionKey: "MOBILE_POLICY_CHANGED", occurredAt: { gte: startedAt } } });
-  await prisma.authEvent.deleteMany({ where: { type: "POLICY_CHANGED", createdAt: { gte: startedAt } } });
+  await prisma.auditEvent.deleteMany({ where: { actionKey: { in: ["MOBILE_POLICY_CHANGED", "TEAM_MEMBER_ROLE_CHANGED", "COMPANY_USER_ACCESS_CHANGED"] }, occurredAt: { gte: startedAt } } });
+  await prisma.activity.deleteMany({ where: { entityId: SECOND_OWNER_MEMBER, createdAt: { gte: startedAt } } });
+  // Signing a phone out, or re-roling its holder, revokes sessions: those events are this file's too.
+  await prisma.authEvent.deleteMany({ where: { type: { in: ["POLICY_CHANGED", "SESSION_REVOKED"] }, createdAt: { gte: startedAt } } });
   await cleanupSessions();
   await prisma.$disconnect();
 });
@@ -212,6 +220,43 @@ describe("the group owner's mobile policy", () => {
       expect((await effectivePolicyForUser((await loginAs("ENGINEER")).userId)).recentAuthMinutes).toBe(2);
     } finally {
       await putPoliciesBack();
+    }
+  });
+});
+
+describe("a phone whose holder gains or loses the group's ownership", () => {
+  it("is let off, or held to, the company's policy on the very next request, not when the app next calls in", async () => {
+    const ownerRole = await prisma.role.findUniqueOrThrow({ where: { key: "OWNER" }, select: { id: true } });
+    const [ceo, owner] = await Promise.all([loginAs("CEO"), loginAs("OWNER")]);
+    const stored = async (id: string) => (await prisma.deviceRegistration.findUniqueOrThrow({ where: { id }, select: { complianceAction: true } })).complianceAction;
+    const makeOwner = (yes: boolean) => updateMember(owner, SECOND_OWNER_MEMBER, updateMemberSchema.parse({ roleId: yes ? ownerRole.id : viewerRoleId }), { placement: placeMembership });
+    try {
+      // The company asks for a version nobody has: the Viewer's phone is stopped by it.
+      await savePolicy(ceo, { scope: "COMPANY", id: COMPANY.a }, { minimumAppVersion: "99.0.0" });
+      const viewer = await loginAs("VIEWER");
+      const phone = await deviceOf(viewer);
+      const request = () => resolveContextForSession(viewer.sessionId, { expectedUserId: viewer.userId });
+      expect(await stored(phone)).toBe("REQUIRE_UPDATE");
+      expect(await request()).toMatchObject({ ok: false, reason: "UPDATE_REQUIRED" });
+
+      // The Owner makes them an Owner from Team: the company's level stops binding that phone at once.
+      await makeOwner(true);
+      expect(await stored(phone)).not.toBe("REQUIRE_UPDATE");
+      expect(await request()).toMatchObject({ ok: true });
+
+      // And takes it away again: the company's minimum version stops the phone on its next request.
+      await makeOwner(false);
+      expect(await stored(phone)).toBe("REQUIRE_UPDATE");
+      expect(await request()).toMatchObject({ ok: false, reason: "UPDATE_REQUIRED" });
+
+      // The same through Company Users, here from the platform console, which re-roles the group's rows.
+      await makeOwner(true);
+      expect(await stored(phone)).not.toBe("REQUIRE_UPDATE");
+      await updateCompanyUserAccess(platformActor(await loginAsPlatformAdmin()), { companyId: COMPANY.a, userId: viewer.userId, roleKey: "VIEWER" });
+      expect(await stored(phone)).toBe("REQUIRE_UPDATE");
+    } finally {
+      await putPoliciesBack();
+      await prisma.companyMember.update({ where: { id: SECOND_OWNER_MEMBER }, data: { roleId: viewerRoleId, accessVersion: { increment: 1 } } });
     }
   });
 });

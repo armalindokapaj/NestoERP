@@ -2,7 +2,7 @@ import type { GroupContext } from "@/lib/context/group-context";
 import { canGroup } from "@/lib/context/group-context";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AccessError } from "@/lib/access/guards";
-import { assertMayActOnAccount } from "@/lib/core/security/owner-protection";
+import { assertMayActOnAccount, mayActOnAccount } from "@/lib/core/security/owner-protection";
 
 /**
  * Who is acting on a group, as the group services see them (Admin PRD #8 §59,
@@ -60,4 +60,14 @@ export function assertGroupCan(actor: GroupActor, capability: GroupCapabilityKey
 export async function assertGroupActorMayActOn(actor: GroupActor, targetUserId: string, groupId: string): Promise<void> {
   if (actor.platform) return;
   await assertMayActOnAccount({ actorUserId: actor.userId, targetUserId, parentGroupId: groupId });
+}
+
+/**
+ * The same question asked before the click: is this person a group owner the
+ * actor may not change? The drawers and removal previews read it, so they do
+ * not offer what `assertGroupActorMayActOn` would refuse.
+ */
+export async function groupActorShieldedFrom(actor: GroupActor, targetUserId: string, groupId: string): Promise<boolean> {
+  if (actor.platform) return false;
+  return !(await mayActOnAccount({ actorUserId: actor.userId, targetUserId, parentGroupId: groupId }));
 }

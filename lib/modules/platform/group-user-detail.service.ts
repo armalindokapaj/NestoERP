@@ -2,12 +2,13 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { AccessError, assertFound } from "@/lib/access/guards";
+import { recheckDevicesAfterAccessChange } from "@/lib/auth/device.service";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { coveredCompanyIds, syncSeatAccess, type CompanyAccessSource } from "@/lib/modules/platform/group-company-access.service";
-import { assertGroupActorMayActOn, assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { assertGroupActorMayActOn, assertGroupCan, groupActorShieldedFrom, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { lockGroup } from "@/lib/modules/platform/group-placement";
 
 /**
@@ -65,6 +66,8 @@ export type GroupUserDetail = {
   activity: { rows: GroupUserActivityRow[]; nextCursor: string | null };
   /** What this actor may do with this person; the UI shows only what is true here. */
   can: { manage: boolean; manageCeo: boolean };
+  /** A group owner this actor is not an Owner beside: their access is an Owner's to change (the user, 2026-11-10). */
+  ownerProtected: boolean;
   isSelf: boolean;
 };
 
@@ -190,6 +193,8 @@ export async function getGroupUserDetail(actor: GroupActor, raw: unknown): Promi
   ]);
   const isCeo = seat.role?.key === "OWNER";
   const canManage = actor.can("users.manage", input.groupId);
+  // Only an administrator is offered anything, so only an administrator's answer needs the lookup.
+  const shielded = canManage && (await groupActorShieldedFrom(actor, input.userId, input.groupId));
   return {
     user: { id: seat.user.id, name: `${seat.user.firstName} ${seat.user.lastName}`, username: seat.user.username, email: seat.user.email },
     accountStatus: seat.user.status,
@@ -202,7 +207,8 @@ export async function getGroupUserDetail(actor: GroupActor, raw: unknown): Promi
     companyAccess: { mode: seat.companyAccessMode, version: seat.accessVersion, ...companies, companies: companies.rows },
     projects,
     activity,
-    can: { manage: canManage && (!isCeo || actor.can("ceo.manage", input.groupId)), manageCeo: actor.can("ceo.manage", input.groupId) },
+    can: { manage: canManage && (!isCeo || actor.can("ceo.manage", input.groupId)) && !shielded, manageCeo: actor.can("ceo.manage", input.groupId) },
+    ownerProtected: shielded,
     isSelf: actor.userId === input.userId,
   };
 }
@@ -218,7 +224,7 @@ async function assertNotLastCeo(tx: Tx, groupId: string, userId: string, roleKey
 async function setSeatStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED" | "ACTIVE") {
   const input = groupUserSuspendSchema.parse(raw);
   assertGroupCan(actor, "users.manage", input.groupId);
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await lockGroup(tx, input.groupId);
     const seat = assertFound(await tx.parentGroupMember.findFirst({
       where: { parentGroupId: input.groupId, userId: input.userId, parentGroup: { isTestFixture: false, kind: "GROUP" } },
@@ -247,6 +253,9 @@ async function setSeatStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED" 
       : { actionKey: AuditAction.GROUP_ACCESS_REACTIVATED, entity, before: { ...base, status: "SUSPENDED" }, after: { ...base, status: "ACTIVE", companyAccessGranted: sync.granted }, reason: input.reason }, { tx });
     return { status: next };
   });
+  // The seat's role, and the company rows it gives, stop or resume: so may the person's ownership of the group.
+  await recheckDevicesAfterAccessChange([input.userId]);
+  return result;
 }
 
 export const suspendGroupAccess = (actor: GroupActor, raw: unknown) => setSeatStatus(actor, raw, "SUSPENDED");
@@ -261,7 +270,7 @@ export type GroupRemovalPreview = {
   directCompanies: { name: string; role: string }[];
   projectsLost: number;
   /** Why the removal cannot go ahead, so the dialog says it before the click (§48-§50). */
-  blocked: "LAST_GROUP_ADMIN" | "SELF" | null;
+  blocked: "LAST_GROUP_ADMIN" | "SELF" | "OWNER_PROTECTED" | null;
 };
 
 /** What removing the person will really do, worked out here and not guessed in the browser (§46). */
@@ -270,13 +279,14 @@ export async function previewGroupUserRemoval(actor: GroupActor, raw: unknown): 
   assertGroupCan(actor, "users.manage", input.groupId);
   const seat = await seatFor(input.groupId, input.userId);
   if (seat.role?.key === "OWNER") assertGroupCan(actor, "ceo.manage", input.groupId);
-  const [members, lastCeo] = await Promise.all([
+  const [members, lastCeo, shielded] = await Promise.all([
     prisma.companyMember.findMany({
       where: { userId: input.userId, status: "ACTIVE", archivedAt: null, company: { parentGroupId: input.groupId, status: "ACTIVE" } },
       orderBy: { company: { name: "asc" } },
       select: { groupDerived: true, company: { select: { name: true } }, role: { select: { name: true } }, projectMemberships: { where: { status: "ACTIVE" }, select: { id: true } } },
     }),
     seat.role?.key === "OWNER" ? prisma.parentGroupMember.count({ where: { parentGroupId: input.groupId, status: "ACTIVE", role: { key: "OWNER" }, user: { status: "ACTIVE" }, NOT: { userId: input.userId } } }).then((n) => n === 0) : Promise.resolve(false),
+    groupActorShieldedFrom(actor, input.userId, input.groupId),
   ]);
   const derived = members.filter((member) => member.groupDerived);
   return {
@@ -285,7 +295,7 @@ export async function previewGroupUserRemoval(actor: GroupActor, raw: unknown): 
     lostCompanies: derived.map((member) => member.company.name),
     directCompanies: members.filter((member) => !member.groupDerived).map((member) => ({ name: member.company.name, role: member.role.name })),
     projectsLost: derived.reduce((sum, member) => sum + member.projectMemberships.length, 0),
-    blocked: actor.userId === input.userId ? "SELF" : lastCeo && seat.status === "ACTIVE" ? "LAST_GROUP_ADMIN" : null,
+    blocked: actor.userId === input.userId ? "SELF" : shielded ? "OWNER_PROTECTED" : lastCeo && seat.status === "ACTIVE" ? "LAST_GROUP_ADMIN" : null,
   };
 }
 
@@ -297,7 +307,7 @@ export async function previewGroupUserRemoval(actor: GroupActor, raw: unknown): 
 export async function removeDirectCompanyAccess(actor: GroupActor, raw: unknown): Promise<{ stillViaGroup: boolean }> {
   const input = groupDirectAccessRemoveSchema.parse(raw);
   assertGroupCan(actor, "users.manage", input.groupId);
-  return prisma.$transaction(async (tx) => {
+  const removed = await prisma.$transaction(async (tx) => {
     const seat = assertFound(await tx.parentGroupMember.findFirst({
       where: { parentGroupId: input.groupId, userId: input.userId, parentGroup: { isTestFixture: false, kind: "GROUP" } },
       select: { id: true, role: { select: { key: true } }, parentGroup: { select: { name: true, status: true } }, user: { select: { firstName: true, lastName: true } } },
@@ -326,4 +336,6 @@ export async function removeDirectCompanyAccess(actor: GroupActor, raw: unknown)
     }, { tx, companyId: input.companyId });
     return { stillViaGroup };
   });
+  await recheckDevicesAfterAccessChange([input.userId]);
+  return removed;
 }

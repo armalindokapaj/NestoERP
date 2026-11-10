@@ -1,4 +1,5 @@
 import { isMembershipRoleKey } from "@/config/roles";
+import { recheckDevicesAfterAccessChange } from "@/lib/auth/device.service";
 import { createUserForInvite } from "@/lib/auth/identity";
 import { recordActorActivity } from "@/lib/modules/shared/activity";
 import { Prisma, type CompanyInviteStatus } from "@prisma/client";
@@ -582,7 +583,7 @@ export async function acceptInvite(
 ): Promise<AcceptResult> {
   const tokenHash = hashInviteToken(input.token);
 
-  return prisma.$transaction(async (tx) => {
+  const accepted = await prisma.$transaction(async (tx) => {
     const invite = await tx.companyInvite.findUnique({
       where: { tokenHash },
       select: {
@@ -764,6 +765,9 @@ export async function acceptInvite(
       email: invite.email,
     };
   });
+  // Joining as an Owner, or joining a stricter company: an existing account's phones hear it now (review of 63b961f3).
+  await recheckDevicesAfterAccessChange([accepted.userId]);
+  return accepted;
 }
 
 /* -------------------------------------------------------------------------- */

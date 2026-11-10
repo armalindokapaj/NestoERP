@@ -166,6 +166,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                 {detail.accountStatus !== "ACTIVE" ? <p role="alert" className="rounded-lg border border-line bg-warning-soft p-2.5 text-table text-fg">{t("companyUsers.accountSuspendedNote", { name })}</p> : null}
                 {detail.membershipStatus === "SUSPENDED" ? <p role="status" className="rounded-lg border border-line bg-warning-soft p-2.5 text-table text-fg">{t("companyUsers.directSuspendedNote", { name })}</p> : null}
                 {detail.isCeo ? <p role="status" className="rounded-lg border border-line p-2.5 text-table text-fg-muted">{t("companyUsers.ceoProtected", { name })}</p> : null}
+                {detail.ownerProtected ? <p role="status" className="rounded-lg border border-line p-2.5 text-table text-fg-muted" data-testid="company-user-owner-protected">{t("companyUsers.ownerProtected", { name })}</p> : null}
 
                 <section aria-labelledby="cu-overview" className="space-y-2">
                   <h2 id="cu-overview" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("companyUsers.sectionOverview")}</h2>
@@ -274,7 +275,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                       </ul>
                       {preview.projects.length > 0 ? <div><p className="font-medium">{t("companyUsers.projectsAffected")}</p><ul className="list-disc pl-5">{preview.projects.map((project) => <li key={project}>{project}</li>)}</ul></div> : null}
                       {preview.stillViaGroup ? <p className="text-fg-muted">{t("companyUsers.stillViaGroup", { name, group: groupName ?? "", role: role(preview.stillViaGroup.roleName) })}</p> : <p className="text-fg-muted">{t("companyUsers.accountKept")}</p>}
-                      {preview.blocked ? <p role="alert" className="text-danger">{preview.blocked === "COMPANY_CEO" ? t("companyUsers.blockedCeo", { name }) : preview.blocked === "SELF" ? t("companyUsers.blockedSelf") : t("companyUsers.blockedGroup")}</p> : null}
+                      {preview.blocked ? <p role="alert" className="text-danger">{preview.blocked === "COMPANY_CEO" ? t("companyUsers.blockedCeo", { name }) : preview.blocked === "SELF" ? t("companyUsers.blockedSelf") : preview.blocked === "OWNER_PROTECTED" ? t("companyUsers.ownerProtected", { name }) : t("companyUsers.blockedGroup")}</p> : null}
                     </div>
                   ) : !error ? <Skeleton className="mt-3 h-24 w-full" /> : null}
                 </>
@@ -355,11 +356,13 @@ function EditAccessDialog({ open, onClose, detail, options, api, companyId, comp
           <DialogDescription>{detail.source === "BOTH" ? t("companyUsers.editGroupNote") : companyName}</DialogDescription>
           <form onSubmit={save} className="mt-4 space-y-4">
             <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.companyRole")}
-              <FormSelect className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} disabled={detail.isCeo} required>
+              <FormSelect className={field} value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })} disabled={!detail.can.editRole} required>
                 {detail.isCeo ? <option value="">{t("companyUsers.ceoBadge")}</option> : null}
+                {/* A group owner's role is shown as it is, not as the first company role. */}
+                {detail.ownerProtected && !detail.isCeo && !options.roles.some((row) => row.key === initial.roleKey) ? <option value={initial.roleKey}>{adminRoleName(tr, detail.directRole ?? "")}</option> : null}
                 {options.roles.map((row) => <option key={row.key} value={row.key}>{adminRoleName(tr, row.name)}</option>)}
               </FormSelect>
-              {detail.isCeo ? <span className="block text-meta text-fg-muted">{t("companyUsers.ceoNote")}</span> : null}
+              {detail.isCeo ? <span className="block text-meta text-fg-muted">{t("companyUsers.ceoNote")}</span> : detail.ownerProtected ? <span className="block text-meta text-fg-muted">{t("companyUsers.ownerProtected", { name: detail.name })}</span> : null}
             </label>
             <label className="block space-y-1 text-meta text-fg-subtle">{t("companyUsers.fieldDepartment")}
               <FormSelect className={field} value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { MEMBERSHIP_ROLE_KEYS } from "@/config/roles";
 import { AccessError, assertFound } from "@/lib/access/guards";
+import { recheckDevicesAfterAccessChange } from "@/lib/auth/device.service";
 import { createProvisionedUser } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
@@ -12,7 +13,7 @@ import { prisma } from "@/lib/database/prisma";
 import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import { assertNotCompanyCeo } from "@/lib/modules/platform/company-leadership.service";
 import { syncSeatAccess } from "@/lib/modules/platform/group-company-access.service";
-import { assertGroupActorMayActOn, assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { assertGroupActorMayActOn, assertGroupCan, groupActorShieldedFrom, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { departmentKeyFor, memberPlace } from "@/lib/modules/platform/group-placement";
 import { companyProjects, syncProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import { GROUP_LEVEL_ROLES } from "@/lib/modules/platform/platform.schema";
@@ -232,6 +233,8 @@ export type CompanyUserDetail = CompanyUserRow & {
   activity: { rows: CompanyUserActivityRow[]; nextCursor: string | null };
   /** What this actor may do with this person; the UI offers only what is true (§44, §81). */
   can: { manage: boolean; editAccess: boolean; editRole: boolean; suspend: boolean; reactivate: boolean; removeDirect: boolean; manageGroupAccess: boolean };
+  /** A group owner this actor is not an Owner beside: their role, suspension and removal are an Owner's (the user, 2026-11-10). */
+  ownerProtected: boolean;
   isSelf: boolean;
 };
 export type CompanyUserActivityRow = { id: string; actionKey: string; occurredAt: string; actorName: string | null; detail: string | null };
@@ -311,6 +314,8 @@ export async function getCompanyUserDetail(actor: GroupActor, raw: unknown): Pro
   const manage = actor.can("users.manage", company.parentGroupId);
   const isSelf = actor.userId === input.userId;
   const direct = row.source !== "GROUP";
+  // Only an administrator is offered anything, so only an administrator's answer needs the lookup.
+  const shielded = manage && (await groupActorShieldedFrom(actor, input.userId, company.parentGroupId));
   return {
     ...row,
     company: { id: company.id, name: company.name },
@@ -320,13 +325,15 @@ export async function getCompanyUserDetail(actor: GroupActor, raw: unknown): Pro
     activity,
     can: {
       manage,
+      // Department, position and projects stay editable; the role, suspension and removal are an Owner's.
       editAccess: manage && direct,
-      editRole: manage && direct && !row.isCeo,
-      suspend: manage && row.source === "DIRECT" && row.membershipStatus === "ACTIVE" && !row.isCeo && !isSelf,
-      reactivate: manage && direct && row.membershipStatus === "SUSPENDED",
-      removeDirect: manage && direct && !row.isCeo && !isSelf,
+      editRole: manage && direct && !row.isCeo && !shielded,
+      suspend: manage && row.source === "DIRECT" && row.membershipStatus === "ACTIVE" && !row.isCeo && !isSelf && !shielded,
+      reactivate: manage && direct && row.membershipStatus === "SUSPENDED" && !shielded,
+      removeDirect: manage && direct && !row.isCeo && !isSelf && !shielded,
       manageGroupAccess: manage && row.source !== "DIRECT",
     },
+    ownerProtected: shielded,
     isSelf,
   };
 }
@@ -390,7 +397,7 @@ export async function updateCompanyUserAccess(actor: GroupActor, raw: unknown): 
     throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const newRoleKey = roleChange ? input.roleKey! : member.role.key;
     const role = roleChange ? assertFound(await tx.role.findUnique({ where: { key: newRoleKey }, select: { id: true } })) : null;
     const departmentChange = input.departmentId !== undefined && (input.departmentId ?? null) !== (member.department?.id ?? null);
@@ -439,6 +446,9 @@ export async function updateCompanyUserAccess(actor: GroupActor, raw: unknown): 
     }
     return { changed: true, version: member.accessVersion + 1 };
   });
+  // Re-roling a group owner's row can end their ownership, and with it their exemption from Company policy.
+  if (result.changed && roleChange) await recheckDevicesAfterAccessChange([member.user.id]);
+  return result;
 }
 
 export type CompanyUserAdded = { userId: string; membershipId: string; username: string; source: CompanyUserSource; temporaryPassword?: string };
@@ -478,7 +488,7 @@ export async function addCompanyUser(actor: GroupActor, raw: unknown): Promise<C
   if (user.platformAccess?.status === "ACTIVE") throw new AccessError("VALIDATION_ERROR", "A Platform Admin account cannot hold a company membership.");
   // Someone from another organization is not this company's to add (§21, §113).
   if (!user.personProfile || user.personProfile.parentGroupId !== company.parentGroupId) throw new AccessError("VALIDATION_ERROR", `${user.firstName} ${user.lastName} belongs to another organization and cannot join ${company.name}.`, { code: "OTHER_ORGANIZATION" });
-  return prisma.$transaction(async (tx) => {
+  const added = await prisma.$transaction(async (tx) => {
     // Read under the transaction so two submissions cannot both create (§137).
     const previous = await tx.companyMember.findFirst({ where: { companyId: company.id, userId: user.id, archivedAt: null }, select: { id: true, status: true, groupDerived: true } });
     if (previous && previous.status !== "INACTIVE" && !previous.groupDerived) throw new AccessError("CONFLICT", `${user.firstName} ${user.lastName} already has direct access to ${company.name}.`, { code: "ALREADY_MEMBER" });
@@ -503,6 +513,9 @@ export async function addCompanyUser(actor: GroupActor, raw: unknown): Promise<C
     await recordPlatformAction(actor, company.parentGroupId, { actionKey: AuditAction.PLATFORM_ORGANIZATION_USER_ADDED, entity: { type: "User", id: user.id, label: `${user.firstName} ${user.lastName} · ${company.name}` }, before: previous ? { companyId: company.id, userId: user.id, status: previous.status } : undefined, after: { companyId: company.id, userId: user.id, roleKey: input.roleKey, status: "ACTIVE", projectIds, newAccount: false }, reason: input.reason }, { tx, companyId: company.id });
     return { userId: user.id, membershipId, username: user.username, source: viaGroup ? ("BOTH" as const) : ("DIRECT" as const) };
   });
+  // A group-given Owner row taking a company role, or a stricter company joined: the person's phones hear it now.
+  await recheckDevicesAfterAccessChange([user.id]);
+  return added;
 }
 
 /**
@@ -544,7 +557,7 @@ export type CompanyUserRemovalPreview = {
   projects: string[];
   /** What the person keeps through the group; null when nothing does. */
   stillViaGroup: { roleName: string } | null;
-  blocked: "COMPANY_CEO" | "SELF" | "GROUP_ONLY" | null;
+  blocked: "COMPANY_CEO" | "SELF" | "GROUP_ONLY" | "OWNER_PROTECTED" | null;
 };
 
 /** What removing the direct access will really do, worked out here and not guessed in the browser (§61-§67). */
@@ -553,7 +566,10 @@ export async function previewCompanyUserRemoval(actor: GroupActor, raw: unknown)
   const company = await companyFor(actor, input.companyId, "users.manage");
   const [member, coverage] = await Promise.all([loadMember(company.id, input.userId), groupCoverage(company)]);
   const row = toRow(member, coverage);
-  const projects = await prisma.projectMember.findMany({ where: { companyMemberId: member.id, status: "ACTIVE", project: { archivedAt: null } }, orderBy: { project: { name: "asc" } }, select: { project: { select: { name: true } } } });
+  const [projects, shielded] = await Promise.all([
+    prisma.projectMember.findMany({ where: { companyMemberId: member.id, status: "ACTIVE", project: { archivedAt: null } }, orderBy: { project: { name: "asc" } }, select: { project: { select: { name: true } } } }),
+    groupActorShieldedFrom(actor, input.userId, company.parentGroupId),
+  ]);
   const seat = coverage.get(input.userId) ?? null;
   return {
     name: row.name,
@@ -561,7 +577,7 @@ export async function previewCompanyUserRemoval(actor: GroupActor, raw: unknown)
     roleName: row.directRole,
     projects: projects.map((place) => place.project.name),
     stillViaGroup: seat ? { roleName: seat.roleName } : null,
-    blocked: row.source === "GROUP" ? "GROUP_ONLY" : row.isCeo ? "COMPANY_CEO" : row.userId === actor.userId ? "SELF" : null,
+    blocked: row.source === "GROUP" ? "GROUP_ONLY" : row.isCeo ? "COMPANY_CEO" : row.userId === actor.userId ? "SELF" : shielded ? "OWNER_PROTECTED" : null,
   };
 }
 
@@ -582,7 +598,7 @@ export async function removeCompanyUserAccess(actor: GroupActor, raw: unknown): 
   if (input.expectedVersion !== undefined && input.expectedVersion !== member.accessVersion) {
     throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
   }
-  return prisma.$transaction(async (tx) => {
+  const removed = await prisma.$transaction(async (tx) => {
     const now = new Date();
     const ended = await tx.projectMember.updateMany({ where: { companyMemberId: member.id, companyId: company.id, status: "ACTIVE" }, data: { status: "INACTIVE", leftAt: now } });
     const written = await tx.companyMember.updateMany({ where: { id: member.id, companyId: company.id, status: { in: LISTED }, groupDerived: false }, data: { status: "INACTIVE", deactivatedAt: now, deactivatedByMemberId: null, accessVersion: { increment: 1 } } });
@@ -606,6 +622,8 @@ export async function removeCompanyUserAccess(actor: GroupActor, raw: unknown): 
     }, { tx, companyId: company.id });
     return { stillViaGroup };
   });
+  await recheckDevicesAfterAccessChange([member.user.id]);
+  return removed;
 }
 
 async function setDirectStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED" | "ACTIVE") {
@@ -623,7 +641,7 @@ async function setDirectStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED
   if (input.expectedVersion !== undefined && input.expectedVersion !== member.accessVersion) {
     throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
   }
-  return prisma.$transaction(async (tx) => {
+  const changed = await prisma.$transaction(async (tx) => {
     if (next === "ACTIVE") await assertWithinLimit(tx, company.id, "users");
     const written = await tx.companyMember.updateMany({ where: { id: member.id, companyId: company.id, status: member.status, accessVersion: member.accessVersion }, data: { status: next, accessVersion: { increment: 1 } } });
     if (written.count === 0) throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
@@ -638,6 +656,8 @@ async function setDirectStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED
     }, { tx, companyId: company.id });
     return { status: next };
   });
+  await recheckDevicesAfterAccessChange([member.user.id]);
+  return changed;
 }
 
 export const suspendCompanyUserAccess = (actor: GroupActor, raw: unknown) => setDirectStatus(actor, raw, "SUSPENDED");
