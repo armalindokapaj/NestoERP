@@ -42,7 +42,7 @@ export function ProjectCard({
   const location = locationLabel(project.location);
 
   return (
-    <article className="group relative min-w-0" data-testid="project-card" data-project-id={project.id}>
+    <article className="group relative min-w-0" data-plate="" data-testid="project-card" data-project-id={project.id}>
       <div
         className={cn(
           COVER_ASPECT,
@@ -71,7 +71,7 @@ export function ProjectCard({
       </div>
 
       <div className="mt-3 min-w-0 px-0.5 look2:mt-4">
-        <h2 data-numbered-title="" className="truncate text-card font-semibold text-fg look2:text-[1.25rem] look2:font-medium" title={project.name}>
+        <h2 data-numbered-title="" className="truncate text-card font-semibold text-fg look2:text-[1.25rem] look2:font-medium look2:max-sm:line-clamp-2 look2:max-sm:whitespace-normal look2:max-sm:text-[1.0625rem] look2:max-sm:leading-[1.15]" title={project.name}>
           <Link
             href={project.href}
             // A project in another company opens by entering that company;
@@ -83,7 +83,7 @@ export function ProjectCard({
             {project.name}
           </Link>
         </h2>
-        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-table text-fg-muted look2:nesto-standfirst look2:text-body look2:font-normal" data-testid="project-company">
+        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-table text-fg-muted look2:nesto-standfirst look2:text-body look2:font-normal look2:max-sm:text-table" data-testid="project-company">
           <Building2 aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle look2:hidden" />
           <span className="truncate">{project.company.name}</span>
         </p>

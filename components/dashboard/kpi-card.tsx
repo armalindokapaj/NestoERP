@@ -51,7 +51,7 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
 
   if (breakdown) {
     return (
-      <div className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col" data-testid="kpi-by-company">
+      <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col" data-testid="kpi-by-company">
         {href ? (
           <Link navSource="dashboard" href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 look2:flex look2:flex-col">
             {body}
@@ -84,12 +84,13 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
   }
 
   if (!href) {
-    return <div className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col">{body}</div>;
+    return <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col">{body}</div>;
   }
 
   return (
     <Link navSource="dashboard"
       href={href}
+      data-kpi-card=""
       className={cn(
         "nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 block p-4 transition-colors hover:border-line-strong md:p-5 look2:flex look2:flex-col",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",

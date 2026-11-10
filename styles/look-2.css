@@ -223,3 +223,74 @@
   background: transparent;
   box-shadow: none;
 }
+
+/*
+ * The phone (below 768px): the reference's narrow page. Every figure stands
+ * open under its own hairline, two to a row; the page keeps a 20px gutter;
+ * plates sit two to a row (components/projects/portfolio/gallery.ts) without
+ * their index, as the reference drops it there.
+ */
+@media (max-width: 767.98px) {
+  :root[data-look="2"] {
+    --nesto-space-page-x: 1.25rem;
+  }
+
+  /* KPI cards: open figures, the gold tick standing on the hairline (components/dashboard/kpi-card.tsx). */
+  :root[data-look="2"] [data-kpi-card] {
+    border-width: 1px 0 0;
+    border-color: var(--nesto-border);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0.875rem 0 0.25rem;
+  }
+
+  :root[data-look="2"] [data-kpi-card]::before {
+    left: 0;
+    top: -1px;
+  }
+
+  /* The metric strip: two figures to a row, each under its own hairline, like a record's facts. */
+  :root[data-look="2"] [data-metric-strip] {
+    border-width: 0;
+  }
+
+  :root[data-look="2"] [data-metric-strip] > dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.5rem;
+    row-gap: 1rem;
+    margin: 0;
+  }
+
+  :root[data-look="2"] [data-metric-strip] > dl > * {
+    border-width: 1px 0 0;
+    padding: 0.625rem 0 0;
+  }
+}
+
+@media (max-width: 639.98px) {
+  :root[data-look="2"] [data-numbered] [data-plate] [data-numbered-title]::before {
+    display: none;
+  }
+
+  /*
+   * Sheets — a docked dialog, a full-screen one, a bottom sheet, a bottom
+   * drawer — float as the reference's narrow sheet: 8px off the screen's
+   * edges and clear of the home indicator, 20px corners all round. A centred
+   * dialog stays centred, so an open keyboard never covers it.
+   */
+  :root[data-look="2"] [data-phone-sheet] {
+    inset: auto 0.5rem max(0.5rem, var(--nesto-safe-bottom)) 0.5rem;
+    width: auto;
+    max-width: none;
+    translate: none;
+    border-width: 1px;
+    border-radius: 20px;
+    max-height: calc(100dvh - 1rem - var(--nesto-safe-top) - var(--nesto-safe-bottom));
+  }
+
+  :root[data-look="2"] [data-phone-sheet="full"] {
+    top: max(0.5rem, var(--nesto-safe-top));
+    height: auto;
+  }
+}

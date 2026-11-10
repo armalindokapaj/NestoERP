@@ -92,7 +92,7 @@ export function MetricCell({
           label
         )}
       </dt>
-      <dd className="mt-1 text-metric font-semibold text-fg [overflow-wrap:anywhere] look2:mt-1.5 look2:font-display look2:text-[2.5rem] look2:leading-none look2:font-medium">
+      <dd className="mt-1 text-metric font-semibold text-fg [overflow-wrap:anywhere] look2:mt-1.5 look2:font-display look2:text-[2.5rem] look2:leading-none look2:font-medium look2:max-md:text-[2rem]">
         {loading ? <Skeleton aria-hidden="true" className="h-[calc(var(--nesto-text-metric)*var(--nesto-leading-metric))] w-24 max-w-full" /> : value}
       </dd>
       {scope || comparison ? (

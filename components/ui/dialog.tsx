@@ -75,6 +75,7 @@ export function DialogContent({
             "max-sm:inset-x-0 max-sm:bottom-0 max-sm:left-0 max-sm:top-auto max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-[var(--nesto-radius-sheet)] max-sm:pb-[max(1.5rem,var(--nesto-safe-bottom))] max-sm:data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)] max-sm:data-[state=closed]:animate-[nesto-slide-out-bottom_180ms_var(--nesto-ease)]",
           className,
         )}
+        data-phone-sheet={phone === "sheet-phone" ? "dock" : phone === "fullscreen-phone" ? "full" : undefined}
         /* Initial focus never on a destructive action; focus back to the invoker, or
            to the main region when the invoker is gone (AUD-11 §4, AV-05). */
         onOpenAutoFocus={(event) => {

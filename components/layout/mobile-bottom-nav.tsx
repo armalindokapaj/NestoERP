@@ -342,10 +342,10 @@ function MoreBody({
       ) : (
         shown.map((group) => (
           <section key={group.group} aria-labelledby={`more-${group.group}`}>
-            <h3 id={`more-${group.group}`} className="nesto-eyebrow mb-1.5 px-1 text-accent-strong look2:text-fg-subtle">
+            <h3 id={`more-${group.group}`} className="nesto-eyebrow mb-1.5 px-1 text-accent-strong look2:px-3 look2:text-fg-subtle">
               {group.group === "primary" ? t("mobile.general") : t(`groups.${group.group}`)}
             </h3>
-            <ul className="overflow-hidden rounded-[18px] border border-line bg-surface look2:rounded-[10px]">
+            <ul className="overflow-hidden rounded-[18px] border border-line bg-surface look2:rounded-none look2:border-x-0 look2:border-b-0 look2:bg-transparent">
               {group.items.map((item) => (
                 <li key={item.key} className="border-b border-line last:border-b-0">
                   <MoreLink item={item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} onDone={onDone} />
@@ -360,7 +360,7 @@ function MoreBody({
 
       {/* Pinned: Settings, Refresh, the theme and Logout stay at the foot. */}
       <div className="shrink-0 space-y-3 border-t border-accent/25 px-4 pb-4 pt-3 look2:border-line">
-      <section aria-label={t("mobile.account")} className="overflow-hidden rounded-[18px] border border-line bg-surface look2:rounded-[10px]">
+      <section aria-label={t("mobile.account")} className="overflow-hidden rounded-[18px] border border-line bg-surface look2:rounded-none look2:border-0 look2:bg-transparent">
         <Link href="/settings" navSource="mobile" onNavigate={onDone} className="flex min-h-12 items-center gap-3 border-b border-line px-3 text-body font-medium text-fg hover:bg-hover look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]">
           <Settings aria-hidden="true" strokeWidth={1.6} className="size-[18px] text-accent-strong look2:text-fg-subtle" />
           {t("settings")}
@@ -406,7 +406,7 @@ function MoreLink({ item, active, onDone }: { item: NavigationItem; active: bool
       }}
       aria-current={active ? "page" : undefined}
       data-pending={pending || undefined}
-      className={cn("relative flex min-h-12 items-center gap-3 px-3 text-body font-medium hover:bg-hover look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]", active ? "bg-accent-soft text-accent-strong look2:bg-primary look2:text-primary-fg" : "text-fg active:bg-accent-soft look2:active:bg-hover")}
+      className={cn("relative flex min-h-12 items-center gap-3 px-3 text-body font-medium hover:bg-hover look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]", active ? "bg-accent-soft text-accent-strong look2:rounded-[9px] look2:bg-primary look2:text-primary-fg" : "text-fg active:bg-accent-soft look2:active:bg-hover")}
     >
       <Icon aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong look2:text-current" />
       <span className="min-w-0 flex-1 truncate">{modules(`${item.key}.label`)}</span>

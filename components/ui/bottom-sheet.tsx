@@ -111,8 +111,11 @@ function SheetPanel({ title, description, footer, hideTitle, className, children
         "transition-transform duration-200",
         "data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)]",
         "data-[state=closed]:animate-[nesto-slide-out-bottom_180ms_var(--nesto-ease)]",
+        // Theme 2: the reference's glass sheet; on a phone it floats 8px off the edges (styles/look-2.css).
+        "look2:border-[light-dark(rgb(255_255_255/0.75),rgb(255_255_255/0.1))] look2:bg-surface/[0.94] look2:backdrop-blur-[24px] look2:backdrop-saturate-[1.4]",
         className,
       )}
+      data-phone-sheet="dock"
     >
       {/* The handle is the drag target. It is decoration for keyboard and screen-reader users, who have the close button. */}
       <div

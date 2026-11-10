@@ -1,7 +1,7 @@
 > **Chat:** Nesto — adapting the 7F "Tirana Vertical" design
 > **File:** `docs/ui/UI-03-vertical-look.md`
 > **About:** Theme 2 — the Tirana Vertical reference taken apart, the concept Nesto draws from it, how each of the reference's patterns lands on Nesto's screens, the icon system, how Theme 2 sits beside Theme 1, what was removed (UI-02), and what comes next.
-> **Last updated:** 2026-11-10 (deep dive: concept, structure, icons)
+> **Last updated:** 2026-11-10 (the phone, taken to the reference's narrow page)
 
 # UI-03 — Theme 2, the "Vertical" look
 
@@ -18,8 +18,9 @@ Evidence (`docs/ui/evidence/`):
 - `UI-03-theme2-desktop.png`: dashboard header, record header, metric
   figures, status marks and the project plates, in light then dark.
 - `UI-03-theme2-desktop-detail.png`: a dialog, and the tables in dark.
-- `UI-03-theme2-phone.png`: the page, the record figures, the More sheet and
-  a dialog, in light then dark.
+- `UI-03-theme2-phone.png`: the hero and KPI figures, the record and metric
+  figures, the plates two to a row, the More sheet and a docked sheet, in
+  light then dark.
 - `UI-03-theme2-icons.png`: the icon pairs, Theme 1 then Theme 2.
 
 All of them are the real components in a mock of the shell.
@@ -35,9 +36,9 @@ All of them are the real components in a mock of the shell.
 | In code | Called "look", because "theme" already means the colour scheme: `lib/layout/look-state.ts`, `look-server.ts`, `styles/look-2.css`, the `look2:` variant |
 
 Theme 1 does not change. Each round of Theme 2 work is diffed against the
-version before it on the mock shell. The diff covers desktop and phone, light
-and dark, the full length of the page, the More sheet and a dialog: 36 frames
-in this round. Theme 1 is pixel-identical in every frame. Theme 1 downloads
+version before it on the mock shell. The diff covers desktop and phone (390px and
+360px), light and dark, the full length of the page, the More sheet, and a
+centred, a docked and a full-screen dialog: 52 frames in this round. Theme 1 is pixel-identical in every frame. Theme 1 downloads
 none of Theme 2's fonts.
 
 ## 2. The reference, taken apart
@@ -185,7 +186,10 @@ Attributes, which Theme 2 draws from `look-2.css` and Theme 1 ignores:
 | `data-mark="solid \| hatch \| outline \| dashed \| cross"` | A status label | The legend mark before the label |
 | `data-numbered` | A collection | Restarts the "01" count |
 | `data-numbered-title` | The title of each member | "01", "02", … in mono before it |
-| `data-metric-strip` | `MetricStrip` | Open figures on an ink rule instead of a card |
+| `data-metric-strip` | `MetricStrip` | Open figures on an ink rule instead of a card; two to a row on a phone |
+| `data-kpi-card` | `KpiCard` | On a phone, an open figure under a hairline instead of a card |
+| `data-plate` | `ProjectCard` | On a phone, drops the plate's "01" index |
+| `data-phone-sheet="dock \| full"` | Docked and full-screen dialogs, `BottomSheet`, bottom drawers | On a phone, a sheet floating 8px off the edges |
 
 The attributes replace classes where Tailwind's layers would lose:
 `.nesto-card` sits in the utilities layer and wins over `look2:` classes on
@@ -244,13 +248,28 @@ that carries its own icon shows the icon instead of the mark.
 
 ### 5.4 Phone
 
+The reference's narrow page was measured at 390px wide (through a frame
+inside the live site): a 24px gutter; a 117px hero (Archivo at width 62,
+weight 600, 0.8 line height) set under an italic kicker; figures at 30px over
+mono labels; plates two to a row (165px, 12px apart across and 28px down)
+without their index; the filter strip scrolling sideways; and the section
+dial, a 62px ink circle 30px from the right and 40px from the bottom.
+
 | Where | Change |
 | --- | --- |
+| Gutter | 20px instead of 16px, so the page and the top bar line up |
+| Hero | As large as the longest word allows: `min(25vw − 10px, 7.5rem)`, which is 87px at 390px wide. The size is set by the longest Albanian word, "kompanisë.", which keeps 15px or more of room down to a 320px screen |
+| Greeting | The reference's kicker: Newsreader italic at 19px |
+| KPI cards | Open figures: no box, each under its own hairline with the gold tick standing on it, two to a row 24px apart (`[data-kpi-card]`) |
+| Metric strip | Two figures to a row at 2rem, each under its own hairline, like a record's facts (`[data-metric-strip]`) |
+| Record facts | Full width, two columns, each under its own hairline |
+| Plates | Two to a row with portrait covers (3:4), 12px apart across and 28px down. Names run to two lines at 17px, and the "01" index is dropped as the reference drops it |
+| Sheets | A docked dialog, a full-screen dialog, a `BottomSheet` and a bottom drawer float 8px off the edges and clear of the home indicator, with 20px corners all round (`[data-phone-sheet]`). A centred dialog stays centred, so an open keyboard never covers it |
+| `BottomSheet` | The reference's glass, as dialogs have |
+| More sheet | A floating glass panel with an ink rule under its title. The lists are open on the glass, with hairlines between rows and labels aligned with them; the current module is an ink row. The profile stays a card |
 | Bottom bar | A 20px glass bar with a white edge and mono capital labels. The current destination is an ink pill (gold in dark); Create is an ink circle |
-| More sheet | A floating glass panel with an ink rule under its title, 10px lists and mono capital rows. The current module is an ink row |
 | Section pill (top right) | A white pill with a hairline, ink while its menu is open |
 | Quick Create, Alerts and every touch popup | The reference's menu glass: 14px corners, lighter frost, hairline, deep pulled-in drop |
-| Hero and figures | The hero runs from 4rem. Record facts take the full width in two columns, and KPI cards sit two by two |
 
 ## 6. Icons (`components/icons`)
 
@@ -347,10 +366,12 @@ pages used classes the stylesheet does not define.
 
 **Still to build:**
 
-- **The section dial.** A floating ink circle with a scroll-progress ring
-  that opens into the page's sections, for long record pages (a project's
-  overview, a contract). On a phone it has to live with the bottom bar's
-  Create button, so that placement needs designing.
+- **The section dial.** A floating ink circle with a scroll-progress ring.
+  On the reference it opens into a column of round buttons, each with a mono
+  label pill beside it, and the current section is filled ink. In Nesto it
+  would take the phone's section pill out of the top bar and into the thumb's
+  reach. It has to sit with the bottom bar's Create button, so its placement
+  needs designing.
 - **Chapter openers with drawings to scale.** Module landing pages (Finance,
   Procurement) would open with a small chart drawn to scale beside the
   title: budget against committed against spent, or orders by stage.

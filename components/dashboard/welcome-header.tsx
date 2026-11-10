@@ -57,7 +57,7 @@ export async function WelcomeHeader({
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             {/* Version 2: no display face and nothing above the page title (UI-02 §6.2). */}
-            <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] look2:font-semibold look2:text-[clamp(4rem,9vw,7.5rem)] look2:leading-[0.82] look2:tracking-[-0.035em] look2:[font-variation-settings:'wdth'_62]">
+            <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] look2:font-semibold look2:text-[clamp(4rem,9vw,7.5rem)] look2:max-md:text-[min(calc(25vw-10px),7.5rem)] look2:leading-[0.82] look2:tracking-[-0.035em] look2:[font-variation-settings:'wdth'_62]">
               {t(`${heading}.lead`)} <em className="italic text-accent-strong look2:block look2:pl-[0.42em] look2:font-display look2:font-semibold look2:not-italic look2:tracking-[-0.035em] look2:text-transparent look2:[-webkit-text-stroke:1.25px_var(--nesto-fg)] look2:[font-variation-settings:'wdth'_62] look2:after:ml-[0.04em] look2:after:inline-block look2:after:size-[0.13em] look2:after:bg-accent look2:after:align-baseline look2:after:content-['']">{t(`${heading}.accent`)}</em>
               {/* The top of the page, as the first of its sections (UI-02 §26.3). */}
             </h1>
@@ -66,7 +66,7 @@ export async function WelcomeHeader({
 
           {/* Phone: the greeting and the role chip share one row (Premium Mobile §5.1). */}
           <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <p className="text-[0.9375rem] text-fg-muted md:text-body">
+            <p className="text-[0.9375rem] text-fg-muted md:text-body look2:nesto-standfirst look2:text-[1.1875rem] look2:leading-[1.3] look2:md:text-[1.3125rem]">
               {/* The name takes the heading's accent: the serif in gold italic, like "overview" above. */}
               {greetingText(t)}, <em className="font-serif text-[1.15em] italic leading-none text-accent-strong look2:font-light look2:tracking-normal">{context.firstName}</em>
             </p>

@@ -18,6 +18,8 @@ export function KpiGrid({ className, count, ...props }: React.ComponentProps<"di
     <div
       className={cn(
         "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:gap-4 lg:grid-cols-4 [&>*]:min-w-0",
+        // Theme 2 on a phone: open figures under hairlines, spaced like a record's facts.
+        "look2:max-md:gap-x-6 look2:max-md:gap-y-5",
         count === 5 && "xl:grid-cols-5",
         className,
       )}
