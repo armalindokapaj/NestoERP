@@ -146,7 +146,7 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
           "relative shrink-0 text-fg-muted transition-colors hover:text-fg",
           inBar
             ? "flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle aria-expanded:text-accent-strong"
-            : "grid size-9 place-items-center rounded-md hover:bg-hover aria-expanded:bg-hover touch:size-11",
+            : "grid size-9 place-items-center rounded-full hover:bg-hover aria-expanded:bg-hover touch:size-11 ds2:rounded-md",
         )}
         data-testid="notification-bell"
         data-count-state={counts === null ? "unknown" : snapshot.count.stale ? "stale" : "fresh"}

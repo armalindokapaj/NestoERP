@@ -72,18 +72,19 @@ function NavRow({ item, active, dense, onNavigate }: { item: AdminDestination; a
       aria-label={label}
       data-testid={`admin-nav-${item.key}`}
       className={cn(
-        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
+        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-full px-3 font-mono text-micro font-medium uppercase tracking-[0.1em] transition-colors",
+        "ds2:rounded-lg ds2:font-sans ds2:text-body ds2:normal-case ds2:tracking-normal",
         dense ? "min-h-11 py-2.5" : "py-2.5 touch:min-h-11",
         // Pending shows before the route commits (§28), not by colour alone.
         "data-[nav-pending]:bg-hover data-[nav-pending]:[&>svg]:animate-pulse",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
         // Version 2 (UI-02 §7.1, §9.1): as the company's rows, and a focus ring at full strength.
         "ds2:focus-visible:ring-ring",
-        active ? "bg-accent-soft text-accent-strong ds2:font-semibold ds2:text-fg" : "text-fg-muted hover:bg-hover hover:text-fg ds2:active:bg-pressed",
+        active ? "bg-primary text-primary-fg ds2:bg-accent-soft ds2:font-semibold ds2:text-fg" : "text-fg-muted hover:bg-hover hover:text-fg ds2:active:bg-pressed",
       )}
     >
-      {active ? <span aria-hidden="true" className={navMarkerClass} /> : null}
-      <item.icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "text-accent ds2:text-fg" : "text-accent-strong group-hover:text-accent ds2:text-fg-muted ds2:group-hover:text-fg")} />
+      {active ? <span aria-hidden="true" className={cn(navMarkerClass, "hidden ds2:block")} /> : null}
+      <item.icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "ds2:text-fg" : "text-fg-subtle group-hover:text-fg ds2:text-fg-muted")} />
       <span className="nesto-nav-label truncate">{label}</span>
     </Link>
   );
@@ -274,10 +275,10 @@ function Shell({ user, permissions, appearance, devActions, children }: { user: 
 
   return (
     <>
-      <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden ds2:z-(--nesto-z-sidebar) w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex" data-testid="admin-sidebar">
-        <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header"><AdminIdentity /></div>
+      <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden ds2:z-(--nesto-z-sidebar) w-[var(--nesto-nav-width)] flex-col border-r border-line bg-canvas transition-[width] lg:flex ds2:border-accent/25" data-testid="admin-sidebar">
+        <div className="flex h-16 shrink-0 items-center border-b border-fg px-3 ds2:border-transparent" data-testid="sidebar-header"><AdminIdentity /></div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><Navigation permissions={permissions} /></div>
-        <div className="shrink-0 border-t border-accent/25 pb-1"><Navigation permissions={permissions} utility /></div>
+        <div className="shrink-0 border-t border-line pb-1 ds2:border-accent/25"><Navigation permissions={permissions} utility /></div>
         <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4"><PoweredBy isDemo={false} /></div>
       </aside>
       <Drawer open={mobile} onOpenChange={setMobile}>

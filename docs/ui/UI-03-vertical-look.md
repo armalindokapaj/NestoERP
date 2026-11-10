@@ -12,7 +12,9 @@ labels. Everything lands through the existing tokens, so the product repaints
 without page-by-page work.
 
 Evidence: `docs/ui/evidence/UI-03-light.png`, `UI-03-dark.png` (real
-primitives, rendered locally).
+primitives, rendered locally) and `UI-03-shell-light.png`,
+`UI-03-shell-dark.png` (the real navigation in a mock of the shell; the
+active row is forced for the picture).
 
 ## 1. What the reference is made of
 
@@ -105,7 +107,9 @@ Section head, as the reference draws it:
 | `Badge` | Mono, uppercase, 0.06em |
 | `TabsTrigger` | Active underline is ink, not gold |
 | `NestoLogo` | Wordmark in Archivo at its wide setting |
-| Top bar, dashboard header | The bottom rule is ink |
+| Sidebar (company and platform admin) | Rows are mono uppercase labels with neutral icons; the active row is a filled pill (ink in light, gold in dark) with no edge marker; group labels are muted, not gold; the frame's lines are quiet and the header closes on the top bar's ink rule; the workspace name is set in the display face, uppercase |
+| Top bar | The bottom rule is ink; + Create is an ink pill; the company switcher is a white pill with a hairline; search, bell and collapse are round |
+| Dashboard header | The bottom rule is ink |
 | Dashboard heading | `Company *overview*`: display + italic serif in gold |
 
 ## 6. Deliberately not copied

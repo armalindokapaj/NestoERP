@@ -33,8 +33,9 @@ function NavItem({
   // Accepted and on its way: marked at once, apart from the active state, which follows the committed URL (NAV-04).
   const pending = usePendingDestination(item.href);
 
-  /* Light accent ground, accent icon and text, plus a 2px left marker
-     (PRD #3 §12). Version 2 (UI-02 §7.1, §9.1): the selection tint, the label in
+  /* Version 1 (docs/ui/UI-03-vertical-look.md §5): every row is a small mono
+     label; the active one is a filled pill — ink in the light scheme, gold in
+     the dark — and needs no edge marker. Version 2 (UI-02 §7.1, §9.1): the selection tint, the label in
      the primary text colour and a step heavier, and a short gold rule at the
      edge; every other row is neutral — its icon too — and takes the neutral
      hover and pressed grounds. Nothing moves under the pointer or on press, and
@@ -53,25 +54,26 @@ function NavItem({
       aria-label={label}
       data-pending={pending || undefined}
       className={cn(
-        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
+        "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-full px-3 font-mono text-micro font-medium uppercase tracking-[0.1em] transition-colors",
+        "ds2:rounded-lg ds2:font-sans ds2:text-body ds2:normal-case ds2:tracking-normal",
         // 44px rows in the drawer and under touch (AUD-04 §4, MW-02); the mouse rail is unchanged.
         dense ? "min-h-11 py-2.5" : "py-2.5 touch:min-h-11",
-        active ? "bg-accent-soft text-accent-strong ds2:font-semibold ds2:text-fg" : "text-fg-muted hover:bg-hover hover:text-fg ds2:active:bg-pressed",
+        active ? "bg-primary text-primary-fg ds2:bg-accent-soft ds2:font-semibold ds2:text-fg" : "text-fg-muted hover:bg-hover hover:text-fg ds2:active:bg-pressed",
       )}
     >
       {active ? (
-        <span aria-hidden="true" className={navMarkerClass} />
+        <span aria-hidden="true" className={cn(navMarkerClass, "hidden ds2:block")} />
       ) : null}
       <Icon
         aria-hidden="true"
         strokeWidth={1.6}
         className={cn(
           "size-[18px] shrink-0",
-          active ? "text-accent ds2:text-fg" : "text-accent-strong group-hover:text-accent ds2:text-fg-muted ds2:group-hover:text-fg",
+          active ? "ds2:text-fg" : "text-fg-subtle group-hover:text-fg ds2:text-fg-muted",
         )}
       />
       <span className="nesto-nav-label truncate">{label}</span>
-      {pending ? <PendingDot className="absolute right-2 top-1/2 -translate-y-1/2 text-accent" /> : null}
+      {pending ? <PendingDot className="absolute right-3 top-1/2 -translate-y-1/2 text-accent" /> : null}
     </Link>
   );
 
@@ -117,7 +119,7 @@ export function SidebarNav({
         <div key={group.group}>
           {group.group !== "primary" ? (
             <>
-              <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-accent-strong ds2:text-fg-muted">
+              <p className="nesto-nav-group-label nesto-eyebrow mb-2 px-3 text-fg-subtle ds2:text-fg-muted">
                 {t(`groups.${group.group}`)}
               </p>
               {/* The rail has no room for group headings, so a hairline keeps
