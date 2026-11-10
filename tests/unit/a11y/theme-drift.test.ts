@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { theme } from "@/config/theme";
 import { readTokenDeclarations } from "@/lib/a11y/contrast";
+import { lookAttribute, readLook } from "@/lib/layout/look-state";
 import { THEME_CHOICES, readThemeChoice, themeAttribute } from "@/lib/layout/theme-state";
 
 /**
@@ -121,75 +122,57 @@ describe("config/theme.ts agrees with the stylesheets", () => {
   });
 });
 
-describe("version 2 is an overlay, never a second default (UI-02 §33)", () => {
-  const v2Css = readFileSync(join(process.cwd(), "styles/tokens-v2.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+describe("Theme 2 is an overlay, never a second default", () => {
+  const look2Css = readFileSync(join(process.cwd(), "styles/look-2.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
-  it("every rule of tokens-v2.css is scoped to :root[data-ds=\"2\"]", () => {
+  it("every rule of look-2.css is scoped to :root[data-look=\"2\"]", () => {
     // Selectors are what is left once declarations, at-rule preludes and braces are taken away.
-    const selectors = v2Css
-      .replace(/@media[^{]*\{/g, "")
+    const selectors = look2Css
+      .replace(/@(media|layer)[^{]*\{/g, "")
       .split("}")
       .map((rule) => rule.split("{")[0].trim())
       .filter(Boolean);
     expect(selectors.length).toBeGreaterThan(0);
     for (const selector of selectors) {
-      for (const part of selector.split(/,\s*(?![^(]*\))/)) expect(part.trim(), part).toMatch(/^:root\[data-ds="2"\]/);
+      for (const part of selector.split(/,\s*(?![^(]*\))/)) expect(part.trim(), part).toMatch(/^:root\[data-look="2"\]/);
     }
   });
 
-  it("restates only variables version 1 declares", () => {
+  it("restates only variables Theme 1 declares", () => {
     const declared = new Set([...(tokensCss + globalsCss).matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
-    // next/font declares the two font variables on <body> (lib/fonts).
-    declared.add("--font-nesto-serif");
-    for (const [, name] of v2Css.matchAll(/(--[\w-]+)\s*:/g)) expect(declared.has(name), name).toBe(true);
+    // next/font declares the font variables on <body> (lib/fonts).
+    for (const name of ["--font-nesto-sans", "--font-geist-mono", "--font-nesto-serif"]) declared.add(name);
+    for (const [, name] of look2Css.matchAll(/(--[\w-]+)\s*:/g)) expect(declared.has(name), name).toBe(true);
   });
 
-  it("the stylesheet is loaded straight after tokens.css, and `ds2:` matches only inside <html data-ds=\"2\">", () => {
-    expect(globalsCss).toMatch(/@import "\.\/tokens\.css";\s*@import "\.\/tokens-v2\.css";/);
-    expect(globalsCss).toMatch(/@custom-variant ds2 \(&:where\(\[data-ds="2"\], \[data-ds="2"\] \*\)\);/);
+  it("the stylesheet is loaded straight after tokens.css, and `look2:` matches only inside <html data-look=\"2\">", () => {
+    expect(globalsCss).toMatch(/@import "\.\/tokens\.css";\s*@import "\.\/look-2\.css";/);
+    expect(globalsCss).toMatch(/@custom-variant look2 \(&:where\(\[data-look="2"\], \[data-look="2"\] \*\)\);/);
   });
 
-  it("the shell is the size UI-02 §7 gives, and version 1's is what it was", () => {
-    // Version 1: 240/72px sidebar, 56px header and 64px from md, a 40px breadcrumb bar, 46px context tabs.
+  it("the look is a cookie anyone may set, and anything but \"2\" is Theme 1", () => {
+    expect(readLook(undefined)).toBe("1");
+    expect(readLook("3")).toBe("1");
+    expect(readLook("2")).toBe("2");
+    expect(lookAttribute("1")).toBeUndefined();
+    expect(lookAttribute("2")).toBe("2");
+  });
+});
+
+describe("the shell's geometry", () => {
+  it("the sidebar, header, breadcrumb bar and context tabs are the sizes the shell is built on", () => {
     expect(px(cssVar(tokensCss, "nesto-sidebar-width"))).toBe(240);
     expect(px(cssVar(tokensCss, "nesto-sidebar-width-collapsed"))).toBe(72);
     expect(px(cssVar(globalsCss, "nesto-shell-header-h"))).toBe(56);
     expect(globalsCss).toMatch(/@media \(min-width: 768px\) \{\s*:root \{\s*--nesto-shell-header-h: 4rem;/);
     expect(px(cssVar(globalsCss, "nesto-shell-breadcrumb-h"))).toBe(40);
     expect(px(cssVar(tokensCss, "nesto-shell-tab-row-h"))).toBe(46);
-    // Version 2: 208/64px, a 60px tablet header between them, 32px breadcrumbs, 40px tabs.
-    expect(px(cssVar(v2Css, "nesto-sidebar-width"))).toBe(208);
-    expect(px(cssVar(v2Css, "nesto-sidebar-width-collapsed"))).toBe(64);
-    expect(px(cssVar(v2Css, "nesto-shell-tab-row-h"))).toBe(40);
-    expect(v2Css).toMatch(/@media \(min-width: 640px\) \{\s*:root\[data-ds="2"\] \{\s*--nesto-shell-breadcrumb-h: 2rem;/);
-    expect(v2Css).toMatch(/@media \(min-width: 768px\) and \(max-width: 1023\.98px\) \{\s*:root\[data-ds="2"\] \{\s*--nesto-shell-header-h: 3\.75rem;/);
-    // §7.3: the sidebar is under the shell's layer.
-    expect(Number(cssVar(v2Css, "nesto-z-sidebar"))).toBeLessThan(Number(cssVar(globalsCss, "nesto-z-shell-header")));
   });
 
-  it("the sticky stack is one sum of the shell's heights, and only a low window restates it (UI-02 §7.3)", () => {
+  it("the sticky stack is one sum of the shell's heights", () => {
     expect(cssVar(globalsCss, "nesto-sticky-stack")).toBe("calc(var(--nesto-shell-header-h) + var(--nesto-shell-breadcrumb-h) + var(--nesto-shell-tabs-h))");
-    // Measured layers are nothing until version 2 publishes them, so version 1's offsets are the stack's.
-    expect(cssVar(globalsCss, "nesto-page-sticky-h")).toBe("0px");
-    expect(cssVar(globalsCss, "nesto-shell-banner-h")).toBe("0px");
-    expect(cssVar(globalsCss, "nesto-sticky-cover")).toBe("calc(var(--nesto-sticky-stack) + var(--nesto-page-sticky-h))");
     expect(cssVar(globalsCss, "nesto-layer-pin")).toBe("sticky");
     expect(cssVar(globalsCss, "nesto-bottom-nav-pin")).toBe("fixed");
-    // Every restatement of the stack in version 2 sits inside a max-height query, with the pins let go beside it.
-    const restated = [...v2Css.matchAll(/--nesto-sticky-stack\s*:/g)];
-    expect(restated.length).toBeGreaterThan(0);
-    for (const match of restated) {
-      const query = v2Css.lastIndexOf("@media", match.index);
-      expect(v2Css.slice(query, v2Css.indexOf("{", query)), "a stack restated outside a low window").toMatch(/max-height/);
-    }
-    expect(v2Css).toMatch(/--nesto-layer-pin: static;/);
-  });
-
-  it("the motion timings sit inside the UI-02 §9.2 ranges", () => {
-    const ms = (name: string) => parseFloat(cssVar(v2Css, name));
-    expect(ms("nesto-motion-fast")).toBeGreaterThanOrEqual(120);
-    expect(ms("nesto-motion")).toBeLessThanOrEqual(160);
-    expect(ms("nesto-motion-slow")).toBeLessThanOrEqual(220);
   });
 });
 

@@ -46,14 +46,15 @@ export async function Sidebar({ navigation, isDemo }: { navigation: NavigationGr
   const { top, middle, bottom } = splitNavigation(navigation);
   const t = await getTranslations("shell");
   return (
-    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden ds2:z-(--nesto-z-sidebar) w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex">
-      <div className="flex h-16 shrink-0 items-center px-3" data-testid="sidebar-header">
+    <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex look2:border-line">
+      {/* Theme 2: the ink rule under the top bar starts here, so it runs the full width of the window. */}
+      <div className="flex h-16 shrink-0 items-center px-3 look2:border-b look2:border-fg" data-testid="sidebar-header">
         <OrganizationWorkspaceHeader variant="sidebar" />
       </div>
 
       {/* Inert while a workspace switch is in flight (OW §34), like the foot and the top bar. */}
       {top.length ? (
-        <div className="shrink-0 border-b border-accent/25 pb-1" data-shell-region data-testid="sidebar-pinned-top">
+        <div className="shrink-0 border-b border-accent/25 pb-1 look2:border-line" data-shell-region data-testid="sidebar-pinned-top">
           <SidebarNav navigation={top} />
         </div>
       ) : null}
@@ -61,7 +62,7 @@ export async function Sidebar({ navigation, isDemo }: { navigation: NavigationGr
         <SidebarNav navigation={middle} />
       </div>
       {bottom.length ? (
-        <div className="shrink-0 border-t border-accent/25 pb-1" data-shell-region data-testid="sidebar-pinned-bottom">
+        <div className="shrink-0 border-t border-accent/25 pb-1 look2:border-line" data-shell-region data-testid="sidebar-pinned-bottom">
           <SidebarNav navigation={bottom} />
         </div>
       ) : null}

@@ -20,7 +20,7 @@ export async function StatStrip({ className }: { className?: string }) {
       {stats.map((stat) => (
         <div key={stat.key} className={cn(hairlineCell, "p-5")}>
           <dt className="nesto-eyebrow text-fg-subtle">{copy.stats[stat.key].label}</dt>
-          <dd className="mt-3 font-serif text-display leading-none text-fg">{stat.figure}</dd>
+          <dd className="mt-3 font-serif look2:font-display text-display leading-none text-fg">{stat.figure}</dd>
           <p className="mt-3 text-table leading-relaxed text-fg-muted">{copy.stats[stat.key].note}</p>
         </div>
       ))}

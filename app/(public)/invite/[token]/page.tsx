@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { adminRoleName } from "@/components/platform/admin-roles";
 import { getTranslations } from "@/lib/i18n/server";
-import { getDesignState } from "@/lib/layout/design-server";
 import { previewInvite } from "@/lib/modules/team/invitations/invite.service";
 import { AcceptInviteForm } from "./accept-invite-form";
 import { JoinButton } from "./join-button";
@@ -33,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AcceptInvitePage({ params }: Params) {
   const { token } = await params;
 
-  const [invite, session, m, tr, { version }] = await Promise.all([previewInvite(token), auth(), getTranslations("misc"), getTranslations("roles"), getDesignState()]);
+  const [invite, session, m, tr] = await Promise.all([previewInvite(token), auth(), getTranslations("misc"), getTranslations("roles")]);
   const signedInUserId = session?.user?.id ?? null;
 
   return (
@@ -48,7 +47,7 @@ export default async function AcceptInvitePage({ params }: Params) {
           <p className="mb-6 mt-1.5 text-body text-fg-muted">
             {m("invite.invitedNew", { role: adminRoleName(tr, invite.roleName) })}
           </p>
-          <AcceptInviteForm token={token} email={invite.email} revealPassword={version === "2"} />
+          <AcceptInviteForm token={token} email={invite.email} />
         </>
       ) : signedInUserId ? (
         <>

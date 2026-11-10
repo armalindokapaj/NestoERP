@@ -119,7 +119,7 @@ const faceClass =
 function Names({ identity, switchable = false }: { identity: Identity; switchable?: boolean }) {
   return (
     <span className="nesto-nav-label flex min-w-0 flex-1 items-center gap-1.5 leading-tight">
-      <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg">
+      <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg look2:text-[0.8125rem] look2:uppercase look2:tracking-[0.08em] look2:[font-family:var(--font-nesto-display),sans-serif] look2:[font-variation-settings:'wdth'_100]">
         {identity.workspace}
       </span>
       {switchable ? <ChevronDown aria-hidden="true" strokeWidth={2} className="size-3.5 shrink-0 text-fg-muted md:hidden" /> : null}
@@ -146,7 +146,7 @@ function HomeHeader({ identity }: { identity: Identity }) {
     >
       <OrganizationMark name={identity.workspace} logoUrl={identity.logoUrl} />
       <span className="nesto-nav-label min-w-0 flex-1 leading-tight">
-        <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg">
+        <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg look2:text-[0.8125rem] look2:uppercase look2:tracking-[0.08em] look2:[font-family:var(--font-nesto-display),sans-serif] look2:[font-variation-settings:'wdth'_100]">
           {identity.workspace}
         </span>
       </span>
@@ -202,7 +202,7 @@ export function WorkspaceSwitcher() {
           data-testid="workspace-switcher"
           data-options={state.status}
           data-scope={identity.scope}
-          className="hidden h-9 min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded-md bg-accent px-3 text-left text-accent-fg transition-colors hover:bg-accent-strong aria-busy:cursor-progress md:inline-flex touch:h-11"
+          className="hidden h-9 min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded-md bg-accent px-3 text-left text-accent-fg transition-colors hover:bg-accent-strong aria-busy:cursor-progress md:inline-flex touch:h-11 look2:rounded-full look2:border look2:border-line look2:bg-surface look2:px-3.5 look2:text-fg look2:hover:bg-hover"
           {...warm}
         >
           <Building2 aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.8} />

@@ -77,15 +77,6 @@ export const en = {
       light: "Light",
       dark: "Dark",
       system: "System",
-      /** Density, page ruler and — in development — the design version (UI-02 §15). */
-      display: "Display",
-      density: "Density",
-      densities: { comfortable: "Comfortable", compact: "Compact" },
-      ruler: "Page ruler",
-      rulers: { auto: "Auto", off: "Off" },
-      design: "Design",
-      designs: { "1": "Classic", "2": "New" },
-      notSaved: "This browser did not keep the change. It lasts until you leave the page.",
       language: "Language",
       help: "Help Center",
       whatsNew: "What's New",
@@ -488,14 +479,9 @@ export const en = {
       density: "Density",
       densityHint: "Comfortable spacing, tuned for long working sessions.",
       densityLater: "Selectable density arrives with the settings module.",
-      densityChoiceHint: "Compact fits more rows on a screen for work with a mouse and keyboard. Touch screens always keep larger controls.",
-      densities: { comfortable: "Comfortable", compact: "Compact" },
-      ruler: "Page ruler",
-      rulerHint: "A ruler beside long overview pages that shows where you are and takes you to a section.",
-      rulers: { auto: "Auto", off: "Off" },
-      design: "Design",
-      designHint: "Switch between the classic interface and the new one. Offered in development only.",
-      designs: { "1": "Classic", "2": "New" },
+      look: "Theme",
+      lookHint: "Theme 1 is the original interface. Theme 2 is the newer one: cooler colours, condensed titles and small capital labels. Each has a light and a dark colour scheme.",
+      looks: { "1": "Theme 1", "2": "Theme 2" },
       notSaved: "This browser did not keep the change. It lasts until you leave the page.",
     },
 
@@ -1178,13 +1164,6 @@ export const en = {
     savedOpening: "Saved. Opening…",
   },
   ui: {
-    /** The Architectural Scroll Ruler and its "On this page" links (UI-02 §8). */
-    ruler: {
-      /** The scrollbar's name, and its value as a screen reader says it. */
-      label: "Page position",
-      valueText: "{percent} percent down page",
-      onThisPage: "On this page",
-    },
     backTo: "Back to {label}",
     goBack: "Go back",
     switchTo: "Switch {label}",

@@ -10,7 +10,6 @@ export function BadgeEntry() {
   return (
     <CatalogEntry
       id="badges"
-      order={3}
       title="Badge"
       source="components/ui/badge.tsx"
       summary="A status: a label, and an icon where it means something. The domain state picks the tone, never the other way round, and the label carries the state on its own."
@@ -57,7 +56,6 @@ export function TagEntry() {
   return (
     <CatalogEntry
       id="tags"
-      order={4}
       title="Tag"
       source="components/ui/tag.tsx"
       summary="A plain label for a category or an applied filter, with the small radius. It does nothing unless its removal is explicit."

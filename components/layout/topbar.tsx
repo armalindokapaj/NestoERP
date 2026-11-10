@@ -8,7 +8,6 @@ import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { AccountPanel } from "@/components/shell/account-panel";
 import { can, canAccessModule } from "@/lib/access/can";
 import { getTranslations } from "@/lib/i18n/server";
-import { getDesignState } from "@/lib/layout/design-server";
 import type { UserContext } from "@/lib/context/types";
 import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
 
@@ -46,14 +45,12 @@ export async function Topbar({
   const workspaceName = context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name;
   // Company Settings is offered only where its own page would open (settings-access.ts), never by title.
   const companySettings = context.workspace.scopeType === "COMPANY" && canAccessModule(context, "settings") && can(context, "company.name.update");
-  // Which display preferences the panel may offer: the environment's answer (UI-02 §15, §33).
-  const { options: appearance } = await getDesignState();
 
   return (
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
     // element the box that `position: fixed` children are placed in, which pinned the phone's
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
-    <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]">
+    <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas look2:border-fg pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <MobileHeader />
 
@@ -92,7 +89,6 @@ export async function Topbar({
                 whatsNew: "/whats-new",
                 organizationSettings: companySettings ? { href: "/settings/company", kind: "company" } : undefined,
               },
-              appearance,
             }}
           />
         </div>

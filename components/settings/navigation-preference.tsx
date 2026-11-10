@@ -22,7 +22,7 @@ export function NavigationPreference() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <label htmlFor={id} className="text-card font-semibold text-fg">
+        <label htmlFor={id} className="text-card font-semibold text-fg look2:font-display">
           {t("appearance.collapsedNavigation")}
         </label>
         <p className="mt-1 text-table text-fg-muted">{t("appearance.collapsedNavigationHint")}</p>

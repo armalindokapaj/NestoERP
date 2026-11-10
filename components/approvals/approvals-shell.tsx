@@ -492,7 +492,7 @@ export function ApprovalsShell({
         <div className="min-w-0 max-lg:grow">
           <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>
           <div className="flex items-start gap-2">
-          <h1 className="mt-1 min-w-0 flex-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px] ds2:text-page ds2:leading-(--nesto-leading-page)" data-testid="approvals-heading" aria-live="polite">
+          <h1 className="mt-1 min-w-0 flex-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" data-testid="approvals-heading" aria-live="polite">
             {partial
               ? counts.waiting > 0
                 ? t("shell.atLeastWaiting", { count: counts.waiting })
@@ -677,7 +677,7 @@ export function ApprovalsShell({
       ) : null}
 
       <div id="approvals-panel" role="tabpanel" className={cn("grid items-start gap-5", group ? "" : "lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]")}>
-        <section className="overflow-hidden rounded-2xl border border-line bg-surface ds2:rounded-(--nesto-radius-card)" aria-busy={listLoading}>
+        <section className="overflow-hidden rounded-2xl border border-line bg-surface" aria-busy={listLoading}>
           {listError ? (
             <div className="px-6 py-10 text-center" role="alert">
               <p className="text-body font-medium text-fg">{listError}</p>
@@ -730,7 +730,7 @@ export function ApprovalsShell({
         {group ? null : (
           <aside
             aria-label={t("shell.review")}
-            className="hidden overflow-hidden rounded-2xl border border-line bg-surface ds2:rounded-(--nesto-radius-card) lg:sticky lg:top-[calc(var(--nesto-topbar-height)+1rem)] lg:flex lg:h-[calc(100dvh-var(--nesto-topbar-height)-2rem)] lg:flex-col"
+            className="hidden overflow-hidden rounded-2xl border border-line bg-surface lg:sticky lg:top-[calc(var(--nesto-topbar-height)+1rem)] lg:flex lg:h-[calc(100dvh-var(--nesto-topbar-height)-2rem)] lg:flex-col"
           >
             {desktop ? (
               <UnsavedScope id={DETAIL_SCOPE}>

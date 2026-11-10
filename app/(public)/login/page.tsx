@@ -6,7 +6,6 @@ import { NestoLogo } from "@/components/layout/nesto-logo";
 import { isDevMode } from "@/lib/auth/dev-mode";
 import { quickLoginSections } from "@/lib/auth/quick-login";
 import { getTranslations } from "@/lib/i18n/server";
-import { getDesignState } from "@/lib/layout/design-server";
 import { LoginForm } from "./login-form";
 import { QuickLogin } from "./quick-login";
 
@@ -47,7 +46,7 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string; reason?: string }>;
 }) {
   const { callbackUrl, reason } = await searchParams;
-  const [t, tShell, { version }] = await Promise.all([getTranslations("auth"), getTranslations("shell"), getDesignState()]);
+  const [t, tShell] = await Promise.all([getTranslations("auth"), getTranslations("shell")]);
   const notice = isSignInNotice(reason) ? t(SIGN_IN_NOTICES[reason]) : null;
 
   return (
@@ -75,7 +74,7 @@ export default async function LoginPage({
               </p>
             ) : null}
 
-            <LoginForm callbackUrl={callbackUrl} revealPassword={version === "2"} />
+            <LoginForm callbackUrl={callbackUrl} />
 
             <div className="mt-6 text-center">
               <Link

@@ -72,7 +72,7 @@ export function ErrorState({
         </div>
       ) : null}
       {reference ? (
-        <p className="mt-4 hidden max-w-full text-meta text-fg-muted [overflow-wrap:anywhere] ds2:block">
+        <p className="mt-4 hidden max-w-full text-meta text-fg-muted [overflow-wrap:anywhere]">
           {t("errorReference", { id: reference })}
         </p>
       ) : null}

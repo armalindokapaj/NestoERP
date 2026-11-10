@@ -18,18 +18,18 @@ import { CONTRAST_PAIRS } from "@/lib/a11y/contrast-pairs";
  * status and chart pair the shared primitives paint clears its threshold in
  * both schemes, measured from the values styles/tokens.css actually declares.
  *
- * UI-02 §6.5: and again for version 2 of the design system, which is
- * styles/tokens-v2.css laid over tokens.css exactly as the cascade lays it —
- * every `:root[data-ds="2"]` block of the file, not only the first.
+ * And again for Theme 2 (look 2), which is styles/look-2.css laid over
+ * tokens.css exactly as the cascade lays it — every `:root[data-look="2"]`
+ * block of the file.
  */
 const css = (file: string) => readFileSync(join(process.cwd(), "styles", file), "utf8");
 const tokens = readTokenDeclarations(css("tokens.css"));
-const overrides = readTokenDeclarations(css("tokens-v2.css"), ':root[data-ds="2"]');
-const tokensV2 = new Map([...tokens, ...overrides]);
+const overrides = readTokenDeclarations(css("look-2.css"), ':root[data-look="2"]');
+const tokensLook2 = new Map([...tokens, ...overrides]);
 const SCHEMES: Scheme[] = ["light", "dark"];
-const VERSIONS = [
-  ["version 1", tokens],
-  ["version 2", tokensV2],
+const LOOKS = [
+  ["Theme 1", tokens],
+  ["Theme 2", tokensLook2],
 ] as const;
 
 describe("contrast arithmetic", () => {
@@ -54,58 +54,34 @@ describe("contrast arithmetic", () => {
   });
 });
 
-describe.each(VERSIONS)("token pairs in %s", (version, declarations) => {
+describe.each(LOOKS)("token pairs in %s", (look, declarations) => {
   describe.each(SCHEMES)("the %s scheme", (scheme) => {
     it.each(CONTRAST_PAIRS.map((pair) => [pair.id, pair] as const))("%s", (_id, pair) => {
       const ratio = contrastRatio(resolvePaint(declarations, pair.fg, scheme), resolvePaint(declarations, pair.bg, scheme));
       const threshold = THRESHOLD[pair.kind];
       expect(
         ratio,
-        `${pair.id} (${version}, ${scheme}) is ${ratio.toFixed(2)}:1, below ${threshold}:1 — used for ${pair.where}`,
+        `${pair.id} (${look}, ${scheme}) is ${ratio.toFixed(2)}:1, below ${threshold}:1 — used for ${pair.where}`,
       ).toBeGreaterThanOrEqual(threshold);
     });
   });
 });
 
-describe("version 2 states the UI-02 §6.1 table", () => {
-  // token → [light, dark], as the specification prints them.
-  const TABLE: Record<string, [string, string]> = {
-    canvas: ["#f7f7f5", "#0e0e0e"],
-    surface: ["#ffffff", "#161616"],
-    hover: ["#f0efeb", "#22211f"],
-    pressed: ["#e7e4dd", "#2c2923"],
-    fg: ["#111111", "#f4f1ea"],
-    "fg-muted": ["#625e57", "#b8b3a9"],
-    border: ["#e6e3dc", "#34322e"],
-    "control-border": ["#817b70", "#827b6e"],
-    gold: ["#b89a5e", "#b89a5e"],
-    "accent-strong": ["#755b29", "#d2b67b"],
-    "accent-soft": ["#f2ede2", "#292318"],
-    ring: ["#755b29", "#d2b67b"],
-    "success-strong": ["#176443", "#80d7ac"],
-    "warning-strong": ["#805600", "#f0c66d"],
-    "danger-strong": ["#b42332", "#ff9da5"],
-    "info-strong": ["#225ea8", "#96c5ff"],
-  };
-
-  it.each(Object.entries(TABLE))("%s", (token, [light, dark]) => {
-    expect(resolveToken(tokensV2, token, "light")).toEqual(parseColor(light));
-    expect(resolveToken(tokensV2, token, "dark")).toEqual(parseColor(dark));
-  });
-
-  it("has two text colours, and a primary action that is black on light and ivory on dark", () => {
+describe("Theme 2 is cool paper and ink, with gold kept as the accent", () => {
+  it("restates the neutrals and leaves the accent alone", () => {
+    expect(resolveToken(tokensLook2, "canvas", "light")).toEqual(parseColor("#f5f6f7"));
+    expect(resolveToken(tokensLook2, "fg", "light")).toEqual(parseColor("#0f141a"));
+    expect(resolveToken(tokensLook2, "primary", "light")).toEqual(parseColor("#0f141a"));
     for (const scheme of SCHEMES) {
-      expect(resolveToken(tokensV2, "fg-subtle", scheme)).toEqual(resolveToken(tokensV2, "fg-muted", scheme));
+      for (const token of ["accent", "accent-strong", "ring"]) {
+        expect(resolveToken(tokensLook2, token, scheme), token).toEqual(resolveToken(tokens, token, scheme));
+      }
     }
-    expect(resolveToken(tokensV2, "primary", "light")).toEqual(parseColor("#111111"));
-    expect(resolveToken(tokensV2, "primary-fg", "light")).toEqual(parseColor("#ffffff"));
-    expect(resolveToken(tokensV2, "primary", "dark")).toEqual(parseColor("#f4f1ea"));
   });
 
-  it("overrides only names version 1 declares, so version 1 has a value for each", () => {
-    // tokens.css, or — for the shell's own geometry, such as the gutter — globals.css.
-    const shell = readTokenDeclarations(css("globals.css"));
-    for (const name of overrides.keys()) expect(tokens.has(name) || shell.has(name), name).toBe(true);
+  it("overrides only names Theme 1 declares, so Theme 1 has a value for each", () => {
+    expect(overrides.size).toBeGreaterThan(0);
+    for (const name of overrides.keys()) expect(tokens.has(name), name).toBe(true);
   });
 });
 

@@ -85,8 +85,8 @@ export function toHex(color: Rgba): string {
 
 /**
  * Raw declarations of `--nesto-*` custom properties in every block whose
- * selector is exactly `:root`, or exactly another selector: `:root[data-ds="2"]`
- * is where styles/tokens-v2.css restates the values for version 2 (UI-02 §6.1).
+ * selector is exactly `:root`, or exactly another selector: `:root[data-look="2"]`
+ * is where styles/look-2.css restates the values for Theme 2.
  *
  * Every block, so a colour declared further down the file is measured like the
  * ones at the top. Blocks at the top level are laid over each other as the

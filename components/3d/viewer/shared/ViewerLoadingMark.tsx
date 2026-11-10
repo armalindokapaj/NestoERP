@@ -23,7 +23,7 @@ export function ViewerLoadingMark({ name, logoUrl }: { name: string; logoUrl: st
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl!} alt="" className="size-14 object-contain" onError={() => setFailed(logoUrl)} />
         ) : (
-          <span className="font-serif text-xl tracking-wide text-fg">{organizationInitials(name) || "N"}</span>
+          <span className="font-serif text-xl tracking-wide look2:[font-family:var(--font-nesto-display),sans-serif] text-fg">{organizationInitials(name) || "N"}</span>
         )}
       </div>
     </div>

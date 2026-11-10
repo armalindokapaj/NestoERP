@@ -27,7 +27,7 @@ export function ProjectIdentity({
         href={backHref}
         aria-label={t("hud.backTo", { project: projectName })}
         data-testid="project-3d-back"
-        className="-ml-1 flex shrink-0 items-center gap-1 font-serif text-xs tracking-[0.14em] text-fg transition-colors hover:text-fg/70 sm:text-sm"
+        className="-ml-1 flex shrink-0 items-center gap-1 font-serif text-xs tracking-[0.14em] look2:[font-family:var(--font-nesto-display),sans-serif] look2:[font-variation-settings:'wdth'_110] look2:font-semibold text-fg transition-colors hover:text-fg/70 sm:text-sm"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         NESTO

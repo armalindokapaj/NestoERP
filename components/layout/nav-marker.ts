@@ -4,4 +4,4 @@
  * rule in the decorative gold, centred on the row (UI-02 §7.1).
  */
 export const navMarkerClass =
-  "absolute inset-y-1 left-0 w-0.5 rounded-full bg-accent ds2:inset-y-auto ds2:top-1/2 ds2:h-4 ds2:-translate-y-1/2 ds2:bg-gold";
+  "absolute inset-y-1 left-0 w-0.5 rounded-full bg-accent";

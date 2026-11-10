@@ -41,7 +41,7 @@ export function PopoverContent({
       >
         <div
           className={cn(
-            "nesto-popup-glass max-h-[var(--radix-popover-content-available-height)] max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface shadow-lg shadow-black/10",
+            "nesto-popup-glass max-h-[var(--radix-popover-content-available-height)] max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface shadow-lg shadow-black/10 look2:rounded-[14px] look2:shadow-menu",
             className,
           )}
         >

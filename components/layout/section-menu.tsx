@@ -38,7 +38,7 @@ export function SectionMenu() {
     // place meanwhile (`data-section-level`, styles/globals.css), so the bar does not shift when it arrives.
     return (
       <span aria-hidden="true" data-section-pill-placeholder className="hidden h-11 shrink-0 place-items-center pl-1 lg:hidden">
-        <span className="h-9 w-24 rounded-full border border-accent/30 bg-accent-soft/40" />
+        <span className="h-9 w-24 rounded-full border border-accent/30 bg-accent-soft/40 look2:border-line look2:bg-surface" />
       </span>
     );
   }
@@ -94,6 +94,8 @@ function SectionPill({ levels, label, current }: { levels: SectionLevel[]; label
           <span
             className={cn(
               "inline-flex h-9 max-w-[min(11rem,40vw)] items-center gap-1.5 rounded-full border border-accent/35 bg-accent-soft/60 pl-3.5 pr-2.5 text-table font-semibold text-fg shadow-sm transition-[background-color,color,border-color,transform] duration-150",
+              // Theme 2: a white pill with a hairline, ink while its menu is open.
+              "look2:border-line look2:bg-surface look2:font-medium look2:shadow-none look2:group-hover:border-line-strong look2:group-aria-expanded:border-primary look2:group-aria-expanded:bg-primary look2:group-aria-expanded:text-primary-fg",
               "group-hover:border-accent/60 group-active:scale-[0.97] group-focus-visible:ring-2 group-focus-visible:ring-ring",
               "group-aria-expanded:border-accent group-aria-expanded:bg-accent group-aria-expanded:text-accent-fg",
             )}
@@ -140,7 +142,7 @@ function SectionPill({ levels, label, current }: { levels: SectionLevel[]; label
                 data-testid="section-menu-level"
               >
                 {grouped ? (
-                  <p id={headingId} className="nesto-eyebrow truncate px-3 pb-1 pt-2 text-accent-strong">
+                  <p id={headingId} className="nesto-eyebrow truncate px-3 pb-1 pt-2 text-accent-strong look2:text-fg-subtle">
                     {level.label}
                   </p>
                 ) : null}
@@ -173,9 +175,9 @@ function SectionLink({ item, onChoose }: { item: SectionItem; onChoose: () => vo
       data-pending={pending || undefined}
       onClick={onChoose}
       className={cn(
-        "relative flex min-h-11 items-center gap-3 rounded-2xl px-3 text-body font-medium transition-colors",
+        "relative flex min-h-11 items-center gap-3 rounded-2xl px-3 text-body font-medium transition-colors look2:rounded-[9px]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-        item.active ? "bg-accent-soft text-accent-strong" : "text-fg hover:bg-hover active:bg-hover",
+        item.active ? "bg-accent-soft text-accent-strong look2:bg-primary look2:text-primary-fg" : "text-fg hover:bg-hover active:bg-hover",
       )}
     >
       <span className="min-w-0 flex-1 truncate">{item.label}</span>

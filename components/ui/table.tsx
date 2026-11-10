@@ -87,7 +87,6 @@ export function TableHead({ className, ...props }: React.ComponentProps<"thead">
       className={cn(
         "sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur-sm",
         // Version 2: a sticky layer is a solid ground, so no row shows through it (UI-02 §6.3).
-        "ds2:bg-surface ds2:backdrop-blur-none",
         className,
       )}
       {...props}
@@ -120,7 +119,7 @@ export function TableRow({
     <tr
       data-selected={selected ? "" : undefined}
       className={cn(
-        "transition-colors hover:bg-row-hover ds2:focus-within:bg-row-hover",
+        "transition-colors hover:bg-row-hover",
         "data-[selected]:bg-accent-soft data-[selected]:hover:bg-accent-soft data-[selected]:focus-within:bg-accent-soft data-[selected]:[&>:first-child]:shadow-[inset_2px_0_0_var(--nesto-accent)]",
         interactive && "cursor-pointer",
         className,
@@ -160,7 +159,7 @@ export function TableHeaderCell({
     <th
       aria-sort={sort}
       className={cn(
-        "h-(--nesto-height-row-head) px-4 text-left text-micro font-semibold uppercase tracking-[0.08em] text-fg-subtle",
+        "h-(--nesto-height-row-head) px-4 text-left text-micro font-semibold uppercase tracking-[0.08em] text-fg-subtle look2:font-mono look2:font-medium look2:tracking-[0.1em]",
         numeric && "text-right",
         className,
       )}

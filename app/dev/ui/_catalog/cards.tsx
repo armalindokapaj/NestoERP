@@ -57,7 +57,6 @@ export function CardEntry() {
   return (
     <CatalogEntry
       id="cards"
-      order={5}
       title="Card"
       source="components/ui/card.tsx · card-link.tsx"
       summary="A border and a surface, not a shadow. Informational unless it says otherwise; a navigable card has one real link stretched over it, and its menu and checkbox sit above that link."
@@ -249,7 +248,6 @@ export function MetricStripEntry() {
   return (
     <CatalogEntry
       id="metrics"
-      order={6}
       title="MetricStrip"
       source="components/ui/metric-strip.tsx"
       summary="Figures read against each other: a label, the value in the metric size with tabular numerals, what it covers, and a comparison where a valid one exists. No icon tile and no coloured bar."

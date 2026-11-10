@@ -1,6 +1,5 @@
 import type * as React from "react";
 
-import { ContextTabsOverflow } from "@/components/navigation/context-tabs-overflow";
 import { RegisterSections } from "@/components/navigation/section-registry";
 import type { SectionItem } from "@/components/navigation/section-store";
 import { cn } from "@/lib/utils/cn";
@@ -11,9 +10,8 @@ import { cn } from "@/lib/utils/cn";
  * a hairline under it. Put it as a direct child of the page's own container so
  * it stays pinned for the whole page. Pages without tabs render nothing (§12).
  *
- * One row at every width from `lg`: 46px, and in version 2 40px, 44px under
- * touch (`--nesto-shell-tab-row-h`; UI-02 §7). Where the tabs outgrow the row
- * it scrolls sideways, and version 2 marks the edge they continue past (§24).
+ * One row at every width from `lg`: 46px (`--nesto-shell-tab-row-h`). Where
+ * the tabs outgrow the row it scrolls sideways.
  *
  * Below `lg` (phones and tablets) the row is not drawn: its `sections` — every
  * tab, including those a row tucks under More — are the top bar's section menu
@@ -50,7 +48,6 @@ export function ContextTabsFrame({
       <nav aria-label={label} data-testid={testId} className="flex h-(--nesto-shell-tab-row-h) min-w-max items-stretch gap-1 border-b border-line">
         {children}
       </nav>
-      <ContextTabsOverflow />
     </div>
   );
   const leading = lead ? (
@@ -86,5 +83,8 @@ export function contextTabClass(active: boolean) {
     "relative -mb-px inline-flex items-center gap-1 whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:min-h-11",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
     active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
+    // Theme 2: the reference's segmented pills, the tab the page is on in ink.
+    "look2:my-auto look2:h-9 look2:rounded-full look2:border-b-0 look2:px-3.5",
+    active ? "look2:bg-primary look2:text-primary-fg" : "look2:hover:bg-hover",
   );
 }

@@ -4,12 +4,11 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 
 import { ScrollToTop } from "@/components/navigation/scroll-to-top";
-import { SectionReturnWatch } from "@/components/navigation/section-return-watch";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
-import { geistMono, instrumentSerif, manrope } from "@/lib/fonts";
-import { getDesignState } from "@/lib/layout/design-server";
-import { densityAttribute, designAttribute, rulerAttribute } from "@/lib/layout/design-state";
+import { archivo, geistMono, instrumentSerif, manrope, newsreader, plexMono, plexSans } from "@/lib/fonts";
+import { getLook } from "@/lib/layout/look-server";
+import { lookAttribute } from "@/lib/layout/look-state";
 import {
   readThemeChoice,
   themeAttribute,
@@ -82,27 +81,22 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const theme = themeAttribute(readThemeChoice(cookieStore.get(THEME_COOKIE)?.value));
   const locale = await getLocale();
-  /* The design-system version, density and ruler, on <html> for the same
-     reason (UI-02 §15, §33). Version 1 renders none of data-ds, data-density and data-ruler. */
-  const design = await getDesignState();
+  /* The look ("Theme 1" / "Theme 2"), on <html> for the same reason. Look 1 renders no attribute. */
+  const look = await getLook();
 
   return (
     <html
       lang={locale}
       data-theme={theme}
-      data-ds={designAttribute(design.version)}
-      data-density={densityAttribute(design.density, design.version)}
-      data-ruler={rulerAttribute(design.ruler, design.rulerDisabled, design.version)}
+      data-look={lookAttribute(look)}
     >
       <body
-        className={`${manrope.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
+        className={`${manrope.variable} ${geistMono.variable} ${instrumentSerif.variable} ${plexSans.variable} ${plexMono.variable} ${newsreader.variable} ${archivo.variable} antialiased`}
       >
         <I18nProvider locale={locale} messages={messages[locale]}>
           <SessionLifecycle />
           <NativeBootstrap />
           <ScrollToTop />
-          {/* Back to a page returns to the section, row or heading that was being read (UI-02 §7.4, §8.6). */}
-          {design.version === "2" ? <SectionReturnWatch /> : null}
           {children}
         </I18nProvider>
       </body>

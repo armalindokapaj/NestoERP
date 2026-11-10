@@ -107,7 +107,7 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
       role="dialog"
       aria-label={t("title")}
       className={cn(
-        "nesto-popup-glass fixed z-50 flex flex-col rounded-lg border border-line bg-surface shadow-lg",
+        "nesto-popup-glass fixed z-50 flex flex-col rounded-lg border border-line bg-surface shadow-lg look2:rounded-[14px] look2:shadow-menu",
         inBar
           ? "inset-x-3 bottom-[calc(var(--nesto-safe-bottom)+6.5rem)] mx-auto max-h-[min(70dvh,calc(100dvh-10rem))] max-w-md"
           : "right-[max(1.5rem,env(safe-area-inset-right))] top-[var(--nesto-shell-header-h)] max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] w-[min(26rem,calc(100vw-1.5rem))] touch:mt-3 xl:right-8",
@@ -145,8 +145,8 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
         className={cn(
           "relative shrink-0 text-fg-muted transition-colors hover:text-fg",
           inBar
-            ? "flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle aria-expanded:text-accent-strong"
-            : "grid size-9 place-items-center rounded-md hover:bg-hover aria-expanded:bg-hover touch:size-11",
+            ? "flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-micro font-semibold leading-tight text-fg-subtle aria-expanded:text-accent-strong look2:gap-1 look2:font-mono look2:text-[0.625rem] look2:font-medium look2:uppercase look2:aria-expanded:text-fg"
+            : "grid size-9 place-items-center rounded-md hover:bg-hover aria-expanded:bg-hover touch:size-11 look2:rounded-full",
         )}
         data-testid="notification-bell"
         data-count-state={counts === null ? "unknown" : snapshot.count.stale ? "stale" : "fresh"}
@@ -155,14 +155,14 @@ function BellControl({ contextKey, canManageAnnouncements, placement }: { contex
         <span className="relative">
           <Bell aria-hidden="true" className={inBar ? "size-[22px]" : "size-[18px]"} strokeWidth={1.6} />
           {total > 0 && inBar ? (
-            <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute -right-2 -top-1.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ds2:text-micro ring-2 ring-surface", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
+            <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute -right-2 -top-1.5 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ring-2 ring-surface", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
               {total > 99 ? "99+" : total}
             </span>
           ) : null}
         </span>
-        {inBar ? <span className="max-w-full truncate tracking-tight">{t("barLabel")}</span> : null}
+        {inBar ? <span className="max-w-full truncate tracking-tight look2:tracking-[0.06em]">{t("barLabel")}</span> : null}
         {total > 0 && !inBar ? (
-          <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ds2:text-micro ring-2 ring-canvas", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
+          <span aria-hidden="true" data-testid="notification-badge" className={cn("absolute right-1 top-1 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 max-md:text-micro ring-2 ring-canvas", critical ? "bg-danger text-danger-fg" : "bg-accent text-accent-fg", snapshot.count.stale && "opacity-70")}>
             {total > 99 ? "99+" : total}
           </span>
         ) : null}

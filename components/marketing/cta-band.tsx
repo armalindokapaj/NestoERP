@@ -23,7 +23,7 @@ export async function CtaBand() {
         <div className="max-w-2xl">
           <SectionMark step="→" label={closingCta.eyebrow} tone="inverse" />
 
-          <h2 className="mt-6 text-balance font-serif text-page leading-tight text-graphite-fg sm:text-display">
+          <h2 className="mt-6 text-balance font-serif look2:font-display text-page leading-tight text-graphite-fg sm:text-display">
             {closingCta.headline.map((line) => (
               <span key={line} className="block">
                 {line}

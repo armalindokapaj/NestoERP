@@ -3,14 +3,12 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { isDevMode } from "@/lib/auth/dev-mode";
-import { PageSections } from "@/components/layout/page-sections";
-import { getDesignState } from "@/lib/layout/design-server";
+import { getLook } from "@/lib/layout/look-server";
 import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
 
 import { ButtonEntry, IconButtonEntry } from "./_catalog/buttons";
 import { CardEntry, MetricStripEntry } from "./_catalog/cards";
 import { FieldEntry } from "./_catalog/fields";
-import { RulerEntry } from "./_catalog/ruler";
 import { BadgeEntry, TagEntry } from "./_catalog/status";
 import { TableEntry } from "./_catalog/tables";
 import { CatalogToolbar } from "./_catalog/toolbar";
@@ -29,13 +27,12 @@ const ENTRIES = [
   ["metrics", "MetricStrip"],
   ["tables", "Table"],
   ["fields", "Inputs"],
-  ["ruler", "Scroll ruler"],
 ] as const;
 
 /**
- * The component catalog (UI-02 §26.2): the shared primitives of components/ui,
- * each in every state it has, in whichever colour scheme, density and design
- * version the switches at the top choose. The specimens are the real
+ * The component catalog: the shared primitives of components/ui, each in
+ * every state it has, in whichever colour scheme and theme the switches at the
+ * top choose. The specimens are the real
  * components — nothing here is a picture of one — so what this page shows is
  * what the product renders.
  *
@@ -51,22 +48,18 @@ const ENTRIES = [
 export default async function ComponentCatalogPage() {
   if (!isDevMode) notFound();
 
-  const design = await getDesignState();
+  const look = await getLook();
   const theme = readThemeChoice((await cookies()).get(THEME_COOKIE)?.value);
 
   return (
     <div className="min-h-dvh bg-canvas" data-testid="component-catalog">
       <header className="sticky top-0 z-20 border-b border-line bg-canvas">
-        {/* The two rows are the shell's top bar and breadcrumb bar in height, so this header is exactly the sticky
-            stack the scroll ruler and anchor jumps start under (styles/globals.css) wherever the first row is one line. */}
         <div className="mx-auto flex min-h-(--nesto-shell-header-h) max-w-[1280px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-(--nesto-space-page-x) py-2">
           <div className="min-w-0">
             <h1 className="text-card font-semibold text-fg">Component catalog</h1>
-            <p className="text-meta text-fg-muted">
-              UI-02 primitives · design version {design.version} · development only
-            </p>
+            <p className="text-meta text-fg-muted">Shared primitives · Theme {look} · development only</p>
           </div>
-          <CatalogToolbar theme={theme} density={design.density} version={design.version} switchable={design.switchable} />
+          <CatalogToolbar theme={theme} look={look} />
         </div>
         <nav aria-label="Catalog entries" className="mx-auto max-w-[1280px] overflow-x-auto px-(--nesto-space-page-x)">
           {/* 39px and the header's 1px border: the breadcrumb bar's 40. */}
@@ -82,10 +75,7 @@ export default async function ComponentCatalogPage() {
         </nav>
       </header>
 
-      {/* Capped narrower than the product's pages: the ruler's room is worked out from this cap (styles/tokens-v2.css). */}
-      <main id="nesto-main" tabIndex={-1} className="mx-auto max-w-(--nesto-ruler-page-max) px-(--nesto-space-page-x) py-8 [--nesto-ruler-page-max:1280px] focus:outline-none">
-        {/* The catalog is its own specimen of the scroll ruler: each entry is a section (UI-02 §8, §26.3). */}
-        <PageSections template="system">
+      <main id="nesto-main" tabIndex={-1} className="mx-auto max-w-[1280px] px-(--nesto-space-page-x) py-8 focus:outline-none">
           <ButtonEntry />
           <IconButtonEntry />
           <BadgeEntry />
@@ -94,8 +84,6 @@ export default async function ComponentCatalogPage() {
           <MetricStripEntry />
           <TableEntry />
           <FieldEntry />
-          <RulerEntry version={design.version} />
-        </PageSections>
       </main>
     </div>
   );

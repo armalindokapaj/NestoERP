@@ -56,7 +56,7 @@ export function IconButton({ label, icon, size = "icon", variant = "ghost", pres
             {icon}
           </Button>
         </TooltipTrigger>
-        <TooltipContent aria-hidden="true" className="hidden ds2:block">{label}</TooltipContent>
+        <TooltipContent aria-hidden="true" className="hidden">{label}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

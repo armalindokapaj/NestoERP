@@ -319,7 +319,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
     <div
       data-testid="record-navigation-header"
       data-shell-breadcrumb
-      className="max-sm:hidden sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 ds2:pl-[max(var(--nesto-space-page-x),var(--nesto-safe-left))] ds2:pr-[max(var(--nesto-space-page-x),var(--nesto-safe-right))]"
+      className="max-sm:hidden sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
     >
       <div role="group" className="flex shrink-0 items-center" aria-label={t("historyNavigation")}>
         <HistoryButton
@@ -338,7 +338,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
         <HistoryButton direction="forward" disabled={!navigation?.canGoForward} onClick={() => navigation?.goForward()} />
       </div>
       <nav aria-label={t("breadcrumb")} className="min-w-0 flex-1 overflow-hidden">
-        <ol className="flex min-w-0 items-center gap-1 text-meta text-fg-muted">
+        <ol className="flex min-w-0 items-center gap-1 text-meta text-fg-muted look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.08em]">
           {visible.map((item, index) => {
             const originalIndex = collapsed && index > 0 ? trail.length - (visible.length - index) : index;
             const isCurrent = originalIndex === trail.length - 1;

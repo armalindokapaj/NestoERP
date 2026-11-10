@@ -1,6 +1,5 @@
 import * as React from "react";
 
-import { PageSection } from "@/components/ui/page-sections";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -45,7 +44,6 @@ const NOTE_LABELS: Array<[keyof EntryNotes, string]> = [
 
 export function CatalogEntry({
   id,
-  order,
   title,
   source,
   summary,
@@ -53,8 +51,6 @@ export function CatalogEntry({
   children,
 }: {
   id: string;
-  /** Its place among the page's sections, for the scroll ruler this page mounts (UI-02 §26.3). */
-  order: number;
   title: string;
   /** The file the primitive lives in. */
   source: string;
@@ -69,7 +65,6 @@ export function CatalogEntry({
           <h2 id={`${id}-title`} className="text-section font-semibold text-fg">
             {title}
             {/* The entry's `id` is the section's own, on <section>; the registry's anchor is its heading. */}
-            <PageSection id={`${id}-section`} label={title} order={order} />
           </h2>
           <p className="mt-1 font-mono text-meta text-fg-subtle [overflow-wrap:anywhere]">{source}</p>
           <p className="mt-3 text-body text-fg-muted">{summary}</p>

@@ -538,7 +538,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="inline-flex h-9 shrink-0 items-center max-md:hidden justify-center gap-1.5 rounded-md bg-accent px-2.5 text-table font-medium text-accent-fg transition-colors hover:bg-accent-strong md:px-3 touch:h-11 touch:min-w-11"
+        className="inline-flex h-9 shrink-0 items-center max-md:hidden justify-center gap-1.5 rounded-md bg-accent px-2.5 text-table font-medium text-accent-fg transition-colors hover:bg-accent-strong md:px-3 touch:h-11 touch:min-w-11 look2:rounded-full look2:bg-primary look2:px-4 look2:text-primary-fg look2:hover:bg-primary-hover"
         data-testid="quick-create-button"
         {...warm}
       >
@@ -559,7 +559,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
-          className="nesto-popup-glass fixed inset-x-3 bottom-[calc(var(--nesto-safe-bottom)+7.25rem)] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-11rem))] max-w-md flex-col rounded-lg border border-line bg-surface shadow-xl outline-none md:absolute md:inset-auto md:left-0 md:top-[calc(50%+var(--nesto-shell-header-h)/2+0.5px)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3"
+          className="nesto-popup-glass fixed inset-x-3 bottom-[calc(var(--nesto-safe-bottom)+7.25rem)] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-11rem))] max-w-md flex-col rounded-lg border border-line bg-surface shadow-xl outline-none look2:rounded-[14px] look2:shadow-menu md:absolute md:inset-auto md:left-0 md:top-[calc(50%+var(--nesto-shell-header-h)/2+0.5px)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3"
           data-testid="quick-create-panel"
           data-state={step.kind === "menu" ? menuState.status : step.kind}
         >

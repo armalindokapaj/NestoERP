@@ -50,7 +50,7 @@ export function PublisherCard({
         <div className="min-w-0">
           <p
             className={cn(
-              "flex items-center gap-1.5 truncate font-serif",
+              "flex items-center gap-1.5 truncate font-serif look2:font-display",
               compact ? "text-sm" : "text-base",
               dark ? "text-fg" : "text-fg"
             )}

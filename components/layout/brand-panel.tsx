@@ -40,7 +40,7 @@ export async function BrandPanel({ tagline }: { tagline?: string }) {
       </div>
 
       <div className="relative max-w-sm">
-        <p className="font-serif text-display text-graphite-fg">{tAuth("brandHeadline")}</p>
+        <p className="font-serif look2:font-display text-display text-graphite-fg">{tAuth("brandHeadline")}</p>
         <p className="mt-4 text-body text-graphite-fg/60">{tagline ?? tAuth("brandTagline")}</p>
       </div>
     </div>
