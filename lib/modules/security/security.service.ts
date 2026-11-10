@@ -17,7 +17,6 @@ import {
 } from "@/lib/auth/device.service";
 import { assertRecentAuthentication } from "@/lib/auth/recent-auth";
 import type { UserContext } from "@/lib/context/types";
-import { hasGroupStanding } from "@/lib/context/build-context";
 import { resolveGroupContexts } from "@/lib/context/workspace-access";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
@@ -59,11 +58,35 @@ export async function securityScope(context: UserContext, permission: Permission
   return { contexts, companyIds: contexts.map((c) => c.companyId), parentGroupId: context.parentGroupId, groupWorkspace: context.workspace.scopeType === "GROUP" };
 }
 
-/** Whether the person may also edit the parent group's own level (not a standalone tenant; needs group standing). */
+/**
+ * Whether the person may also edit the parent group's own level (never in a
+ * standalone tenant). That level binds every company of the group and can close
+ * their own levels, so it takes administering the group, not a standing in it:
+ * the organization at Manage across the group (the Owner) or Settings over the
+ * system (Group IT). The company Manage a CEO holds is not enough, with or
+ * without a group-wide grant or a group function to head: the CEO manages the
+ * company's settings, and the group stays the Owner's (the user, 2026-11-10).
+ */
 export async function canManageGroupPolicy(context: UserContext): Promise<boolean> {
   if (context.parentGroup.standalone || !can(context, "security.policy.manage")) return false;
   const contexts = context.workspace.scopeType === "GROUP" ? await resolveGroupContexts(context) : [context];
-  return hasGroupStanding(contexts);
+  return contexts.some((candidate) => can(candidate, "security.policy.manage") && administersGroup(candidate));
+}
+
+function administersGroup(context: UserContext): boolean {
+  const { organization, settings } = context.moduleAccess;
+  return (organization.accessLevel === "MANAGE" && organization.scope === "GROUP") || (settings.accessLevel === "MANAGE" && settings.scope === "SYSTEM");
+}
+
+/**
+ * The company a device or policy event is recorded against. In a company
+ * workspace, that company: its permission authorised the act. In the Group
+ * workspace no single company did — the session merely sits in one — so the
+ * event carries none, and every company the person works in reads it, as they
+ * read the device events the platform records.
+ */
+function eventCompanyId(context: UserContext): string | null {
+  return context.workspace.scopeType === "GROUP" ? null : context.companyId;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -127,7 +150,7 @@ export async function restoreOwnDevice(context: UserContext, deviceId: string): 
     await restoreDevice(tx, device.id);
     await recordUserAction(context, { actionKey: AuditAction.MOBILE_DEVICE_RESTORED, entity: { type: "Device", id: device.id, label: "Device" }, before: { deviceId: device.id, userId: context.userId, status: device.status }, after: { deviceId: device.id, userId: context.userId, status: "ACTIVE" } }, { tx });
   });
-  await recordAuthEvent({ type: "DEVICE_RESTORED", userId: context.userId, companyId: context.companyId, sessionId: context.sessionId, metadata: { deviceId: device.id } });
+  await recordAuthEvent({ type: "DEVICE_RESTORED", userId: context.userId, companyId: eventCompanyId(context), sessionId: context.sessionId, metadata: { deviceId: device.id } });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -241,7 +264,7 @@ async function endDeviceAccess(context: UserContext, deviceId: string, ownerId: 
   await recordAuthEvent({
     type: action === "SIGN_OUT" ? "SESSIONS_REVOKED" : REVOKE_EVENT[action],
     userId: ownerId,
-    companyId: context.companyId,
+    companyId: eventCompanyId(context),
     sessionId: context.sessionId,
     metadata: { deviceId, actorUserId: context.userId, ...(action === "SIGN_OUT" ? { scope: "device" } : {}), sessionsEnded: result.sessionsEnded },
   });
@@ -266,12 +289,12 @@ export async function adminActOnDevice(context: UserContext, deviceId: string, i
       await restoreDevice(tx, device.id);
       await recordUserAction(context, { actionKey: AuditAction.MOBILE_DEVICE_RESTORED, entity: { type: "Device", id: device.id, label: "Device" }, before: { deviceId: device.id, userId: device.userId, status: device.status }, after: { deviceId: device.id, userId: device.userId, status: "ACTIVE" } }, { tx });
     });
-    await recordAuthEvent({ type: "DEVICE_RESTORED", userId: device.userId, companyId: context.companyId, sessionId: context.sessionId, metadata: { deviceId: device.id, actorUserId: context.userId } });
+    await recordAuthEvent({ type: "DEVICE_RESTORED", userId: device.userId, companyId: eventCompanyId(context), sessionId: context.sessionId, metadata: { deviceId: device.id, actorUserId: context.userId } });
     return { sessionsEnded: 0 };
   }
   if (input.action === "REAUTH") {
     const result = await endDeviceAccess(context, device.id, device.userId, "SIGN_OUT");
-    await recordAuthEvent({ type: "DEVICE_REAUTH_REQUIRED", userId: device.userId, companyId: context.companyId, sessionId: context.sessionId, metadata: { deviceId: device.id, actorUserId: context.userId } });
+    await recordAuthEvent({ type: "DEVICE_REAUTH_REQUIRED", userId: device.userId, companyId: eventCompanyId(context), sessionId: context.sessionId, metadata: { deviceId: device.id, actorUserId: context.userId } });
     return result;
   }
   return endDeviceAccess(context, device.id, device.userId, input.action, input.reason);
@@ -355,7 +378,8 @@ export type SavePolicyResult = { version: number; devicesUpdated: number };
  * Saves one level of the policy (MOB-11 §74, §80, §185). Who may edit which
  * level: a Company's level by someone holding `security.policy.manage` there,
  * unless the Group has closed overrides; the Group's level by someone with
- * `security.policy.manage` and group standing. Platform has its own door.
+ * `security.policy.manage` who administers the group (`canManageGroupPolicy`).
+ * Platform has its own door.
  */
 export async function savePolicy(context: UserContext, target: Exclude<PolicyTarget, { scope: "PLATFORM" }>, raw: unknown): Promise<SavePolicyResult> {
   const scope = await securityScope(context, "security.policy.manage");
@@ -392,7 +416,8 @@ export async function savePolicy(context: UserContext, target: Exclude<PolicyTar
     await recordUserAction(context, { actionKey: AuditAction.MOBILE_POLICY_CHANGED, entity: { type: "MobileSecurityPolicy", id: `${target.scope}:${target.id}`, label: target.scope === "PARENT_GROUP" ? context.parentGroup.name : "Company mobile policy" }, before: { scope: target.scope, scopeId: target.id, version: written.version - 1, settings: written.before ?? {} }, after: { scope: target.scope, scopeId: target.id, version: written.version, settings } }, { tx });
     return written;
   });
-  await recordAuthEvent({ type: "POLICY_CHANGED", userId: context.userId, companyId: context.companyId, sessionId: context.sessionId, metadata: { scope: target.scope, scopeId: target.id, version } });
+  // Against the company whose level changed; a change to the group's level is every company's.
+  await recordAuthEvent({ type: "POLICY_CHANGED", userId: context.userId, companyId: target.scope === "COMPANY" ? target.id : null, sessionId: context.sessionId, metadata: { scope: target.scope, scopeId: target.id, version } });
 
   // The new rules bite on the next request, not whenever each device next calls in (MOB-11 §80, §82).
   const members = await prisma.companyMember.findMany({ where: { companyId: { in: companyIdsAffected }, status: "ACTIVE" }, select: { userId: true }, distinct: ["userId"] });
@@ -442,17 +467,19 @@ const ADMIN_EVENTS: AuthEventType[] = [
 /**
  * Security events for the people in the administrator's scope (MOB-11 §113).
  * No secrets, no addresses: who, what, when, and whether it worked. Events about
- * people outside the scope — and every platform-level event — are not here.
- * Nor is an event another company recorded about somebody who also works here:
- * an administrator of one company reads that company's events, and a person's
- * company-less ones (E-06 §118).
+ * people outside the scope — and every platform-level event — are not here,
+ * whichever company an event carries: the person must work in one of the
+ * administrator's companies. Nor is an event another company recorded about
+ * somebody who also works here: an administrator of one company reads that
+ * company's events, and a person's company-less ones (E-06 §118).
  */
 export async function listSecurityEvents(context: UserContext, filters: { type?: AuthEventType; limit?: number } = {}): Promise<SecurityEventDTO[]> {
   const scope = await securityScope(context, "security.audit.read");
   const rows = await prisma.authEvent.findMany({
     where: {
       type: filters.type ? filters.type : { in: ADMIN_EVENTS },
-      OR: [{ companyId: null, user: { memberships: { some: { companyId: { in: scope.companyIds } } } } }, { companyId: { in: scope.companyIds } }],
+      user: { memberships: { some: { companyId: { in: scope.companyIds } } } },
+      OR: [{ companyId: null }, { companyId: { in: scope.companyIds } }],
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(filters.limit ?? 50, 200),
