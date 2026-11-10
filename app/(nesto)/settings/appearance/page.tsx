@@ -39,7 +39,7 @@ export default async function AppearanceSettingsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-card font-semibold text-fg">{t("appearance.colourScheme")}</p>
+            <p className="text-card font-semibold text-fg look2:font-display">{t("appearance.colourScheme")}</p>
             <p className="mt-1 text-table text-fg-muted">{t("appearance.colourSchemeHint")}</p>
           </div>
           <ThemePreference initial={theme} />
@@ -52,7 +52,7 @@ export default async function AppearanceSettingsPage() {
         <Divider className="my-5" />
 
         <div>
-          <p className="text-card font-semibold text-fg">{t("appearance.density")}</p>
+          <p className="text-card font-semibold text-fg look2:font-display">{t("appearance.density")}</p>
           <p className="mt-1 text-table text-fg-muted">{t("appearance.densityHint")}</p>
         </div>
 

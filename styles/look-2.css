@@ -103,3 +103,38 @@
   font-family: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
   letter-spacing: 0.14em;
 }
+
+/*
+ * Headings in the display face. In the base layer, so a heading that names its
+ * own face — `nesto-eyebrow`, `font-mono` — keeps it. Archivo set to the width
+ * the reference gives its card titles.
+ */
+@layer base {
+  :root[data-look="2"] :is(h1, h2, h3) {
+    font-family: var(--font-nesto-display), "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    font-variation-settings: "wdth" 74;
+    letter-spacing: -0.01em;
+  }
+}
+
+/*
+ * The glass of a popup on touch layouts (styles/globals.css, "Popups on touch
+ * layouts"): the reference's menu — 14px corners, a lighter frost, a hairline
+ * and a deep, pulled-in drop. Same layer and query as Theme 1's, and a more
+ * specific selector, so it wins there and nowhere else.
+ */
+@layer utilities {
+  @media (max-width: 1023.98px), (pointer: coarse) {
+    :root[data-look="2"] .nesto-popup-glass {
+      border-radius: 14px;
+      border-color: light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.1));
+      background-color: light-dark(rgb(255 255 255 / 0.92), rgb(18 21 26 / 0.9));
+      -webkit-backdrop-filter: blur(14px) saturate(1.3);
+      backdrop-filter: blur(14px) saturate(1.3);
+      box-shadow:
+        inset 0 1px 0 light-dark(rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.12)),
+        0 0 0 1px light-dark(rgb(15 20 26 / 0.07), rgb(255 255 255 / 0.08)),
+        0 20px 40px -18px light-dark(rgb(15 20 26 / 0.4), rgb(0 0 0 / 0.7));
+    }
+  }
+}

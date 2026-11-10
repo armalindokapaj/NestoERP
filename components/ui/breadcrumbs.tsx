@@ -338,7 +338,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
         <HistoryButton direction="forward" disabled={!navigation?.canGoForward} onClick={() => navigation?.goForward()} />
       </div>
       <nav aria-label={t("breadcrumb")} className="min-w-0 flex-1 overflow-hidden">
-        <ol className="flex min-w-0 items-center gap-1 text-meta text-fg-muted">
+        <ol className="flex min-w-0 items-center gap-1 text-meta text-fg-muted look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.08em]">
           {visible.map((item, index) => {
             const originalIndex = collapsed && index > 0 ? trail.length - (visible.length - index) : index;
             const isCurrent = originalIndex === trail.length - 1;

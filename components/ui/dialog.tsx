@@ -55,7 +55,7 @@ export function DialogContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
         className={cn(
-          "fixed inset-0 z-[60] bg-black/40 backdrop-blur-[1px]",
+          "fixed inset-0 z-[60] bg-black/40 backdrop-blur-[1px] look2:bg-[rgb(15_20_26/0.32)] look2:backdrop-blur-[2px]",
           "data-[state=open]:animate-[nesto-fade-in_180ms_var(--nesto-ease)]",
           "data-[state=closed]:animate-[nesto-fade-out_150ms_var(--nesto-ease)]",
         )}
@@ -65,6 +65,8 @@ export function DialogContent({
           "fixed left-1/2 top-1/2 z-[60] w-[calc(100vw-2rem-env(safe-area-inset-left)-env(safe-area-inset-right))] max-w-lg -translate-x-1/2 -translate-y-1/2",
           "max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain",
           "rounded-2xl border border-line bg-surface p-6 shadow-dialog outline-none",
+          // Theme 2: the reference's glass sheet — frosted, 24px corners, a white edge catching the light.
+          "look2:rounded-[24px] look2:border-[light-dark(rgb(255_255_255/0.75),rgb(255_255_255/0.1))] look2:bg-surface/[0.94] look2:backdrop-blur-[24px] look2:backdrop-saturate-[1.4]",
           phone === null && "data-[state=open]:animate-[nesto-zoom-in_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-zoom-out_150ms_var(--nesto-ease)]",
           phone && "sm:data-[state=open]:animate-[nesto-zoom-in_180ms_var(--nesto-ease)] sm:data-[state=closed]:animate-[nesto-zoom-out_150ms_var(--nesto-ease)]",
           phone === "fullscreen-phone" &&
@@ -109,7 +111,7 @@ export function DialogTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("text-card font-semibold text-fg", className)}
+      className={cn("text-card font-semibold text-fg look2:text-section", className)}
       {...props}
     />
   );

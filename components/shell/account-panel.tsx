@@ -101,7 +101,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
     </Link>
   );
   const icon = (Icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>) => (
-    <Icon aria-hidden className="size-[18px] shrink-0 text-accent-strong" strokeWidth={1.6} />
+    <Icon aria-hidden className="size-[18px] shrink-0 text-accent-strong look2:text-fg-subtle" strokeWidth={1.6} />
   );
 
   return (

@@ -25,9 +25,9 @@ export function applyLook(look: Look): boolean {
 }
 
 const STYLES = {
-  group: "inline-flex shrink-0 gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5",
-  option: "inline-flex items-center justify-center rounded-md px-2.5 py-1.5 text-table font-medium transition-colors touch:min-h-11 touch:min-w-11",
-  selected: "bg-accent-soft text-accent-strong",
+  group: "inline-flex shrink-0 gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5 look2:rounded-full look2:border-transparent look2:bg-surface look2:p-[3px] look2:shadow-[0_0_0_1px_var(--nesto-border)]",
+  option: "inline-flex items-center justify-center rounded-md px-2.5 py-1.5 text-table font-medium transition-colors touch:min-h-11 touch:min-w-11 look2:rounded-full look2:px-3.5",
+  selected: "bg-accent-soft text-accent-strong look2:bg-primary look2:text-primary-fg",
   idle: "text-fg-muted hover:text-fg",
 } as const;
 
@@ -92,7 +92,7 @@ function SettingRow({ title, hint, notSaved, children }: { title: string; hint: 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-card font-semibold text-fg">{title}</p>
+        <p className="text-card font-semibold text-fg look2:font-display">{title}</p>
         <p className="mt-1 text-table text-fg-muted">{hint}</p>
         {/* Said plainly when the browser kept nothing; the change still applies to this page. */}
         <p role="status" className="text-meta text-warning-strong [&:not(:empty)]:mt-1">{notSaved}</p>

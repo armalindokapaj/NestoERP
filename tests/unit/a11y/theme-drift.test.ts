@@ -128,7 +128,7 @@ describe("Theme 2 is an overlay, never a second default", () => {
   it("every rule of look-2.css is scoped to :root[data-look=\"2\"]", () => {
     // Selectors are what is left once declarations, at-rule preludes and braces are taken away.
     const selectors = look2Css
-      .replace(/@media[^{]*\{/g, "")
+      .replace(/@(media|layer)[^{]*\{/g, "")
       .split("}")
       .map((rule) => rule.split("{")[0].trim())
       .filter(Boolean);

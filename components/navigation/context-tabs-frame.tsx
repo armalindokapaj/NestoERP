@@ -83,5 +83,8 @@ export function contextTabClass(active: boolean) {
     "relative -mb-px inline-flex items-center gap-1 whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:min-h-11",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
     active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
+    // Theme 2: the reference's segmented pills, the tab the page is on in ink.
+    "look2:my-auto look2:h-9 look2:rounded-full look2:border-b-0 look2:px-3.5",
+    active ? "look2:bg-primary look2:text-primary-fg" : "look2:hover:bg-hover",
   );
 }

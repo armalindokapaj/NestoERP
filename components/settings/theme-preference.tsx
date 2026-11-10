@@ -80,7 +80,7 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
       role="radiogroup"
       aria-label={t("appearance.colourScheme")}
       onKeyDown={onKeyDown}
-      className="inline-flex shrink-0 gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5"
+      className="inline-flex shrink-0 gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5 look2:rounded-full look2:border-transparent look2:bg-surface look2:p-[3px] look2:shadow-[0_0_0_1px_var(--nesto-border)]"
     >
       {OPTIONS.map((option) => {
         const active = choice === option.value;
@@ -101,9 +101,9 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
              * selected-state pattern across the product (§97).
              */
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-table font-medium transition-colors",
+              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-table font-medium transition-colors look2:rounded-full look2:px-3.5",
               active
-                ? "bg-accent-soft text-accent-strong"
+                ? "bg-accent-soft text-accent-strong look2:bg-primary look2:text-primary-fg"
                 : "text-fg-muted hover:text-fg",
             )}
           >

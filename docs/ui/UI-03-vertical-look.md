@@ -1,7 +1,7 @@
 > **Chat:** Nesto — adapting the 7F "Tirana Vertical" design
 > **File:** `docs/ui/UI-03-vertical-look.md`
-> **About:** Theme 2 — what was taken from tirana.7fstudio.com, how it sits beside Theme 1 as a selectable look, where each piece lives in the code, what was removed (UI-02), and what is still open.
-> **Last updated:** 2026-11-10
+> **About:** Theme 2 — what was taken from tirana.7fstudio.com, how it sits beside Theme 1 as a selectable look, how it is drawn on desktop and on a phone, where each piece lives in the code, what was removed (UI-02), and what is still open.
+> **Last updated:** 2026-11-10 (phone and desktop rework)
 
 # UI-03 — Theme 2, the "Vertical" look
 
@@ -11,9 +11,10 @@ titles. **Theme 2** is drawn in the design language of
 rules, a condensed display face, italic serif standfirsts and small mono
 labels. Each has a light and a dark colour scheme.
 
-Evidence: `docs/ui/evidence/UI-03-themes-light.png`, `UI-03-themes-dark.png`
-— Theme 1 on the left, Theme 2 on the right, the real navigation and
-primitives in a mock of the shell.
+Evidence (`docs/ui/evidence/`): `UI-03-theme2-desktop.png` (light, dark),
+`UI-03-theme2-desktop-detail.png` (dialog, tables) and
+`UI-03-theme2-phone.png` (page, More sheet, dialog; light then dark) — the
+real navigation and primitives in a mock of the shell.
 
 ## 1. How the choice works
 
@@ -25,9 +26,10 @@ primitives in a mock of the shell.
 | Rendered | `<html data-look="2">` from the server, so there is no flash; Theme 1 renders no attribute |
 | In code | "look", because "theme" already means the colour scheme: `lib/layout/look-state.ts`, `look-server.ts`, `styles/look-2.css`, the `look2:` variant |
 
-Theme 1 is unchanged. Compared against `main` on the mock shell (light and
-dark) and the landing page, it is pixel-identical, and it downloads none of
-Theme 2's fonts.
+Theme 1 is unchanged. Each round of Theme 2 work is diffed against the
+version before it on the mock shell — desktop and phone, light and dark, the
+page, the More sheet and a dialog — and Theme 1 is pixel-identical. It
+downloads none of Theme 2's fonts.
 
 ## 2. What the reference is made of
 
@@ -107,16 +109,41 @@ Vocabulary added, used with the variant (`look2:font-display`):
 
 ## 5. What changes on the components in Theme 2
 
+Everything is a `look2:` class on the component, or a rule in
+`styles/look-2.css`; Theme 1's classes are untouched.
+
+### Desktop and everywhere
+
 | Where | Change |
 | --- | --- |
-| Sidebar (company and platform admin) | Rows are mono uppercase labels with neutral icons; the active row is a filled pill (ink in light, gold in dark) with no edge marker; group labels are muted, not gold; the frame's lines are quiet and the header closes on the top bar's ink rule; the workspace name is in the display face, uppercase |
-| Top bar | The bottom rule is ink; + Create is an ink pill; the company switcher is a white pill with a hairline; search, bell and collapse are round |
-| `PageHeaderFrame` | Titles in `font-display`; page and module descriptions as a standfirst |
-| `TableHeaderCell` | Mono, 0.1em |
-| `Badge` | Mono, uppercase, 0.06em |
-| `TabsTrigger` | Active underline is ink, not gold |
-| `NestoLogo` | Wordmark in Archivo at its wide setting |
+| Headings `h1`–`h3` | Archivo condensed (`look-2.css`, base layer, so a heading that names its own face keeps it) |
+| `PageHeaderFrame` | Display title (larger on a module page from `md`), italic standfirst, ink rule under the block — the reference's section head |
+| Context tabs | Segmented pills; the tab the page is on is ink (gold in dark) |
+| `Tabs`, settings choices (Theme, colour scheme, …) | The reference's segmented control: white pill track with a hairline, active ink pill |
+| Fields | Inputs, selects and textareas 10px corners; the search field a pill |
+| Menus, selects' lists, popovers | 14px corners, 9px rows, quiet separators, mono group labels |
+| Dialogs | Glass sheet: 24px corners, frosted, white edge; title one step larger; a lighter ink scrim |
+| Drawers | Floating glass panel 8px off the screen's edges, 20px corners |
+| Breadcrumbs | Mono capitals |
+| `Badge` | Mono capitals; a step less open on a phone |
+| `TableHeaderCell` | Mono |
+| `Switch` | Ink when on |
+| Tooltips | Pills |
+| Sidebar (company and platform admin) | Mono capital rows, neutral icons, active row an ink pill, no edge marker; muted group labels; quiet frame lines; header on the top bar's ink rule; workspace name in the display face |
+| Top bar | Ink rule; + Create an ink pill; company switcher a white pill; round icon buttons |
+| Account panel | Neutral icons |
 | Dashboard header | Ink rule; `Company *overview*` as display + italic serif in gold |
+| `NestoLogo` | Archivo at its wide setting |
+
+### Phone
+
+| Where | Change |
+| --- | --- |
+| Bottom bar | 20px glass bar with a white edge; mono capital labels; the current destination an ink pill (gold in dark); Create an ink circle |
+| Alerts in the bar | Same labels as the other cells |
+| More sheet | Floating glass panel (the drawer above); ink rule under its title; 10px lists; mono capital rows; muted group labels; neutral icons; the current module an ink row |
+| Section pill (top right) | White pill with a hairline; ink while its menu is open; its menu's rows 9px, the current one ink |
+| Quick Create, Alerts panels and every touch popup | The reference's menu glass: 14px corners, lighter frost, hairline, deep pulled-in drop (`look-2.css`, same layer and query as Theme 1's glass) |
 
 ## 6. Deliberately not copied
 
@@ -126,8 +153,12 @@ Vocabulary added, used with the variant (`look2:font-display`):
   its design, layout, drawings and text; what Nesto takes is the general
   language (open-source typefaces, a neutral palette, hairlines, pills), drawn
   on Nesto's own components.
-- **Pill text inputs.** Fields stay at 8px: a form has textareas and long
-  values, which a pill does not hold.
+- **Pill text inputs.** Only the search field is a pill; other fields are
+  10px, because a form has textareas and long values a pill does not hold.
+- **The reference's 10% field ring.** Field borders keep the control-border
+  colour, which clears 3:1 against the ground; the reference's ring does not.
+- **The single floating button.** The phone keeps its five-button bar rather
+  than the reference's one round button, so Create and Alerts stay one tap away.
 
 ## 7. What was removed: UI-02 ("design version 2")
 
@@ -155,8 +186,13 @@ pages there used classes the stylesheet does not define.
 - **The type checker could not finish cleanly here** (the Prisma client could
   not be generated). Its errors on this branch match `main`'s, file for file
   and code for code; CI should confirm.
-- **Long Albanian module names** truncate sooner in Theme 2's mono capitals
-  than in Theme 1's sans.
+- **Long Albanian labels** truncate sooner in Theme 2's mono capitals than in
+  Theme 1's sans — most visibly in the phone's bottom bar (10px capitals in a
+  ~70px cell) and the sidebar.
+- **Bare headings and titles drawn as `<p>`.** Every `h1`–`h3` takes the
+  display face; a title drawn as a paragraph with `text-card font-semibold`
+  stays in Plex Sans unless it carries `look2:font-display` (the settings rows
+  do).
 - **Segmented pills and numbered section heads** exist as vocabulary (§4) but
   no page uses them yet.
 - **Comments** in about fifteen files still mention version 2 or

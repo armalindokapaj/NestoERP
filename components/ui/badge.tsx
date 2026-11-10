@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils/cn";
  * something is a button that contains one.
  */
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium max-w-full look2:font-mono look2:uppercase look2:tracking-[0.06em]",
+  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium max-w-full look2:font-mono look2:uppercase look2:tracking-[0.06em] look2:max-md:tracking-[0.02em]",
   {
     variants: {
       /* nowrap keeps a short status on one line; `wrap` lets a long label break instead of overflowing (MOB-01 §35). */

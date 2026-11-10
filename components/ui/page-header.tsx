@@ -32,7 +32,7 @@ type HeaderDrawing = { root: string; row: string; text: string; title: string; s
  */
 const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
   page: {
-    root: "",
+    root: "look2:nesto-rule look2:pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0",
     title: "font-serif font-normal look2:font-display text-page text-fg md:text-display [overflow-wrap:anywhere]",
@@ -41,10 +41,10 @@ const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
   },
   module: {
-    root: "",
+    root: "look2:nesto-rule look2:pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0",
-    title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display",
+    title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display look2:md:text-display",
     subtitle: "mt-1.5 text-body text-fg-muted look2:nesto-standfirst look2:text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
