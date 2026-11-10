@@ -7,7 +7,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
-import { assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { assertGroupActorMayActOn, assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { departmentKeyFor, memberPlace } from "@/lib/modules/platform/group-placement";
 
 /**
@@ -237,6 +237,8 @@ export async function updateGroupUserAccess(actor: GroupActor, raw: unknown): Pr
     if (seat.status !== "ACTIVE" || !seat.roleId) throw new AccessError("CONFLICT", "This person has no active group role to give company access to.", { code: "NO_GROUP_ROLE" });
     // The CEO's seat is the CEO's own call to change, not IT's (§72).
     if (seat.role?.key === "OWNER") assertGroupCan(actor, "ceo.manage", input.groupId);
+    // And any group owner's company access, whichever seat they hold (the user, 2026-11-10).
+    await assertGroupActorMayActOn(actor, input.userId, input.groupId);
     if (input.expectedVersion !== undefined && input.expectedVersion !== seat.accessVersion) {
       throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
     }

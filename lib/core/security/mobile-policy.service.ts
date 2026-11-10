@@ -2,7 +2,9 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/database/prisma";
 import { compareVersions } from "./app-version";
+import { ownedGroupIds } from "./owner-protection";
 import {
+  levelsBindingPerson,
   mobilePolicySettingsSchema,
   resolveMobilePolicy,
   type EffectiveMobilePolicy,
@@ -59,9 +61,9 @@ function toLevel(row: PolicyRow, companyGroup?: Map<string, string>): PolicyLeve
   };
 }
 
-/** Every level that can apply to these companies: platform, their groups, themselves. */
-export async function loadPolicyLevels(companies: readonly { id: string; parentGroupId: string }[]): Promise<PolicyLevel[]> {
-  const groupIds = [...new Set(companies.map((c) => c.parentGroupId))];
+/** Every level that can apply to these companies: platform, their groups, themselves — and any further groups named. */
+export async function loadPolicyLevels(companies: readonly { id: string; parentGroupId: string }[], extraGroupIds: readonly string[] = []): Promise<PolicyLevel[]> {
+  const groupIds = [...new Set([...companies.map((c) => c.parentGroupId), ...extraGroupIds])];
   const companyIds = companies.map((c) => c.id);
   const rows = await prisma.mobileSecurityPolicy.findMany({
     where: { OR: [{ scope: "PLATFORM" }, ...(groupIds.length ? [{ parentGroupId: { in: groupIds } }] : []), ...(companyIds.length ? [{ companyId: { in: companyIds } }] : [])] },
@@ -77,16 +79,31 @@ export async function loadPolicyLevels(companies: readonly { id: string; parentG
  * the whole device (app lock, offline window, version) cannot vary per screen,
  * so a person in a strict Company and a lax one is held to the strict one
  * everywhere (MOB-11 §77, §78) — documented in `docs/security/mobile-policy.md`.
+ *
+ * An Owner of a group is held to the platform and that group's own level, never
+ * to its Company levels (`levelsBindingPerson`): the group owner is protected
+ * (the user, 2026-11-10). Every reader of a person's policy comes through here —
+ * device registration and checks, the offline authorization snapshot, push
+ * previews, the export guard and recent authentication.
  */
 export async function effectivePolicyForUser(userId: string): Promise<EffectiveMobilePolicy> {
-  const memberships = await prisma.companyMember.findMany({
-    where: { userId, status: "ACTIVE", company: { status: "ACTIVE" } },
-    select: { company: { select: { id: true, parentGroupId: true } } },
-  });
-  return resolveMobilePolicy(await loadPolicyLevels(memberships.map((m) => m.company)));
+  const [memberships, owned] = await Promise.all([
+    prisma.companyMember.findMany({
+      where: { userId, status: "ACTIVE", company: { status: "ACTIVE" } },
+      select: { company: { select: { id: true, parentGroupId: true } } },
+    }),
+    ownedGroupIds(userId),
+  ]);
+  // An Owner's own group binds them even where no company membership names it (a seat alone).
+  const levels = await loadPolicyLevels(memberships.map((m) => m.company), [...owned]);
+  return resolveMobilePolicy(levelsBindingPerson(levels, owned));
 }
 
-/** What a Company's own people are held to, for the administrator's "effective policy" view. */
+/**
+ * What a Company's own people are held to, for the administrator's "effective
+ * policy" view. The group's Owners are not held to the Company level (see
+ * `effectivePolicyForUser`); the policy page says so.
+ */
 export async function effectivePolicyForCompany(companyId: string): Promise<EffectiveMobilePolicy | null> {
   const company = await prisma.company.findUnique({ where: { id: companyId }, select: { id: true, parentGroupId: true } });
   return company ? resolveMobilePolicy(await loadPolicyLevels([company])) : null;

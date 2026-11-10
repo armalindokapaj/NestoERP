@@ -59,6 +59,7 @@ export default async function MobileDevicePage({ params }: Params) {
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="device-detail-title" className="text-card font-semibold text-fg">{device.name}</h2>
           <Badge tone={STATUS_TONE[device.status]}>{t(`devices.status.${device.status}`)}</Badge>
+          {device.protected ? <Badge data-testid="device-owner-protected">{t("admin.devices.ownerProtected")}</Badge> : null}
           {device.revokedAt ? <span className="text-meta text-fg-subtle">{t("admin.devices.detail.revokedBy", { date: formatDateTime(device.revokedAt, locale) })}</span> : null}
         </div>
         <dl className="mt-4 grid gap-x-8 gap-y-3 text-table sm:grid-cols-2" data-testid="device-admin-detail">
@@ -84,13 +85,18 @@ export default async function MobileDevicePage({ params }: Params) {
       <section className="nesto-card p-6" aria-labelledby="device-actions-title">
         <h2 id="device-actions-title" className="text-card font-semibold text-fg">{t("admin.devices.detail.actions")}</h2>
         <div className="mt-4">
-          <AdminDeviceActions
-            deviceId={device.id}
-            userName={device.user.fullName}
-            status={device.status}
-            canSessions={can(context, "security.sessions.revoke")}
-            canDevices={can(context, "security.devices.revoke")}
-          />
+          {/* A group owner's device is read-only to everyone but an Owner (the user, 2026-11-10); the server refuses the rest. */}
+          {device.protected ? (
+            <p className="text-meta text-fg-subtle" data-testid="device-owner-protected-note">{t("admin.devices.ownerProtectedNote")}</p>
+          ) : (
+            <AdminDeviceActions
+              deviceId={device.id}
+              userName={device.user.fullName}
+              status={device.status}
+              canSessions={can(context, "security.sessions.revoke")}
+              canDevices={can(context, "security.devices.revoke")}
+            />
+          )}
         </div>
         <p className="mt-3 text-micro text-fg-subtle">{t("devices.note")}</p>
       </section>

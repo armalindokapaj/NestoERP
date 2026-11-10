@@ -2,6 +2,7 @@ import type { GroupContext } from "@/lib/context/group-context";
 import { canGroup } from "@/lib/context/group-context";
 import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
 import { AccessError } from "@/lib/access/guards";
+import { assertMayActOnAccount } from "@/lib/core/security/owner-protection";
 
 /**
  * Who is acting on a group, as the group services see them (Admin PRD #8 §59,
@@ -20,6 +21,8 @@ export type GroupActor = {
   /** For the audit trail only. */
   roleKey: string;
   can(capability: GroupCapabilityKey, groupId: string): boolean;
+  /** The platform operator console: outside every tenant, so the group owner's protection does not apply to it. */
+  platform?: true;
 };
 
 export function platformActor(context: PlatformContext): GroupActor {
@@ -27,6 +30,7 @@ export function platformActor(context: PlatformContext): GroupActor {
     userId: context.userId,
     fullName: context.fullName,
     roleKey: context.roleKey,
+    platform: true,
     can: (capability) =>
       capability === "companies.create" ? canPlatform(context, "platform.company.create")
         : capability === "users.view" ? canPlatform(context, "platform.company.view")
@@ -46,4 +50,14 @@ export function groupActor(context: GroupContext): GroupActor {
 
 export function assertGroupCan(actor: GroupActor, capability: GroupCapabilityKey, groupId: string): void {
   if (!actor.can(capability, groupId)) throw new AccessError("FORBIDDEN");
+}
+
+/**
+ * A group owner's access is changed only by an Owner of the same group (the
+ * user, 2026-11-10: "Group owner is protected."): Group IT, or anyone else the
+ * group seats, is refused. The platform operator console keeps its powers.
+ */
+export async function assertGroupActorMayActOn(actor: GroupActor, targetUserId: string, groupId: string): Promise<void> {
+  if (actor.platform) return;
+  await assertMayActOnAccount({ actorUserId: actor.userId, targetUserId, parentGroupId: groupId });
 }

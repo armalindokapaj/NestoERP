@@ -6,7 +6,7 @@ import { createProvisionedUser } from "@/lib/auth/identity";
 import { revokeSessions } from "@/lib/auth/session-store";
 import { DEFAULT_PASSWORD } from "@/lib/auth/temporary-password";
 import { normaliseUsername, usernameProblem } from "@/lib/auth/username";
-import { assertGroupCan, platformActor, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { assertGroupActorMayActOn, assertGroupCan, platformActor, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { lockGroup } from "@/lib/modules/platform/group-placement";
 import type { PlatformContext } from "@/lib/context/platform-context";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
@@ -122,6 +122,8 @@ export async function addGroupUserAs(context: GroupActor, raw: unknown): Promise
     if (user.platformAccess?.status === "ACTIVE") throw new AccessError("VALIDATION_ERROR", "A Platform Admin account cannot hold a group seat.");
     if (user.status !== "ACTIVE") throw new AccessError("VALIDATION_ERROR", `${user.firstName} ${user.lastName}'s account is not active.`, { code: "ACCOUNT_INACTIVE" });
     if (!user.personProfile || user.personProfile.parentGroupId !== group.id) throw new AccessError("VALIDATION_ERROR", `${user.firstName} ${user.lastName} belongs to another organization and cannot join ${group.name}.`, { code: "OTHER_ORGANIZATION" });
+    // Re-seating a group owner would rewrite their seat's role: an Owner's call (the user, 2026-11-10).
+    await assertGroupActorMayActOn(context, user.id, group.id);
     existing = user;
   } else {
     const clash = await prisma.user.findFirst({ where: { email: { equals: input.email, mode: "insensitive" } }, select: { id: true, firstName: true, lastName: true } });
@@ -192,6 +194,8 @@ export async function removeGroupUserAs(context: GroupActor, raw: unknown): Prom
   if (context.userId === input.userId) throw new AccessError("CONFLICT", "You cannot remove your own group access. Ask another administrator.", { code: "SELF_REMOVAL" });
   // Removing the Group CEO's seat is the CEO's own call to make, not IT's.
   if (seat.role?.key === "OWNER") assertGroupCan(context, "ceo.manage", group.id);
+  // So is removing anyone who owns a company of the group, whose company access may go with the seat (the user, 2026-11-10).
+  await assertGroupActorMayActOn(context, input.userId, group.id);
 
   await prisma.$transaction(async (tx) => {
     await lockGroup(tx, group.id);

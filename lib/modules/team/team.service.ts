@@ -13,6 +13,7 @@ import type { UserContext } from "@/lib/context/types";
 import { changeMetadata, recordActivity } from "@/lib/modules/shared/activity";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { assertMayActOnAccount, mayActOnAccount } from "@/lib/core/security/owner-protection";
 import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import * as repository from "./team.repository";
 import { canTransitionMembershipStatus } from "./membership.status";
@@ -34,7 +35,10 @@ import type { PlacementDoor } from "./team.placement";
  *
  *   1. The company never loses its last active Owner (PRD #14 §93).
  *   2. Only an Owner may create another Owner — or demote, suspend, remove or
- *      restore one (PRD #14 §95, §96, PRD #47 §57).
+ *      restore one (PRD #14 §95, §96, PRD #47 §57). That holds for a group
+ *      owner in every company of the group, where they may hold another role,
+ *      and for their password too (the user, 2026-11-10: "Group owner is
+ *      protected."; lib/core/security/owner-protection.ts).
  *   3. Removing access takes effect at once, by revoking the sessions that
  *      carry it, not by waiting for them to expire (PRD #14 §242, §243).
  */
@@ -75,12 +79,13 @@ export async function getMember(
   // cannot confirm that somebody they may not see works here (PRD #14 §160).
   const member = assertFound(await repository.findMemberInScope(context, memberId));
 
-  const [counts, guards] = await Promise.all([
+  const [counts, guards, mayAct] = await Promise.all([
     repository.visibleProjectCounts(context, [memberId]),
     repository.membershipGuards(context, memberId),
+    mayActOnAccount({ actorUserId: context.userId, targetUserId: member.userId, parentGroupId: context.parentGroupId }),
   ]);
 
-  return toDetailDTO(context, member, counts.get(memberId) ?? 0, guards);
+  return toDetailDTO(context, member, counts.get(memberId) ?? 0, guards, !mayAct);
 }
 
 export async function getTeamOverview(context: UserContext): Promise<TeamOverviewStats> {
@@ -227,6 +232,8 @@ export async function updateMember(
   if (roleChanged) {
     assertPermission(context, "team.member.role.assign");
     await assertRoleChangeAllowed(context, existing, nextRole.key);
+    // A group owner's role here, Owner or not, is an Owner's to change.
+    await assertMayActOnAccount({ actorUserId: context.userId, targetUserId: existing.userId, parentGroupId: context.parentGroupId });
   }
   if (departmentChanged) assertPermission(context, "team.member.department.assign");
 
@@ -424,6 +431,8 @@ async function changeMembershipStatus(
   // fires, and an Admin could otherwise suspend one Owner or restore a removed
   // one (PRD #14 §95, §96, PRD #47 §57).
   if (existing.role.key === "OWNER") assertPermission(context, "team.owner.assign");
+  // A group owner holding another role in this company is still the group owner (the user, 2026-11-10).
+  await assertMayActOnAccount({ actorUserId: context.userId, targetUserId: existing.userId, parentGroupId: context.parentGroupId });
   // Group IT is group authority: only those who may give it may take it away.
   if (existing.role.key === "GROUP_IT") assertPermission(context, "team.group_role.assign");
 
@@ -721,6 +730,8 @@ function toDetailDTO(
   row: repository.TeamMemberDetailRow,
   visibleProjects: number,
   guards: { managedActiveProjects: number; openAssignedTasks: number; lastActiveOwner: boolean; lastActiveRole: "OWNER" | "CEO" | null },
+  /** A group owner the reader is not an Owner beside: their role and access are not the reader's to change. */
+  groupOwnerShielded = false,
 ): TeamMemberDetailDTO {
   const self = row.id === context.membershipId;
   const showSecurity = can(context, "team.member.security_metadata.view");
@@ -728,6 +739,7 @@ function toDetailDTO(
   // An Owner's role and access are only offered to somebody who may change
   // them; the service enforces the same grant (PRD #47 §57).
   const ownerLocked =
+    groupOwnerShielded ||
     (row.role.key === "OWNER" && !can(context, "team.owner.assign")) ||
     (row.role.key === "GROUP_IT" && !can(context, "team.group_role.assign"));
   // The named CEO's role and access move only by Change CEO / Remove CEO (PRD #12 §81).
@@ -852,6 +864,8 @@ export async function resetMemberPassword(
       code: "SELF_RESET",
     });
   }
+  // A temporary password is the account itself: a group owner's is an Owner's to issue (the user, 2026-11-10).
+  await assertMayActOnAccount({ actorUserId: context.userId, targetUserId: member.userId, parentGroupId: context.parentGroupId });
 
   const temporaryPassword = generateTemporaryPassword();
   const expiresAt = temporaryPasswordExpiry();

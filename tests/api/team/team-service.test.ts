@@ -282,8 +282,20 @@ describe("membership status (PRD #14 §97–§111, §163, §167)", () => {
     // but the Owner holds it, and the Owner cannot change their own access, so
     // the grant is added to a real Group IT context for this one check.
     const delegated = { ...it_, permissions: [...it_.permissions, "team.owner.assign" as const] };
-    await expectError(team.deactivateMember(delegated, owner!.id), "CONFLICT");
-    await expectError(team.suspendMember(delegated, owner!.id), "CONFLICT");
+    // The grant alone no longer reaches a group owner: only another Owner of
+    // the group does (the user, 2026-11-10: "Group owner is protected.").
+    await expect(team.deactivateMember(delegated, owner!.id)).rejects.toMatchObject({ code: "FORBIDDEN", details: { code: "OWNER_PROTECTED" } });
+    // So Group IT is made an Owner of another company of the group, which makes
+    // them a group owner, for the last-Owner rule to be what refuses.
+    const elsewhere = await prisma.companyMember.findFirstOrThrow({ where: { userId: it_.userId, companyId: { not: it_.companyId }, status: "ACTIVE" }, select: { id: true, roleId: true } });
+    const ownerRole = await prisma.role.findUniqueOrThrow({ where: { key: "OWNER" }, select: { id: true } });
+    await prisma.companyMember.update({ where: { id: elsewhere.id }, data: { roleId: ownerRole.id } });
+    try {
+      await expectError(team.deactivateMember(delegated, owner!.id), "CONFLICT");
+      await expectError(team.suspendMember(delegated, owner!.id), "CONFLICT");
+    } finally {
+      await prisma.companyMember.update({ where: { id: elsewhere.id }, data: { roleId: elsewhere.roleId } });
+    }
   });
 
   it("revokes live sessions when access is removed (PRD #14 §242, §243)", async () => {

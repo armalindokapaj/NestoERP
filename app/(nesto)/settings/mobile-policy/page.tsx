@@ -49,6 +49,8 @@ export default async function MobilePolicyPage() {
             <Effective label={t("admin.policy.fields.minimumAppVersion")} value={company.effective.minimumAppVersion} testId="effective-minimumAppVersion" />
             <Effective label={t("admin.policy.fields.offlineAuthorizationHours")} value={company.effective.offlineAllowed ? String(company.effective.offlineAuthorizationHours) : t("admin.policy.options.no")} testId="effective-offlineAuthorizationHours" />
           </dl>
+          {/* The group's Owners follow the platform and the group, never a company's own level (lib/core/security/mobile-policy.service.ts). */}
+          <p className="mt-2 text-meta text-fg-muted" data-testid="policy-owner-exempt">{t("admin.policy.ownerExempt")}</p>
           <div className="mt-4">
             <PolicyForm target={{ scope: "COMPANY", id: company.target.scope === "COMPANY" ? company.target.id : "" }} initial={company.settings} editable={company.editable} isGroup={false} />
           </div>

@@ -1035,6 +1035,8 @@ export const sq: Messages = {
         },
         reason: "Arsyeja (opsionale)",
         forbidden: "Mund ta shihni këtë pajisje por jo ta ndryshoni.",
+        ownerProtected: "Pronari i grupit · i mbrojtur",
+        ownerProtectedNote: "Pronari i grupit i menaxhon vetë pajisjet dhe sesionet e veta.",
       },
       policy: {
         title: "Politika mobile",
@@ -1044,6 +1046,7 @@ export const sq: Messages = {
         version: "Versioni {version}",
         notSet: "Jo e vendosur — trashëgon",
         lockedByGroup: "Grupi juaj e vendos këtë politikë qendrore.",
+        ownerExempt: "Politika e kësaj kompanie nuk zbatohet për pronarin e grupit.",
         readOnly: "Mund ta lexoni këtë politikë por jo ta ndryshoni.",
         save: "Ruaj politikën",
         saved: "Politika u ruajt. {count} pajisje u rikontrolluan.",

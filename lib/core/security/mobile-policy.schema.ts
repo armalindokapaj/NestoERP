@@ -151,6 +151,19 @@ function hash(text: string): string {
 }
 
 /**
+ * The levels that bind one person (the user, 2026-11-10: "Group owner is
+ * protected."). A group's own Company levels do not bind an Owner of that
+ * group: what the CEO or Group IT of one of its companies sets cannot lock the
+ * Owner's phone, shorten their offline window or their recent sign-in. The
+ * platform and the group's own level still do, and so does a Company of a
+ * group the person does not own.
+ */
+export function levelsBindingPerson(levels: readonly PolicyLevel[], ownedGroupIds: ReadonlySet<string>): PolicyLevel[] {
+  if (ownedGroupIds.size === 0) return [...levels];
+  return levels.filter((level) => !(level.scope === "COMPANY" && level.parentGroupId && ownedGroupIds.has(level.parentGroupId)));
+}
+
+/**
  * The deterministic merge (MOB-11 §75). Order of `levels` does not matter:
  * every field is a min, max, OR or AND over the levels that set it, so the same
  * set always resolves to the same answer and no level can win by coming last.

@@ -2,6 +2,7 @@ import { AccessError, assertFound, assertModule, assertPermission } from "@/lib/
 import type { UserContext } from "@/lib/context/types";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
+import { assertMayActOnAccount } from "@/lib/core/security/owner-protection";
 import { invalidateRequestScope } from "@/lib/core/observability/request-scope";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
@@ -52,6 +53,9 @@ export async function setCeoAccess(context: UserContext, memberId: string, grant
     }
   } else if (!existing.ceoAccess) {
     throw new AccessError("CONFLICT", `${name} does not have CEO access.`, { code: "CEO_ACCESS_NONE" });
+  } else {
+    // Taking rights away from a group owner (Owner elsewhere in the group) is an Owner's call (the user, 2026-11-10).
+    await assertMayActOnAccount({ actorUserId: context.userId, targetUserId: existing.userId, parentGroupId: context.parentGroupId });
   }
 
   await runInTransaction("team.member.ceo_access", async (tx) => {

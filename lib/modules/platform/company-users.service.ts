@@ -12,7 +12,7 @@ import { prisma } from "@/lib/database/prisma";
 import { assertWithinLimit } from "@/lib/modules/entitlements/entitlement.service";
 import { assertNotCompanyCeo } from "@/lib/modules/platform/company-leadership.service";
 import { syncSeatAccess } from "@/lib/modules/platform/group-company-access.service";
-import { assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { assertGroupActorMayActOn, assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { departmentKeyFor, memberPlace } from "@/lib/modules/platform/group-placement";
 import { companyProjects, syncProjects } from "@/lib/modules/platform/platform-organization-admin.service";
 import { GROUP_LEVEL_ROLES } from "@/lib/modules/platform/platform.schema";
@@ -384,6 +384,8 @@ export async function updateCompanyUserAccess(actor: GroupActor, raw: unknown): 
   const roleChange = input.roleKey !== undefined && input.roleKey !== row.directRoleKey;
   assertDirect(row, roleChange ? "role" : "other", actor.userId);
   if (roleChange) await assertNotCompanyCeo(prisma, member.id);
+  // A group owner's role is an Owner's to change; the platform console keeps its powers (the user, 2026-11-10).
+  if (roleChange) await assertGroupActorMayActOn(actor, member.user.id, company.parentGroupId);
   if (input.expectedVersion !== undefined && input.expectedVersion !== member.accessVersion) {
     throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
   }
@@ -480,6 +482,8 @@ export async function addCompanyUser(actor: GroupActor, raw: unknown): Promise<C
     // Read under the transaction so two submissions cannot both create (§137).
     const previous = await tx.companyMember.findFirst({ where: { companyId: company.id, userId: user.id, archivedAt: null }, select: { id: true, status: true, groupDerived: true } });
     if (previous && previous.status !== "INACTIVE" && !previous.groupDerived) throw new AccessError("CONFLICT", `${user.firstName} ${user.lastName} already has direct access to ${company.name}.`, { code: "ALREADY_MEMBER" });
+    // The group's live row would take the new role: a group owner's is an Owner's to change (the user, 2026-11-10).
+    if (previous && previous.status !== "INACTIVE") await assertGroupActorMayActOn(actor, user.id, company.parentGroupId);
     const projectIds = await companyProjects(tx, company.id, input.projectIds);
     if (!previous || previous.status === "INACTIVE") await assertWithinLimit(tx, company.id, "users");
     const branch = input.departmentId ? await departmentOf(tx, company, input.departmentId) : await defaultBranch(tx, company, input.roleKey);
@@ -574,6 +578,7 @@ export async function removeCompanyUserAccess(actor: GroupActor, raw: unknown): 
   const row = toRow(member, coverage);
   assertDirect(row, "remove", actor.userId);
   await assertNotCompanyCeo(prisma, member.id);
+  await assertGroupActorMayActOn(actor, member.user.id, company.parentGroupId);
   if (input.expectedVersion !== undefined && input.expectedVersion !== member.accessVersion) {
     throw new AccessError("CONFLICT", "This person's access was changed by someone else. Reload and try again.", { code: "ACCESS_CHANGED" });
   }
@@ -610,6 +615,8 @@ async function setDirectStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED
   const row = toRow(member, coverage);
   assertDirect(row, next === "SUSPENDED" ? "suspend" : "other", actor.userId);
   if (next === "SUSPENDED") await assertNotCompanyCeo(prisma, member.id);
+  // A group owner's company access is an Owner's to suspend or restore (the user, 2026-11-10).
+  await assertGroupActorMayActOn(actor, member.user.id, company.parentGroupId);
   if (member.status === next) return { status: next };
   if (next === "ACTIVE" && member.status !== "SUSPENDED") throw new AccessError("CONFLICT", "Only suspended company access can be reactivated.", { code: "NOT_SUSPENDED" });
   if (next === "SUSPENDED" && member.status !== "ACTIVE") throw new AccessError("CONFLICT", "Only active company access can be suspended.", { code: "NOT_ACTIVE" });

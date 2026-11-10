@@ -271,6 +271,8 @@ export const rows = {
   "That company does not exist.": "Ajo kompani nuk ekziston.",
   "Your group manages this policy centrally.": "Grupi juaj e menaxhon këtë politikë qendrore.",
   "A higher level already requires something stricter than this.": "Një nivel më i lartë kërkon tashmë diçka më të rreptë se kjo.",
+  "The group owner manages their own devices and sessions.": "Pronari i grupit i menaxhon vetë pajisjet dhe sesionet e veta.",
+  "Only a group owner can change a group owner's access.": "Vetëm një pronar i grupit mund të ndryshojë qasjen e një pronari të grupit.",
   // settings
   "Base currency cannot be changed after financial records have been created.": "Monedha bazë nuk mund të ndryshohet pasi janë krijuar regjistrime financiare.",
   "That integration needs its modules enabled first.": "Ai integrim ka nevojë që modulet e tij të aktivizohen fillimisht.",

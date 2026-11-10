@@ -104,6 +104,8 @@ export default async function MobileDevicesPage({ searchParams }: Params) {
                   <TableCell>
                     <Link href={`/settings/mobile-devices/${row.id}`} className="font-medium text-fg hover:underline">{row.user.fullName}</Link>
                     <p className="text-meta text-fg-subtle">{row.companies.join(", ")}</p>
+                    {/* A group owner's device, which the reader may see but not act on (the server decides). */}
+                    {row.protected ? <Badge className="mt-1" data-testid="device-owner-protected">{t("admin.devices.ownerProtected")}</Badge> : null}
                   </TableCell>
                   <TableCell>{row.name} <span className="text-meta text-fg-subtle">· {row.platform === "IOS" ? "iOS" : "Android"}</span></TableCell>
                   <TableCell><Badge tone={STATUS_TONE[row.status]}>{t(`devices.status.${row.status}`)}</Badge></TableCell>

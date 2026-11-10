@@ -28,6 +28,7 @@ import {
   type PolicyLevel,
 } from "@/lib/core/security/mobile-policy.schema";
 import { effectivePolicyForCompany, environmentPolicyLevel, loadPolicyLevels, readPolicyLevel, writePolicyLevel, type PolicyTarget } from "@/lib/core/security/mobile-policy.service";
+import { assertMayActOnAccount, ownerShieldedUserIds } from "@/lib/core/security/owner-protection";
 import { prisma } from "@/lib/database/prisma";
 
 /**
@@ -157,7 +158,16 @@ export async function restoreOwnDevice(context: UserContext, deviceId: string): 
 /* Administrators                                                              */
 /* -------------------------------------------------------------------------- */
 
-export type AdminDeviceDTO = DeviceDTO & { user: { id: string; fullName: string; username: string }; companies: string[] };
+export type AdminDeviceDTO = DeviceDTO & {
+  user: { id: string; fullName: string; username: string };
+  companies: string[];
+  /**
+   * The device belongs to a group owner and the reader may not act on it: shown
+   * read-only, marked as protected, with no actions (the user, 2026-11-10:
+   * "Group owner is protected."). Decided here, so the page does not guess.
+   */
+  protected: boolean;
+};
 
 export type DeviceFilters = {
   q?: string;
@@ -175,12 +185,13 @@ const ADMIN_SELECT = {
 
 type AdminRow = Prisma.DeviceRegistrationGetPayload<{ select: typeof ADMIN_SELECT }>;
 
-function toAdminDTO(row: AdminRow, companyIds: readonly string[], now: number): AdminDeviceDTO {
+function toAdminDTO(row: AdminRow, companyIds: readonly string[], now: number, shielded: ReadonlySet<string>): AdminDeviceDTO {
   return {
     ...toDeviceDTO(row, now),
     user: { id: row.user.id, fullName: `${row.user.firstName} ${row.user.lastName}`.trim(), username: row.user.username },
     // Only the companies the administrator may see, never the person's other employers.
     companies: row.user.memberships.filter((m) => companyIds.includes(m.companyId)).map((m) => m.company.name),
+    protected: shielded.has(row.user.id),
   };
 }
 
@@ -204,7 +215,8 @@ export async function listDevices(context: UserContext, filters: DeviceFilters =
     prisma.deviceRegistration.count({ where }),
   ]);
   const now = Date.now();
-  return { rows: rows.map((row) => toAdminDTO(row, scope.companyIds, now)), total };
+  const shielded = await ownerShieldedUserIds({ actorUserId: context.userId, parentGroupId: scope.parentGroupId }, rows.map((row) => row.userId));
+  return { rows: rows.map((row) => toAdminDTO(row, scope.companyIds, now, shielded)), total };
 }
 
 export async function getDevice(context: UserContext, deviceId: string): Promise<AdminDeviceDTO> {
@@ -212,7 +224,8 @@ export async function getDevice(context: UserContext, deviceId: string): Promise
   const row = await prisma.deviceRegistration.findFirst({ where: { id: deviceId, ...deviceWhere(scope, {}) }, select: ADMIN_SELECT });
   // Out of scope answers exactly like missing (PRD #7 §60).
   if (!row) throw new AccessError("NOT_FOUND", "That device does not exist.");
-  return toAdminDTO(row, scope.companyIds, Date.now());
+  const shielded = await ownerShieldedUserIds({ actorUserId: context.userId, parentGroupId: scope.parentGroupId }, [row.userId]);
+  return toAdminDTO(row, scope.companyIds, Date.now(), shielded);
 }
 
 export type SecurityDashboard = { active: number; updateRequired: number; nonCompliant: number; revoked: number; stale: number; total: number };
@@ -276,6 +289,10 @@ async function endDeviceAccess(context: UserContext, deviceId: string, ownerId: 
  * `SIGN_OUT` needs `security.sessions.revoke`; revoke, lost and block need
  * `security.devices.revoke`; `RESTORE` needs the same. All need a recent
  * sign-in, and out-of-scope devices answer 404.
+ *
+ * A group owner's device is theirs to manage, or another Owner's of the same
+ * group: anyone else is refused whatever they hold — the CEO, a CEO access
+ * holder, Group IT, HR (the user, 2026-11-10: "Group owner is protected.").
  */
 export async function adminActOnDevice(context: UserContext, deviceId: string, input: { action: "SIGN_OUT" | "REAUTH" | "RESTORE" | DeviceRevocation; reason?: string | null }): Promise<{ sessionsEnded: number }> {
   const permission: Permission = input.action === "SIGN_OUT" || input.action === "REAUTH" ? "security.sessions.revoke" : "security.devices.revoke";
@@ -283,6 +300,7 @@ export async function adminActOnDevice(context: UserContext, deviceId: string, i
   await assertRecentAuthentication(context);
   const device = await prisma.deviceRegistration.findFirst({ where: { id: deviceId, ...deviceWhere(scope, {}) }, select: { id: true, userId: true, status: true } });
   if (!device) throw new AccessError("NOT_FOUND", "That device does not exist.");
+  await assertMayActOnAccount({ actorUserId: context.userId, targetUserId: device.userId, parentGroupId: scope.parentGroupId }, "DEVICES");
 
   if (input.action === "RESTORE") {
     await prisma.$transaction(async (tx) => {

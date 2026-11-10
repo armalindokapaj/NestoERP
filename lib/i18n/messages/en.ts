@@ -1053,6 +1053,8 @@ export const en = {
         },
         reason: "Reason (optional)",
         forbidden: "You can see this device but not change it.",
+        ownerProtected: "Group owner · protected",
+        ownerProtectedNote: "The group owner manages their own devices and sessions.",
       },
       policy: {
         title: "Mobile policy",
@@ -1062,6 +1064,7 @@ export const en = {
         version: "Version {version}",
         notSet: "Not set — inherits",
         lockedByGroup: "Your group sets this policy centrally.",
+        ownerExempt: "This company's policy does not apply to the group owner.",
         readOnly: "You can read this policy but not change it.",
         save: "Save policy",
         saved: "Policy saved. {count} device(s) re-checked.",

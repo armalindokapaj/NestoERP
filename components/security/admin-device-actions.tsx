@@ -35,8 +35,11 @@ export function AdminDeviceActions({ deviceId, userName, status, canSessions, ca
       try {
         const response = await fetch(`/api/security/devices/${deviceId}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, ...(reason.trim() ? { reason: reason.trim() } : {}) }) });
         if (!response.ok) {
-          const code = ((await response.json().catch(() => null)) as { error?: { code?: string } } | null)?.error?.code ?? "SAVE_FAILED";
-          toast({ title: t(`devices.errors.${code in ERRORS ? (code as keyof typeof ERRORS) : "SAVE_FAILED"}`), tone: "danger" });
+          const error = ((await response.json().catch(() => null)) as { error?: { code?: string; details?: { code?: string } } } | null)?.error;
+          const code = error?.code ?? "SAVE_FAILED";
+          // A group owner's device: the server's own reason, not a generic refusal.
+          const title = error?.details?.code === "OWNER_PROTECTED" ? t("admin.devices.ownerProtectedNote") : t(`devices.errors.${code in ERRORS ? (code as keyof typeof ERRORS) : "SAVE_FAILED"}`);
+          toast({ title, tone: "danger" });
           return;
         }
         toast({ title: t(`devices.done.${action === "SIGN_OUT" || action === "REAUTH" ? "signOut" : action === "RESTORE" ? "restore" : action === "LOST" ? "lost" : "revoke"}`), tone: "success" });

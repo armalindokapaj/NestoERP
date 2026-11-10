@@ -7,7 +7,7 @@ import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordPlatformAction } from "@/lib/core/audit/audit.service";
 import { prisma } from "@/lib/database/prisma";
 import { coveredCompanyIds, syncSeatAccess, type CompanyAccessSource } from "@/lib/modules/platform/group-company-access.service";
-import { assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
+import { assertGroupActorMayActOn, assertGroupCan, type GroupActor } from "@/lib/modules/platform/group-actor";
 import { lockGroup } from "@/lib/modules/platform/group-placement";
 
 /**
@@ -226,6 +226,8 @@ async function setSeatStatus(actor: GroupActor, raw: unknown, next: "SUSPENDED" 
     }));
     assertOpen(seat.parentGroup);
     if (seat.role?.key === "OWNER") assertGroupCan(actor, "ceo.manage", input.groupId);
+    // A group owner's seat, whatever role it carries, is an Owner's to suspend or restore (the user, 2026-11-10).
+    await assertGroupActorMayActOn(actor, input.userId, input.groupId);
     if (next === "SUSPENDED") {
       if (actor.userId === input.userId) throw new AccessError("CONFLICT", "You cannot suspend your own group access. Ask another administrator.", { code: "SELF_SUSPENSION" });
       if (seat.status !== "ACTIVE") return { status: seat.status };
@@ -302,6 +304,8 @@ export async function removeDirectCompanyAccess(actor: GroupActor, raw: unknown)
     }));
     assertOpen(seat.parentGroup);
     if (seat.role?.key === "OWNER") assertGroupCan(actor, "ceo.manage", input.groupId);
+    // An Owner's own membership is not Group IT's to end (the user, 2026-11-10).
+    await assertGroupActorMayActOn(actor, input.userId, input.groupId);
     const member = assertFound(await tx.companyMember.findFirst({
       where: { companyId: input.companyId, userId: input.userId, status: "ACTIVE", archivedAt: null, groupDerived: false, company: { parentGroupId: input.groupId } },
       select: { id: true, role: { select: { key: true } }, company: { select: { name: true } } },
