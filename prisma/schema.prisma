@@ -1486,6 +1486,7 @@ model Company {
   projectBuildings         ProjectBuilding[]
   projectFloors            ProjectFloor[]
   projectUnits             ProjectUnit[]
+  projectUnitSheetLinks    ProjectUnitSheetLink[]
   project3DEntitlements    Project3DEntitlement[]
   project3DConfigs         Project3DConfig[]
   project3DModelSlots      Project3DModelSlot[]
@@ -2976,6 +2977,8 @@ model Project {
   hseInductions          HseInduction[]
   floors                 ProjectFloor[]
   units                  ProjectUnit[]
+  /// The Units tab's Google Sheet, when one is linked (2026-11-10).
+  unitSheetLinks         ProjectUnitSheetLink[]
   announcements          Announcement[]
 
   contractorAssignments ProjectContractorAssignment[]
@@ -3305,6 +3308,8 @@ model ProjectUnit {
   contractLinks         ContractUnit[]
   contractRequests      UnitContractRequest[]
   threeDMeshBindings    Project3DUnitMeshBinding[]
+  // What a linked Google Sheet and NESTO last agreed about it (2026-11-10).
+  sheetBaselines        ProjectUnitSheetBaseline[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3319,6 +3324,71 @@ model ProjectUnit {
   @@index([projectId, orientation])
   @@index([projectId, publicationStatus])
   @@map("project_units")
+}
+
+/// A project's Units linked to a Google Sheet (2026-11-10): one per project.
+///
+/// NESTO reads the sheet through Google's own export of a sheet shared as
+/// "Anyone with the link can view" — no Google account, key or OAuth — and
+/// never writes to it: the person downloads a file for the sheet and imports
+/// it there. The fetch URL is built from `spreadsheetId` and `sheetGid`, never
+/// from the link as pasted, which is kept only to show it back.
+model ProjectUnitSheetLink {
+  id                   String    @id @default(cuid())
+  companyId            String
+  projectId            String
+  spreadsheetId        String
+  /// The tab, when the link named one (`#gid=…`); the first tab otherwise.
+  sheetGid             String?
+  sourceUrl            String
+  /// What Google calls the file it exports, when it says.
+  title                String?
+  linkedByMemberId     String
+  linkedAt             DateTime  @default(now())
+  lastSyncedByMemberId String?
+  lastSyncedAt         DateTime?
+  /// Moves on every new link and every confirmed sync: a sync is confirmed
+  /// against the version its preview read, so two cannot both write the baseline.
+  version              Int       @default(1)
+
+  company   Company                    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project   Project                    @relation(fields: [projectId, companyId], references: [id, companyId], onDelete: Restrict)
+  baselines ProjectUnitSheetBaseline[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId])
+  /// The target of the baselines' composite key: a baseline's project and company are its link's.
+  @@unique([id, projectId, companyId])
+  @@index([companyId])
+  @@map("project_unit_sheet_links")
+}
+
+/// What the linked sheet and NESTO said about one unit at the last confirmed
+/// sync (2026-11-10): per field, the sheet's value and NESTO's, as canonical
+/// strings (null for an empty cell or no value). A sync compares each side
+/// with it to tell a change made in the sheet from one made in NESTO. Working
+/// memory of the link, not history: unlinking, or deleting the unit, removes it.
+model ProjectUnitSheetBaseline {
+  id        String @id @default(cuid())
+  companyId String
+  projectId String
+  linkId    String
+  unitId    String
+  /// { [field]: { s: sheet value, n: NESTO value } }; the price also keeps `r`, the sheet's price per m².
+  fields    Json
+
+  link ProjectUnitSheetLink @relation(fields: [linkId, projectId, companyId], references: [id, projectId, companyId], onDelete: Cascade)
+  unit ProjectUnit          @relation(fields: [unitId, projectId, companyId], references: [id, projectId, companyId], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([linkId, unitId])
+  @@index([unitId])
+  @@index([companyId, projectId])
+  @@map("project_unit_sheet_baselines")
 }
 
 /// A published version of a unit (E-05D §24-§26, §72-§74). Written once and

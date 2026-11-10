@@ -28,7 +28,10 @@ import { UnitListTable } from "./unit-list/unit-list-table";
 import { UnitListToolbar } from "./unit-list/unit-list-toolbar";
 import { UnitPanel } from "./unit-panel/unit-panel";
 import { keepOpenUnit, useUnitPanelNav } from "./unit-panel/use-unit-panel";
+import { UNITS_CHANGED_EVENT } from "./unit-sheet/sheet-client";
+import { UnitSheetActions } from "./unit-sheet/unit-sheet-actions";
 import { FormSelect } from "@/components/ui/form-select";
+import type { SheetStatusDTO } from "@/lib/modules/unit-sheet/unit-sheet.types";
 
 /**
  * A project's structure (E-05B §31-§34, §46-§50, §88-§94, §101, §103, §104, §107-§109).
@@ -57,6 +60,10 @@ import { FormSelect } from "@/components/ui/form-select";
  *
  * A row opens the unit in the side panel beside the list (2026-11-09), named
  * in the address as `?unit=`; an empty cell's "Add" opens it on that field.
+ *
+ * Export and the Google Sheet control sit between Prices and Add units
+ * (2026-11-10, unit-sheet/unit-sheet-actions.tsx), as on the Sales tab; a
+ * confirmed sync reads the list and the tree again.
  */
 
 type Selection = { buildingId: string | null; floorId: string | null };
@@ -116,6 +123,7 @@ export function StructureWorkspace({
   initialTick = null,
   initialOpenUnit = null,
   canViewSales = false,
+  sheetStatus = null,
 }: {
   initial: ProjectStructureDTO;
   initialSelection: Selection;
@@ -128,6 +136,8 @@ export function StructureWorkspace({
   initialOpenUnit?: string | null;
   /** Whether the person may see the units' sales: the panel's price and sale status. */
   canViewSales?: boolean;
+  /** The project's Google Sheet link and what the reader may do with it, as the page read them. */
+  sheetStatus?: SheetStatusDTO | null;
 }) {
   const toast = useToast();
   const t = useTranslations("projects");
@@ -216,6 +226,15 @@ export function StructureWorkspace({
     await refreshStructure();
     setReloadKey((key) => key + 1);
   }, [refreshStructure]);
+
+  // A confirmed Google Sheet sync changed units, or added some: the tree and the list read them again.
+  React.useEffect(() => {
+    const onChanged = (event: Event) => {
+      if ((event as CustomEvent<{ projectId?: string }>).detail?.projectId === projectId) void reloadAll();
+    };
+    window.addEventListener(UNITS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(UNITS_CHANGED_EVENT, onChanged);
+  }, [projectId, reloadAll]);
 
   /* Ticking units and changing them together (2026-11-09) ----------------------- */
 
@@ -492,9 +511,13 @@ export function StructureWorkspace({
         </Link>
       </Button>
     ) : null;
+  // Export and the Google Sheet (2026-11-10): Export once there are units, the sheet once there is a building for its rows.
+  const exportOffered = structure.totals.units > 0;
+  const sheetOffered = structure.buildings.length > 0;
   const headerActions = (
     <>
       {prices}
+      <UnitSheetActions projectId={projectId} view="units" initialStatus={sheetStatus} exportOffered={exportOffered} sheetOffered={sheetOffered} />
       {canAddUnits && building && !floor && caps.canCreateFloor ? (
         <Button variant="secondary" onClick={() => setDialog({ kind: "floor", building })}>
           <Plus aria-hidden="true" />
@@ -515,7 +538,7 @@ export function StructureWorkspace({
       {floor && building ? floorMenu(building, floor) : building ? buildingMenu(building, t("workspace.moreActionsFor", { name: building.name })) : null}
     </>
   );
-  const hasHeaderActions = Boolean(prices) || canAddUnits || addFloorFirst || Boolean(building);
+  const hasHeaderActions = Boolean(prices) || exportOffered || sheetOffered || canAddUnits || addFloorFirst || Boolean(building);
 
   /* Body ----------------------------------------------------------------------- */
 

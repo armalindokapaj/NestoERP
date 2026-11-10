@@ -10,6 +10,7 @@ import { parseUnitListQuery } from "@/lib/modules/project-structure/structure.sc
 import { getProjectStructure, listProjectUnits } from "@/lib/modules/project-structure/structure.service";
 import * as projects from "@/lib/modules/projects/project.service";
 import { listPageRedirect } from "@/lib/modules/shared/list-query";
+import { getSheetStatus } from "@/lib/modules/unit-sheet/unit-sheet.service";
 import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -42,7 +43,11 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
   const actions = projects.projectActions(context);
   if (!actions.canViewUnits) redirect("/access-denied");
 
-  const structure = await getProjectStructure(context, project.id).catch(refuse);
+  const [structure, sheetStatus] = await Promise.all([
+    getProjectStructure(context, project.id).catch(refuse),
+    // The Google Sheet control's first state (2026-11-10); without it the control reads it itself.
+    getSheetStatus(context, project.id).catch(() => null),
+  ]);
 
   const floorId = one(search.floor);
   const owner = floorId ? structure.buildings.find((building) => building.floors.some((floor) => floor.id === floorId)) : undefined;
@@ -75,6 +80,7 @@ export default async function ProjectUnitsPage({ params, searchParams }: Params)
         initialTick={tick}
         initialOpenUnit={one(search.unit)}
         canViewSales={actions.canViewUnitSales}
+        sheetStatus={sheetStatus}
       />
     </div>
   );

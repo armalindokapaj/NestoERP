@@ -6,6 +6,7 @@ import { Tags } from "@/components/icons";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import Link from "@/components/navigation/nav-link";
 import { filtersFromQuery } from "@/components/project-structure/unit-filters";
+import { UnitSheetActions } from "@/components/project-structure/unit-sheet/unit-sheet-actions";
 import { SalesInventory, type InventoryFilters } from "@/components/sales/unit-sales/sales-inventory";
 import { Button } from "@/components/ui/button";
 import { AccessError } from "@/lib/access/guards";
@@ -14,6 +15,7 @@ import * as projects from "@/lib/modules/projects/project.service";
 import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
 import { listSalesInventory } from "@/lib/modules/sales/units/unit-sales.inventory";
 import { parseInventoryQuery } from "@/lib/modules/sales/units/unit-sales.schema";
+import { getSheetStatus } from "@/lib/modules/unit-sheet/unit-sheet.service";
 import { loadProject, } from "../project-context";
 
 type Params = { params: Promise<{ projectId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -32,6 +34,11 @@ function refuse(error: unknown): never {
  * A project's Sales inventory (E-05E §13, §14, §55): the project's own units —
  * never a Sales copy — with their commercial status, price and reservation. The
  * URL carries the filters, so a shared link opens the same list.
+ *
+ * Beside the price list: Export and the Google Sheet control, the Units tab's
+ * own (2026-11-10) — one link per project, whichever tab linked it. Below lg
+ * both are items of the page's ⋯, so the header keeps a row only for the
+ * price list.
  */
 export default async function ProjectSalesPage({ params, searchParams }: Params) {
   const { projectId } = await params;
@@ -43,9 +50,22 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
   if (!actions.canViewUnitSales) redirect("/access-denied");
 
   const query = parseInventoryQuery(search);
-  const [structure, inventory] = await Promise.all([getProjectStructure(context, project.id).catch(refuse), listSalesInventory(context, project.id, query).catch(refuse)]);
+  const [structure, inventory, sheetStatus] = await Promise.all([
+    getProjectStructure(context, project.id).catch(refuse),
+    listSalesInventory(context, project.id, query).catch(refuse),
+    getSheetStatus(context, project.id).catch(() => null),
+  ]);
   const caps = salesCapabilities(context);
   const filters: InventoryFilters = { ...filtersFromQuery(query), publication: "" };
+  const prices =
+    caps.canManagePrice && structure.totals.units > 0 ? (
+      <Button asChild variant="secondary">
+        <Link href={`/projects/${project.id}/sales/prices`} data-testid="sales-prices-link">
+          <Tags aria-hidden="true" />
+          {tSales("priceList.open")}
+        </Link>
+      </Button>
+    ) : null;
 
   return (
     <div className="space-y-5">
@@ -55,15 +75,12 @@ export default async function ProjectSalesPage({ params, searchParams }: Params)
         subtitle={project.code}
         status={project.status}
         actions={
-          caps.canManagePrice && structure.totals.units > 0 ? (
-            <Button asChild variant="secondary">
-              <Link href={`/projects/${project.id}/sales/prices`} data-testid="sales-prices-link">
-                <Tags aria-hidden="true" />
-                {tSales("priceList.open")}
-              </Link>
-            </Button>
-          ) : undefined
+          <>
+            {prices}
+            <UnitSheetActions projectId={project.id} view="sales" initialStatus={sheetStatus} exportOffered={structure.totals.units > 0} sheetOffered={structure.buildings.length > 0} />
+          </>
         }
+        actionsBelowLg={prices !== null}
       />
       {structure.totals.units === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong bg-surface-muted px-4 py-10 text-center text-table text-fg-muted" data-testid="sales-empty">

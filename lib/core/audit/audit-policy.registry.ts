@@ -281,6 +281,10 @@ export const AuditAction = {
   PROJECT_UNIT_DELETED: "PROJECT_UNIT_DELETED",
   PROJECT_UNITS_BULK_CREATED: "PROJECT_UNITS_BULK_CREATED",
   UNIT_CODE_CHANGED: "UNIT_CODE_CHANGED",
+  /** The Units tab's Google Sheet (2026-11-10): linked, unlinked, and each confirmed sync. */
+  PROJECT_UNIT_SHEET_LINKED: "PROJECT_UNIT_SHEET_LINKED",
+  PROJECT_UNIT_SHEET_UNLINKED: "PROJECT_UNIT_SHEET_UNLINKED",
+  PROJECT_UNIT_SHEET_SYNCED: "PROJECT_UNIT_SHEET_SYNCED",
   PROJECT_STRUCTURE_REORDERED: "PROJECT_STRUCTURE_REORDERED",
   /** The company's own list of unit types (E-05B §20, §21). */
   PROJECT_UNIT_TYPE_CREATED: "PROJECT_UNIT_TYPE_CREATED",
@@ -835,6 +839,9 @@ const POLICIES: AuditPolicy[] = [
   { actionKey: AuditAction.PROJECT_UNIT_DELETED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["floorId", "unitCode", "name", "unitTypeId"], required: true },
   { actionKey: AuditAction.PROJECT_UNITS_BULK_CREATED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["floorId", "count", "unitTypeId"], required: true },
   { actionKey: AuditAction.UNIT_CODE_CHANGED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["unitCode"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_SHEET_LINKED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "CHANGES", allowFields: ["spreadsheetId", "sheetGid", "title"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_SHEET_UNLINKED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "BEFORE_AFTER", allowFields: ["spreadsheetId", "sheetGid", "title"], required: true },
+  { actionKey: AuditAction.PROJECT_UNIT_SHEET_SYNCED, moduleKey: "projects", category: "PROJECT", severity: "IMPORTANT", snapshotMode: "NONE", allowFields: [], required: true },
   { actionKey: AuditAction.PROJECT_STRUCTURE_REORDERED, moduleKey: "projects", category: "PROJECT", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["order"], required: false },
   { actionKey: AuditAction.PROJECT_UNIT_TYPE_CREATED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "BEFORE_AFTER", allowFields: ["name", "code", "category", "isActive"], required: true },
   { actionKey: AuditAction.PROJECT_UNIT_TYPE_UPDATED, moduleKey: "projects", category: "CONFIGURATION", severity: "INFO", snapshotMode: "CHANGES", allowFields: ["name", "code", "category", "isActive"], required: true },

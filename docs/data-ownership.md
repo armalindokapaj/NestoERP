@@ -71,6 +71,7 @@ with it.
 | `daily-logs` | `DailyLog` and its sections, `DailyLogCorrection`, settings |
 | `project-planning` | `ProjectPhase`, `ProjectMilestone`, dependencies, blockers |
 | `project-structure` | `ProjectSite` — a named place of a project where its work happens (E-04); `ProjectBuilding`, `ProjectFloor`, `ProjectUnit`, `ProjectUnitType` — the one canonical unit every module references by id (E-05B); `UnitPublication`, `UnitMedia`, `UnitDocumentLink`, `UnitPublicationApproval` — its published versions, images, document references and publishing requests (E-05D). The Documents they point at stay the Documents domain's |
+| `unit-sheet` | `ProjectUnitSheetLink`, `ProjectUnitSheetBaseline` — a project's Units linked to a Google Sheet, and what the sheet and NESTO last agreed about each unit (2026-11-10). A sync changes the units through project structure's services and their prices through Sales'; it writes only these two tables itself |
 | `announcements` | `Announcement`, audience, reads, acknowledgments |
 | `productivity` | `UserFavorite`, `RecentItem`, `ProductivitySettings` |
 | `contractors` | `ContractorProfile`, assignments, compliance items |

@@ -70,6 +70,8 @@ export function RecordHeader({
  * title, code and status are left to screen readers there — the page keeps its
  * heading — and only the actions are drawn, at the row's end; a header with no
  * actions then takes no room at all. From `lg` it is drawn as ever.
+ * `actionsBelowLg={false}`: every action folds into the page's ⋯ below `lg`
+ * (`FoldIntoPageMenu`), so there the header takes no room either.
  */
 export function RecordContextHeader({
   breadcrumbs,
@@ -78,6 +80,7 @@ export function RecordContextHeader({
   status,
   actions,
   nameInLayout = false,
+  actionsBelowLg = true,
 }: {
   /** Absent under the project layout, which draws them (and the tabs) above the page. */
   breadcrumbs?: Crumb[];
@@ -86,7 +89,10 @@ export function RecordContextHeader({
   status?: string;
   actions?: React.ReactNode;
   nameInLayout?: boolean;
+  /** Whether any action is drawn below `lg`; false when they all fold into the page's ⋯ there. */
+  actionsBelowLg?: boolean;
 }) {
+  const drawnBelowLg = Boolean(actions) && actionsBelowLg;
   return (
     <PageHeaderFrame
       kind="context"
@@ -95,8 +101,8 @@ export function RecordContextHeader({
       subtitle={subtitle || undefined}
       status={status ? <StatusBadge status={status} /> : undefined}
       actions={actions || undefined}
-      className={nameInLayout ? (actions ? "max-lg:[&>[data-page-header-row]]:justify-end" : "max-lg:sr-only") : undefined}
-      textClassName={nameInLayout && actions ? "max-lg:sr-only" : undefined}
+      className={nameInLayout ? (drawnBelowLg ? "max-lg:[&>[data-page-header-row]]:justify-end" : "max-lg:sr-only") : undefined}
+      textClassName={nameInLayout && drawnBelowLg ? "max-lg:sr-only" : undefined}
     />
   );
 }
