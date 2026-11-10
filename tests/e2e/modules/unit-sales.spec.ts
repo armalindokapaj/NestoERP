@@ -169,7 +169,8 @@ test("the Sales Manager reopens the sale, reserves a unit for an existing client
   await reserve.getByRole("searchbox", { name: "Search clients" }).fill("ACME");
   await reserve.getByTestId("reserve-client-results").getByRole("button", { name: /ACME Developments/ }).click();
   await expect(reserve.getByTestId("reserve-client")).toContainText("ACME Developments");
-  await expect(reserve.getByLabel("Deal")).not.toHaveValue("");
+  // A Nesto dropdown, not a native select: a deal is chosen once it no longer shows its placeholder.
+  await expect(reserve.getByLabel("Deal")).not.toHaveAttribute("data-placeholder", /.*/);
   await reserve.getByRole("button", { name: "Reserve", exact: true }).click();
   await expect(status(page)).toHaveText("Reserved");
   await expect(page.getByTestId("reservation-client")).toHaveText("ACME Developments");
@@ -284,7 +285,13 @@ test("the side panel prices a unit not for sale and also puts it on sale (2026-1
   await page.getByRole("dialog", { name: "Take R-201 off sale?" }).getByRole("button", { name: "Take off sale" }).click();
   await expect(panel.getByTestId("commercial-status")).toHaveText("Not For Sale");
 
-  // Escape closes the panel; the list stays, its search kept.
+  // Escape closes the panel; the list stays, its search kept. A toast still on screen is the top layer and
+  // takes the first Escape (Radix), so the change's toast is let go first.
+  const toasts = page.locator("li[data-swipe-direction][data-state=open]");
+  if (await toasts.count()) {
+    await page.keyboard.press("Escape");
+    await expect(toasts).toHaveCount(0);
+  }
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
   await expect(page).not.toHaveURL(/[?&]unit=/);

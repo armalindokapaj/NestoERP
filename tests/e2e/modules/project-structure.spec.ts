@@ -50,7 +50,8 @@ async function bulkAdd(page: Page, prefix: string, start: string, end: string) {
   await dialog.getByLabel(/^Digits/).fill("0");
   await expect(dialog.getByTestId("bulk-code-sample")).toContainText(`${prefix}${start}`);
   await dialog.getByRole("button", { name: "Next" }).click();
-  await expect(dialog.getByLabel(/^Type/)).toHaveValue(/.+/);
+  // A Nesto dropdown, not a native select: chosen once it no longer shows its placeholder.
+  await expect(dialog.getByLabel(/^Type/)).not.toHaveAttribute("data-placeholder", /.*/);
   return dialog;
 }
 

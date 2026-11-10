@@ -49,6 +49,8 @@ import type { UnitListRow } from "./unit-list-row";
 
 /** Narrower cell padding than the table's default, so the columns fit beside the structure tree. */
 const FIT = "[&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-3 [&_td:last-child]:px-2 [&_th:last-child]:px-2";
+/** Sales with its Client, Deal and Expires columns: 8px a side, so the row's menu stays in view at 1440px. */
+const FIT_DEAL = "[&_td]:px-2 [&_th]:px-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3";
 
 export type UnitListSelection = {
   isSelected: (id: string) => boolean;
@@ -177,7 +179,7 @@ export function UnitListTable({
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
       <div className={tableShown}>
-        <Table label={sales ? t("unitList.salesTable") : t("unitTable.units")} data-testid={ids.table} className={FIT}>
+        <Table label={sales ? t("unitList.salesTable") : t("unitTable.units")} data-testid={ids.table} className={showDeal ? FIT_DEAL : FIT}>
           <TableHead>
             <tr>
               {selection ? (
@@ -240,7 +242,8 @@ export function UnitListTable({
                   {row.archived ? <Badge className="ml-2" data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
                 </TableCell>
                 {sales ? null : <TableCell>{unitTypeName(row.typeName, locale)}</TableCell>}
-                <TableCell className="whitespace-nowrap">{floorName(row.floorName, locale)}</TableCell>
+                {/* A long floor name ("Ground Floor Mezzanine") wraps, so Sales' reservation columns fit at 1440px and Units at 1024px. */}
+                <TableCell className={sales ? "min-w-[7.5rem]" : "min-w-[6.5rem]"}>{floorName(row.floorName, locale)}</TableCell>
                 <TableCell numeric>{orAdd(row, "bedrooms", countText(row.bedrooms))}</TableCell>
                 {sales ? (
                   <TableCell numeric className="whitespace-nowrap" data-testid="sales-area" data-basis={row.saleAreaBasis}>
@@ -272,9 +275,10 @@ export function UnitListTable({
                   </TableCell>
                 ) : null}
                 {showDeal && deal?.client ? (
-                  <TableCell className="max-w-[10rem] truncate">
+                  <TableCell>
+                    {/* A table cell ignores max-width, so the link carries it: a long name is cut, not the row's menu. */}
                     {row.client ? (
-                      <Link href={`/clients/${row.client.id}`} className="hover:underline">
+                      <Link href={`/clients/${row.client.id}`} className="block max-w-[8rem] truncate hover:underline" title={row.client.name}>
                         {row.client.name}
                       </Link>
                     ) : (
@@ -283,9 +287,9 @@ export function UnitListTable({
                   </TableCell>
                 ) : null}
                 {showDeal && deal?.deal ? (
-                  <TableCell className="max-w-[10rem] truncate">
+                  <TableCell>
                     {row.deal ? (
-                      <Link href={`/sales/opportunities/${row.deal.id}`} className="hover:underline">
+                      <Link href={`/sales/opportunities/${row.deal.id}`} className="block max-w-[8rem] truncate hover:underline" title={row.deal.name}>
                         {row.deal.name}
                       </Link>
                     ) : (

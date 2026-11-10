@@ -39,8 +39,8 @@ import { AUD07_ROUTES, type AudRoute } from "./aud07-manifest";
  *   each attempt records whether the destination was prefetched;
  * - uncached: the same click with prefetch off (a crawler user agent, for
  *   which Next prefetches nothing) — each attempt records that it was not.
- * Warm and uncached run on both profiles: on a phone the sidebar link is in
- * the navigation drawer, which is opened before the measured click.
+ * Warm and uncached run on both profiles: on a phone a sidebar link is on the
+ * bottom bar, or in its Menu drawer, which is opened before the measured click.
  *
  * Every attempt is kept, failures included: a sample that never became usable
  * in 30 s is recorded as null with what it was still waiting for, and counted
@@ -336,11 +336,16 @@ test.describe("AUD-07 benchmark", () => {
             await probe(page, route, category, index);
             destinationPrefetches = 0;
             await page.goto(route.origin!, { waitUntil: "load" });
-            // On a phone a sidebar entry lives in the drawer: open it first, outside the measurement.
-            if (PROFILE === "mobile" && route.link!.startsWith("nav ")) {
-              await page.getByRole("button", { name: /open navigation|hap navigimin/i }).click();
+            // On a phone there is no sidebar: Home and Projects are on the bottom bar, every other module is in
+            // the bar's Menu drawer (commit 4ec692d8). Menu is opened first, outside the measurement.
+            let selector = route.link!;
+            if (PROFILE === "mobile" && selector.startsWith("nav ")) {
+              const target = selector.slice("nav ".length);
+              const onBar = page.locator(`[data-mobile-bottom-nav] ${target}`).filter({ visible: true });
+              if ((await onBar.count()) === 0) await page.getByTestId("mobile-more").click();
+              selector = `[data-mobile-bottom-nav] ${target}, [data-testid="mobile-more-drawer"] ${target}`;
             }
-            const link = page.locator(route.link!).filter({ visible: true }).first();
+            const link = page.locator(selector).filter({ visible: true }).first();
             await link.waitFor({ state: "visible", timeout: 15_000 });
             await link.hover();
             await page.waitForTimeout(400); // the link's default prefetch, when there is one

@@ -96,7 +96,7 @@ test.describe("lazy panels (P03, P06, P07, P08, P12)", () => {
 
   test("one overlay at a time: opening search closes the Activity panel (P08)", async ({ page }) => {
     await settled(page);
-    await page.getByTestId("notification-bell").click();
+    await page.getByTestId("notification-bell").filter({ visible: true }).click();
     await expect(page.getByTestId("activity-panel")).toBeVisible();
     await page.keyboard.press("Control+k");
     await expect(page.getByTestId("search-input")).toBeVisible();
@@ -113,7 +113,7 @@ test.describe("lazy panels (P03, P06, P07, P08, P12)", () => {
       sessionStorage.setItem("unrelated", "kept");
     });
     await page.reload();
-    await expect(page.getByTestId("notification-bell")).toBeVisible();
+    await expect(page.getByTestId("notification-bell").filter({ visible: true })).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.startsWith("nesto-search-home:") || key.startsWith("nesto-activity:"))))
       .toEqual([]);

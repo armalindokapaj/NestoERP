@@ -258,8 +258,9 @@ function SelectionBar({ count, actions, onClear }: { count: number; actions: Arr
       role="region"
       aria-label={t("unitList.selectionBar")}
       data-testid="unit-selection-bar"
-      // From md: sticky at the foot of the list, a raised strip like the phone's slab.
-      className="md:sticky md:bottom-4 md:z-20 md:justify-start md:rounded-lg md:border md:border-line md:bg-surface md:px-3 md:py-2 md:shadow-menu"
+      // From md: sticky at the foot of the list, a raised strip like the phone's slab. On a tablet it stops
+      // above the bottom navigation (`--nesto-action-bar-bottom` is 0.5rem from lg, where there is none).
+      className="md:sticky md:bottom-[calc(var(--nesto-action-bar-bottom)+0.5rem)] md:z-20 md:justify-start md:rounded-lg md:border md:border-line md:bg-surface md:px-3 md:py-2 md:shadow-menu"
     >
       <p className="mr-auto min-w-0 px-1 text-table font-medium text-fg md:mr-0" aria-live="polite" data-testid="unit-selection-count">
         {t("unitList.selected", { count })}

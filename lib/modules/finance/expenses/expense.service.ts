@@ -171,7 +171,7 @@ export async function getExpense(
     approvals: history,
     createdBy: creator,
     createdAt: expense.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, expense, settlement.outstanding.greaterThan(0)),
+    capabilities: await approvals.withOwnDecisionRule(context, "EXPENSE", expense.id, capabilitiesFor(context, expense, settlement.outstanding.greaterThan(0))),
   };
 }
 

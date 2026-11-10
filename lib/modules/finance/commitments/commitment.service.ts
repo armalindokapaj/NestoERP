@@ -189,7 +189,7 @@ export async function getCommitment(
     approvals: history,
     createdBy: creator,
     createdAt: commitment.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, commitment),
+    capabilities: await approvals.withOwnDecisionRule(context, "COMMITMENT", commitment.id, capabilitiesFor(context, commitment)),
   };
 }
 

@@ -81,7 +81,7 @@ test.describe("panel code (P01, PERF-02)", () => {
     };
     await opened("search", async () => cold.keyboard.press("Control+k"));
     await opened("quick_create", async () => cold.getByTestId("quick-create-button").click());
-    await opened("activity", async () => cold.getByTestId("notification-bell").click());
+    await opened("activity", async () => cold.getByTestId("notification-bell").filter({ visible: true }).click());
     // The workspace popup opens from the top bar's company switcher; the sidebar's header only leads home.
     await opened("workspace", async () => cold.getByTestId("workspace-switcher").click());
     write("nav03-chunks", {
@@ -137,7 +137,7 @@ test.describe("Activity requests (A01, A02)", () => {
       else if (path === "/api/activity-center") log.push({ at: Date.now() - started, kind: "list", phase });
     });
     await page.goto("/dashboard");
-    await expect(page.getByTestId("notification-bell")).toBeVisible();
+    await expect(page.getByTestId("notification-bell").filter({ visible: true })).toBeVisible();
     await page.waitForTimeout(10 * 60 * 1000);
     phase = "hidden";
     await page.evaluate(() => {
@@ -428,7 +428,7 @@ test.describe("telemetry reaches the scrape (T07, T10)", () => {
     await page.keyboard.press("Control+k");
     await page.waitForTimeout(1_000);
     await page.keyboard.press("Escape");
-    await page.getByTestId("notification-bell").click();
+    await page.getByTestId("notification-bell").filter({ visible: true }).click();
     await page.waitForTimeout(1_000);
     await page.keyboard.press("Escape");
     // Hidden: the one final batch.

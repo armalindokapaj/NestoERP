@@ -55,7 +55,8 @@ describe("the workflow matrix (CW-01)", () => {
   it("has a §1 row for every registered approval provider, and none for a provider that is gone", () => {
     const registered = approvalProviders.all().map((provider) => provider.key).sort();
     const documented = providerRows.map((row) => code(row[0])).filter((key): key is string => Boolean(key)).sort();
-    expect(registered.length).toBe(11);
+    // Eleven until 2026-11, when unit publishing (`projects`) was retired: units publish on every save.
+    expect(registered.length).toBe(10);
     expect(documented).toEqual(registered);
   });
 

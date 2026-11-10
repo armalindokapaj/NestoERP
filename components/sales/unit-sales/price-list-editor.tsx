@@ -481,7 +481,8 @@ export function PriceListEditor({ initial, canEditUnits = false }: { initial: Pr
         );
       })}
 
-      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface px-4 py-3 shadow-lg" data-testid="price-save-bar">
+      {/* Below lg it stops above the bottom navigation, as the shared action bar does (styles/globals.css). */}
+      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface px-4 py-3 shadow-lg max-lg:bottom-(--nesto-action-bar-bottom)" data-testid="price-save-bar">
         <span className="text-table font-medium text-fg" data-testid="price-changed-count" aria-live="polite">
           {dirty ? t("priceList.changed", { count: changed.length }) : t("priceList.noChanges")}
         </span>

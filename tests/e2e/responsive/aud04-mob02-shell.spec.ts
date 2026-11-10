@@ -379,7 +379,8 @@ test.describe("header", () => {
 test.describe("form action bar and the keyboard", () => {
   test("a form's action bar sits above the bottom bar, which stays (mobile audit 5b)", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects/new" });
+    // The Owner and the CEO create projects (2f22d359); a project manager is refused /projects/new.
+    await signIn(page, "OWNER", { to: "/projects/new" });
     const actionBar = mainRegion(page).locator('[data-mobile-action-bar="flow"]').first();
     await expect(actionBar).toBeVisible();
     await expect(bar(page)).toBeVisible();

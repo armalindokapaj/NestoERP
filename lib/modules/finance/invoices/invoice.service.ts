@@ -215,7 +215,7 @@ export async function getInvoice(
     approvals: history,
     createdBy: creator,
     createdAt: invoice.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, invoice, outstanding.greaterThan(0)),
+    capabilities: await approvals.withOwnDecisionRule(context, "INVOICE", invoice.id, capabilitiesFor(context, invoice, outstanding.greaterThan(0))),
   };
 }
 

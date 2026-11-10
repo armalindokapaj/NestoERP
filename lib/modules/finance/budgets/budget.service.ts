@@ -265,7 +265,7 @@ export async function getBudget(
     approvals: history,
     createdBy: creator,
     createdAt: budget.createdAt.toISOString(),
-    capabilities: capabilitiesFor(context, budget),
+    capabilities: await approvals.withOwnDecisionRule(context, "BUDGET", budget.id, capabilitiesFor(context, budget)),
   };
 }
 

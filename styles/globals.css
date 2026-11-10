@@ -271,6 +271,19 @@
  *   80+ the unsaved-work prompt (AUD-03), above everything it asks about
  */
 
+/*
+ * The room the phone's bottom bar takes (below), registered as a length so it
+ * can change late: when a text field lets go, the bar and the action bar that
+ * sits on it come back 0.3s later, not at once. A tap on Cancel, Save or Send
+ * while typing blurs the field first; moving them at that moment would take
+ * the tap away from what the person aimed at.
+ */
+@property --nesto-bottom-nav-space {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 @layer base {
   * {
     border-color: var(--nesto-border);
@@ -372,6 +385,8 @@
   html:has([data-mobile-bottom-nav]) {
     --nesto-bottom-nav-space: calc(6.5rem + var(--nesto-safe-bottom));
     --nesto-bottom-reserve: var(--nesto-bottom-nav-space);
+    /* Back 0.3s after a text field lets go (the @property above); gone at once when one takes focus (below). */
+    transition: --nesto-bottom-nav-space 0s linear 0.3s;
   }
 
   @media (min-width: 1024px) {
@@ -397,11 +412,26 @@
   html:has([data-mobile-bottom-nav]):has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) {
     --nesto-bottom-nav-space: 0px;
     --nesto-bottom-reserve: 0px;
+    transition-delay: 0s;
   }
 
-  html:has([data-sticky-action-bar]) [data-mobile-bottom-nav],
-  html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) [data-mobile-bottom-nav] {
+  html:has([data-sticky-action-bar]) [data-mobile-bottom-nav] {
     display: none;
+  }
+
+  /*
+   * While a text field has focus the bar steps aside, and it comes back a moment
+   * after the field lets go. The tap that ends the typing — Send response, Save,
+   * a button that sits where the bar will be — blurs the field first; the bar
+   * coming back at once would take that tap. It returns 0.3s later instead.
+   */
+  [data-mobile-bottom-nav] {
+    transition: visibility 0s linear 0.3s;
+  }
+
+  html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) [data-mobile-bottom-nav] {
+    visibility: hidden;
+    transition-delay: 0s;
   }
 
   /*

@@ -16,8 +16,9 @@ export function Checkbox({
         // The 3:1 control border: an unchecked box is visible on every ground (AUD-11 AV-10).
         "peer relative size-4 shrink-0 rounded-[4px] border border-control bg-surface",
         // A 44px hit area under touch without a bigger box (AUD-04 §3, MW-19):
-        // an invisible square around the 16px control.
-        "touch:after:absolute touch:after:-inset-3.5 touch:after:content-['']",
+        // an invisible square around the 16px control. The inset is measured from
+        // inside the 1px border, so 15px a side, not 14, makes the 44px.
+        "touch:after:absolute touch:after:-inset-[15px] touch:after:content-['']",
         "data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-fg",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,

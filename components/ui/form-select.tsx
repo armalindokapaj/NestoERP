@@ -87,6 +87,11 @@ export function FormSelect({
   const empty = options.find((option) => option.value === "");
 
   function choose(next: string) {
+    // A person picking the empty option sends EMPTY. A bare "" comes from Radix's hidden native select
+    // when the value and the options change in one render (a Reserve dialog's deals arriving with the
+    // first one chosen): the select cannot hold the new value yet, falls back to "" and reports it as
+    // a change. That would undo the choice the form just made while still showing it, so it is ignored.
+    if (next === "") return;
     const value = next === EMPTY ? "" : next;
     if (!controlled) setInner(value);
     const target = hidden.current;

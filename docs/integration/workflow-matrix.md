@@ -40,7 +40,7 @@ outbox event(s), **PA** `PENDING_APPROVAL`. Test paths are under `tests/`.
 
 ## 1. Approval providers (Approvals Center)
 
-All eleven are read by `lib/modules/approvals/approvals.service.ts` and decided
+All ten are read by `lib/modules/approvals/approvals.service.ts` and decided
 through `decideApproval` → `provider.decide`, which calls the owning module's
 decision service; the Center keeps no status of its own (§4). Center counts are
 read models over the module's cycle table. Actors: the provider's `available()`
@@ -65,8 +65,15 @@ which in the same tx enqueues `APPROVAL_APPROVED|REJECTED|RETURNED` (dedupe
 | `qaqc` (C) | `quality_inspections`, `non_conformance_reports` — M/qaqc/{inspections,ncrs}/*.service.ts | `quality_approvals` (INSPECTION / NCR) | companyId, projectId? | `qaqc.inspection|ncr.approve/.reject`; self `qaqc.approval.self` | as finance | PA ⇄ PENDING; inspection → APPROVED/REJECTED; NCR → APPROVED_FOR_CLOSE / back to IN_PROGRESS | as finance | ob `APPROVAL_*` | one-PENDING index (agent 2) | QA/QC registers, Center | api/qaqc/qaqc-service, api/approvals/aud10-center-providers | implemented (fixed in AUD-10) |
 | `hse` (C) | `hse_inspections`, `hse_risk_assessments`, `hse_work_permits` (PA), `hse_incidents` (PENDING_CLOSE) — M/hse/*/**.service.ts | `hse_approvals` (INSPECTION / RISK_ASSESSMENT / WORK_PERMIT / INCIDENT_CLOSE) | companyId; projectId (required on permits) | per type: `hse.inspection.approve/.reject`, `hse.risk.approve`, `hse.permit.approve`, `hse.incident.close` (incidents cannot be rejected) | as finance | PA/PENDING_CLOSE ⇄ PENDING; reject returns risk/permit to DRAFT | as finance | ob `APPROVAL_*` | one-PENDING index (agent 2) | HSE registers, Center | api/hse/hse-service, api/hse/hse-authorization, api/approvals/aud10-center-providers | implemented (fixed in AUD-10: Center self-check narrower than domain (A8))|
 | `timesheets` | `timesheets` (SUBMITTED) — M/timesheets/timesheet.submission.ts `decide` | `timesheet_approvals` (TIMESHEET, `submissionVersion`) + `approval_steps` | companyId | `timesheet.approve`; reject needs `timesheet.reject` | timesheet `status`, `version`; cycle `status` | SUBMITTED ⇄ PENDING; → APPROVED / RETURNED / REJECTED | step settle + cycle + timesheet `updateMany` on version + activity + required audit + ob | ob `TIMESHEET_APPROVED|RETURNED|REJECTED` | `TIMESHEET_SUBMITTED:<id>:<submissionVersion>:<member>`; one-PENDING index (agent 2) | timesheet pages, team queue, Center | api/timesheets/timesheets | implemented; reject permission and cycle scoping implemented (fixed in AUD-10) |
-| `projects` (retired 2026-11) | — units publish on create (`publishLiveUnits`); see `docs/unit-publishing.md` | `unit_publication_approvals` (history only; the 2026-11 migration cancelled every PENDING row) | — | — | — | — | — | — | — | — | — | retired; `verify:workflows` errors on a PENDING row (`approvals.projects.unit_publication_retired`) and warns on a unit left in a retired state |
 | `unit_sales` | `unit_commercial_profiles` (RESERVED, active reservation) — M/sales/units/unit-sale-approval.service.ts | `unit_sale_approvals` (UNIT, `reservationId`) | companyId, projectId | `project.unit.sale.approve` | cycle `status`; the source status is **not** moved by a decision (the sale is completed by its own command) | PENDING → APPROVED / REJECTED | cycle `updateMany` + `notifyApprovalDecided` + activity `UNIT_SALE_*` + required audit | ob `APPROVAL_*` | `unit_sale_approvals_one_pending_per_unit` (existing) | unit sales panel, Center | api/finance/unit-finance | implemented; record-type collision with `projects` (both `project_unit`) implemented (fixed in AUD-10: A7) |
+
+Retired 2026-11: `projects`, the unit-publishing provider. Units publish on
+create and on every save (`publishLiveUnits`, see `docs/unit-publishing.md`), so
+nothing waits for a decision. `unit_publication_approvals` keeps its rows as
+history; the 2026-11 migration cancelled every PENDING one, and
+`verify:workflows` errors on a PENDING row
+(`approvals.projects.unit_publication_retired`) and warns on a unit left in a
+retired state.
 
 ### Approval-like decisions that are not Center providers
 
@@ -254,7 +261,7 @@ target through the registry (§4).
 | `timesheet` | timesheets | timesheets | no | yes | — | |
 | `daily_log` | dailyLogs | — | yes | yes | yes | review not a provider |
 | `project_milestone` | projects | — | yes | yes | yes | blockers and links, §3 |
-| `project_unit` | projects | projects, unit_sales | yes | no | — | §5 unit links |
+| `project_unit` | projects | unit_sales | yes | no | — | §5 unit links |
 | `announcement` | announcements | — | yes | no | — | |
 | `contractor` | contractors | — | yes | yes | — | |
 | `work_package` | contractors | — | yes | yes | yes | |

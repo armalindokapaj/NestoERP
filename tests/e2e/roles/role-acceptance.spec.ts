@@ -26,7 +26,7 @@ for (const role of ROLE_KEYS.filter((key) => key !== "PLATFORM_ADMIN")) {
     await signIn(page, role, { to: "/dashboard" });
 
     // The bell is real for every role and opens the one Activity Center (Activity Center §3, §9).
-    await page.getByTestId("notification-bell").click();
+    await page.getByTestId("notification-bell").filter({ visible: true }).click();
     const panel = page.getByRole("dialog", { name: "Activity Center" });
     await expect(panel.getByRole("tab", { name: "Notifications" })).toBeVisible();
     await expect(panel.getByRole("link", { name: "View all activity" })).toBeVisible();

@@ -224,6 +224,35 @@ export async function pendingCycle(
 }
 
 /**
+ * Whether the reader may decide the record's pending cycle under the self rule
+ * (2026-11): what a record page's Approve and Reject ask, as the queue's Decide
+ * does. Someone's own submission is theirs to decide only where the rule lets
+ * them (a CEO with nobody else who could, or a holder of the self permission);
+ * the server refuses it either way, so the page does not offer it.
+ */
+export async function mayDecidePending(context: UserContext, type: FinanceApprovalRecordType, recordId: string): Promise<boolean> {
+  const row = await prisma.financeApproval.findFirst({
+    where: { companyId: context.companyId, recordType: type, recordId, status: "PENDING" },
+    orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
+    select: { recordType: true, recordId: true, submittedByMemberId: true },
+  });
+  if (!row) return true;
+  return mayDecideSubmission(context, row);
+}
+
+/** A record's capabilities with Approve and Reject taken away where the self rule refuses the reader. */
+export async function withOwnDecisionRule<C extends { canApprove: boolean; canReject: boolean }>(
+  context: UserContext,
+  type: FinanceApprovalRecordType,
+  recordId: string,
+  capabilities: C,
+): Promise<C> {
+  if (!capabilities.canApprove && !capabilities.canReject) return capabilities;
+  if (await mayDecidePending(context, type, recordId)) return capabilities;
+  return { ...capabilities, canApprove: false, canReject: false };
+}
+
+/**
  * Closes an approval cycle.
  *
  * The update is conditional on the row still being PENDING and reports how many

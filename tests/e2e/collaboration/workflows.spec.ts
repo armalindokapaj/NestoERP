@@ -26,7 +26,7 @@ async function runJob(job: string) {
 }
 
 async function openBell(page: Page) {
-  await page.getByTestId("notification-bell").click();
+  await page.getByTestId("notification-bell").filter({ visible: true }).click();
   return page.getByTestId("activity-panel");
 }
 

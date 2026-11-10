@@ -191,6 +191,8 @@ afterAll(async () => {
 describe("a CEO alone in the company", () => {
   it("raises, submits and approves their own invoice, and the record says it was self-approved", async () => {
     const invoiceId = await submittedInvoice(ceo);
+    // The invoice's page offers the decision: nobody else could take it.
+    expect((await invoices.getInvoice(ceo, invoiceId)).capabilities).toMatchObject({ canApprove: true, canReject: true });
     await invoices.approveInvoice(ceo, invoiceId, null, await shownCycle("finance", invoiceId));
 
     expect((await invoices.getInvoice(ceo, invoiceId)).status).toBe("APPROVED");
@@ -243,6 +245,9 @@ describe("a CEO and a CEO-access holder", () => {
 
   it("refuses the CEO their own invoice, names the holder, writes nothing, and lets the holder decide it", async () => {
     const invoiceId = await submittedInvoice(ceo);
+    // The page offers the CEO no Approve or Reject on their own invoice; the holder gets both.
+    expect((await invoices.getInvoice(ceo, invoiceId)).capabilities).toMatchObject({ canApprove: false, canReject: false });
+    expect((await invoices.getInvoice(holder, invoiceId)).capabilities).toMatchObject({ canApprove: true, canReject: true });
     const error = await refused(invoices.approveInvoice(ceo, invoiceId, null, await shownCycle("finance", invoiceId)));
     expect(error.details).toMatchObject({ code: "SELF_APPROVAL", approvers: [holderName] });
     expect(error.message).toContain(`${holderName} can.`);
