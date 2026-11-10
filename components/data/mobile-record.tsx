@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils/cn";
  * - `label` is a short spoken summary for the link's accessible name, so a
  *   screen reader hears "Unit A-101, For sale, floor 10" and not a run of cells.
  *
- * Markers `data-record-card`, `data-card-link`, `data-card-actions` are what the
+ * Markers `data-record-card`, `data-card-link`, `data-card-chevron`, `data-card-actions` are what the
  * responsive specs and the touch-target sweep look for.
  */
 export type RecordFact = { key: string; label: string; value: React.ReactNode; figure?: boolean; colId?: string };
@@ -114,10 +114,10 @@ export function MobileRecordCard({ href, title, subtitle, status, value, leading
           {subtitle ? <div className="mt-0.5 text-table font-normal text-fg-muted">{subtitle}</div> : null}
         </div>
         {status ? <div className="relative z-10 shrink-0">{status}</div> : null}
-        {href && !status ? <ChevronRight aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-subtle" /> : null}
+        {href && !status ? <ChevronRight aria-hidden="true" data-card-chevron="" className="mt-0.5 size-4 shrink-0 text-fg-subtle" /> : null}
       </div>
 
-      {value ? <div className="mt-2 flex items-center justify-between gap-2 text-card font-semibold tabular-nums text-fg">{value}{href && status ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" /> : null}</div> : null}
+      {value ? <div className="mt-2 flex items-center justify-between gap-2 text-card font-semibold tabular-nums text-fg">{value}{href && status ? <ChevronRight aria-hidden="true" data-card-chevron="" className="size-4 shrink-0 text-fg-subtle" /> : null}</div> : null}
       {facts.length > 0 ? <FactList facts={facts} className="mt-2" /> : null}
       {extra}
 
@@ -209,7 +209,7 @@ export function MobileRecordRow({ href, title, subtitle, status, value, leading,
       {status ? <div className="relative z-10 shrink-0">{status}</div> : null}
       {value ? <div className="shrink-0 text-body font-semibold tabular-nums text-fg">{value}</div> : null}
       {actions ? <div data-card-actions className="relative z-10 shrink-0 empty:hidden">{actions}</div> : null}
-      {href ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" /> : null}
+      {href ? <ChevronRight aria-hidden="true" data-card-chevron="" className="size-4 shrink-0 text-fg-subtle" /> : null}
     </li>
   );
 }

@@ -31,6 +31,7 @@ export function ContextTabsFrame({
   testId,
   trailing,
   lead,
+  moduleRow = false,
 }: {
   label: string;
   /** The row's tabs as data, for the section menu: the same tabs, in the same order, with the one the page is on marked. */
@@ -41,6 +42,12 @@ export function ContextTabsFrame({
   trailing?: React.ReactNode;
   /** Below lg only: the context's own compact header, at the start of the row. Its own classes say where it shows (it carries `lg:hidden` or narrower). */
   lead?: React.ReactNode;
+  /**
+   * The module's own sections (ModuleTabs). With the desktop Ribbon they are
+   * the Ribbon's tab for the page you are on, so from `lg` the row steps aside
+   * (`data-module-row`, styles/globals.css; docs/ui/UI-04-navigation-layouts.md).
+   */
+  moduleRow?: boolean;
 }) {
   const scroller = (
     // Desktop tab sets are kept short enough not to scroll (§20); below lg the row is the section menu instead.
@@ -56,8 +63,8 @@ export function ContextTabsFrame({
     </div>
   ) : null;
   return (
-    <div data-context-tabs data-tabs-in-menu className={cn("nesto-context-tabs", className)}>
-      <RegisterSections label={label} items={sections} />
+    <div data-context-tabs data-tabs-in-menu data-module-row={moduleRow ? "" : undefined} className={cn("nesto-context-tabs", className)}>
+      <RegisterSections label={label} items={sections} module={moduleRow} />
       {trailing ? (
         // A page's own controls at the end of the compact row below lg; from lg the row is the tabs alone.
         <div className="flex items-stretch max-lg:justify-end max-lg:gap-2">
@@ -83,8 +90,8 @@ export function contextTabClass(active: boolean) {
     "relative -mb-px inline-flex items-center gap-1 whitespace-nowrap border-b-2 px-3 text-table font-medium transition-colors touch:min-h-11",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
     active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
-    // Theme 2: the reference's segmented pills, the tab the page is on in ink.
-    "look2:my-auto look2:h-9 look2:rounded-full look2:border-b-0 look2:px-3.5",
-    active ? "look2:bg-primary look2:text-primary-fg" : "look2:hover:bg-hover",
+    // The reference's segmented pills, the tab the page is on in ink.
+    "my-auto h-9 rounded-full border-b-0 px-3.5",
+    active ? "bg-primary text-primary-fg" : "hover:bg-hover",
   );
 }

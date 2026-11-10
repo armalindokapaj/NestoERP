@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page, type Request } from "../pw";
 
 import { db, removeTestClients, removeTestTasks } from "../db";
-import { mainRegion, sidebar, signIn, workspaceHeader, workspacePanel, workspaceSwitcher } from "../fixtures";
+import { mainRegion, navigationLink, signIn, workspaceHeader, workspacePanel, workspaceSwitcher } from "../fixtures";
 
 /**
  * Unsaved work protection in the browser (AUD-03 §9).
@@ -30,8 +30,9 @@ function prompt(page: Page) {
   return page.getByTestId("unsaved-prompt");
 }
 
+/** A module in the desktop navigation, with its group's tab pressed so it is in view. */
 function link(page: Page, name: string) {
-  return sidebar(page).getByRole("link", { name, exact: true }).first();
+  return navigationLink(page, name);
 }
 
 function clientName(page: Page) {
@@ -74,20 +75,20 @@ test.describe("editors and application navigation", () => {
     await page.goto("/clients/new");
     await expect(clientName(page)).toBeVisible();
     await expect(page.getByTestId("unsaved-indicator").first()).toHaveText("");
-    await link(page, "Tasks").click();
+    await (await link(page, "Tasks")).click();
     await page.waitForURL("**/tasks");
     await expect(prompt(page)).toHaveCount(0);
     // A list filter is not an editor.
     const search = mainRegion(page).getByRole("searchbox").first();
     if (await search.count()) await search.fill("anything");
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await page.waitForURL("**/dashboard");
     await expect(prompt(page)).toHaveCount(0);
   });
 
   test("UW-02/UW-04: an edit is noticed; Stay keeps route and value; Escape is Stay; Discard continues once", async ({ page }) => {
     await dirtyClient(page, `${PREFIX} Stay`);
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await expect(prompt(page)).toBeVisible();
     await expect(prompt(page).getByRole("heading", { name: "You have unsaved changes" })).toBeVisible();
     await expect(prompt(page)).toContainText("You're leaving this page.");
@@ -98,9 +99,9 @@ test.describe("editors and application navigation", () => {
     await expect(page).toHaveURL(/\/clients\/new$/);
     await expect(clientName(page)).toHaveValue(`${PREFIX} Stay`);
     // Focus goes back where the departure began.
-    await expect(link(page, "Dashboard")).toBeFocused();
+    await expect(await link(page, "Dashboard")).toBeFocused();
 
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await expect(prompt(page)).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(prompt(page)).toHaveCount(0);
@@ -111,7 +112,7 @@ test.describe("editors and application navigation", () => {
     await expect(prompt(page)).toBeVisible();
     await prompt(page).getByTestId("unsaved-stay").click();
 
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await prompt(page).getByTestId("unsaved-discard").click();
     await page.waitForURL("**/dashboard");
     await expect(prompt(page)).toHaveCount(0);
@@ -131,24 +132,24 @@ test.describe("editors and application navigation", () => {
     await clientName(page).fill("x");
     await clientName(page).fill("");
     await expect(page.getByTestId("unsaved-indicator").first()).toHaveText("");
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await page.waitForURL("**/dashboard");
   });
 
   test("UW-05: new tabs, middle clicks and hovering never ask, and leave the draft alone", async ({ page, context }) => {
     await dirtyClient(page, `${PREFIX} New tab`);
-    await link(page, "Tasks").hover();
+    await (await link(page, "Tasks")).hover();
     await expect(prompt(page)).toHaveCount(0);
 
     const modifier = process.platform === "darwin" ? "Meta" : "Control";
     const opened = context.waitForEvent("page");
-    await link(page, "Tasks").click({ modifiers: [modifier] });
+    await (await link(page, "Tasks")).click({ modifiers: [modifier] });
     const tab = await opened;
     await tab.close();
     await expect(prompt(page)).toHaveCount(0);
 
     const middle = context.waitForEvent("page");
-    await link(page, "Tasks").click({ button: "middle" });
+    await (await link(page, "Tasks")).click({ button: "middle" });
     await (await middle).close();
     await expect(prompt(page)).toHaveCount(0);
     await expect(page).toHaveURL(/\/clients\/new$/);
@@ -158,11 +159,11 @@ test.describe("editors and application navigation", () => {
   test("UW-06: Back and Forward are held on the page; Stay keeps URL and draft; repeated Back asks once; Discard goes once", async ({ page }) => {
     // Every entry in one document, so Back and Forward stay in the page's router.
     await page.goto("/dashboard");
-    await link(page, "Clients").click();
+    await (await link(page, "Clients")).click();
     await page.waitForURL(/\/clients$/);
     await mainRegion(page).getByRole("link", { name: /new client/i }).first().click();
     await page.waitForURL(/\/clients\/new$/);
-    await link(page, "Tasks").click();
+    await (await link(page, "Tasks")).click();
     await page.waitForURL("**/tasks");
     await page.goBack();
     await page.waitForURL(/\/clients\/new$/);
@@ -222,7 +223,7 @@ test.describe("editors and application navigation", () => {
     await page.goto("/clients/new");
     const legal = mainRegion(page).getByLabel("Legal name");
     await legal.fill(`${PREFIX} Legal only`);
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await prompt(page).getByTestId("unsaved-save").click();
     await expect(prompt(page)).toHaveCount(0);
     await expect(page).toHaveURL(/\/clients\/new$/);
@@ -237,7 +238,7 @@ test.describe("editors and application navigation", () => {
     page.on("request", (request) => {
       if (isAction(request)) posts.push(request.url());
     });
-    await link(page, "Tasks").click();
+    await (await link(page, "Tasks")).click();
     await expect(prompt(page).getByTestId("unsaved-save")).toHaveText("Create and continue");
     await prompt(page).getByTestId("unsaved-save").click();
     await page.waitForURL("**/tasks");
@@ -249,7 +250,7 @@ test.describe("editors and application navigation", () => {
 
   test("UW-10: a duplicate warning is never accepted by Save and continue", async ({ page }) => {
     await dirtyClient(page, "ACME Developments");
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await prompt(page).getByTestId("unsaved-save").click();
     await expect(prompt(page)).toHaveCount(0);
     await expect(page).toHaveURL(/\/clients\/new$/);
@@ -276,7 +277,7 @@ test.describe("editors and application navigation", () => {
     await page.unroute("**/clients/new");
 
     // An unknown outcome is never saved again by the prompt.
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await expect(prompt(page)).toContainText("It may already be saved.");
     await expect(prompt(page).getByTestId("unsaved-save")).toHaveCount(0);
     await expect(prompt(page).getByTestId("unsaved-discard")).toHaveText("Leave anyway");
@@ -341,11 +342,11 @@ test.describe("editors and application navigation", () => {
 
   test("UW-23: a discarded draft leaves nothing behind: the next page asks only for its own changes", async ({ page }) => {
     await dirtyClient(page, `${PREFIX} Cleanup`);
-    await link(page, "Tasks").click();
+    await (await link(page, "Tasks")).click();
     await prompt(page).getByTestId("unsaved-discard").click();
     await page.waitForURL("**/tasks");
     await page.goto("/clients/new");
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await page.waitForURL("**/dashboard");
     await expect(prompt(page)).toHaveCount(0);
     let asked = 0;
@@ -408,7 +409,7 @@ test.describe("dialogs and record forms", () => {
     await expect(page.getByTestId("task-conflict-applied")).toBeVisible();
     await expect(title).toHaveValue(`${PREFIX} Mine`);
     await expect(page.getByTestId("unsaved-indicator").first()).toHaveText("Unsaved changes");
-    await link(page, "Dashboard").click();
+    await (await link(page, "Dashboard")).click();
     await expect(prompt(page)).toBeVisible();
     await prompt(page).getByTestId("unsaved-stay").click();
     // The version is the latest one: the save now commits.

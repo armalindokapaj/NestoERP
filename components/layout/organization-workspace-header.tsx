@@ -9,10 +9,8 @@ import Link from "@/components/navigation/nav-link";
 import { PanelFailure, PanelLoading } from "@/components/layout/panels/panel-frame";
 import type { WorkspaceOption } from "@/components/layout/panels/workspace-panel-body";
 import { useShellCore, useWorkspaceOptions } from "@/components/layout/shell-slots";
-import { useSidebar } from "@/components/layout/sidebar-provider";
 import { useWorkspaceSwitch } from "@/components/workspace/workspace-switch-provider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { topbarOffset } from "@/lib/layout/topbar-line";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
@@ -80,14 +78,14 @@ export function OrganizationWorkspaceHeader({
   variant,
   onSwitchStart,
 }: {
-  variant: "sidebar" | "drawer";
+  variant: "home" | "drawer";
   /** The drawer closes as a switch starts, so the page's own progress is in view. */
   onSwitchStart?: () => void;
 }) {
   const identity = useIdentity();
   const switchable = useSwitchable();
-  // In the sidebar the header names the workspace and goes to its dashboard; switching is the top bar's company switcher.
-  if (variant === "sidebar") return <HomeHeader identity={identity} />;
+  // At the start of the desktop top bar the header names the workspace and goes to its dashboard; switching is the company switcher beside it.
+  if (variant === "home") return <HomeHeader identity={identity} />;
   if (!switchable) return <StaticHeader identity={identity} />;
   return <DrawerHeader identity={identity} onSwitchStart={onSwitchStart} />;
 }
@@ -119,23 +117,22 @@ const faceClass =
 function Names({ identity, switchable = false }: { identity: Identity; switchable?: boolean }) {
   return (
     <span className="nesto-nav-label flex min-w-0 flex-1 items-center gap-1.5 leading-tight">
-      <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg look2:text-[0.8125rem] look2:uppercase look2:tracking-[0.08em] look2:[font-family:var(--font-nesto-display),sans-serif] look2:[font-variation-settings:'wdth'_100]">
+      <span data-testid="workspace-label" className="block truncate font-semibold text-fg text-[0.8125rem] uppercase tracking-[0.08em] [font-family:var(--font-nesto-display),sans-serif] [font-variation-settings:'wdth'_100] leading-(--nesto-leading-body)">
         {identity.workspace}
       </span>
-      {switchable ? <ChevronDown aria-hidden="true" strokeWidth={2} className="size-3.5 shrink-0 text-fg-muted md:hidden" /> : null}
+      {switchable ? <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted md:hidden" /> : null}
     </span>
   );
 }
 
 /**
- * The sidebar's header: the workspace being worked in, by its own name alone,
- * and the way to its dashboard — the same destination as the Dashboard item.
- * The organization is not repeated here; the company switcher names it.
+ * The desktop top bar's first item: the workspace being worked in, by its own
+ * name alone, and the way to its dashboard. The organization is not repeated
+ * here; the company switcher beside it names it.
  */
 function HomeHeader({ identity }: { identity: Identity }) {
   const t = useTranslations("workspace");
-  const { isRail } = useSidebar();
-  const face = (
+  return (
     <Link
       href="/dashboard"
       intent
@@ -145,23 +142,12 @@ function HomeHeader({ identity }: { identity: Identity }) {
       className={cn(faceClass, "transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
     >
       <OrganizationMark name={identity.workspace} logoUrl={identity.logoUrl} />
-      <span className="nesto-nav-label min-w-0 flex-1 leading-tight">
-        <span data-testid="workspace-label" className="block truncate text-body font-semibold text-fg look2:text-[0.8125rem] look2:uppercase look2:tracking-[0.08em] look2:[font-family:var(--font-nesto-display),sans-serif] look2:[font-variation-settings:'wdth'_100]">
+      <span className="min-w-0 flex-1 leading-tight">
+        <span data-testid="workspace-label" className="block truncate font-semibold text-fg text-[0.8125rem] uppercase tracking-[0.08em] [font-family:var(--font-nesto-display),sans-serif] [font-variation-settings:'wdth'_100] leading-(--nesto-leading-body)">
           {identity.workspace}
         </span>
       </span>
     </Link>
-  );
-  if (!isRail) return face;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{face}</TooltipTrigger>
-      <TooltipContent side="right">
-        <span className="block max-w-72 font-semibold" data-testid="organization-tooltip">
-          {identity.workspace}
-        </span>
-      </TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -175,7 +161,7 @@ function HomeHeader({ identity }: { identity: Identity }) {
  * top edge on the breadcrumb bar's top line (lib/layout/topbar-line.ts).
  *
  * It reads the organization's name over "Choose Company" — the company being
- * worked in is named by the sidebar header, so it is not said twice. Drawn from
+ * worked in is named by the header at the start of the top bar, so it is not said twice. Drawn from
  * `md`, wherever the top bar carries + Create; on a phone the top bar's own
  * header is the switch. Nothing at all for somebody with one workspace (§46).
  */
@@ -202,10 +188,10 @@ export function WorkspaceSwitcher() {
           data-testid="workspace-switcher"
           data-options={state.status}
           data-scope={identity.scope}
-          className="hidden h-9 min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded-md bg-accent px-3 text-left text-accent-fg transition-colors hover:bg-accent-strong aria-busy:cursor-progress md:inline-flex touch:h-11 look2:rounded-full look2:border look2:border-line look2:bg-surface look2:px-3.5 look2:text-fg look2:hover:bg-hover"
+          className="hidden h-9 min-w-0 shrink-0 cursor-pointer items-center gap-2 text-left transition-colors aria-busy:cursor-progress md:inline-flex touch:h-11 rounded-full border border-line bg-surface px-3.5 text-fg hover:bg-hover"
           {...warm}
         >
-          <Building2 aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.8} />
+          <Building2 aria-hidden="true" className="size-4 shrink-0" />
           <span className="flex min-w-0 flex-col">
             <span data-testid="organization-name" className="max-w-44 truncate text-meta font-semibold leading-[1.2]">
               {identity.primary}

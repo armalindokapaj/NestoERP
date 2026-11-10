@@ -12,7 +12,7 @@ export type QuickActionDefinition = {
   key: string;
   label: string;
   href: string;
-  /** lucide icon name. */
+  /** Icon name, resolved by components/layout/nav-icon.tsx. */
   icon: string;
   module: ModuleKey;
   permission: Permission;

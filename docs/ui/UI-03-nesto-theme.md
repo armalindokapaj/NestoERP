@@ -1,45 +1,49 @@
 > **Chat:** Nesto — adapting the 7F "Tirana Vertical" design
-> **File:** `docs/ui/UI-03-vertical-look.md`
-> **About:** Theme 2 — the Tirana Vertical reference taken apart, the concept Nesto draws from it, how each of the reference's patterns lands on Nesto's screens, the icon system, how Theme 2 sits beside Theme 1, what was removed (UI-02), and what comes next.
-> **Last updated:** 2026-11-10 (the phone, taken to the reference's narrow page)
+> **File:** `docs/ui/UI-03-nesto-theme.md`
+> **About:** The Nesto theme — the Tirana Vertical reference taken apart, the concept Nesto draws from it, how each of the reference's patterns lands on Nesto's screens, the icon system, Day and Night, what was removed (Theme 1, UI-02), and what comes next.
+> **Last updated:** 2026-11-10 (the only theme; Day or Night)
 
-# UI-03 — Theme 2, the "Vertical" look
+# UI-03 — The Nesto theme
 
-Nesto has two looks. **Theme 1** is the original: warm ivory, gold, serif
-titles. **Theme 2** is drawn in the design language of
+Nesto has one theme, the **Nesto theme**, drawn in the design language of
 [Tirana Vertical](https://tirana.7fstudio.com/) (7F studio). It is a drawing
 sheet more than an app. It uses cool paper, ink rules, condensed display
 figures, italic serif standfirsts, mono labels, status drawn as architects
-draw it, and IBM's Carbon icons. Each look has a light and a dark colour
-scheme.
+draw it, and IBM's Carbon icons. It comes in two colour schemes, **Day** and
+**Night**.
 
 Evidence (`docs/ui/evidence/`):
 
-- `UI-03-theme2-desktop.png`: dashboard header, record header, metric
-  figures, status marks and the project plates, in light then dark.
-- `UI-03-theme2-desktop-detail.png`: a dialog, and the tables in dark.
-- `UI-03-theme2-phone.png`: the hero and KPI figures, the record and metric
-  figures, the plates two to a row, the More sheet and a docked sheet, in
-  light then dark.
-- `UI-03-theme2-icons.png`: the icon pairs, Theme 1 then Theme 2.
+- `UI-03-nesto-desktop.png`: dashboard header, record header, metric
+  figures, status marks and the project plates, by Day then at Night.
+- `UI-03-nesto-desktop-detail.png`: a dialog, and the tables at Night.
+- `UI-03-nesto-phone.png`: the hero and KPI figures, the record and metric
+  figures, the plates two to a row, the More sheet and a docked sheet, by
+  Day then at Night.
+- `UI-03-nesto-icons.png`: the Carbon glyph behind each icon name.
+- `UI-03-nesto-appearance.png`: the Nesto theme setting.
 
 All of them are the real components in a mock of the shell.
 
-## 1. How the choice works
+## 1. Day or Night
 
 | | |
 | --- | --- |
-| Where | Settings → Appearance → **Theme** (Theme 1 / Theme 2) |
-| Default | Theme 1. Nobody's look changes until they pick Theme 2 |
-| Stored | Cookie `nesto.look`, per browser, for one year, like light/dark |
-| Rendered | `<html data-look="2">` from the server, so there is no flash. Theme 1 renders no attribute |
-| In code | Called "look", because "theme" already means the colour scheme: `lib/layout/look-state.ts`, `look-server.ts`, `styles/look-2.css`, the `look2:` variant |
+| Where | Settings → Appearance → **Nesto theme**: Day / Night. Also the one-click sun/moon in the top bar, the More sheet and the account panel |
+| Default | Day, whatever the operating system prefers. Night only when chosen |
+| Stored | Cookie `nesto.theme` (`light` or `dark`), per browser, for one year. Anything else, an old `system` included, reads as Day |
+| Rendered | `<html data-theme="light \| dark">` from the server, so there is no flash. `styles/tokens.css` is `color-scheme: light`, and `:root[data-theme="dark"]` turns it to dark, which every `light-dark()` token follows |
+| In code | `lib/layout/theme-state.ts`, `components/settings/theme-preference.tsx` (`applyThemeChoice`), `components/layout/theme-toggle.tsx` |
 
-Theme 1 does not change. Each round of Theme 2 work is diffed against the
-version before it on the mock shell. The diff covers desktop and phone (390px and
-360px), light and dark, the full length of the page, the More sheet, and a
-centred, a docked and a full-screen dialog: 52 frames in this round. Theme 1 is pixel-identical in every frame. Theme 1 downloads
-none of Theme 2's fonts.
+**Theme 1 was removed** on 2026-11-10, with the look it was chosen by: the
+`nesto.look` cookie, `<html data-look>`, the `look2:` variant,
+`styles/look-2.css`, the Theme 1 / Theme 2 setting, the Lucide icons and the
+Manrope, Geist Mono and Instrument Serif fonts. The Nesto theme's values now
+live in `styles/tokens.css` and `styles/globals.css` directly, and every
+former `look2:` class is a plain class. The fold was checked frame by frame:
+the mock shell (desktop and phones, Day and Night, the More sheet and every
+dialog) and the public site match what Theme 2 drew, apart from the More
+sheet's Dark/Light row, which now reads Night/Day.
 
 ## 2. The reference, taken apart
 
@@ -98,7 +102,7 @@ These were measured from the live page's computed styles, not estimated.
 
 Nesto is an ERP for builders. Its users read drawings for a living, so the
 reference's drawing-set language is not decoration for them: it is their
-literacy. Theme 2 follows eight rules.
+literacy. The theme follows eight rules.
 
 1. **Figures first.** Every page with numbers leads with them, set in the
    display face over a mono label. This covers dashboard KPIs, a record's
@@ -126,49 +130,52 @@ literacy. Theme 2 follows eight rules.
    in 0.8s, on the reference's colour curve. Nothing else moves on load.
    Reduced motion turns it off.
 
-## 3. Tokens (`styles/look-2.css`)
+## 3. Tokens (`styles/tokens.css`)
 
-The tokens are an overlay. Every rule is scoped to `:root[data-look="2"]` and
-restates variables that `styles/tokens.css` already declares.
+Day and Night are declared together with `light-dark()`, one line per token.
 
-| Token | Theme 1 | Theme 2 (light / dark) |
-| --- | --- | --- |
-| `canvas` | `#f5f3ee` warm | `#f5f6f7` / `#0b0d10` |
-| `fg` | `#16140f` | `#0f141a` / `#eceef1` |
-| `fg-muted` | `#57514a` | `#3a424c` / `#a9b0ba` |
-| `fg-subtle` | `#655e53` | `#59616c` / `#8b939e` |
-| `border`, `border-strong` | warm greys | `#dfe2e5`, `#c8ccd1` / `#232830`, `#363d47` |
-| `control-border` | `#857c6c` | `#757d87` / `#6f7884` |
-| `primary` (light) | `#16140f` | `#0f141a` |
-| `success` / `warning` / `info` / `danger` (light fills) | brighter | `#1e6a4e` / `#b06f12` / `#2d5a8a` / `#b0251f` |
-| `shadow-card` | `0 2px 8px` | `0 14px 30px -22px` |
-| `shadow-menu`, `shadow-dialog` | soft blurs | ink hairline + under-pulled drop |
-| `radius-xl`, `radius-card` | 12px | 10px |
-| `radius-overlay` | 12px | 14px |
-| `ease` | `(.2,.8,.2,1)` | `(.25,.46,.45,.94)` |
+| Token | Day / Night |
+| --- | --- |
+| `canvas` | `#f5f6f7` / `#0b0d10` |
+| `surface` | `#ffffff` / `#12151a` |
+| `fg` | `#0f141a` / `#eceef1` |
+| `fg-muted` | `#3a424c` / `#a9b0ba` |
+| `fg-subtle` | `#59616c` / `#8b939e` |
+| `border`, `border-strong` | `#dfe2e5`, `#c8ccd1` / `#232830`, `#363d47` |
+| `control-border` | `#757d87` / `#6f7884` |
+| `primary` | ink `#0f141a` / gold `#c9a961` |
+| `accent` | gold `#8f6c2c` / `#c9a961` |
+| `success` / `warning` / `info` / `danger` (fills) | `#1e6a4e` / `#b06f12` / `#2d5a8a` / `#b0251f` by Day |
+| `shadow-card` | `0 14px 30px -22px`, pulled in under the card |
+| `shadow-menu`, `shadow-dialog` | ink hairline + under-pulled drop |
+| `radius-xl`, `radius-card` | 10px |
+| `radius-overlay` | 14px |
+| `ease` | `(.25,.46,.45,.94)` |
+| `space-page-x` | 20px on a phone, 24px from `md`, 32px from `xl` |
 
 `fg-subtle` is darker than the reference's `#6F7782`. Nesto holds metadata to
 a 4.5:1 contrast ratio on every ground, including hover and selected, and the
 reference colour does not reach that. The dark scheme is derived, because the
-reference has none. Every pair is measured in both themes and both schemes by
+reference has none. Every pair is measured by Day and at Night by
 `tests/unit/a11y/contrast.test.ts`.
 
-## 4. Type and vocabulary (`lib/fonts`, `styles/look-2.css`, `styles/globals.css`)
+## 4. Type and vocabulary (`lib/fonts`, `styles/globals.css`)
 
-| Role | Theme 1 | Theme 2 | Used by |
+| Role | Face | Variable | Used by |
 | --- | --- | --- | --- |
-| Sans | Manrope | IBM Plex Sans (variable) | body, controls |
-| Mono | Geist Mono | IBM Plex Mono 400/500/600 | `nesto-eyebrow`, labels, table headings, badges, sidebar rows, indexes |
-| Serif | Instrument Serif | Newsreader (variable, italic) | `nesto-standfirst` |
-| Display | none (the serif does this job) | Archivo (variable width) | `font-display`, headings, figures |
+| Sans | IBM Plex Sans (variable) | `--font-nesto-sans` | body, controls |
+| Mono | IBM Plex Mono 400/500/600 | `--font-nesto-mono` | `nesto-eyebrow`, labels, table headings, badges, navigation labels, indexes |
+| Serif | Newsreader (variable, italic) | `--font-nesto-serif` | `nesto-standfirst` |
+| Display | Archivo (variable width) | `--font-nesto-display` | `font-display`, headings, figures |
 
 All four are licensed SIL OFL and bundled from Fontsource 5.3.0, Latin
-subset. Theme 2's fonts are declared without preload, so they are fetched only
-inside Theme 2. `look-2.css` points the product's three font variables at
-Theme 2's faces. Headings `h1`–`h3` take the display face from a base-layer
-rule, so a heading that names its own face keeps it.
+subset. Plex Sans and Archivo are preloaded, being on every first paint; the
+mono and the serif swap in. Headings `h1`–`h3` take the display face from a
+base-layer rule, so a heading that names its own face keeps it.
+`font-display` also sets the tracking variable, so a named size beside it
+(`text-page`) keeps the face's tracking.
 
-Classes, used with the variant (`look2:font-display`):
+Classes:
 
 | Class | What it draws |
 | --- | --- |
@@ -179,7 +186,7 @@ Classes, used with the variant (`look2:font-display`):
 | `nesto-status-dot` | An 8px square status marker in `currentColor` |
 | `animate-[nesto-rise-focus_…]` | The entrance: a rise out of blur (`globals.css`) |
 
-Attributes, which Theme 2 draws from `look-2.css` and Theme 1 ignores:
+Attributes, drawn by the rules at the end of `styles/globals.css`:
 
 | Attribute | On | Draws |
 | --- | --- | --- |
@@ -191,21 +198,20 @@ Attributes, which Theme 2 draws from `look-2.css` and Theme 1 ignores:
 | `data-plate` | `ProjectCard` | On a phone, drops the plate's "01" index |
 | `data-phone-sheet="dock \| full"` | Docked and full-screen dialogs, `BottomSheet`, bottom drawers | On a phone, a sheet floating 8px off the edges |
 
-The attributes replace classes where Tailwind's layers would lose:
-`.nesto-card` sits in the utilities layer and wins over `look2:` classes on
-the same element.
+The attributes replace classes where Tailwind's layers would lose: `.nesto-card`
+sits in the utilities layer and would win over a class on the same element,
+so these rules are unlayered.
 
 ## 5. The patterns on Nesto's screens
 
-Everything below is either a `look2:` class on the component or a rule in
-`styles/look-2.css`. Theme 1's classes are untouched.
+Everything below is a class on the component or a rule in `styles/globals.css`.
 
 ### 5.1 Pattern → Nesto
 
 | Reference | Nesto | Where |
 | --- | --- | --- |
 | Masthead and its ink rule | Top bar on an ink rule. + Create is an ink pill and the company switcher a white pill | `components/layout/topbar.tsx` |
-| Mono navigation | Sidebar rows in mono capitals with Carbon icons; the active row is an ink pill | `sidebar-nav.tsx` |
+| Navigation | The Ribbon or the Dock on a desktop, the Thumb bar or Bottom tabs on a phone (UI-04); the current module is an ink pill | `ribbon.tsx`, `desktop-dock.tsx`, `mobile-bottom-nav.tsx`, `mobile-tabs-nav.tsx` |
 | Hero, outlined second word, square full stop | The dashboard's `Company overview.`: Archivo at width 62, from 4rem to 7.5rem. "overview" is outlined and indented with a gold square for the full stop, and the block rises from focus | `welcome-header.tsx`, admin `sections.tsx` |
 | Hero figures | KPI cards lead with the figure (2.75rem, width 70) under the gold tick, over a mono label. The icon tile is gone | `kpi-card.tsx` |
 | Facts under hairlines | A record header's facts (contract value, floors, completion, manager) form a grid of figures, each under its own hairline. On a phone they take the full width, two columns | `page-header.tsx` (`FACTS`) |
@@ -273,41 +279,38 @@ dial, a 62px ink circle 30px from the right and 40px from the bottom.
 
 ## 6. Icons (`components/icons`)
 
-**Choice.** Theme 2 uses IBM's
+**Choice.** Every icon is one of IBM's
 [Carbon](https://github.com/carbon-design-system/carbon/tree/main/packages/icons)
-icons (Apache-2.0). The reference's icons are its own drawings, so Nesto
+glyphs (Apache-2.0). The reference's icons are its own drawings, so Nesto
 does not copy them. Carbon is the family drawn alongside IBM Plex, which is
 the reference's body and label type. It shares Plex's grid and stroke: a
 32-unit box with a 2-unit line, so 1px at 16px, like a drawn line. It has
 flat terminals and engineered geometry, and it includes an industry
-vocabulary that Lucide lacks: `helmet`, `delivery-truck`, `industry`,
-`enterprise`, `inventory-management`, `task--approved`. Lucide's rounded,
-friendly line belongs to Theme 1 and stays there.
+vocabulary: `helmet`, `delivery-truck`, `industry`, `enterprise`,
+`inventory-management`, `task--approved`.
 
 **How it works.**
 
-- `components/icons/index.ts` is the product's only icon module. Every one of
-  its 288 exports draws both looks: the Carbon glyph (`data-icon-look="2"`)
-  and the Lucide icon (`data-icon-look="1"`), via `dual()` in
-  `components/icons/dual.tsx`.
-- `look-2.css` hides whichever glyph does not belong to the current look.
-- The Carbon glyph comes first, so Lucide stays the last child for `space-x`
-  and `divide` utilities.
-- `ref`, `id` and `data-testid` stay on Lucide, so Theme 1's markup,
-  behaviour and tests are unchanged.
+- `components/icons/index.ts` is the product's only icon module, generated
+  by `scripts/icons/generate.mjs`. Each of its 288 exports is
+  `glyph(name, markup)` (`components/icons/glyph.tsx`): one `<svg>` on the
+  32-unit grid, filled with the current colour, sized by `size` or a class.
+- The names are the ones the code already imported (`Building2`, `HardHat`,
+  `Loader2`, …), so call sites read the same. The types are `IconComponent`
+  and `IconProps`.
 - An icon is decorative unless it is given `aria-label`, in which case it is
-  `role="img"`.
-- Nesto's own module icons (`NestoOverview` … `NestoAuditLog`) live in
-  `components/icons/nesto.ts` and are paired the same way.
+  `role="img"`. It takes no stroke width: Carbon glyphs are filled.
 - The spinner is a drafting arc: a quarter-open circle drawn with Carbon's
   line weight.
+- No icon package ships: `lucide-react` is gone, and `@carbon/icons` is a dev
+  dependency the generator copies glyphs from.
 
-**The map.** `scripts/icons/icon-map.mjs` names the Carbon glyph for each
-icon. The choices follow meaning, not shape:
+**The map.** `scripts/icons/icon-map.mjs` names the Carbon glyph behind each
+name. The choices follow meaning, not shape:
 
 | Icon | Carbon glyph |
 | --- | --- |
-| Projects | `enterprise` (a tower) |
+| NestoProjects | `enterprise` (a tower) |
 | HardHat | `helmet` |
 | GanttChart | `roadmap` |
 | Landmark (finance) | `finance` |
@@ -316,18 +319,16 @@ icon. The choices follow meaning, not shape:
 
 **Adding an icon.**
 
-1. Add its Lucide name and the Carbon name to `icon-map.mjs`.
+1. Add its name and the Carbon name to `icon-map.mjs`.
 2. Run `pnpm icons:generate`.
 3. Import it from `@/components/icons`.
 
-`tests/architecture/icons.test.ts` fails the build if anything else imports
-`lucide-react`, or if the generated module loses its glyphs. `@carbon/icons`
-is a dev dependency only: the generator copies the glyphs it needs into the
-module.
+`tests/architecture/icons.test.ts` fails the build if anything imports an
+icon package directly, or if the generated module loses its glyphs.
 
 ## 7. Deliberately not copied
 
-- **The red accent.** Gold stays the accent in both themes. It takes red's
+- **The red accent.** Gold stays the accent, by Day and at Night. It takes red's
   places: the full stop, the tick, the focus.
 - **Their content and compositions.** This covers the skyline drawings, the
   fanned photo deck, the 3D city, the tower sheets, their icons, photographs
@@ -345,9 +346,11 @@ module.
   bar rather than the reference's one round button, so Create and Alerts stay
   one tap away.
 
-## 8. What was removed: UI-02 ("design version 2")
+## 8. What was removed
 
-Theme 2 replaces the flag-gated version 2. Removed with it:
+**Theme 1** (2026-11-10): see §1.
+
+**UI-02 ("design version 2")**, which the Nesto theme replaced. Removed with it:
 
 - `styles/tokens-v2.css`, the `ds2:` variant and every `ds2:` class;
 - `NESTO_DESIGN_SYSTEM` and `NESTO_UI_RULER`, the `nesto.ds`, `nesto.density`
@@ -383,18 +386,16 @@ pages used classes the stylesheet does not define.
 **Still to check:**
 
 - **Signed-in screens.** These were not viewed, because there was no database
-  in the environment this was built in. Both themes were checked on a mock of
-  the shell, the landing page and the token tests. The dashboard, a
+  in the environment this was built in. The theme was checked on a mock of
+  the shell, the public pages and the token tests. The dashboard, a
   table-heavy module, a record page and Settings → Appearance need a pass.
-- **A production build.** Every icon now ships both glyphs. A build should
-  confirm the bundle cost is small, and the type checker should run where the
-  Prisma client can be generated. Here its errors match `main`'s, file for
-  file and code for code.
-- **Long Albanian labels.** They truncate sooner in mono capitals than in
-  Theme 1's sans, most visibly in the phone's bottom bar and the sidebar.
+- **The type checker** should run where the Prisma client can be generated.
+  Here its errors match `main`'s, file for file and code for code.
+- **Long Albanian labels.** They truncate sooner in mono capitals, most
+  visibly in the phone's bottom bar and the desktop navigation.
 - **Titles drawn as `<p>`.** A title written as a paragraph stays in Plex Sans
-  unless it carries `look2:font-display`.
+  unless it carries `font-display`.
 - **Stale references.** Comments in about fifteen files still mention version
   2 or `tokens-v2.css`. `docs/ui/UI-02-*` and `docs/a11y/contrast.md`
   describe the removed design.
-- **Native splash and icon.** These still use `#15171c` in both themes.
+- **Native splash and icon.** These still use `#15171c`, by Day and at Night.

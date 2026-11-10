@@ -79,7 +79,7 @@ export function OfflineStatus({ className, inShell = true }: { className?: strin
           tone === "synced" && "border-success/30 bg-surface text-success-strong",
         )}
       >
-        <Icon className={cn("size-3.5 shrink-0", tone === "syncing" && "animate-spin motion-reduce:animate-none")} strokeWidth={1.8} aria-hidden />
+        <Icon className={cn("size-3.5 shrink-0", tone === "syncing" && "animate-spin motion-reduce:animate-none")} aria-hidden />
         <span className="truncate">{text}</span>
       </Link>
     </div>

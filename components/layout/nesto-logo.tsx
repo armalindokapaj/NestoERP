@@ -51,7 +51,7 @@ export function NestoLogo({
         <span
           aria-hidden="true"
           className={cn(
-            "grid shrink-0 place-items-center rounded-[10px] border border-accent bg-transparent font-serif font-normal look2:font-display leading-none text-accent-strong",
+            "grid shrink-0 place-items-center rounded-[10px] border border-accent bg-transparent leading-none text-accent-strong font-display",
             markSizes[size],
           )}
         >
@@ -63,8 +63,8 @@ export function NestoLogo({
         <span className="inline-flex min-w-0 flex-col gap-1">
           <span
             className={cn(
-              // Theme 2: the display face at its wide setting; the tracking is the size's own.
-              "font-serif leading-none look2:[font-family:var(--font-nesto-display),sans-serif] look2:[font-variation-settings:'wdth'_110] look2:font-semibold",
+              // The display face at its wide setting; the tracking is the size's own.
+              "leading-none [font-family:var(--font-nesto-display),sans-serif] [font-variation-settings:'wdth'_110] font-semibold",
               wordmarkSizes[size],
               inverse ? "text-graphite-fg" : "text-fg",
               wordmarkClassName,

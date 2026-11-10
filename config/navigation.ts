@@ -28,7 +28,7 @@ export type NavigationItem = {
   key: ModuleKey;
   label: string;
   href: string;
-  /** lucide icon name — resolved to a component by the renderer. */
+  /** Icon name — resolved to a component by the renderer (components/layout/nav-icon.tsx). */
   icon: string;
   module: ModuleKey;
   permission: Permission;

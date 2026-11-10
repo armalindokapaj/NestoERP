@@ -8,7 +8,7 @@ import {
   Flag,
   FolderKanban,
   Landmark,
-  type LucideIcon,
+  type IconComponent,
   Scale,
   ShieldAlert,
   ShoppingCart,
@@ -29,7 +29,7 @@ import type { CalendarCategory, CalendarEventDTO, CalendarView } from "@/lib/mod
  * week starts on Monday.
  */
 
-export const CATEGORY_META: Record<CalendarCategory, { label: string; icon: LucideIcon; token: string }> = {
+export const CATEGORY_META: Record<CalendarCategory, { label: string; icon: IconComponent; token: string }> = {
   TASK: { label: "Tasks", icon: CheckSquare, token: "var(--nesto-cal-task)" },
   MEETING: { label: "Meetings", icon: Users, token: "var(--nesto-cal-meeting)" },
   PROJECT: { label: "Project events", icon: FolderKanban, token: "var(--nesto-cal-project)" },

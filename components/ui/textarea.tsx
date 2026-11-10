@@ -6,7 +6,7 @@ export function Textarea({ className, ...props }: React.ComponentProps<"textarea
   return (
     <textarea
       className={cn(
-        "min-h-24 w-full rounded-md border border-control bg-surface px-3 py-2 text-body text-fg look2:rounded-[10px]",
+        "min-h-24 w-full border border-control bg-surface px-3 py-2 text-body text-fg rounded-[10px]",
         "placeholder:text-fg-subtle",
         // The boundary is the 3:1 control border; focus is a solid 2px ring (AUD-11 AV-04, AV-10).
         "transition-colors focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

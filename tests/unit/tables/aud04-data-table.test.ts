@@ -49,7 +49,7 @@ describe("cards", () => {
     const html = render({ rowHref: (row: Row) => `/finance/invoices/${row.id}`, actions: menu });
     const card = html.slice(html.indexOf("data-record-card"));
     expect(card).toMatch(/<a[^>]*data-card-link[^>]*class="[^"]*after:absolute after:inset-0/);
-    expect(card).toContain("lucide-chevron-right");
+    expect(card).toContain("data-card-chevron");
     // Actions: their own row, above the stretched link, outside the anchor.
     expect(card).toMatch(/data-card-actions[^>]*class="relative z-10 /);
     const anchor = card.slice(card.indexOf("<a"), card.indexOf("</a>"));
@@ -68,7 +68,7 @@ describe("cards", () => {
   it("have no stretched link or chevron without a row link", () => {
     const html = render({});
     expect(html).not.toContain("data-card-link");
-    expect(html).not.toContain("lucide-chevron-right");
+    expect(html).not.toContain("data-card-chevron");
   });
 });
 

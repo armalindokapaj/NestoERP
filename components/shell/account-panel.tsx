@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Building2, CircleHelp, LogOut, Moon, Settings, ShieldCheck, Sparkles, Sun } from "@/components/icons";
+import { Building2, CircleHelp, LogOut, Moon, Settings, ShieldCheck, Sparkles, Sun, type IconComponent } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { LocaleSwitch } from "@/components/i18n/locale-switch";
@@ -10,7 +10,7 @@ import Link from "@/components/navigation/nav-link";
 import { applyThemeChoice } from "@/components/settings/theme-preference";
 import { Avatar } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { isThemeChoice, type ThemeChoice } from "@/lib/layout/theme-state";
+import { readThemeChoice, type ThemeChoice } from "@/lib/layout/theme-state";
 import { topbarOffset } from "@/lib/layout/topbar-line";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
 import { cn } from "@/lib/utils/cn";
@@ -39,16 +39,14 @@ export type AccountPanelModel = {
   };
 };
 
-const THEMES: { value: ThemeChoice; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }[] = [
+const THEMES: { value: ThemeChoice; icon: IconComponent }[] = [
   { value: "light", icon: Sun },
   { value: "dark", icon: Moon },
 ];
 
-/** The scheme in force: the explicit choice, else the operating system's, so one of the two is always selected. */
+/** Day or Night, as the root layout rendered it or the last switch set it. */
 function readTheme(): ThemeChoice {
-  const choice = document.documentElement.dataset.theme;
-  if (isThemeChoice(choice) && choice !== "system") return choice;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return readThemeChoice(document.documentElement.dataset.theme);
 }
 
 const row =
@@ -100,8 +98,8 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
   );
-  const icon = (Icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>) => (
-    <Icon aria-hidden className="size-[18px] shrink-0 text-accent-strong look2:text-fg-subtle" strokeWidth={1.6} />
+  const icon = (Icon: IconComponent) => (
+    <Icon aria-hidden className="size-[18px] shrink-0 text-fg-subtle" />
   );
 
   return (
@@ -115,7 +113,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
           data-testid="account-trigger"
           className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full transition-colors hover:bg-hover data-[state=open]:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Avatar firstName={model.user.firstName} lastName={model.user.lastName} src={model.user.avatarUrl} size="md" className="size-8 border-transparent bg-accent font-serif font-normal look2:font-display text-accent-fg" />
+          <Avatar firstName={model.user.firstName} lastName={model.user.lastName} src={model.user.avatarUrl} size="md" className="size-8 border-transparent bg-accent font-medium text-accent-fg font-display" />
         </button>
       </PopoverTrigger>
       {/* Its top edge on the breadcrumb bar's top line, like every panel opened from the top bar. */}
@@ -162,7 +160,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
                     selected ? "bg-surface font-semibold text-fg shadow-sm ring-1 ring-accent" : "text-fg-muted hover:text-fg",
                   )}
                 >
-                  <option.icon aria-hidden className="size-4" strokeWidth={1.6} />
+                  <option.icon aria-hidden className="size-4" />
                   {t(`account.${option.value}`)}
                 </button>
               );
@@ -184,7 +182,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
             data-testid="account-sign-out"
             className={cn(row, "text-danger-strong hover:bg-danger-soft")}
           >
-            <LogOut aria-hidden className="size-[18px] shrink-0" strokeWidth={1.6} />
+            <LogOut aria-hidden className="size-[18px] shrink-0" />
             {signingOut ? t("account.signingOut") : t("account.signOut")}
           </button>
         </div>

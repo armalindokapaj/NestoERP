@@ -16,21 +16,11 @@ import { CONTRAST_PAIRS } from "@/lib/a11y/contrast-pairs";
 /**
  * AUD-11 §6, AV-10: every text/background, control-boundary, focus-ring,
  * status and chart pair the shared primitives paint clears its threshold in
- * both schemes, measured from the values styles/tokens.css actually declares.
- *
- * And again for Theme 2 (look 2), which is styles/look-2.css laid over
- * tokens.css exactly as the cascade lays it — every `:root[data-look="2"]`
- * block of the file.
+ * both schemes — Day and Night — measured from the values styles/tokens.css
+ * actually declares.
  */
-const css = (file: string) => readFileSync(join(process.cwd(), "styles", file), "utf8");
-const tokens = readTokenDeclarations(css("tokens.css"));
-const overrides = readTokenDeclarations(css("look-2.css"), ':root[data-look="2"]');
-const tokensLook2 = new Map([...tokens, ...overrides]);
+const tokens = readTokenDeclarations(readFileSync(join(process.cwd(), "styles/tokens.css"), "utf8"));
 const SCHEMES: Scheme[] = ["light", "dark"];
-const LOOKS = [
-  ["Theme 1", tokens],
-  ["Theme 2", tokensLook2],
-] as const;
 
 describe("contrast arithmetic", () => {
   it("matches the WCAG reference values", () => {
@@ -48,40 +38,26 @@ describe("contrast arithmetic", () => {
 
   it("resolves light-dark() pairs and var() references per scheme", () => {
     expect(resolveToken(tokens, "surface", "light")).toEqual(parseColor("#ffffff"));
-    expect(resolveToken(tokens, "surface", "dark")).toEqual(parseColor("#131315"));
+    expect(resolveToken(tokens, "surface", "dark")).toEqual(parseColor("#12151a"));
     // primary-fg is var(--nesto-white) in light.
     expect(resolveToken(tokens, "primary-fg", "light")).toEqual(parseColor("#ffffff"));
   });
 });
 
-describe.each(LOOKS)("token pairs in %s", (look, declarations) => {
-  describe.each(SCHEMES)("the %s scheme", (scheme) => {
-    it.each(CONTRAST_PAIRS.map((pair) => [pair.id, pair] as const))("%s", (_id, pair) => {
-      const ratio = contrastRatio(resolvePaint(declarations, pair.fg, scheme), resolvePaint(declarations, pair.bg, scheme));
-      const threshold = THRESHOLD[pair.kind];
-      expect(
-        ratio,
-        `${pair.id} (${look}, ${scheme}) is ${ratio.toFixed(2)}:1, below ${threshold}:1 — used for ${pair.where}`,
-      ).toBeGreaterThanOrEqual(threshold);
-    });
+describe.each(SCHEMES)("token pairs in the %s scheme", (scheme) => {
+  it.each(CONTRAST_PAIRS.map((pair) => [pair.id, pair] as const))("%s", (_id, pair) => {
+    const ratio = contrastRatio(resolvePaint(tokens, pair.fg, scheme), resolvePaint(tokens, pair.bg, scheme));
+    const threshold = THRESHOLD[pair.kind];
+    expect(ratio, `${pair.id} (${scheme}) is ${ratio.toFixed(2)}:1, below ${threshold}:1 — used for ${pair.where}`).toBeGreaterThanOrEqual(threshold);
   });
 });
 
-describe("Theme 2 is cool paper and ink, with gold kept as the accent", () => {
-  it("restates the neutrals and leaves the accent alone", () => {
-    expect(resolveToken(tokensLook2, "canvas", "light")).toEqual(parseColor("#f5f6f7"));
-    expect(resolveToken(tokensLook2, "fg", "light")).toEqual(parseColor("#0f141a"));
-    expect(resolveToken(tokensLook2, "primary", "light")).toEqual(parseColor("#0f141a"));
-    for (const scheme of SCHEMES) {
-      for (const token of ["accent", "accent-strong", "ring"]) {
-        expect(resolveToken(tokensLook2, token, scheme), token).toEqual(resolveToken(tokens, token, scheme));
-      }
-    }
-  });
-
-  it("overrides only names Theme 1 declares, so Theme 1 has a value for each", () => {
-    expect(overrides.size).toBeGreaterThan(0);
-    for (const name of overrides.keys()) expect(tokens.has(name), name).toBe(true);
+describe("the Nesto theme is cool paper and ink, with gold as the accent", () => {
+  it("draws the paper, the ink and the ink action of Day", () => {
+    expect(resolveToken(tokens, "canvas", "light")).toEqual(parseColor("#f5f6f7"));
+    expect(resolveToken(tokens, "fg", "light")).toEqual(parseColor("#0f141a"));
+    expect(resolveToken(tokens, "primary", "light")).toEqual(parseColor("#0f141a"));
+    expect(resolveToken(tokens, "accent", "light")).toEqual(parseColor("#8f6c2c"));
   });
 });
 

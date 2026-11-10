@@ -54,7 +54,7 @@ test("a company-only employee is offered no switcher (§7, §91)", async ({ page
   await expect(workspaceSwitcher(page)).toHaveCount(0);
   // The sidebar's header names their company and leads to its dashboard; it opens nothing.
   await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
-  await expect(page.getByTestId("sidebar-header").getByRole("button")).toHaveCount(0);
+  await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);
   // And asking for it directly is refused, whatever the browser sends (§14, §91).
   expect((await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } })).status()).toBe(403);
 });

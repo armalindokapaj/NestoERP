@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { devices, expect, test, type Page } from "@playwright/test";
 
-import { expectAccessDenied, mainRegion, sidebar, signIn } from "../fixtures";
+import { expectAccessDenied, mainRegion, navigationLink, signIn } from "../fixtures";
 
 /**
  * NAV-01 release evidence (§17 item 6): desktop and phone pictures of the
@@ -74,7 +74,7 @@ test.describe("NAV-01 evidence, desktop", () => {
 
   test("a held destination: the skeleton and the top bar", async ({ page }) => {
     await signIn(page, "FINANCE", { to: "/dashboard" });
-    const target = sidebar(page).locator('a[href="/finance"]');
+    const target = await navigationLink(page, { href: "/finance" });
     await expect(target).toBeVisible();
     await page.waitForTimeout(800); // the link's default prefetch brings the boundary
     const release = await hold(page, "/finance");
@@ -88,7 +88,7 @@ test.describe("NAV-01 evidence, desktop", () => {
   test("an unprefetched destination: the pending mark on the clicked item", async ({ page }) => {
     const release = await hold(page, "/finance", { prefetch: true });
     await signIn(page, "FINANCE", { to: "/dashboard" });
-    const target = sidebar(page).locator('a[href="/finance"]');
+    const target = await navigationLink(page, { href: "/finance" });
     await target.click();
     await expect(target.getByTestId("nav-pending-hint")).toBeVisible();
     await page.waitForTimeout(250);

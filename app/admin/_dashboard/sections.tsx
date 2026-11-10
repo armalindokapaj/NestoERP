@@ -42,12 +42,12 @@ export async function DashboardHeader({ context, actions }: { context: PlatformC
   const quick = QUICK_CREATE.filter((item) => context.permissions.includes(item.permission));
   return (
     <>
-      <div className="border-b border-accent/25 pb-6 look2:border-fg max-md:border-0 max-md:pb-1 max-md:pt-1">
+      <div className="border-b pb-6 max-md:border-0 max-md:pb-1 max-md:pt-1 border-fg">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="nesto-eyebrow text-accent-strong">{today}</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] look2:font-semibold look2:text-[clamp(4rem,9vw,7.5rem)] look2:max-md:text-[min(calc(25vw-10px),7.5rem)] look2:leading-[0.82] look2:tracking-[-0.035em] look2:[font-variation-settings:'wdth'_62]">{ta("dashboard.lead")} <em className="italic text-accent-strong look2:block look2:pl-[0.42em] look2:font-display look2:font-semibold look2:not-italic look2:tracking-[-0.035em] look2:text-transparent look2:[-webkit-text-stroke:1.25px_var(--nesto-fg)] look2:[font-variation-settings:'wdth'_62] look2:after:ml-[0.04em] look2:after:inline-block look2:after:size-[0.13em] look2:after:bg-accent look2:after:align-baseline look2:after:content-['']">{ta("dashboard.accent")}</em></h1>
+              <h1 className="text-fg font-display font-semibold text-[clamp(4rem,9vw,7.5rem)] max-md:text-[min(calc(25vw-10px),7.5rem)] leading-[0.82] tracking-[-0.035em] [font-variation-settings:'wdth'_62]">{ta("dashboard.lead")} <em className="block pl-[0.42em] font-display font-semibold not-italic tracking-[-0.035em] text-transparent [-webkit-text-stroke:1.25px_var(--nesto-fg)] [font-variation-settings:'wdth'_62] after:ml-[0.04em] after:inline-block after:size-[0.13em] after:bg-accent after:align-baseline after:content-['']">{ta("dashboard.accent")}</em></h1>
               <Badge tone="neutral" className="max-md:hidden">{ta("shell.platformAdmin")}</Badge>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -67,7 +67,7 @@ export async function DashboardHeader({ context, actions }: { context: PlatformC
               href={item.href}
               className="flex min-h-[84px] min-w-0 flex-col items-center justify-center gap-2 rounded-[18px] border border-line bg-surface px-1 py-3 text-center text-micro font-semibold leading-tight text-fg transition-colors active:border-accent active:bg-accent-soft md:inline-flex md:h-8 md:min-h-0 md:flex-row md:gap-2 md:whitespace-nowrap md:rounded-full md:border-line-strong md:px-3 md:py-0 md:text-table md:font-medium md:hover:bg-hover md:active:bg-surface"
             >
-              <Plus aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0 text-accent-strong md:size-4 md:text-current" />
+              <Plus aria-hidden="true" className="size-[22px] shrink-0 text-accent-strong md:size-4 md:text-current" />
               <span className="max-w-full break-words">{adminText(ta, `create.new${item.label}`, `New ${item.label.toLowerCase()}`)}</span>
             </Link>
           ))}
@@ -97,10 +97,10 @@ function Metric({ label, value, detail, href, icon: Icon, tone }: { label: strin
       )}
     >
       <div className="flex items-center gap-2.5 md:gap-3">
-        <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9"><Icon className="size-4" strokeWidth={1.6} /></span>
+        <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9"><Icon className="size-4" /></span>
         <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">{label}</p>
       </div>
-      <p className="mt-3 font-serif look2:font-display text-display font-normal tabular-nums text-fg md:mt-4">{value}</p>
+      <p className="mt-3 text-display tabular-nums text-fg md:mt-4 font-display">{value}</p>
       <p className={cn("mt-1 text-meta", tone === "attention" ? "text-warning-strong" : "text-fg-subtle")}>{detail}</p>
     </Link>
   );
@@ -179,7 +179,7 @@ export async function AttentionSection({ context }: { context: PlatformContext }
               return (
                 <li key={item.id} className="first:[&>*]:pt-0 last:[&>*]:pb-0" data-severity={item.severity}>
                   <Link href={item.href} className="flex min-w-0 items-center gap-3.5 py-3.5 transition-colors hover:bg-row-hover active:bg-accent-soft">
-                    <span aria-hidden="true" className={cn("grid size-10 shrink-0 place-items-center rounded-full", severity.circle)}><severity.icon className="size-[18px]" strokeWidth={1.8} /></span>
+                    <span aria-hidden="true" className={cn("grid size-10 shrink-0 place-items-center rounded-full", severity.circle)}><severity.icon className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1">
                       {item.entity ? <span className="block text-micro font-medium text-fg-subtle">{item.entity}</span> : null}
                       <span className="block text-body font-semibold text-fg"><span className="sr-only">{severityLabel}: </span>{title}</span>
@@ -308,19 +308,19 @@ export async function UsageSection({ context }: { context: PlatformContext }) {
       <div className="mt-4 grid gap-5 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-line">
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.storage")}</p>
-          <p className="mt-1 font-serif look2:font-display text-[1.625rem] font-normal leading-tight text-fg tabular-nums">{storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}</p>
+          <p className="mt-1 text-[1.625rem] leading-tight text-fg tabular-nums font-display">{storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}</p>
           {share !== null ? <p className={cn("text-meta", shareTone)}>{t("dashboard.quotaShare", { percent: Math.round(share * 100) })}</p> : <p className="text-meta text-fg-subtle">{t("dashboard.noQuota")}</p>}
           <Link href="/admin/system/storage" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.storage")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.moduleProvisioning")}</p>
-          <p className="mt-1 font-serif look2:font-display text-[1.625rem] font-normal leading-tight text-fg tabular-nums">{modules.assignments}</p>
+          <p className="mt-1 text-[1.625rem] leading-tight text-fg tabular-nums font-display">{modules.assignments}</p>
           <p className="text-meta text-fg-subtle">{t("dashboard.assignmentsHint", { available: modules.available })}</p>
           <Link href="/admin/modules" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manageModules")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>
         <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
           <p className="text-table font-medium text-fg-muted">{t("dashboard.threeD")}</p>
-          <p className="mt-1 font-serif look2:font-display text-[1.625rem] font-normal leading-tight text-fg tabular-nums">{threeD.configured}</p>
+          <p className="mt-1 text-[1.625rem] leading-tight text-fg tabular-nums font-display">{threeD.configured}</p>
           <p className="text-meta text-fg-subtle">{threeD.configured === 0 ? t("dashboard.threeDNone") : t("dashboard.threeDHint", { public: threeD.public, companyOnly: threeD.companyOnly, private: threeD.private, offline: threeD.offline })}</p>
           <Link href="/admin/3d" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manage3d")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
         </div>

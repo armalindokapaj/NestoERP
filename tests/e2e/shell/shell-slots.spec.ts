@@ -199,7 +199,7 @@ test.describe("slots stay quiet", () => {
     // Identity only: the header names the workspace and leads home, the top bar draws no switcher, and nothing is there to press (OW §46).
     await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
     await expect(workspaceSwitcher(page)).toHaveCount(0);
-    await expect(page.getByTestId("sidebar-header").getByRole("button")).toHaveCount(0);
+    await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);
     await expect(page.getByTestId("workspace-panel")).toHaveCount(0);
   });
 

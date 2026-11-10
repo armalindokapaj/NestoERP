@@ -10,39 +10,29 @@ import { cn } from "@/lib/utils/cn";
 
 type Scheme = "light" | "dark";
 
-/** The scheme in force: the explicit `data-theme` choice, else the operating system's. */
+/** Day or Night, as the root layout rendered it or the last switch set it. */
 function currentScheme(): Scheme {
-  const choice = document.documentElement.dataset.theme;
-  if (choice === "light" || choice === "dark") return choice;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
-/**
- * Follows the scheme after mount — the server cannot know the operating
- * system's — and whenever it changes, here, in Settings or in the OS.
- */
+/** Follows the scheme after mount, and whenever it changes here or in Settings. */
 function useScheme(): Scheme | null {
   const [scheme, setScheme] = React.useState<Scheme | null>(null);
 
   React.useEffect(() => {
     const update = () => setScheme(currentScheme());
     update();
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", update);
     const observer = new MutationObserver(update);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => {
-      media.removeEventListener("change", update);
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
 
   return scheme;
 }
 
 /**
- * One-click sun/moon switch (Black & Gold reskin §4). Sun when dark, moon when
- * light; the name says which scheme a press switches to. It writes through the
+ * One-click sun/moon switch between Day and Night. Sun at Night, moon by Day;
+ * the name says which scheme a press switches to. It writes through the
  * same function as Settings › Appearance, so the two always agree.
  *
  * `icon` is the top bar's button; `row` is the phone's More sheet, where the bar
@@ -65,9 +55,9 @@ export function ThemeToggle({ variant = "icon", className }: { variant?: "icon" 
         type="button"
         onClick={toggle}
         data-testid="theme-toggle"
-        className={cn("flex min-h-12 w-full items-center gap-3 border-b border-line px-3 text-left text-body font-medium text-fg hover:bg-hover look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]", className)}
+        className={cn("flex min-h-12 w-full items-center gap-3 border-b border-line px-3 text-left font-medium text-fg hover:bg-hover font-mono text-table uppercase tracking-[0.08em]", className)}
       >
-        <Icon aria-hidden="true" className="size-[18px] text-accent-strong look2:text-fg-subtle" strokeWidth={1.6} />
+        <Icon aria-hidden="true" className="size-[18px] text-fg-subtle" />
         {label}
       </button>
     );
@@ -75,7 +65,7 @@ export function ThemeToggle({ variant = "icon", className }: { variant?: "icon" 
 
   return (
     <Button variant="ghost" size="icon" onClick={toggle} aria-label={label} data-testid="theme-toggle" className={className}>
-      <Icon aria-hidden="true" strokeWidth={1.6} className="size-[18px]" />
+      <Icon aria-hidden="true" className="size-[18px]" />
     </Button>
   );
 }

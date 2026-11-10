@@ -46,7 +46,7 @@ export async function PricingPlans() {
             <p className="mt-3 text-table leading-relaxed text-fg-muted">{words.summary}</p>
 
             <div className="mt-6 flex items-baseline gap-2">
-              <span className="font-serif look2:font-display text-display leading-none text-fg">
+              <span className="text-display leading-none text-fg font-display">
                 {plan.monthly === null ? copy.pricing.bespoke : money(plan.monthly)}
               </span>
             </div>

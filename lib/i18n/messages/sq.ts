@@ -127,6 +127,25 @@ export const sq: Messages = {
       department: "Departamenti",
       company: "Kompania",
     },
+    ribbon: {
+      label: "Shiriti",
+      home: "Kreu",
+      thisPage: "Kjo faqe",
+      sections: "Seksionet",
+      modules: "Modulet",
+    },
+    dock: {
+      label: "Navigimi kryesor",
+      home: "Kreu",
+      departments: "Departamentet",
+    },
+    tabs: {
+      barLabel: "Kryesore",
+      work: "Puna",
+      departments: "Departamentet",
+      more: "Më shumë",
+      create: "Krijo",
+    },
     mobile: {
       barLabel: "Kryesore",
       home: "Kryefaqja",
@@ -454,19 +473,25 @@ export const sq: Messages = {
     },
 
     appearance: {
-      collapsedNavigation: "Navigim i ngushtuar",
-      collapsedNavigationHint:
-        "Shfaq shiritin anësor vetëm me ikona. Në ekranet me madhësi tableti përdoret gjithmonë ky variant, pavarësisht këtij cilësimi.",
-      colourScheme: "Skema e ngjyrave",
-      colourSchemeHint: "Ndiqni sistemin operativ ose fiksoni NESTO në të çelët ose të errët.",
-      themes: { system: "Sistemi", light: "E çelët", dark: "E errët" },
+      desktopNav: "Navigimi në kompjuter",
+      desktopNavHint: "Si lëvizni nëpër Nesto në kompjuter. Ky shfletues e mban zgjedhjen tuaj.",
+      desktopNavs: {
+        ribbon: { label: "Shiriti", hint: "Skeda nën shiritin e sipërm, si në Office. Faqja ku ndodheni shton skedën e vet." },
+        dock: { label: "Doku", hint: "Skeda përgjatë fundit të ekranit. Secila hap menunë e vet." },
+      },
+      phoneNav: "Navigimi në telefon",
+      phoneNavHint: "Si lëvizni nëpër Nesto në telefon ose në tablet të mbajtur drejt.",
+      phoneNavs: {
+        thumb: { label: "Shiriti i gishtit", hint: "Kreu, Projektet, Krijo, Njoftimet dhe Menyja, aty ku pushon gishti." },
+        tabs: { label: "Skedat poshtë", hint: "Kreu, Puna, Departamentet, Njoftimet dhe Më shumë. Secila skedë hap menunë e vet." },
+      },
+      defaultChoice: "Parazgjedhje",
+      colourScheme: "Tema Nesto",
+      colourSchemeHint: "Ditë ose Natë. Ky shfletues e mban zgjedhjen tuaj.",
+      themes: { light: "Ditë", dark: "Natë" },
       density: "Dendësia",
       densityHint: "Hapësira komode, e përshtatur për seanca të gjata pune.",
       densityLater: "Zgjedhja e dendësisë vjen me modulin e cilësimeve.",
-      look: "Tema",
-      lookHint: "Tema 1 është ndërfaqja origjinale. Tema 2 është më e reja: ngjyra më të ftohta, tituj të ngushtë dhe etiketa të vogla me shkronja të mëdha. Secila ka skemë të çelët dhe të errët.",
-      looks: { "1": "Tema 1", "2": "Tema 2" },
-      notSaved: "Ky shfletues nuk e ruajti ndryshimin. Ai vlen derisa të largoheni nga faqja.",
     },
 
     profile: {

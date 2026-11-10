@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, Plus, RefreshCw, Settings, X } from "@/components/icons";
+import { LogOut, Menu, Plus, RefreshCw, Settings, X, type IconComponent } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
@@ -42,7 +42,10 @@ export type MobileAccount = {
 };
 
 /**
- * The phone and tablet-portrait shell's bottom navigation (MOB-02 §10-§15).
+ * The phone and tablet-portrait shell's bottom navigation (MOB-02 §10-§15):
+ * the Thumb bar, the default phone navigation. Bottom tabs, the other choice
+ * in Settings › Appearance, is components/layout/mobile-tabs-nav.tsx and
+ * shares this file's cells and More sheet (docs/ui/UI-04-navigation-layouts.md).
  *
  * Presentation only. It renders what `resolveMobileNavigation` places from the
  * groups the one navigation resolver produced for this person, so a
@@ -131,7 +134,7 @@ export function MobileBottomNav({
     <nav
       aria-label={t("mobile.barLabel")}
       data-mobile-bottom-nav
-      className="nesto-bottom-nav fixed inset-x-[max(0.75rem,var(--nesto-safe-left))] bottom-[calc(0.875rem+var(--nesto-safe-bottom))] z-[var(--nesto-z-shell-tabs)] mx-auto h-[68px] max-w-xl rounded-[24px] border border-line bg-surface/85 px-1.5 shadow-menu backdrop-blur-xl lg:hidden look2:rounded-[20px] look2:border-[light-dark(rgb(255_255_255/0.75),rgb(255_255_255/0.1))] look2:bg-surface/[0.92] look2:backdrop-saturate-[1.3]"
+      className="nesto-bottom-nav fixed inset-x-[max(0.75rem,var(--nesto-safe-left))] bottom-[calc(0.875rem+var(--nesto-safe-bottom))] z-[var(--nesto-z-shell-tabs)] mx-auto h-[68px] max-w-xl border px-1.5 shadow-menu backdrop-blur-xl lg:hidden rounded-[20px] border-[light-dark(rgb(255_255_255/0.75),rgb(255_255_255/0.1))] bg-surface/[0.92] backdrop-saturate-[1.3]"
     >
       {/* Home and Projects, Create, Alerts, Menu: Create sits in the middle of a full phone bar (Premium Mobile §6.1). */}
       <ul className="flex h-full items-center">
@@ -150,10 +153,10 @@ export function MobileBottomNav({
                 if (!createOpen) emitNavigationEvent("quick_create_opened", { source: "bottom_nav" });
                 window.dispatchEvent(new CustomEvent(OPEN_QUICK_CREATE_EVENT, { detail: { opener: event.currentTarget } }));
               }}
-              className="-mt-[26px] grid size-[54px] place-items-center rounded-full border-4 border-canvas bg-accent text-accent-fg shadow-menu transition-transform active:scale-95 look2:bg-primary look2:text-primary-fg"
+              className="-mt-[26px] grid size-[54px] place-items-center rounded-full border-4 border-canvas shadow-menu transition-transform active:scale-95 bg-primary text-primary-fg"
             >
               {/* The plus turns to a cross while its panel is open: the same button closes it. */}
-              <Plus aria-hidden="true" className={cn("size-[22px] transition-transform duration-200", createOpen && "rotate-45")} strokeWidth={2.2} />
+              <Plus aria-hidden="true" className={cn("size-[22px] transition-transform duration-200", createOpen && "rotate-45")} />
             </button>
           </li>
         ) : null}
@@ -196,13 +199,13 @@ export function MobileBottomNav({
             opener.current = null;
           }}
         >
-          <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-accent/25 pl-4 pr-2 look2:border-fg">
-            <DrawerTitle className="font-serif look2:font-display text-[1.375rem] font-normal text-fg">{t("mobile.moreTitle")}</DrawerTitle>
+          <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b pl-4 pr-2 border-fg">
+            <DrawerTitle className="text-[1.375rem] text-fg font-display">{t("mobile.moreTitle")}</DrawerTitle>
             <DrawerClose
               aria-label={t("closeNavigation")}
               className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"
             >
-              <X aria-hidden="true" className="size-5" strokeWidth={1.6} />
+              <X aria-hidden="true" className="size-5" />
             </DrawerClose>
           </div>
           <div className="flex min-h-0 flex-1 flex-col">
@@ -227,14 +230,12 @@ export function MobileBottomNav({
   );
 }
 
-/* A bar cell: icon over label, the whole cell the target. The destination the app is at is filled with
-   the accent colour — the cell itself, not just its ink — and carries aria-current; the icon weight stays even. */
-const cellClass =
-  "relative flex h-[52px] w-full flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 text-micro font-semibold leading-tight text-fg-subtle transition-colors hover:text-fg data-[active=true]:bg-accent data-[active=true]:text-accent-fg data-[active=true]:shadow-sm data-[active=true]:hover:text-accent-fg " +
-  // Theme 2: small mono capitals; the destination the app is at is an ink pill (gold in the dark scheme).
-  "look2:gap-1 look2:rounded-full look2:font-mono look2:text-[0.625rem] look2:font-medium look2:uppercase look2:tracking-[0.06em] look2:data-[active=true]:bg-primary look2:data-[active=true]:text-primary-fg look2:data-[active=true]:shadow-none look2:data-[active=true]:hover:text-primary-fg";
+/* A bar cell: icon over a label in small mono capitals, the whole cell the target. The destination the app is at
+   is an ink pill (gold at Night) and carries aria-current. */
+export const cellClass =
+  "relative flex h-[52px] w-full flex-col items-center justify-center gap-1 rounded-full px-1 font-mono text-[0.625rem] font-medium uppercase leading-tight tracking-[0.06em] text-fg-subtle transition-colors hover:text-fg data-[active=true]:bg-primary data-[active=true]:text-primary-fg data-[active=true]:shadow-none data-[active=true]:hover:text-primary-fg";
 
-function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
+export function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
   const t = useTranslations("modules");
   const shell = useTranslations("shell");
   const Icon = getIcon(item.icon);
@@ -252,14 +253,14 @@ function BarLink({ item, active }: { item: NavigationItem; active: boolean }) {
       data-pending={pending || undefined}
       className={cellClass}
     >
-      <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
+      <Icon aria-hidden="true" className="size-[22px] shrink-0" />
       <span className="max-w-full truncate">{label}</span>
       {pending ? <PendingDot className="absolute right-3 top-2 text-accent" /> : null}
     </Link>
   );
 }
 
-function BarButton({
+export function BarButton({
   icon: Icon,
   label,
   active = false,
@@ -271,7 +272,7 @@ function BarButton({
   buttonRef,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: "true" }>;
+  icon: IconComponent;
   label: string;
   active?: boolean;
   expanded: boolean;
@@ -292,7 +293,7 @@ function BarButton({
       onPointerDown={onPointerDown}
       className={cellClass}
     >
-      <Icon aria-hidden="true" strokeWidth={1.6} className="size-[22px] shrink-0" />
+      <Icon aria-hidden="true" className="size-[22px] shrink-0" />
       <span className="max-w-full truncate">{label}</span>
     </button>
   );
@@ -302,7 +303,7 @@ function BarButton({
 /* More                                                                        */
 /* -------------------------------------------------------------------------- */
 
-function MoreBody({
+export function MoreBody({
   groups,
   account,
   footer,
@@ -326,8 +327,8 @@ function MoreBody({
     <div className="flex min-h-0 flex-1 flex-col" data-testid="mobile-more-body">
       {/* Pinned: the profile stays put while the modules scroll. */}
       <div className="shrink-0 space-y-3 px-4 pb-3 pt-4">
-      <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-[18px] border border-line bg-surface px-3 py-2 transition-colors active:border-accent active:bg-accent-soft look2:rounded-[10px] look2:active:border-line look2:active:bg-hover">
-        <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" className="border-transparent bg-accent font-serif font-normal look2:font-display text-accent-fg" />
+      <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 border border-line bg-surface px-3 py-2 transition-colors rounded-[10px] active:border-line active:bg-hover">
+        <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" className="border-transparent bg-accent font-medium text-accent-fg font-display" />
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-body font-semibold text-fg">{name}</span>
           <span className="block truncate text-meta text-fg-muted">{[account.roleLabel, account.workspaceName].filter(Boolean).join(" · ")}</span>
@@ -342,10 +343,10 @@ function MoreBody({
       ) : (
         shown.map((group) => (
           <section key={group.group} aria-labelledby={`more-${group.group}`}>
-            <h3 id={`more-${group.group}`} className="nesto-eyebrow mb-1.5 px-1 text-accent-strong look2:px-3 look2:text-fg-subtle">
+            <h3 id={`more-${group.group}`} className="nesto-eyebrow mb-1.5 px-3 text-fg-subtle">
               {group.group === "primary" ? t("mobile.general") : t(`groups.${group.group}`)}
             </h3>
-            <ul className="overflow-hidden rounded-[18px] border border-line bg-surface look2:rounded-none look2:border-x-0 look2:border-b-0 look2:bg-transparent">
+            <ul className="overflow-hidden border border-line rounded-none border-x-0 border-b-0 bg-transparent">
               {group.items.map((item) => (
                 <li key={item.key} className="border-b border-line last:border-b-0">
                   <MoreLink item={item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} onDone={onDone} />
@@ -359,19 +360,19 @@ function MoreBody({
       </div>
 
       {/* Pinned: Settings, Refresh, the theme and Logout stay at the foot. */}
-      <div className="shrink-0 space-y-3 border-t border-accent/25 px-4 pb-4 pt-3 look2:border-line">
-      <section aria-label={t("mobile.account")} className="overflow-hidden rounded-[18px] border border-line bg-surface look2:rounded-none look2:border-0 look2:bg-transparent">
-        <Link href="/settings" navSource="mobile" onNavigate={onDone} className="flex min-h-12 items-center gap-3 border-b border-line px-3 text-body font-medium text-fg hover:bg-hover look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]">
-          <Settings aria-hidden="true" strokeWidth={1.6} className="size-[18px] text-accent-strong look2:text-fg-subtle" />
+      <div className="shrink-0 space-y-3 border-t px-4 pb-4 pt-3 border-line">
+      <section aria-label={t("mobile.account")} className="overflow-hidden border-line rounded-none border-0 bg-transparent">
+        <Link href="/settings" navSource="mobile" onNavigate={onDone} className="flex min-h-12 items-center gap-3 border-b border-line px-3 font-medium text-fg hover:bg-hover font-mono text-table uppercase tracking-[0.08em]">
+          <Settings aria-hidden="true" className="size-[18px] text-fg-subtle" />
           {t("settings")}
         </Link>
         <button
           type="button"
           onClick={onRefresh}
           data-testid="mobile-more-refresh"
-          className="flex min-h-12 w-full items-center gap-3 border-b border-line px-3 text-left text-body font-medium text-fg hover:bg-hover look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]"
+          className="flex min-h-12 w-full items-center gap-3 border-b border-line px-3 text-left font-medium text-fg hover:bg-hover font-mono text-table uppercase tracking-[0.08em]"
         >
-          <RefreshCw aria-hidden="true" strokeWidth={1.6} className="size-[18px] text-accent-strong look2:text-fg-subtle" />
+          <RefreshCw aria-hidden="true" className="size-[18px] text-fg-subtle" />
           {t("mobile.refresh")}
         </button>
         <ThemeToggle variant="row" />
@@ -379,9 +380,9 @@ function MoreBody({
           type="button"
           disabled={signingOut}
           onClick={() => void signOut()}
-          className="flex min-h-12 w-full items-center gap-3 px-3 text-left text-body font-medium text-danger-strong hover:bg-danger-soft disabled:opacity-60 look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]"
+          className="flex min-h-12 w-full items-center gap-3 px-3 text-left font-medium text-danger-strong hover:bg-danger-soft disabled:opacity-60 font-mono text-table uppercase tracking-[0.08em]"
         >
-          <LogOut aria-hidden="true" strokeWidth={1.6} className="size-[18px]" />
+          <LogOut aria-hidden="true" className="size-[18px]" />
           {signingOut ? t("signingOut") : t("logout")}
         </button>
       </section>
@@ -392,7 +393,7 @@ function MoreBody({
   );
 }
 
-function MoreLink({ item, active, onDone }: { item: NavigationItem; active: boolean; onDone: () => void }) {
+export function MoreLink({ item, active, onDone }: { item: NavigationItem; active: boolean; onDone: () => void }) {
   const modules = useTranslations("modules");
   const Icon = getIcon(item.icon);
   const pending = usePendingDestination(item.href);
@@ -406,9 +407,9 @@ function MoreLink({ item, active, onDone }: { item: NavigationItem; active: bool
       }}
       aria-current={active ? "page" : undefined}
       data-pending={pending || undefined}
-      className={cn("relative flex min-h-12 items-center gap-3 px-3 text-body font-medium hover:bg-hover look2:font-mono look2:text-table look2:uppercase look2:tracking-[0.08em]", active ? "bg-accent-soft text-accent-strong look2:rounded-[9px] look2:bg-primary look2:text-primary-fg" : "text-fg active:bg-accent-soft look2:active:bg-hover")}
+      className={cn("relative flex min-h-12 items-center gap-3 px-3 font-medium hover:bg-hover font-mono text-table uppercase tracking-[0.08em]", active ? "rounded-[9px] bg-primary text-primary-fg" : "text-fg active:bg-hover")}
     >
-      <Icon aria-hidden="true" strokeWidth={1.6} className="size-[18px] shrink-0 text-accent-strong look2:text-current" />
+      <Icon aria-hidden="true" className="size-[18px] shrink-0 text-current" />
       <span className="min-w-0 flex-1 truncate">{modules(`${item.key}.label`)}</span>
       {pending ? <PendingDot className="text-accent" /> : null}
     </Link>

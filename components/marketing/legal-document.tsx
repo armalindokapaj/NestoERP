@@ -34,7 +34,7 @@ export async function LegalDocumentPage({ document }: { document: LegalDocument 
                   <p className="nesto-eyebrow text-fg-subtle">
                     {String(index + 1).padStart(2, "0")}
                   </p>
-                  <h2 className="mt-3 font-serif look2:font-display text-section text-fg">{section.title}</h2>
+                  <h2 className="mt-3 text-section text-fg font-display">{section.title}</h2>
                 </div>
                 <div className="max-w-2xl space-y-4">
                   {section.body.map((paragraph) => (

@@ -78,7 +78,7 @@ export function PlaceholderImage({
           "relative text-fg/70",
           iconClassName ?? "h-8 w-8"
         )}
-        strokeWidth={1.5}
+
       />
       {watermark && (
         <span

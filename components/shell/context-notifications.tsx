@@ -34,7 +34,7 @@ export function ContextNotifications({ context }: { context: string }) {
           data-testid="notification-bell"
           className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-fg data-[state=open]:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Bell aria-hidden className="size-5" strokeWidth={1.6} />
+          <Bell aria-hidden className="size-5" />
         </button>
       </PopoverTrigger>
       {/* Its top edge on the breadcrumb bar's top line, like every panel opened from the top bar. */}

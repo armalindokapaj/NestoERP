@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "../pw";
 
-import { chooseWorkspace, mainRegion, sidebar, signIn, type DemoRole, workspaceHeader, workspaceSwitcher } from "../fixtures";
+import { chooseWorkspace, mainRegion, mainNavigation, navigationHrefs, navigationLink, signIn, type DemoRole, workspaceHeader, workspaceSwitcher } from "../fixtures";
 
 /**
  * AUD-05 §3, §4, §7, §8 — navigation and first-time orientation, per
@@ -22,11 +22,9 @@ const FAMILIES: Family[] = [
   { family: "Read-only / field", role: "VIEWER", module: { label: "Tasks", href: "/tasks", help: "/help/tasks" }, mayCreateTask: false },
 ];
 
-/** Every link in the sidebar opens for this person: no item the page then refuses (UX-02). */
+/** Every module in the navigation opens for this person: no item the page then refuses (UX-02). */
 async function sidebarLinks(page: Page): Promise<string[]> {
-  return sidebar(page)
-    .getByRole("link")
-    .evaluateAll((links) => links.map((link) => (link as HTMLAnchorElement).getAttribute("href") ?? ""));
+  return navigationHrefs(page);
 }
 
 for (const family of FAMILIES) {
@@ -39,12 +37,11 @@ for (const family of FAMILIES) {
         const response = await page.goto(href);
         expect(response?.status(), href).toBeLessThan(400);
         await expect(page, href).not.toHaveURL(/\/access-denied|\/module-unavailable/);
-        const current = sidebar(page).locator('[aria-current="page"]');
-        await expect(current, href).toHaveCount(1);
-        await expect(current, href).toHaveAttribute("href", href);
+        const current = mainNavigation(page);
+        await expect(current, href).toHaveAttribute("data-current-href", href);
         // The module the sidebar named is named at the top of the page (dashboard excepted): by the heading, or,
         // where the heading is the page's own figure or period (approvals, calendar, a personal view), by the breadcrumb bar.
-        const name = (await current.innerText()).trim();
+        const name = ((await current.getAttribute("data-current-label")) ?? "").trim();
         const heading = mainRegion(page).getByRole("heading", { level: 1 }).first();
         if (href !== "/dashboard") await expect(heading.or(page.getByTestId("record-navigation-header").first()).filter({ hasText: name }).first(), href).toBeVisible();
       }
@@ -128,9 +125,10 @@ for (const family of FAMILIES) {
 test.describe("Daily Logs is marked current (UX-03)", () => {
   test("on /daily-logs and below, where the key never matched the route", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/daily-logs" });
-    await expect(sidebar(page).locator('[aria-current="page"]')).toHaveText("Daily Logs");
-    const tabs = mainRegion(page).getByRole("navigation", { name: "Daily Logs sections" });
-    await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);
+    await expect(mainNavigation(page)).toHaveAttribute("data-current-label", "Daily Logs");
+    // The module's sections are the Ribbon's tab for this page (docs/ui/UI-04-navigation-layouts.md).
+    await expect(mainNavigation(page).getByTestId("ribbon-tab-page")).toHaveText("Daily Logs");
+    await expect(mainNavigation(page).getByTestId("ribbon-panel").locator('[aria-current="page"]')).toHaveCount(1);
   });
 });
 
@@ -288,7 +286,7 @@ test.describe("orientation costs no extra requests (UX-18)", () => {
       const url = new URL(request.url());
       if (url.pathname.startsWith("/api/")) api.push(url.pathname);
     });
-    await sidebar(page).getByRole("link", { name: "Tasks" }).click();
+    await (await navigationLink(page, "Tasks")).click();
     await expect(page).toHaveURL(/\/tasks/);
     await mainRegion(page).getByTestId("page-menu").click();
     await page.getByRole("menuitem", { name: /^Help/ }).click();

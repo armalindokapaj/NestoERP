@@ -133,15 +133,16 @@ test.describe("bottom navigation", () => {
     await expect(more(page)).toHaveText("Menu");
   });
 
-  test("desktop: no bottom bar; the sidebar is unchanged", async ({ page }) => {
+  test("desktop: no bottom bar; the Ribbon is the navigation", async ({ page }) => {
     test.skip(!isDesktop(page), "desktop shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     await expect(bar(page)).toBeHidden();
+    await expect(page.locator("[data-ribbon]")).toBeVisible();
     await expect(page.getByTestId("mobile-context")).toBeHidden();
     await expect(page.getByTestId("quick-create-button")).toBeVisible();
     await expect(page.getByTestId("account-trigger")).toBeVisible();
     await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeVisible();
-    // Home has no Tasks block here: the sidebar has Tasks.
+    // Home has no Tasks block here: the Ribbon has Tasks.
     await expect(mainRegion(page).getByTestId("home-tasks")).toBeHidden();
   });
 

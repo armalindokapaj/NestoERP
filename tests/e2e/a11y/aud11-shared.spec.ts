@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { db, removeTestTasks } from "../db";
-import { mainRegion, signIn, sidebar, type DemoRole } from "../fixtures";
+import { mainNavigation, mainRegion, navigationLink, signIn, type DemoRole } from "../fixtures";
 import { emulateTextZoom, expectInViewport, expectNoPageOverflow, expectNotCovered } from "../responsive/geometry";
 
 /**
@@ -130,26 +130,23 @@ test.describe("AV-02 skip link, landmarks, title, current page", () => {
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     await expect(page.getByRole("main")).toHaveCount(1);
     await expect(page.getByRole("banner")).toHaveCount(1);
-    // The sidebar draws its navigation as stacked lists (pinned, scrolling, foot); each is the named landmark.
-    await expect(sidebar(page).first()).toBeVisible();
-    for (const list of await sidebar(page).all()) await expect(list).toHaveAccessibleName("Main navigation");
-    await expect(sidebar(page).locator('[aria-current="page"]')).toHaveCount(1);
+    // The Ribbon is the desktop navigation: one tab list, named, and the module you are in named on it.
+    await expect(mainNavigation(page).getByRole("tablist")).toHaveAccessibleName("Ribbon");
+    await expect(mainNavigation(page)).toHaveAttribute("data-current-href", "/dashboard");
     const before = await page.title();
 
-    await sidebar(page).getByRole("link", { name: /^tasks$/i }).click();
+    await (await navigationLink(page, "Tasks")).click();
     await page.waitForURL(/\/tasks/);
     await expect(mainRegion(page).locator("h1").first()).toBeVisible();
     await expect(page).not.toHaveTitle(before);
     await expect(page).toHaveTitle(/· NESTO$/);
-    const current = sidebar(page).locator('[aria-current="page"]');
-    await expect(current).toHaveCount(1);
-    await expect(current).toHaveAccessibleName(/tasks/i);
+    await expect(mainNavigation(page)).toHaveAttribute("data-current-href", "/tasks");
   });
 
-  test("every rail icon link has a name (AV-06)", async ({ page }) => {
+  test("every navigation link has a name (AV-06)", async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 800 });
     await signIn(page, "OWNER", { to: "/dashboard" });
-    const unnamed = await sidebar(page)
+    const unnamed = await mainNavigation(page)
       .getByRole("link")
       .evaluateAll((links) => links.filter((link) => !(link.getAttribute("aria-label") ?? link.textContent ?? "").trim()).length);
     expect(unnamed).toBe(0);
@@ -286,21 +283,21 @@ test.describe("AV-14 themes", () => {
     expect(html).toMatch(/<html[^>]*data-theme="dark"/);
   });
 
-  test("system follows the OS; a pinned choice ignores it; portals match", async ({ page }) => {
+  test("Day by default whatever the OS says; Night only when chosen; portals match", async ({ page }) => {
     await signIn(page, "OWNER");
     await page.context().clearCookies({ name: "nesto.theme" });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.goto("/dashboard");
-    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
-    const systemDark = await canvas(page);
-    await page.emulateMedia({ colorScheme: "light" });
-    const systemLight = await canvas(page);
-    expect(systemDark).not.toBe(systemLight);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    const day = await canvas(page);
+
+    await useTheme(page, "dark");
+    await page.reload();
+    expect(await canvas(page)).not.toBe(day);
 
     await useTheme(page, "light");
     await page.reload();
-    await page.emulateMedia({ colorScheme: "dark" });
-    expect(await canvas(page)).toBe(systemLight);
+    expect(await canvas(page)).toBe(day);
 
     // A portal (the account panel) is painted in the pinned scheme too. Its box is the one inside the placed shell.
     await page.getByTestId("account-trigger").click();
@@ -315,11 +312,11 @@ test.describe("AV-14 themes", () => {
     const checked = group.getByRole("radio", { checked: true });
     await checked.focus();
     await page.keyboard.press("End");
-    await expect(group.getByRole("radio", { name: /dark/i })).toBeFocused();
-    await expect(group.getByRole("radio", { name: /dark/i })).toHaveAttribute("aria-checked", "true");
+    await expect(group.getByRole("radio", { name: /night/i })).toBeFocused();
+    await expect(group.getByRole("radio", { name: /night/i })).toHaveAttribute("aria-checked", "true");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.keyboard.press("Home");
-    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     expect(await page.evaluate(() => (window as unknown as { __aud11?: number }).__aud11)).toBe(1);
     // One Tab stop for the whole group.
     await expect(group.locator('[role=radio][tabindex="0"]')).toHaveCount(1);

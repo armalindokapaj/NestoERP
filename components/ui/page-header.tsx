@@ -22,51 +22,50 @@ export const headerActionsClass = "flex max-w-full shrink-0 flex-wrap items-cent
 export type PageHeaderKind = "page" | "module" | "record" | "context" | "settings";
 
 /**
- * Theme 2's facts: the reference's figures — each fact under its own hairline,
+ * The facts, as the reference's figures: each fact under its own hairline,
  * side by side as the width allows, the name in mono capitals over the value in
  * the display face (`dt` is already `nesto-eyebrow`).
  */
 const FACTS =
-  "look2:mt-5 look2:grid look2:grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] look2:gap-x-6 look2:gap-y-4 " +
-  "look2:[&>div]:border-t look2:[&>div]:border-line look2:[&>div]:pt-2.5 " +
-  "look2:[&_dd]:mt-1.5 look2:[&_dd]:font-display look2:[&_dd]:text-[1.625rem] look2:[&_dd]:leading-none";
+  "mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] gap-x-6 gap-y-4 " +
+  "[&>div]:border-t [&>div]:border-line [&>div]:pt-2.5 " +
+  "[&_dd]:mt-1.5 [&_dd]:font-display [&_dd]:text-[1.625rem] [&_dd]:leading-none";
 
 type HeaderDrawing = { root: string; row: string; text: string; title: string; subtitle: string; status: string; meta: string };
 
 /**
- * The drawing of each kind: the serif display title of a plain page, the sans
- * title of a module and a record, the one-line header of a record's sub-page,
- * and the settings heading. The `look2:` classes are Theme 2's
- * (docs/ui/UI-03-vertical-look.md §5): every title in the display face, and
- * the line under a page's or a module's title as an italic standfirst.
+ * The drawing of each kind: a plain page, a module, a record, a record's
+ * sub-page and the settings heading (docs/ui/UI-03-nesto-theme.md §5): every
+ * title in the display face, and the line under a page's or a module's title
+ * as an italic standfirst.
  */
 const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
   page: {
-    root: "look2:nesto-rule look2:pb-5",
+    root: "nesto-rule pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
-    text: "min-w-0 look2:flex-1 look2:max-md:basis-full",
-    title: "font-serif font-normal look2:font-display text-page text-fg md:text-display [overflow-wrap:anywhere]",
-    subtitle: "mt-1.5 text-body text-fg-muted look2:nesto-standfirst look2:text-card",
+    text: "min-w-0 flex-1 max-md:basis-full",
+    title: "text-page text-fg md:text-display [overflow-wrap:anywhere] font-display",
+    subtitle: "mt-1.5 text-fg-muted nesto-standfirst text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
+    meta: FACTS,
   },
   module: {
-    root: "look2:nesto-rule look2:pb-5",
+    root: "nesto-rule pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
-    text: "min-w-0 look2:flex-1 look2:max-md:basis-full",
-    title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display look2:md:text-display",
-    subtitle: "mt-1.5 text-body text-fg-muted look2:nesto-standfirst look2:text-card",
+    text: "min-w-0 flex-1 max-md:basis-full",
+    title: "text-page text-fg [overflow-wrap:anywhere] font-display md:text-display md:tracking-(--nesto-tracking-display)",
+    subtitle: "mt-1.5 text-fg-muted nesto-standfirst text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
+    meta: FACTS,
   },
   record: {
     root: "space-y-4",
     row: "flex flex-wrap items-start justify-between gap-4",
-    text: "min-w-0 look2:flex-1 look2:max-md:basis-full",
-    title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display",
+    text: "min-w-0 flex-1 max-md:basis-full",
+    title: "text-page text-fg [overflow-wrap:anywhere] font-display",
     subtitle: "mt-1 text-table text-fg-subtle [overflow-wrap:anywhere]",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
+    meta: FACTS,
   },
   context: {
     root: "space-y-3",
@@ -82,10 +81,10 @@ const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
     root: "",
     row: "",
     text: "",
-    title: "mt-2 text-page font-semibold text-fg look2:font-display",
+    title: "mt-2 text-page text-fg font-display",
     subtitle: "mt-1.5 text-body text-fg-muted",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
+    meta: FACTS,
   },
 };
 
@@ -144,7 +143,7 @@ export function PageHeaderFrame({
     <div data-page-header={kind} className={cn(d.root, className)}>
       {lead}
       <div data-page-header-row className={cn(d.row, PAGE_MENU_ROW)}>
-        <div className={cn(d.text, "look2:animate-[nesto-rise-focus_0.8s_cubic-bezier(0.25,0.46,0.45,0.94)_both] look2:motion-reduce:animate-none", PAGE_MENU_TEXT, textClassName)}>
+        <div className={cn(d.text, "animate-[nesto-rise-focus_0.8s_cubic-bezier(0.25,0.46,0.45,0.94)_both] motion-reduce:animate-none", PAGE_MENU_TEXT, textClassName)}>
           {inline ? (
             heading
           ) : (

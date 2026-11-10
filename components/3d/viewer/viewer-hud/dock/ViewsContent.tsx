@@ -61,7 +61,7 @@ export const ViewsContent = forwardRef<
                 isActive ? "bg-accent/10 text-accent-strong" : "text-fg/70 hover:bg-fg/5 hover:text-fg"
               )}
             >
-              <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
               <span className="w-full truncate text-center text-xs font-medium leading-none">{preset.label}</span>
               {isActive && <span className="absolute inset-x-0 bottom-0 h-1 bg-accent" aria-hidden="true" />}
             </button>

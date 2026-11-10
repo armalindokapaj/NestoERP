@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { isDevMode } from "@/lib/auth/dev-mode";
-import { getLook } from "@/lib/layout/look-server";
 import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
 
 import { ButtonEntry, IconButtonEntry } from "./_catalog/buttons";
@@ -31,8 +30,8 @@ const ENTRIES = [
 
 /**
  * The component catalog: the shared primitives of components/ui, each in
- * every state it has, in whichever colour scheme and theme the switches at the
- * top choose. The specimens are the real
+ * every state it has, in Day or Night as the switch at the top chooses. The
+ * specimens are the real
  * components — nothing here is a picture of one — so what this page shows is
  * what the product renders.
  *
@@ -48,7 +47,6 @@ const ENTRIES = [
 export default async function ComponentCatalogPage() {
   if (!isDevMode) notFound();
 
-  const look = await getLook();
   const theme = readThemeChoice((await cookies()).get(THEME_COOKIE)?.value);
 
   return (
@@ -57,9 +55,9 @@ export default async function ComponentCatalogPage() {
         <div className="mx-auto flex min-h-(--nesto-shell-header-h) max-w-[1280px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-(--nesto-space-page-x) py-2">
           <div className="min-w-0">
             <h1 className="text-card font-semibold text-fg">Component catalog</h1>
-            <p className="text-meta text-fg-muted">Shared primitives · Theme {look} · development only</p>
+            <p className="text-meta text-fg-muted">Shared primitives · Nesto theme · development only</p>
           </div>
-          <CatalogToolbar theme={theme} look={look} />
+          <CatalogToolbar theme={theme} />
         </div>
         <nav aria-label="Catalog entries" className="mx-auto max-w-[1280px] overflow-x-auto px-(--nesto-space-page-x)">
           {/* 39px and the header's 1px border: the breadcrumb bar's 40. */}

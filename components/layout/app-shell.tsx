@@ -16,8 +16,9 @@ import { LiveAnnouncer } from "@/components/layout/live-announcer";
 import { RouteFocus } from "@/components/layout/route-focus";
 import { SkipLink } from "@/components/layout/skip-link";
 import { BannerSlot, ShellSlotsProvider } from "@/components/layout/shell-slots";
-import { Sidebar } from "@/components/layout/sidebar";
-import { SidebarProvider } from "@/components/layout/sidebar-provider";
+import { DesktopDock } from "@/components/layout/desktop-dock";
+import { MobileTabsNav } from "@/components/layout/mobile-tabs-nav";
+import { Ribbon } from "@/components/layout/ribbon";
 import { Topbar } from "@/components/layout/topbar";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,7 +28,7 @@ import { Metric, recordDuration } from "@/lib/core/observability/metrics";
 import { grantsInCompany, loadOrganizationAccessFor, type OrganizationAccess } from "@/lib/context/organization-access";
 import { criticalAnnouncementBanner } from "@/lib/modules/announcements/announcement.service";
 import type { UserContext } from "@/lib/context/types";
-import { SIDEBAR_COOKIE, readSidebarState } from "@/lib/layout/sidebar-state";
+import { DESKTOP_NAV_COOKIE, PHONE_NAV_COOKIE, readDesktopNav, readPhoneNav } from "@/lib/layout/nav-layout";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
 import { WorkspaceSwitchProvider } from "@/components/workspace/workspace-switch-provider";
 import { WorkspaceSync } from "@/components/workspace/workspace-sync";
@@ -51,8 +52,12 @@ import { listWorkspaces } from "@/lib/workspace/workspace.service";
  * between roles — only the resolved navigation passed into it does. There is no
  * separate shell for Owner, Finance or Architect (PRD #3 §2).
  *
- * Navigation is resolved once, here, and handed to both the desktop sidebar and
- * the mobile drawer, so the two can never disagree (PRD #3 §99).
+ * Navigation is resolved once, here, and handed to the desktop navigation and
+ * the phone's, so the two can never disagree (PRD #3 §99). Which desktop
+ * navigation (the Ribbon or the Dock) and which phone navigation (the Thumb
+ * bar or Bottom tabs) is the person's choice in Settings › Appearance, read
+ * from its cookies so the server draws the right one on the first paint
+ * (docs/ui/UI-04-navigation-layouts.md).
  *
  * Content is capped at 1600px (PRD #3 §87) and padded across mobile, tablet and
  * desktop (PRD #7 §83).
@@ -74,7 +79,8 @@ export async function AppShell({
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
-  const sidebarState = readSidebarState(cookieStore.get(SIDEBAR_COOKIE)?.value);
+  const desktopNav = readDesktopNav(cookieStore.get(DESKTOP_NAV_COOKIE)?.value);
+  const phoneNav = readPhoneNav(cookieStore.get(PHONE_NAV_COOKIE)?.value);
 
   // Optional reads start now and are awaited only in their slots. The banner is
   // read in this member's audience (PRD #45 §67, §122); the access debugger's
@@ -84,10 +90,20 @@ export async function AppShell({
   const banner = settleSlot("banner", () => criticalAnnouncementBanner(context));
   const organization = isDevMode ? settleSlot("diagnostics", () => loadOrganizationAccessFor(context.parentGroupId, context.userId)) : null;
 
-  // Resolved once, here, for the active workspace, and handed to the sidebar and
-  // the drawer alike (Workspace Context §24). Never kept across a workspace change.
+  // Resolved once, here, for the active workspace, and handed to the desktop and
+  // the phone navigation alike (Workspace Context §24). Never kept across a workspace change.
   const [navigation, core, roleLabels] = await Promise.all([resolveWorkspaceNavigation(context), resolveShellCore(context), getTranslations("roles")]);
   recordDuration(Metric.SHELL_CORE_READY_MS, Metric.SHELL_CORE_READY, startedAt, { scope: context.workspace.scopeType });
+
+  // The phone navigation's bell and the account its More sheet names, whichever phone navigation is drawn.
+  const activity = <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} placement="bar" />;
+  const account = {
+    firstName: context.firstName,
+    lastName: context.lastName,
+    avatarUrl: context.avatarUrl,
+    roleLabel: roleLabels(`${context.role}.label`),
+    workspaceName: context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name,
+  };
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -122,14 +138,13 @@ export async function AppShell({
           {/* Off with NESTO_INTENT_PREFETCH=off: links keep ordinary navigation (NAV-03 §19). */}
           <IntentPrefetchProvider contextKey={core.contextKey} enabled={process.env.NESTO_INTENT_PREFETCH !== "off"}>
           <ShellSlotsProvider core={core} workspaces={workspaces} banner={banner}>
-            <SidebarProvider initial={sidebarState} className="min-h-dvh bg-canvas">
-              {/* One workspace switch at a time, in place, from the sidebar header or the drawer (OW §28-§36). */}
+            {/* `data-app-shell`: the root of a signed-in shell (UI-02 §6.2, tokens-v2.css). */}
+            <div data-app-shell className="min-h-dvh bg-canvas">
+              {/* One workspace switch at a time, in place, from the top bar or the phone's header (OW §28-§36). */}
               <WorkspaceSwitchProvider
                 contextKey={core.contextKey}
                 currentName={context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name}
               >
-              <Sidebar navigation={navigation} isDemo={context.parentGroup.isDemo} />
-
               {/* Keyed by the workspace: a switch made in place remounts the page, so
                   no client state of the old workspace outlives it (OW §33). */}
               <RecordNavigationProvider
@@ -152,8 +167,9 @@ export async function AppShell({
               <PageMenuProvider>
               {/* Below md a detail page's main action moves into the one bottom action bar, above the bottom navigation (components/ui/mobile-action-bar.tsx). */}
               <MobileActionBarProvider>
-              <div className="pl-[var(--nesto-nav-width)] transition-[padding]">
-                <Topbar context={context} core={core} />
+              <div>
+                {/* With the Ribbon chosen, it is drawn under the top bar's row, in the same sticky header. */}
+                <Topbar context={context} core={core} ribbon={desktopNav === "ribbon" ? <Ribbon navigation={navigation} /> : undefined} />
                 {/* The one sticky breadcrumb bar, directly under the top bar (Sticky Navigation §3). */}
                 <BreadcrumbBar />
                 {/* Connectivity and sync, compact; nothing at all while online with nothing to send (MOB-09 §24, §116). */}
@@ -171,21 +187,15 @@ export async function AppShell({
                 </PageContainer>
                 {/* Pull down at the top of a phone screen to read the page again (mobile audit 5c). */}
                 <PullToRefresh />
-                {/* The phone and tablet-portrait bottom navigation (MOB-02): the same resolved
-                    navigation as the sidebar, placed by lib/navigation/mobile.ts — Home, Projects,
-                    Create, Alerts (the bell) and Menu. Hidden from lg. */}
-                <MobileBottomNav
-                  navigation={navigation}
-                  canCreate={core.quickCreate.canOpen}
-                  activity={<ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} placement="bar" />}
-                  account={{
-                    firstName: context.firstName,
-                    lastName: context.lastName,
-                    avatarUrl: context.avatarUrl,
-                    roleLabel: roleLabels(`${context.role}.label`),
-                    workspaceName: context.workspace.scopeType === "GROUP" ? context.parentGroup.name : context.company.name,
-                  }}
-                />
+                {/* The desktop Dock, when it is the chosen desktop navigation; from lg. */}
+                {desktopNav === "dock" ? <DesktopDock navigation={navigation} /> : null}
+                {/* The phone and tablet-portrait navigation (MOB-02), below lg: the Thumb bar — Home, Projects,
+                    Create, Alerts (the bell) and Menu, placed by lib/navigation/mobile.ts — or Bottom tabs. */}
+                {phoneNav === "tabs" ? (
+                  <MobileTabsNav navigation={navigation} canCreate={core.quickCreate.canOpen} activity={activity} account={account} />
+                ) : (
+                  <MobileBottomNav navigation={navigation} canCreate={core.quickCreate.canOpen} activity={activity} account={account} />
+                )}
               </div>
               </MobileActionBarProvider>
               </PageMenuProvider>
@@ -202,7 +212,7 @@ export async function AppShell({
                   <DevAccessPanelSlot context={context} organization={organization} />
                 </React.Suspense>
               ) : null}
-            </SidebarProvider>
+            </div>
           </ShellSlotsProvider>
           </IntentPrefetchProvider>
         </NavigationFeedbackProvider>

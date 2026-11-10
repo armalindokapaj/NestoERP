@@ -4,13 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import { theme } from "@/config/theme";
 import { readTokenDeclarations } from "@/lib/a11y/contrast";
-import { lookAttribute, readLook } from "@/lib/layout/look-state";
-import { THEME_CHOICES, readThemeChoice, themeAttribute } from "@/lib/layout/theme-state";
+import { THEME_CHOICES, readThemeChoice } from "@/lib/layout/theme-state";
 
 /**
  * AUD-11 §2, §7; AV-13, AV-14: config/theme.ts is a typed view of the CSS, not
  * a second authority. Every value it states must be the value the stylesheet
- * declares, and the theme preference keeps "system" as the absence of a pin.
+ * declares, and the colour scheme is Day unless Night was chosen.
  */
 const tokensCss = readFileSync(join(process.cwd(), "styles/tokens.css"), "utf8");
 const globalsCss = readFileSync(join(process.cwd(), "styles/globals.css"), "utf8");
@@ -122,41 +121,10 @@ describe("config/theme.ts agrees with the stylesheets", () => {
   });
 });
 
-describe("Theme 2 is an overlay, never a second default", () => {
-  const look2Css = readFileSync(join(process.cwd(), "styles/look-2.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-
-  it("every rule of look-2.css is scoped to :root[data-look=\"2\"]", () => {
-    // Selectors are what is left once declarations, at-rule preludes and braces are taken away.
-    const selectors = look2Css
-      .replace(/@(media|layer)[^{]*\{/g, "")
-      .split("}")
-      .map((rule) => rule.split("{")[0].trim())
-      .filter(Boolean);
-    expect(selectors.length).toBeGreaterThan(0);
-    for (const selector of selectors) {
-      // The one rule Theme 1 carries is the icon swap: it hides Theme 2's glyph (components/icons).
-      for (const part of selector.split(/,\s*(?![^(]*\))/)) expect(part.trim(), part).toMatch(/^:root(\[data-look="2"\]|:not\(\[data-look="2"\]\) \[data-icon-look="2"\]$)/);
-    }
-  });
-
-  it("restates only variables Theme 1 declares", () => {
-    const declared = new Set([...(tokensCss + globalsCss).matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
-    // next/font declares the font variables on <body> (lib/fonts).
-    for (const name of ["--font-nesto-sans", "--font-geist-mono", "--font-nesto-serif"]) declared.add(name);
-    for (const [, name] of look2Css.matchAll(/(--[\w-]+)\s*:/g)) expect(declared.has(name), name).toBe(true);
-  });
-
-  it("the stylesheet is loaded straight after tokens.css, and `look2:` matches only inside <html data-look=\"2\">", () => {
-    expect(globalsCss).toMatch(/@import "\.\/tokens\.css";\s*@import "\.\/look-2\.css";/);
-    expect(globalsCss).toMatch(/@custom-variant look2 \(&:where\(\[data-look="2"\], \[data-look="2"\] \*\)\);/);
-  });
-
-  it("the look is a cookie anyone may set, and anything but \"2\" is Theme 1", () => {
-    expect(readLook(undefined)).toBe("1");
-    expect(readLook("3")).toBe("1");
-    expect(readLook("2")).toBe("2");
-    expect(lookAttribute("1")).toBeUndefined();
-    expect(lookAttribute("2")).toBe("2");
+describe("one theme", () => {
+  it("the stylesheets carry no second look", () => {
+    expect(globalsCss).not.toMatch(/look-2\.css|@custom-variant look2|data-look/);
+    expect(tokensCss).not.toMatch(/data-look/);
   });
 });
 
@@ -178,19 +146,17 @@ describe("the shell's geometry", () => {
 });
 
 describe("theme preference (AV-14)", () => {
-  it("system pins nothing, so the OS decides; light and dark pin", () => {
-    expect(THEME_CHOICES).toEqual(["system", "light", "dark"]);
-    expect(themeAttribute("system")).toBeUndefined();
-    expect(themeAttribute("light")).toBe("light");
-    expect(themeAttribute("dark")).toBe("dark");
-    expect(readThemeChoice(undefined)).toBe("system");
-    expect(readThemeChoice("sepia")).toBe("system");
+  it("Day or Night, and anything but Night is Day", () => {
+    expect(THEME_CHOICES).toEqual(["light", "dark"]);
+    expect(readThemeChoice(undefined)).toBe("light");
+    expect(readThemeChoice("system")).toBe("light");
+    expect(readThemeChoice("dark")).toBe("dark");
   });
 
-  it("the stylesheet follows the OS by default and an explicit choice overrides it both ways", () => {
-    expect(/:root\s*\{\s*color-scheme:\s*light dark;/.test(tokensCss)).toBe(true);
-    expect(/:root\[data-theme="light"\]\s*\{\s*color-scheme:\s*light;/.test(tokensCss)).toBe(true);
+  it("the stylesheet is Day by default and Night only when chosen, whatever the operating system says", () => {
+    expect(/:root\s*\{\s*color-scheme:\s*light;/.test(tokensCss)).toBe(true);
     expect(/:root\[data-theme="dark"\]\s*\{\s*color-scheme:\s*dark;/.test(tokensCss)).toBe(true);
+    expect(/prefers-color-scheme/.test(tokensCss + globalsCss)).toBe(false);
   });
 
   it("no global image inversion", () => {

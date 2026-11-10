@@ -303,7 +303,7 @@ exercised every job against the development database.
 | Topbar search disabled | **Closed** — palette on `/api/search`, keyboard navigable | E2E search flows (including the Viewer seeing nothing from Finance) |
 | Production storage public or incomplete | **Unchanged from §6** — private S3 driver exists; no deployed bucket verified | — |
 | Malware scanner required but absent | **Closed in code** — ClamAV over clamd INSTREAM, fails closed; EICAR refused in production | `tests/unit/storage/clamav-scanner.test.ts`, guard "the malware scanner is real and fails closed". No live clamd verified |
-| Build depends on live external fonts | **Closed** — Geist and Instrument Serif self-hosted via `next/font/local` | `lib/fonts/`, guard "fonts are self-hosted" |
+| Build depends on live external fonts | **Closed** — the Nesto theme's faces (IBM Plex Sans and Mono, Newsreader, Archivo) self-hosted via `next/font/local` | `lib/fonts/`, guard "fonts are self-hosted" |
 | Restore drill failed | **Not performed** (still §6 gate 2) | — |
 | 16-role critical suite failed | **Passing** | `tests/e2e/roles/role-acceptance.spec.ts` (16 roles) + `role-navigation.spec.ts` |
 

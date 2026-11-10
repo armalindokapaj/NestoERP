@@ -46,7 +46,7 @@ test("somebody with one company and no group standing is offered no switch", asy
   await expect(workspaceSwitcher(page)).toHaveCount(0);
   // The sidebar's header names the company and leads to its dashboard; nothing in it is pressed to switch.
   await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
-  await expect(page.getByTestId("sidebar-header").getByRole("button")).toHaveCount(0);
+  await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);
 });
 
 test("a company department manager assigns one of their people to a project, and takes them off (§65, §94; E-13 §88)", async ({ page }) => {

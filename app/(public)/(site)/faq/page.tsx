@@ -35,7 +35,7 @@ export default async function FaqPage() {
                   <span className="text-micro tabular-nums text-fg-subtle">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <h2 className="font-serif look2:font-display text-section text-fg lg:text-page">
+                  <h2 className="text-section text-fg lg:text-page font-display">
                     {faq.groups[key].title}
                   </h2>
                 </div>

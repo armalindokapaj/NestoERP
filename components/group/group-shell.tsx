@@ -68,7 +68,7 @@ export function GroupShell({ group, user, capabilities, children }: { group: { n
             {items.map((item) => (
               <li key={item.href}>
                 <Link href={item.href} aria-current={active(item.href) ? "page" : undefined} className={cn("-mb-px flex h-11 items-center gap-2 border-b-2 px-3 text-table transition-colors", active(item.href) ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>
-                  <item.icon aria-hidden="true" className="size-[18px]" strokeWidth={1.6} />
+                  <item.icon aria-hidden="true" className="size-[18px]" />
                   {item.label}
                 </Link>
               </li>

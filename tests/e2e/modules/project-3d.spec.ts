@@ -226,7 +226,7 @@ test("Company sees only the active read-only release", async ({ page }) => {
   await expect(viewer).toBeVisible();
   await expect(viewer).toHaveAttribute("data-release", "1");
   await expect(explorer.locator("[data-shell-region]")).toHaveCount(0);
-  await expect(explorer.getByTestId("sidebar-header")).toHaveCount(0);
+  await expect(explorer.getByTestId("topbar-home")).toHaveCount(0);
   await expect(explorer.getByRole("button", { name: /upload|publish|save experience|rollback/i })).toHaveCount(0);
 
   // The HUD: identity with its Back control, the compass, utilities and the dock.

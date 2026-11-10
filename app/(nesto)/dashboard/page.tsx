@@ -104,7 +104,7 @@ export default async function DashboardPage() {
               >
                 <span className="min-w-0 lg:flex lg:items-baseline lg:gap-2.5">
                   <span className="nesto-eyebrow block text-hero-accent md:text-body md:font-semibold md:normal-case md:tracking-normal md:text-fg lg:shrink-0">{misc("myDay.title")}</span>
-                  <span className="mt-1.5 block font-serif look2:font-display text-[1.375rem] leading-tight md:mt-0 md:truncate md:font-sans md:text-meta md:leading-normal md:text-fg-muted lg:min-w-0">{misc("myDay.openMyDayHint")}</span>
+                  <span className="mt-1.5 block text-[1.375rem] leading-tight md:mt-0 md:truncate md:text-meta md:leading-normal md:text-fg-muted lg:min-w-0 font-display">{misc("myDay.openMyDayHint")}</span>
                 </span>
                 <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-hero-accent text-hero md:size-auto md:bg-transparent md:text-fg-subtle">
                   <ArrowRight className="size-[18px] md:hidden" />

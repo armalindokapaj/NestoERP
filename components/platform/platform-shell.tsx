@@ -9,7 +9,6 @@ import { LogOut, Menu, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, User
 
 import { OrganizationMark } from "@/components/layout/organization-mark";
 import { PoweredBy } from "@/components/layout/powered-by";
-import { navMarkerClass } from "@/components/layout/nav-marker";
 import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-provider";
 import { LocaleSwitch } from "@/components/i18n/locale-switch";
 import { useTranslations } from "@/components/i18n/i18n-provider";
@@ -47,7 +46,7 @@ function AdminIdentity() {
   return link;
 }
 
-/* The platform's navigation row (components/layout/sidebar-nav.tsx): a light accent ground, accent icon and text, a 2px left marker;
+/* The platform's navigation row (it once matched the company sidebar, which UI-04 replaced): a light accent ground, accent icon and text, a 2px left marker;
    in version 2 the same neutral rows, selection tint and short gold rule as there (UI-02 §7.1). */
 function NavRow({ item, active, dense, onNavigate }: { item: AdminDestination; active: boolean; dense: boolean; onNavigate?: () => void }) {
   const { isRail } = useSidebar();
@@ -62,17 +61,16 @@ function NavRow({ item, active, dense, onNavigate }: { item: AdminDestination; a
       data-testid={`admin-nav-${item.key}`}
       className={cn(
         "nesto-nav-item group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 text-body font-medium transition-colors",
-        "look2:rounded-full look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.1em]",
+        "rounded-full font-mono text-micro uppercase tracking-[0.1em]",
         dense ? "min-h-11 py-2.5" : "py-2.5 touch:min-h-11",
         // Pending shows before the route commits (§28), not by colour alone.
         "data-[nav-pending]:bg-hover data-[nav-pending]:[&>svg]:animate-pulse",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
         // Version 2 (UI-02 §7.1, §9.1): as the company's rows, and a focus ring at full strength.
-        active ? "bg-accent-soft text-accent-strong look2:bg-primary look2:text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
+        active ? "bg-primary text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
       )}
     >
-      {active ? <span aria-hidden="true" className={cn(navMarkerClass, "look2:hidden")} /> : null}
-      <item.icon aria-hidden="true" strokeWidth={1.6} className={cn("size-[18px] shrink-0", active ? "text-accent look2:text-current" : "text-accent-strong group-hover:text-accent look2:text-fg-subtle look2:group-hover:text-fg")} />
+      <item.icon aria-hidden="true" className={cn("size-[18px] shrink-0", active ? "text-current" : "text-fg-subtle group-hover:text-fg")} />
       <span className="nesto-nav-label truncate">{label}</span>
     </Link>
   );
@@ -100,7 +98,7 @@ function Navigation({ permissions, utility = false, dense = false, onNavigate }:
   );
 }
 
-/** The collapse control lives in the top bar, as the platform's does (components/layout/sidebar-toggle.tsx). */
+/** The collapse control lives in the platform's top bar. */
 function SidebarToggle() {
   const { state, toggle } = useSidebar();
   const t = useTranslations("admin");
@@ -185,7 +183,7 @@ function AdminBottomNav({ permissions, onMore }: { permissions: readonly string[
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" aria-label={t("shell.create")} data-testid="admin-bar-create" className="-mt-[26px] grid size-[54px] cursor-pointer place-items-center rounded-full border-4 border-canvas bg-accent text-accent-fg shadow-menu transition-transform active:scale-95">
-                  <Plus aria-hidden="true" className="size-[22px]" strokeWidth={2.2} />
+                  <Plus aria-hidden="true" className="size-[22px]" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="center" className="min-w-44">
@@ -263,18 +261,18 @@ function Shell({ user, permissions, devActions, children }: { user: User; permis
 
   return (
     <>
-      <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r border-accent/25 bg-canvas transition-[width] lg:flex look2:border-line" data-testid="admin-sidebar">
-        <div className="flex h-16 shrink-0 items-center px-3 look2:border-b look2:border-fg" data-testid="sidebar-header"><AdminIdentity /></div>
+      <aside className="nesto-rail fixed inset-y-0 left-0 z-40 hidden w-[var(--nesto-nav-width)] flex-col border-r bg-canvas transition-[width] lg:flex border-line" data-testid="admin-sidebar">
+        <div className="flex h-16 shrink-0 items-center px-3 border-b border-fg" data-testid="sidebar-header"><AdminIdentity /></div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><Navigation permissions={permissions} /></div>
-        <div className="shrink-0 border-t border-accent/25 pb-1 look2:border-line"><Navigation permissions={permissions} utility /></div>
+        <div className="shrink-0 border-t pb-1 border-line"><Navigation permissions={permissions} utility /></div>
         <div className="nesto-sidebar-footer shrink-0 px-5 pb-5 pt-4"><PoweredBy isDemo={false} /></div>
       </aside>
       <Drawer open={mobile} onOpenChange={setMobile}>
         <DrawerContent side={phone ? "right" : "left"} className="bg-canvas lg:hidden" aria-describedby={undefined}>
           <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-accent/25 pl-4 pr-2">
-            <DrawerTitle className="font-serif look2:font-display text-[1.375rem] font-normal text-fg">{t("shell.menu")}</DrawerTitle>
+            <DrawerTitle className="text-[1.375rem] text-fg font-display">{t("shell.menu")}</DrawerTitle>
             <DrawerClose asChild>
-              <button type="button" aria-label={t("shell.closeNavigation")} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"><X aria-hidden="true" className="size-5" strokeWidth={1.6} /></button>
+              <button type="button" aria-label={t("shell.closeNavigation")} className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"><X aria-hidden="true" className="size-5" /></button>
             </DrawerClose>
           </div>
           <Navigation permissions={permissions} dense onNavigate={() => setMobile(false)} />
@@ -284,7 +282,7 @@ function Shell({ user, permissions, devActions, children }: { user: User; permis
       </Drawer>
       <BreadcrumbRegistryProvider>
       <div className="pl-[var(--nesto-nav-width)] transition-[padding]" data-admin-shell>
-        <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b border-accent/25 bg-canvas look2:border-fg pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8">
+        <header data-shell-region data-topbar-row className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) items-center gap-2 border-b bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8 border-fg">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {/* Tablet: the drawer opens from the left. A phone has its menu at the right, as the platform does. */}
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} className="hidden size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-fg-muted hover:bg-hover md:grid lg:hidden"><Menu className="size-5" /></button>
@@ -305,7 +303,7 @@ function Shell({ user, permissions, devActions, children }: { user: User; permis
                 destinations: { profile: "/admin/account", settings: "/admin/account", help: "/admin/help", whatsNew: "/admin/whats-new" },
               }}
             />
-            <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} data-testid="admin-menu" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover md:hidden"><Menu aria-hidden="true" className="size-[22px]" strokeWidth={1.6} /></button>
+            <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} data-testid="admin-menu" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover md:hidden"><Menu aria-hidden="true" className="size-[22px]" /></button>
           </div>
         </header>
         <BreadcrumbBar root={{ label: t("shell.breadcrumbRoot"), href: "/admin" }} />

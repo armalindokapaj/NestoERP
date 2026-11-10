@@ -47,7 +47,7 @@ export default async function SecurityPage() {
         <div className="relative mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
           <div className="max-w-2xl">
             <p className="nesto-eyebrow text-graphite-fg/55">{security.honesty.eyebrow}</p>
-            <h2 className="mt-5 font-serif look2:font-display text-page text-graphite-fg sm:text-display">
+            <h2 className="mt-5 text-page text-graphite-fg sm:text-display font-display">
               {security.honesty.title}
             </h2>
             <p className="mt-5 text-body leading-relaxed text-graphite-fg/70 sm:text-card">
