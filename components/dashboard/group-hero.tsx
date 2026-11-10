@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { Building2, Info } from "lucide-react";
+import { Building2, Info } from "@/components/icons";
 
 import type { GroupIdentity } from "@/lib/modules/dashboard/dashboard.group";
 import { getTranslations } from "@/lib/i18n/server";

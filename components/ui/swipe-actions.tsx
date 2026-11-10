@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 
 import { useIsBelow } from "@/components/ui/use-breakpoint";
 import { lockAxis, swipeOffset, swipeSettlesOpen } from "@/lib/ui/gestures";

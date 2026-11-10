@@ -23,7 +23,7 @@ import {
   Send,
   Users,
   Video,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";

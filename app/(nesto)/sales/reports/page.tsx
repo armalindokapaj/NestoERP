@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { ChartColumn } from "lucide-react";
+import { ChartColumn } from "@/components/icons";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ModulePage } from "@/components/modules/module-page";

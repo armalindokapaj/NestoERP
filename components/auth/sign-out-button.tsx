@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

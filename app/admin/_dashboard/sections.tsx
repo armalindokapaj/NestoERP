@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { AlertOctagon, AlertTriangle, ArrowRight, Building2, ChevronRight, FolderKanban, Info, Plus, ShieldCheck, Users } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ArrowRight, Building2, ChevronRight, FolderKanban, Info, Plus, ShieldCheck, Users } from "@/components/icons";
 
 import { dateText, formatDateTime, formatRelativeTime } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
@@ -47,7 +47,7 @@ export async function DashboardHeader({ context, actions }: { context: PlatformC
           <div className="min-w-0">
             <p className="nesto-eyebrow text-accent-strong">{today}</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05]">{ta("dashboard.lead")} <em className="italic text-accent-strong look2:font-serif look2:font-light look2:tracking-normal">{ta("dashboard.accent")}</em></h1>
+              <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] look2:font-semibold look2:text-[clamp(4rem,9vw,7.5rem)] look2:leading-[0.82] look2:tracking-[-0.035em] look2:[font-variation-settings:'wdth'_62]">{ta("dashboard.lead")} <em className="italic text-accent-strong look2:block look2:pl-[0.42em] look2:font-display look2:font-semibold look2:not-italic look2:tracking-[-0.035em] look2:text-transparent look2:[-webkit-text-stroke:1.25px_var(--nesto-fg)] look2:[font-variation-settings:'wdth'_62] look2:after:ml-[0.04em] look2:after:inline-block look2:after:size-[0.13em] look2:after:bg-accent look2:after:align-baseline look2:after:content-['']">{ta("dashboard.accent")}</em></h1>
               <Badge tone="neutral" className="max-md:hidden">{ta("shell.platformAdmin")}</Badge>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">

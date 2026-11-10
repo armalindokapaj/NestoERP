@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { FileText, Link2, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
+import { FileText, Link2, Loader2, Paperclip, Trash2, Upload } from "@/components/icons";
 
 import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";
 import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";

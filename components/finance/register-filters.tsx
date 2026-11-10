@@ -1,4 +1,4 @@
-import { FilterX } from "lucide-react";
+import { FilterX } from "@/components/icons";
 
 import type { FilterOption } from "@/components/data/list-toolbar";
 import { EmptyState } from "@/components/ui/empty-state";

@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Building2, ChevronRight, CircleAlert, Info, MapPin, TriangleAlert } from "lucide-react";
+import { ArrowRight, Building2, ChevronRight, CircleAlert, Info, MapPin, TriangleAlert } from "@/components/icons";
 
 import { StatusBadge } from "@/components/modules/status-badge";
 import { PersonLink } from "@/components/people/person-link";
@@ -103,7 +103,7 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 id={`widget-${definition.key}`} className="text-card font-semibold text-fg">
+            <h2 id={`widget-${definition.key}`} data-numbered-title="" className="text-card font-semibold text-fg">
               {widgetText(t, definition.key, "title", definition.title)}
               
             </h2>

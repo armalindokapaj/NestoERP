@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Crown, Loader2, MoreHorizontal, UserPlus } from "lucide-react";
+import { Crown, Loader2, MoreHorizontal, UserPlus } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";

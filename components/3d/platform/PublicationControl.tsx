@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { EyeOff } from "lucide-react";
+import { EyeOff } from "@/components/icons";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { useRouter } from "@/components/navigation/guarded-router";

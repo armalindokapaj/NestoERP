@@ -184,6 +184,9 @@ importers:
       '@capacitor/cli':
         specifier: 8.5.2
         version: 8.5.2
+      '@carbon/icons':
+        specifier: 11.92.0
+        version: 11.92.0
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.7
@@ -391,6 +394,9 @@ packages:
     resolution: {integrity: sha512-vBWB9VWwW/Yf1EewXZ2Ng2COZwSbbJplJ5vcNVEIgCWqr9OfQI0tZdRx3i2F661mrDWftAGLG4zmYZ75MLUmJg==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
+
+  '@carbon/icons@11.92.0':
+    resolution: {integrity: sha512-Xtb4IH/huGjbk25Un6ugDuBC4CtbbNndUGZoc4qjv2cyPAy75VwKQ802gskur/R1+ZOs+aWFK+Vqve6LntIEfg==}
 
   '@date-fns/tz@1.5.0':
     resolution: {integrity: sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg==}
@@ -725,6 +731,10 @@ packages:
   '@humanwhocodes/retry@0.4.3':
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
+
+  '@ibm/telemetry-js@1.12.0':
+    resolution: {integrity: sha512-tNgmk2k8loNDTnPInlu7yMP9YOCr9UMwSnXN7SCEsGIV8xHfTawhXlDnp1PV0Lbv+2GoLQKSgkShlJeGPi4jTg==}
+    hasBin: true
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -4548,6 +4558,10 @@ snapshots:
     dependencies:
       '@capacitor/core': 8.5.2
 
+  '@carbon/icons@11.92.0':
+    dependencies:
+      '@ibm/telemetry-js': 1.12.0
+
   '@date-fns/tz@1.5.0': {}
 
   '@dimforge/rapier3d-compat@0.12.0': {}
@@ -4758,6 +4772,8 @@ snapshots:
   '@humanwhocodes/module-importer@1.0.1': {}
 
   '@humanwhocodes/retry@0.4.3': {}
+
+  '@ibm/telemetry-js@1.12.0': {}
 
   '@img/colour@1.1.0': {}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "@/components/icons";
 
 import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import Link from "@/components/navigation/nav-link";

@@ -4,7 +4,7 @@ import { unsaved } from "@/lib/unsaved/coordinator";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Upload } from "lucide-react";
+import { Trash2, Upload } from "@/components/icons";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { selectClass } from "@/components/forms/record-form";

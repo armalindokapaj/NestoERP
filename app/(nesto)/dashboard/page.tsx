@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight } from "@/components/icons";
 import Link from "@/components/navigation/nav-link";
 
 import {

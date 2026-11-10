@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink, membershipHref } from "@/components/people/person-link";

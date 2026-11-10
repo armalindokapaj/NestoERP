@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { FilePen } from "lucide-react";
+import { FilePen } from "@/components/icons";
 
 import { amountLabel } from "@/components/finance/unit-finance/finance-status";
 import { FieldsDialog, type Submit } from "@/components/finance/unit-finance/fields-dialog";

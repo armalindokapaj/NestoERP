@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, CheckCircle2, ImagePlus, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Camera, CheckCircle2, ImagePlus, Loader2, Plus, RefreshCw, Trash2 } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";

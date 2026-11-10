@@ -105,6 +105,16 @@
 }
 
 /*
+ * Icons (components/icons): every icon is drawn twice, Lucide for Theme 1 and
+ * IBM's Carbon glyph for Theme 2, and the look shows its own. Important, so a
+ * `block` or `inline-flex` on the icon cannot bring the other one back.
+ */
+:root:not([data-look="2"]) [data-icon-look="2"],
+:root[data-look="2"] [data-icon-look="1"] {
+  display: none !important;
+}
+
+/*
  * Headings in the display face. In the base layer, so a heading that names its
  * own face — `nesto-eyebrow`, `font-mono` — keeps it. Archivo set to the width
  * the reference gives its card titles.
@@ -137,4 +147,79 @@
         0 20px 40px -18px light-dark(rgb(15 20 26 / 0.4), rgb(0 0 0 / 0.7));
     }
   }
+}
+
+/*
+ * Status marks — the reference's legend, drawn as an architect draws status
+ * on an elevation: solid for built (done, approved), hatched for under
+ * construction (needing attention), an outline for approved-not-started (in
+ * review, pending), dashed for proposed (draft, archived), crossed for
+ * stopped (rejected, failed). An 8px square before the label, in the label's
+ * colour, so the shape says what the colour says (components/ui/badge.tsx,
+ * the project chip).
+ */
+:root[data-look="2"] [data-mark]::before {
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 1px;
+}
+
+:root[data-look="2"] [data-mark="solid"]::before {
+  background: currentColor;
+}
+
+:root[data-look="2"] [data-mark="hatch"]::before {
+  background: repeating-linear-gradient(-45deg, currentColor 0 1px, transparent 1px 2.5px);
+}
+
+:root[data-look="2"] [data-mark="dashed"]::before {
+  border-style: dashed;
+}
+
+:root[data-look="2"] [data-mark="cross"]::before {
+  background: linear-gradient(to top right, transparent calc(50% - 0.6px), currentColor calc(50% - 0.6px), currentColor calc(50% + 0.6px), transparent calc(50% + 0.6px));
+}
+
+:root[data-look="2"] [data-mark]:has(> [data-badge-icon])::before {
+  display: none;
+}
+
+/*
+ * The reference's index: a card in a numbered set — a dashboard's widgets, the
+ * project gallery — carries its place before its title in mono, "01", the way
+ * the reference numbers its plates. Counted by CSS, so the numbers follow the
+ * order on screen and no data changes.
+ */
+:root[data-look="2"] [data-numbered] {
+  counter-reset: nesto-index;
+}
+
+:root[data-look="2"] [data-numbered] [data-numbered-title]::before {
+  counter-increment: nesto-index;
+  content: counter(nesto-index, decimal-leading-zero);
+  margin-inline-end: 0.75rem;
+  font-family: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  vertical-align: 0.15em;
+  color: var(--nesto-fg-subtle);
+}
+
+/*
+ * The metric strip as the reference's figures: no box, an ink rule above, the
+ * cells side by side with a hairline between (components/ui/metric-strip.tsx).
+ * Here rather than as classes: `.nesto-card` is in the utilities layer after
+ * them and would win.
+ */
+:root[data-look="2"] [data-metric-strip] {
+  border-width: 1px 0 0;
+  border-color: var(--nesto-fg);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }

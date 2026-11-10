@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell } from "lucide-react";
+import { Bell } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

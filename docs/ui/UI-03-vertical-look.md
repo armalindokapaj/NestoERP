@@ -1,61 +1,134 @@
 > **Chat:** Nesto — adapting the 7F "Tirana Vertical" design
 > **File:** `docs/ui/UI-03-vertical-look.md`
-> **About:** Theme 2 — what was taken from tirana.7fstudio.com, how it sits beside Theme 1 as a selectable look, how it is drawn on desktop and on a phone, where each piece lives in the code, what was removed (UI-02), and what is still open.
-> **Last updated:** 2026-11-10 (phone and desktop rework)
+> **About:** Theme 2 — the Tirana Vertical reference taken apart, the concept Nesto draws from it, how each of the reference's patterns lands on Nesto's screens, the icon system, how Theme 2 sits beside Theme 1, what was removed (UI-02), and what comes next.
+> **Last updated:** 2026-11-10 (deep dive: concept, structure, icons)
 
 # UI-03 — Theme 2, the "Vertical" look
 
 Nesto has two looks. **Theme 1** is the original: warm ivory, gold, serif
 titles. **Theme 2** is drawn in the design language of
-[Tirana Vertical](https://tirana.7fstudio.com/) (7F studio): cool paper, ink
-rules, a condensed display face, italic serif standfirsts and small mono
-labels. Each has a light and a dark colour scheme.
+[Tirana Vertical](https://tirana.7fstudio.com/) (7F studio). It is a drawing
+sheet more than an app. It uses cool paper, ink rules, condensed display
+figures, italic serif standfirsts, mono labels, status drawn as architects
+draw it, and IBM's Carbon icons. Each look has a light and a dark colour
+scheme.
 
-Evidence (`docs/ui/evidence/`): `UI-03-theme2-desktop.png` (light, dark),
-`UI-03-theme2-desktop-detail.png` (dialog, tables) and
-`UI-03-theme2-phone.png` (page, More sheet, dialog; light then dark) — the
-real navigation and primitives in a mock of the shell.
+Evidence (`docs/ui/evidence/`):
+
+- `UI-03-theme2-desktop.png`: dashboard header, record header, metric
+  figures, status marks and the project plates, in light then dark.
+- `UI-03-theme2-desktop-detail.png`: a dialog, and the tables in dark.
+- `UI-03-theme2-phone.png`: the page, the record figures, the More sheet and
+  a dialog, in light then dark.
+- `UI-03-theme2-icons.png`: the icon pairs, Theme 1 then Theme 2.
+
+All of them are the real components in a mock of the shell.
 
 ## 1. How the choice works
 
 | | |
 | --- | --- |
 | Where | Settings → Appearance → **Theme** (Theme 1 / Theme 2) |
-| Default | Theme 1. Nobody changes look until they pick Theme 2 |
-| Stored | Cookie `nesto.look`, per browser, one year — like light/dark |
-| Rendered | `<html data-look="2">` from the server, so there is no flash; Theme 1 renders no attribute |
-| In code | "look", because "theme" already means the colour scheme: `lib/layout/look-state.ts`, `look-server.ts`, `styles/look-2.css`, the `look2:` variant |
+| Default | Theme 1. Nobody's look changes until they pick Theme 2 |
+| Stored | Cookie `nesto.look`, per browser, for one year, like light/dark |
+| Rendered | `<html data-look="2">` from the server, so there is no flash. Theme 1 renders no attribute |
+| In code | Called "look", because "theme" already means the colour scheme: `lib/layout/look-state.ts`, `look-server.ts`, `styles/look-2.css`, the `look2:` variant |
 
-Theme 1 is unchanged. Each round of Theme 2 work is diffed against the
-version before it on the mock shell — desktop and phone, light and dark, the
-page, the More sheet and a dialog — and Theme 1 is pixel-identical. It
-downloads none of Theme 2's fonts.
+Theme 1 does not change. Each round of Theme 2 work is diffed against the
+version before it on the mock shell. The diff covers desktop and phone, light
+and dark, the full length of the page, the More sheet and a dialog: 36 frames
+in this round. Theme 1 is pixel-identical in every frame. Theme 1 downloads
+none of Theme 2's fonts.
 
-## 2. What the reference is made of
+## 2. The reference, taken apart
 
-Measured from the live page (computed styles), not estimated.
+### 2.1 Structure and positioning
+
+The site is a portfolio of towers. It is laid out like a set of drawings: each
+screen has a title block, numbered sheets and a legend. The structure matters
+more than the surface, so these are the parts and where they sit.
+
+| Pattern | What it is | Where it sits |
+| --- | --- | --- |
+| **Masthead** | Brand, then mono navigation, then a meta line, closed by one full-ink rule | Top, full width. The rule is the page's horizon |
+| **Hero** | Giant condensed type. The second word is drawn in outline and indented, and a red square stands as the full stop | First thing under the masthead, left-aligned. The type is the image |
+| **Hero figures** | Three or four display numbers over mono labels, each under its own hairline | Directly under the hero: the page's answer comes before its argument |
+| **Numbered section head** | Outlined numeral, title, an italic standfirst, then a full-ink rule | Opens every section, with the number set before the title |
+| **Chapter opener** | A section head with a small chart drawn to scale (heights and counts) beside it | Between groups of sections |
+| **Deck (filter bar)** | Segmented pills, status chips with counts, a mono result count and a pill search | Sticky under the masthead while the gallery scrolls |
+| **Plates** | Image cards with a glass status chip and a big figure. The caption reads "01 Name", an italic "by", then a hairline and meta with "SHEET →" | The gallery: 4 columns on desktop, 2 on a phone |
+| **Sheet** | A frosted glass panel with a facts grid | Floats over the gallery; full screen on a phone, 8px off the edges with 20px corners |
+| **Ranked list** | Rows led by outline numerals | Lower on the page, for "tallest" and "latest" |
+| **Section dial** | A 62px ink circle with a scroll-progress ring that expands into section icons | Floats bottom right |
+| **Legend** | Solid, hatched (5px at 45°), outline and dashed fills | Next to every drawing and on every status |
+
+What this adds up to:
+
+- **Answer first.** The figures sit above the gallery. Proof comes after.
+- **Numbered, not boxed.** Order is shown by "01, 02, 03" and by ink rules.
+  Cards are used only for things you pick up (plates).
+- **Status is drawn, not coloured.** The legend's fills carry meaning without
+  hue, the way a drawing set does.
+- **Floating things are glass; everything else is paper.**
+
+### 2.2 Measurements
+
+These were measured from the live page's computed styles, not estimated.
 
 | Layer | Reference | Notes |
 | --- | --- | --- |
-| Ground | `#F5F6F7` paper, `#FFFFFF` surfaces | Light only; no dark scheme |
+| Ground | `#F5F6F7` paper, `#FFFFFF` surfaces | Light only; there is no dark scheme |
 | Ink | `#0F141A` text and rules, `#3A424C` secondary, `#6F7782` muted | |
-| Lines | ink at 10% and 20%; a full-ink 1px rule under the masthead and every section head | |
+| Lines | Ink at 10% and 20%; a full-ink 1px rule under the masthead and every section head | |
 | Accent | `#B0251F` red, used for one full stop, links and the focus ring | |
 | Status | built `#1E6A4E`, rising `#B06F12`, approved `#2D5A8A`, proposed `#7E6CC0`, revoked `#8C3A33` | 8px square dot, 2px radius |
 | Display | Archivo variable, width axis 62–74, weight 500–600, tracking −0.02 to −0.035em | Outlined numerals: weight 300, 1.2px stroke |
-| Standfirst | Newsreader italic, weight 300 | Inside a heading (`<i>`) and under it |
-| Body | IBM Plex Sans 15/23, controls 12.5/500 | |
-| Labels | IBM Plex Mono 10.5px, 500, uppercase, tracking 0.10–0.14em | |
-| Controls | Pills (999px), white with a 1px ink-10% ring; active segment is an ink pill that slides | 34px high |
-| Cards | 10px radius; shadow `0 0 0 1px ink/6%, 0 18px 40px -18px ink/35%, 0 40px 80px -40px ink/25%` | Shadow pulled under the card |
-| Overlays | Menu 14px radius with 9px rows; detail sheet 24px, frosted (`blur(24px) saturate(1.4)`) | |
-| Motion | `cubic-bezier(.25,.46,.45,.94)` for colour, `cubic-bezier(.16,1,.3,1)` for movement; entrance = 10px rise + 8px blur over 0.9s | Honours reduced motion |
-| Layout | 1320px column; numbered sections (`01 Title *standfirst*`), chapter openers, sticky filter bar | |
+| Standfirst | Newsreader italic, weight 300 | Both inside a heading (`<i>`) and under it |
+| Body | IBM Plex Sans 15/23; controls 12.5/500 | |
+| Labels | IBM Plex Mono 10.5px, weight 500, uppercase, tracking 0.10–0.14em | |
+| Controls | Pills (999px), white with a 1px ink-10% ring. The active segment is an ink pill that slides | 34px high |
+| Cards | 10px radius; shadow `0 0 0 1px ink/6%, 0 18px 40px -18px ink/35%, 0 40px 80px -40px ink/25%` | The shadow is pulled in under the card |
+| Overlays | Menu: 14px radius, 9px rows. Detail sheet: 24px radius, frosted (`blur(24px) saturate(1.4)`) | |
+| Icons | Custom, on a 20px grid; stroke 1.6–1.8, round caps | Their own drawings; not copied (§6) |
+| Motion | `cubic-bezier(.25,.46,.45,.94)` for colour, `cubic-bezier(.16,1,.3,1)` for movement. Entrance is a 10px rise with an 8px blur over 0.9s | Honours reduced motion |
+| Layout | 1320px column | |
+
+### 2.3 The concept for Nesto
+
+Nesto is an ERP for builders. Its users read drawings for a living, so the
+reference's drawing-set language is not decoration for them: it is their
+literacy. Theme 2 follows eight rules.
+
+1. **Figures first.** Every page with numbers leads with them, set in the
+   display face over a mono label. This covers dashboard KPIs, a record's
+   facts and a budget's metrics. The label explains the figure; the figure
+   is the headline.
+2. **Status is drawn.** Every status carries a legend mark before its label:
+   solid, hatched, outline, dashed or crossed. Shape says what colour says.
+   This is the reference's legend and a site drawing's convention, and it
+   also means status never relies on colour alone.
+3. **Ink rules, not boxes.** A title block, a set of figures and a table head
+   close on a full-ink rule. Boxes are kept for things you pick up: plates,
+   KPI cards, dialogs.
+4. **Numbered sets.** A collection on screen, such as the dashboard's widgets
+   or the project gallery, numbers its members "01, 02, 03" in mono before
+   the title, as sheets in a set are numbered.
+5. **Two voices and a ruler.** The condensed display face states things. The
+   italic serif explains them. Mono labels, measures and indexes them. Plex
+   Sans carries the work in between.
+6. **Ink acts, gold marks.** The primary action is ink (gold in dark). Gold
+   stays Nesto's accent and appears where the reference uses red: the full
+   stop, the tick above a figure, the focus.
+7. **Glass only for what floats.** Dialogs, drawers, menus, the phone's bar
+   and its sheets are frosted. Pages are paper.
+8. **Arrive from focus.** A page's title block rises 10px out of an 8px blur
+   in 0.8s, on the reference's colour curve. Nothing else moves on load.
+   Reduced motion turns it off.
 
 ## 3. Tokens (`styles/look-2.css`)
 
-An overlay: every rule is scoped to `:root[data-look="2"]` and restates
-variables `styles/tokens.css` already declares.
+The tokens are an overlay. Every rule is scoped to `:root[data-look="2"]` and
+restates variables that `styles/tokens.css` already declares.
 
 | Token | Theme 1 | Theme 2 (light / dark) |
 | --- | --- | --- |
@@ -73,129 +146,234 @@ variables `styles/tokens.css` already declares.
 | `radius-overlay` | 12px | 14px |
 | `ease` | `(.2,.8,.2,1)` | `(.25,.46,.45,.94)` |
 
-`fg-subtle` is darker than the reference's `#6F7782`: Nesto holds metadata to
-4.5:1 on every ground, hover and selected included, and the reference colour
-does not clear that. The dark scheme is derived — the reference has none.
-Every pair is measured in both themes and both schemes by
+`fg-subtle` is darker than the reference's `#6F7782`. Nesto holds metadata to
+a 4.5:1 contrast ratio on every ground, including hover and selected, and the
+reference colour does not reach that. The dark scheme is derived, because the
+reference has none. Every pair is measured in both themes and both schemes by
 `tests/unit/a11y/contrast.test.ts`.
 
-## 4. Type (`lib/fonts`, `styles/look-2.css`, `styles/globals.css`)
+## 4. Type and vocabulary (`lib/fonts`, `styles/look-2.css`, `styles/globals.css`)
 
-| Role | Theme 1 | Theme 2 | Spent by |
+| Role | Theme 1 | Theme 2 | Used by |
 | --- | --- | --- | --- |
 | Sans | Manrope | IBM Plex Sans (variable) | body, controls |
-| Mono | Geist Mono | IBM Plex Mono 400/500/600 | `nesto-eyebrow`, table headings, badges, sidebar rows |
-| Serif | Instrument Serif | Newsreader (variable, italic) | `nesto-standfirst`, the italic word in a heading |
-| Display | — (the serif does this) | Archivo (variable width) | `font-display` |
+| Mono | Geist Mono | IBM Plex Mono 400/500/600 | `nesto-eyebrow`, labels, table headings, badges, sidebar rows, indexes |
+| Serif | Instrument Serif | Newsreader (variable, italic) | `nesto-standfirst` |
+| Display | none (the serif does this job) | Archivo (variable width) | `font-display`, headings, figures |
 
-All are SIL OFL and bundled from Fontsource 5.3.0, Latin subset. Theme 2's
-four are declared without preload, so they are fetched only inside Theme 2.
-`look-2.css` points the product's three font variables at Theme 2's faces;
-every Theme 1 serif heading carries `look2:font-display`.
+All four are licensed SIL OFL and bundled from Fontsource 5.3.0, Latin
+subset. Theme 2's fonts are declared without preload, so they are fetched only
+inside Theme 2. `look-2.css` points the product's three font variables at
+Theme 2's faces. Headings `h1`–`h3` take the display face from a base-layer
+rule, so a heading that names its own face keeps it.
 
-Theme 2 names its body face directly. Theme 1 names it through a theme
-variable that resolves on `<html>`, where next/font has not declared it, so
-Theme 1's running text is the system font — as it was before this work.
-
-Vocabulary added, used with the variant (`look2:font-display`):
+Classes, used with the variant (`look2:font-display`):
 
 | Class | What it draws |
 | --- | --- |
-| `font-display` | Condensed title or figure |
-| `nesto-standfirst` | Italic serif line under a title |
+| `font-display` | A condensed title or figure |
+| `nesto-standfirst` | The italic serif line under a title |
 | `nesto-rule` | The 1px ink rule that closes a title block |
-| `nesto-numeral` | Outlined section number; decoration, `aria-hidden` |
-| `nesto-status-dot` | 8px square status marker, `currentColor` |
+| `nesto-numeral` | An outlined section number; decoration, `aria-hidden` |
+| `nesto-status-dot` | An 8px square status marker in `currentColor` |
+| `animate-[nesto-rise-focus_…]` | The entrance: a rise out of blur (`globals.css`) |
 
-## 5. What changes on the components in Theme 2
+Attributes, which Theme 2 draws from `look-2.css` and Theme 1 ignores:
 
-Everything is a `look2:` class on the component, or a rule in
-`styles/look-2.css`; Theme 1's classes are untouched.
+| Attribute | On | Draws |
+| --- | --- | --- |
+| `data-mark="solid \| hatch \| outline \| dashed \| cross"` | A status label | The legend mark before the label |
+| `data-numbered` | A collection | Restarts the "01" count |
+| `data-numbered-title` | The title of each member | "01", "02", … in mono before it |
+| `data-metric-strip` | `MetricStrip` | Open figures on an ink rule instead of a card |
 
-### Desktop and everywhere
+The attributes replace classes where Tailwind's layers would lose:
+`.nesto-card` sits in the utilities layer and wins over `look2:` classes on
+the same element.
+
+## 5. The patterns on Nesto's screens
+
+Everything below is either a `look2:` class on the component or a rule in
+`styles/look-2.css`. Theme 1's classes are untouched.
+
+### 5.1 Pattern → Nesto
+
+| Reference | Nesto | Where |
+| --- | --- | --- |
+| Masthead and its ink rule | Top bar on an ink rule. + Create is an ink pill and the company switcher a white pill | `components/layout/topbar.tsx` |
+| Mono navigation | Sidebar rows in mono capitals with Carbon icons; the active row is an ink pill | `sidebar-nav.tsx` |
+| Hero, outlined second word, square full stop | The dashboard's `Company overview.`: Archivo at width 62, from 4rem to 7.5rem. "overview" is outlined and indented with a gold square for the full stop, and the block rises from focus | `welcome-header.tsx`, admin `sections.tsx` |
+| Hero figures | KPI cards lead with the figure (2.75rem, width 70) under the gold tick, over a mono label. The icon tile is gone | `kpi-card.tsx` |
+| Facts under hairlines | A record header's facts (contract value, floors, completion, manager) form a grid of figures, each under its own hairline. On a phone they take the full width, two columns | `page-header.tsx` (`FACTS`) |
+| Section head with standfirst and rule | Every page and module title: display face, italic standfirst, ink rule | `PageHeaderFrame` |
+| Figures with labels | `MetricStrip` drops its box: a 2.5rem display figure under a mono label, cells side by side on an ink rule | `metric-strip.tsx`, `[data-metric-strip]` |
+| Legend fills | Status marks on every `Badge` and project chip (§5.2) | `badge.tsx`, `project-status-badge.tsx` |
+| Plates | Project cards become plates: 10px corners, no border, the reference's lifted shadow that deepens on hover over 700ms. The caption reads "01 Name", then an italic company line, then a hairline over the place | `project-card.tsx`, `projects-portfolio.tsx` |
+| Glass status chip | On a plate, the project status chip is dark glass with its legend mark. In the record bar and compact rows it is a mono-capital pill | `project-card.tsx`, `project-status-badge.tsx` |
+| Numbered sheets | Dashboard widgets and the project gallery are numbered sets | `dashboard-grid.tsx`, `dashboard-widget.tsx`, `projects-portfolio.tsx` |
+| Ink rule under a head | Table heads in mono close on an ink rule | `table.tsx` |
+| Segmented control | `Tabs`, context tabs and settings choices: a white pill track with an ink pill for the active choice | `tabs.tsx`, context tabs |
+| Detail sheet | Dialogs are glass sheets with 24px corners. Drawers float 8px off the edges with 20px corners | `dialog.tsx`, `drawer.tsx` |
+| Brand title | The sign-in panel's headline uses the hero setting | `brand-panel.tsx` |
+| Entrance | Title blocks rise 10px out of an 8px blur | `page-header.tsx`, `welcome-header.tsx` |
+
+### 5.2 Status marks
+
+| Mark | Meaning | `Badge` tone | Project status |
+| --- | --- | --- | --- |
+| Solid | Built, done | `success` | Finished |
+| Hatched | Under construction, needs attention | `warning` | Active |
+| Outline | Approved, not started; in review | `info` | Pending |
+| Dashed | Proposed, draft, archived | `default`, `neutral` | Archived |
+| Crossed | Stopped, rejected, failed | `danger` | none |
+
+The mark is an 8px square with a 1px border in the label's colour. A badge
+that carries its own icon shows the icon instead of the mark.
+
+### 5.3 Everywhere else
 
 | Where | Change |
 | --- | --- |
-| Headings `h1`–`h3` | Archivo condensed (`look-2.css`, base layer, so a heading that names its own face keeps it) |
-| `PageHeaderFrame` | Display title (larger on a module page from `md`), italic standfirst, ink rule under the block — the reference's section head |
-| Context tabs | Segmented pills; the tab the page is on is ink (gold in dark) |
-| `Tabs`, settings choices (Theme, colour scheme, …) | The reference's segmented control: white pill track with a hairline, active ink pill |
-| Fields | Inputs, selects and textareas 10px corners; the search field a pill |
-| Menus, selects' lists, popovers | 14px corners, 9px rows, quiet separators, mono group labels |
-| Dialogs | Glass sheet: 24px corners, frosted, white edge; title one step larger; a lighter ink scrim |
-| Drawers | Floating glass panel 8px off the screen's edges, 20px corners |
-| Breadcrumbs | Mono capitals |
-| `Badge` | Mono capitals; a step less open on a phone |
-| `TableHeaderCell` | Mono |
+| Fields | Inputs, selects and textareas get 10px corners; the search field is a pill |
+| Menus, select lists, popovers | 14px corners, 9px rows, quiet separators, mono group labels |
+| Breadcrumbs, `Badge`, `TableHeaderCell` | Mono capitals |
 | `Switch` | Ink when on |
 | Tooltips | Pills |
-| Sidebar (company and platform admin) | Mono capital rows, neutral icons, active row an ink pill, no edge marker; muted group labels; quiet frame lines; header on the top bar's ink rule; workspace name in the display face |
-| Top bar | Ink rule; + Create an ink pill; company switcher a white pill; round icon buttons |
 | Account panel | Neutral icons |
-| Dashboard header | Ink rule; `Company *overview*` as display + italic serif in gold |
 | `NestoLogo` | Archivo at its wide setting |
 
-### Phone
+### 5.4 Phone
 
 | Where | Change |
 | --- | --- |
-| Bottom bar | 20px glass bar with a white edge; mono capital labels; the current destination an ink pill (gold in dark); Create an ink circle |
-| Alerts in the bar | Same labels as the other cells |
-| More sheet | Floating glass panel (the drawer above); ink rule under its title; 10px lists; mono capital rows; muted group labels; neutral icons; the current module an ink row |
-| Section pill (top right) | White pill with a hairline; ink while its menu is open; its menu's rows 9px, the current one ink |
-| Quick Create, Alerts panels and every touch popup | The reference's menu glass: 14px corners, lighter frost, hairline, deep pulled-in drop (`look-2.css`, same layer and query as Theme 1's glass) |
+| Bottom bar | A 20px glass bar with a white edge and mono capital labels. The current destination is an ink pill (gold in dark); Create is an ink circle |
+| More sheet | A floating glass panel with an ink rule under its title, 10px lists and mono capital rows. The current module is an ink row |
+| Section pill (top right) | A white pill with a hairline, ink while its menu is open |
+| Quick Create, Alerts and every touch popup | The reference's menu glass: 14px corners, lighter frost, hairline, deep pulled-in drop |
+| Hero and figures | The hero runs from 4rem. Record facts take the full width in two columns, and KPI cards sit two by two |
 
-## 6. Deliberately not copied
+## 6. Icons (`components/icons`)
 
-- **The red accent.** Gold stays the accent in both themes.
-- **Their content and compositions**: the skyline drawings, the fanned photo
-  deck, the 3D city, the tower sheets, photographs and copy. The page reserves
-  its design, layout, drawings and text; what Nesto takes is the general
-  language (open-source typefaces, a neutral palette, hairlines, pills), drawn
-  on Nesto's own components.
-- **Pill text inputs.** Only the search field is a pill; other fields are
-  10px, because a form has textareas and long values a pill does not hold.
+**Choice.** Theme 2 uses IBM's
+[Carbon](https://github.com/carbon-design-system/carbon/tree/main/packages/icons)
+icons (Apache-2.0). The reference's icons are its own drawings, so Nesto
+does not copy them. Carbon is the family drawn alongside IBM Plex, which is
+the reference's body and label type. It shares Plex's grid and stroke: a
+32-unit box with a 2-unit line, so 1px at 16px, like a drawn line. It has
+flat terminals and engineered geometry, and it includes an industry
+vocabulary that Lucide lacks: `helmet`, `delivery-truck`, `industry`,
+`enterprise`, `inventory-management`, `task--approved`. Lucide's rounded,
+friendly line belongs to Theme 1 and stays there.
+
+**How it works.**
+
+- `components/icons/index.ts` is the product's only icon module. Every one of
+  its 288 exports draws both looks: the Carbon glyph (`data-icon-look="2"`)
+  and the Lucide icon (`data-icon-look="1"`), via `dual()` in
+  `components/icons/dual.tsx`.
+- `look-2.css` hides whichever glyph does not belong to the current look.
+- The Carbon glyph comes first, so Lucide stays the last child for `space-x`
+  and `divide` utilities.
+- `ref`, `id` and `data-testid` stay on Lucide, so Theme 1's markup,
+  behaviour and tests are unchanged.
+- An icon is decorative unless it is given `aria-label`, in which case it is
+  `role="img"`.
+- Nesto's own module icons (`NestoOverview` … `NestoAuditLog`) live in
+  `components/icons/nesto.ts` and are paired the same way.
+- The spinner is a drafting arc: a quarter-open circle drawn with Carbon's
+  line weight.
+
+**The map.** `scripts/icons/icon-map.mjs` names the Carbon glyph for each
+icon. The choices follow meaning, not shape:
+
+| Icon | Carbon glyph |
+| --- | --- |
+| Projects | `enterprise` (a tower) |
+| HardHat | `helmet` |
+| GanttChart | `roadmap` |
+| Landmark (finance) | `finance` |
+| Bell | `notification` |
+| Award | `badge` |
+
+**Adding an icon.**
+
+1. Add its Lucide name and the Carbon name to `icon-map.mjs`.
+2. Run `pnpm icons:generate`.
+3. Import it from `@/components/icons`.
+
+`tests/architecture/icons.test.ts` fails the build if anything else imports
+`lucide-react`, or if the generated module loses its glyphs. `@carbon/icons`
+is a dev dependency only: the generator copies the glyphs it needs into the
+module.
+
+## 7. Deliberately not copied
+
+- **The red accent.** Gold stays the accent in both themes. It takes red's
+  places: the full stop, the tick, the focus.
+- **Their content and compositions.** This covers the skyline drawings, the
+  fanned photo deck, the 3D city, the tower sheets, their icons, photographs
+  and copy. The site reserves its design, layout, drawings and text. Nesto
+  takes the general language (open-source typefaces, a neutral palette,
+  hairlines, pills, a drawing set's conventions) and draws it on Nesto's own
+  components.
+- **Pill text inputs.** Only the search field is a pill. Other fields have
+  10px corners, because a form has textareas and long values that a pill
+  does not hold.
 - **The reference's 10% field ring.** Field borders keep the control-border
-  colour, which clears 3:1 against the ground; the reference's ring does not.
-- **The single floating button.** The phone keeps its five-button bar rather
-  than the reference's one round button, so Create and Alerts stay one tap away.
+  colour, which reaches 3:1 against the ground; the reference's ring does
+  not.
+- **The single floating button on a phone.** The phone keeps its five-button
+  bar rather than the reference's one round button, so Create and Alerts stay
+  one tap away.
 
-## 7. What was removed: UI-02 ("design version 2")
+## 8. What was removed: UI-02 ("design version 2")
 
 Theme 2 replaces the flag-gated version 2. Removed with it:
 
 - `styles/tokens-v2.css`, the `ds2:` variant and every `ds2:` class;
 - `NESTO_DESIGN_SYSTEM` and `NESTO_UI_RULER`, the `nesto.ds`, `nesto.density`
   and `nesto.ruler` cookies, and the developer-only Classic / New switch;
-- Compact density and the page ruler, with the section registry, "On this
-  page" links, back-to-section restore, published sticky heights, the tab-row
-  overflow fade and the UI-02 route register;
+- Compact density and the page ruler, along with the section registry, "On
+  this page" links, back-to-section restore, published sticky heights, the
+  tab-row overflow fade and the UI-02 route register;
 - their unit and e2e tests.
 
-Where version 1 and version 2 behaved differently, version 1's behaviour is
-what remains — with one exception: forgot-password, reset-password and
+Where version 1 and version 2 behaved differently, version 1's behaviour
+remains, with one exception: forgot-password, reset-password and
 verify-recovery-email keep version 2's focused layout, because version 1's
-pages there used classes the stylesheet does not define.
+pages used classes the stylesheet does not define.
 
-## 8. Open
+## 9. Next
 
-- **Signed-in screens were not viewed.** There was no database in the
-  environment this was built in, so both themes were checked on a mock of the
-  shell, the landing page and the token tests. Worth a pass on the dashboard,
-  a table-heavy module, a record page and Settings → Appearance.
-- **The type checker could not finish cleanly here** (the Prisma client could
-  not be generated). Its errors on this branch match `main`'s, file for file
-  and code for code; CI should confirm.
-- **Long Albanian labels** truncate sooner in Theme 2's mono capitals than in
-  Theme 1's sans — most visibly in the phone's bottom bar (10px capitals in a
-  ~70px cell) and the sidebar.
-- **Bare headings and titles drawn as `<p>`.** Every `h1`–`h3` takes the
-  display face; a title drawn as a paragraph with `text-card font-semibold`
-  stays in Plex Sans unless it carries `look2:font-display` (the settings rows
-  do).
-- **Segmented pills and numbered section heads** exist as vocabulary (§4) but
-  no page uses them yet.
-- **Comments** in about fifteen files still mention version 2 or
-  `tokens-v2.css`; `docs/ui/UI-02-*` and `docs/a11y/contrast.md` describe the
-  removed design and the old values.
-- **Native splash and icon** still use `#15171c` in both themes.
+**Still to build:**
+
+- **The section dial.** A floating ink circle with a scroll-progress ring
+  that opens into the page's sections, for long record pages (a project's
+  overview, a contract). On a phone it has to live with the bottom bar's
+  Create button, so that placement needs designing.
+- **Chapter openers with drawings to scale.** Module landing pages (Finance,
+  Procurement) would open with a small chart drawn to scale beside the
+  title: budget against committed against spent, or orders by stage.
+- **The deck.** On list pages, status chips with counts and a mono result
+  count beside the segmented pills and the search, sticky while the list
+  scrolls.
+- **Ranked lists.** "At risk" and "latest" lists led by outline numerals.
+
+**Still to check:**
+
+- **Signed-in screens.** These were not viewed, because there was no database
+  in the environment this was built in. Both themes were checked on a mock of
+  the shell, the landing page and the token tests. The dashboard, a
+  table-heavy module, a record page and Settings → Appearance need a pass.
+- **A production build.** Every icon now ships both glyphs. A build should
+  confirm the bundle cost is small, and the type checker should run where the
+  Prisma client can be generated. Here its errors match `main`'s, file for
+  file and code for code.
+- **Long Albanian labels.** They truncate sooner in mono capitals than in
+  Theme 1's sans, most visibly in the phone's bottom bar and the sidebar.
+- **Titles drawn as `<p>`.** A title written as a paragraph stays in Plex Sans
+  unless it carries `look2:font-display`.
+- **Stale references.** Comments in about fifteen files still mention version
+  2 or `tokens-v2.css`. `docs/ui/UI-02-*` and `docs/a11y/contrast.md`
+  describe the removed design.
+- **Native splash and icon.** These still use `#15171c` in both themes.

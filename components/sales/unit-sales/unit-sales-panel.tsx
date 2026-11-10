@@ -5,7 +5,7 @@ import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { BadgeCheck, CalendarPlus, CircleX, MoreHorizontal, PauseCircle, PlayCircle, Tag, Undo2, Unlock } from "lucide-react";
+import { BadgeCheck, CalendarPlus, CircleX, MoreHorizontal, PauseCircle, PlayCircle, Tag, Undo2, Unlock } from "@/components/icons";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Menu, X } from "lucide-react";
+import { ChevronRight, Menu, X } from "@/components/icons";
 
 import { LocaleSwitch } from "@/components/i18n/locale-switch";
 import { NestoLogo } from "@/components/layout/nesto-logo";

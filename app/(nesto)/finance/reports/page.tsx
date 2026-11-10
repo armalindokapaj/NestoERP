@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { ChartColumn } from "lucide-react";
+import { ChartColumn } from "@/components/icons";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";

@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { AlertCircle, Box, CalendarPlus, CheckSquare, ClipboardList, FilePlus2, type LucideIcon } from "lucide-react";
+import { AlertCircle, Box, CalendarPlus, CheckSquare, ClipboardList, FilePlus2, type LucideIcon } from "@/components/icons";
 
 import { numberText } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";

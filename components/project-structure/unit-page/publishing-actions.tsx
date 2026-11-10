@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Archive, ArchiveRestore } from "lucide-react";
+import { Archive, ArchiveRestore } from "@/components/icons";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EntityActionSheet } from "@/components/detail/entity-action-sheet";

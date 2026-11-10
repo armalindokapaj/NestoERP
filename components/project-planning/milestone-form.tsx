@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

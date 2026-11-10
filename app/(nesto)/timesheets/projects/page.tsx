@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
-import { FolderKanban } from "lucide-react";
+import { FolderKanban } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { ModulePage } from "@/components/modules/module-page";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { ChevronLeft, ChevronRight, Film, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, Film, Play } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";

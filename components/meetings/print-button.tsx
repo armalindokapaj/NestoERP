@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import { Printer } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { useMeetingsTranslations } from "./meetings-text";

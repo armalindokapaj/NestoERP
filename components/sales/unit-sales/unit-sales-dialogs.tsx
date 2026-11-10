@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, UserPlus } from "lucide-react";
+import { Check, UserPlus } from "@/components/icons";
 
 import { guardComposingEnter, reveal, useSubmitOnlyButton } from "@/components/forms/form-contract";
 import { selectClass } from "@/components/forms/record-form";

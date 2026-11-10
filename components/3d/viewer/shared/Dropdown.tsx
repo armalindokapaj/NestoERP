@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 import { cn } from "@/lib/3d/viewer/utils";
 
 export function DropdownPanel({

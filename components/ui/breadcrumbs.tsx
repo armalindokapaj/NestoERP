@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { ArrowLeft, ArrowRight, Building2, ChevronDown, ChevronRight, Layers, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, ChevronDown, ChevronRight, Layers, MoreHorizontal } from "@/components/icons";
 import { usePathname } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";

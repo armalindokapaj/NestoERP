@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { AlertTriangle, ChevronDown, Flag, Link2, MoreHorizontal } from "lucide-react";
+import { AlertTriangle, ChevronDown, Flag, Link2, MoreHorizontal } from "@/components/icons";
 
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { Button } from "@/components/ui/button";

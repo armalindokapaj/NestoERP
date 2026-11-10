@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { RegisterSections } from "@/components/navigation/section-registry";
-import { Boxes, CalendarClock, History, Loader2, Star, X } from "lucide-react";
+import { Boxes, CalendarClock, History, Loader2, Star, X } from "@/components/icons";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";

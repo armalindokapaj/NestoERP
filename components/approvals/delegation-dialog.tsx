@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, UserRoundCog } from "lucide-react";
+import { Loader2, UserRoundCog } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { useLocale } from "@/components/i18n/i18n-provider";

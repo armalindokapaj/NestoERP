@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { Building2 } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { DepartmentTable } from "@/components/team/department-table";

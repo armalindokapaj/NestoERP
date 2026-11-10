@@ -1,4 +1,4 @@
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";

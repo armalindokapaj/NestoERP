@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera } from "lucide-react";
+import { Camera } from "@/components/icons";
 
 import { useDocumentsTranslations } from "@/components/documents/documents-text";
 import { useRouter } from "@/components/navigation/guarded-router";

@@ -89,7 +89,7 @@ import {
   Wrench,
   Hammer,
   type LucideIcon,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   NestoApprovals,
@@ -100,7 +100,7 @@ import {
   NestoPeople,
   NestoProcurement,
   NestoProjects,
-} from "./nesto-icons";
+} from "@/components/icons";
 
 /**
  * Explicit icon registry.

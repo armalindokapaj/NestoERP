@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "@/components/navigation/nav-link";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { EmptyState } from "@/components/ui/empty-state";

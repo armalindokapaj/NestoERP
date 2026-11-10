@@ -4,7 +4,7 @@ import * as React from "react";
 import { localToday } from "@/components/finance/local-date";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { CheckCircle2, FileSignature, PenLine, Play, Send, XCircle } from "lucide-react";
+import { CheckCircle2, FileSignature, PenLine, Play, Send, XCircle } from "@/components/icons";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";

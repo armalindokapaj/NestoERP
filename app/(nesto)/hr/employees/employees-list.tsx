@@ -1,4 +1,4 @@
-import { UserRoundCog } from "lucide-react";
+import { UserRoundCog } from "@/components/icons";
 import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";

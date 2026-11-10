@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, FileText, Paperclip, X } from "lucide-react";
+import { Camera, FileText, Paperclip, X } from "@/components/icons";
 
 import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";
 import { useTranslations } from "@/components/i18n/i18n-provider";

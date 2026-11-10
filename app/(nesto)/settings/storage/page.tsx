@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HardDrive } from "lucide-react";
+import { HardDrive } from "@/components/icons";
 
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";
 import { Badge } from "@/components/ui/badge";

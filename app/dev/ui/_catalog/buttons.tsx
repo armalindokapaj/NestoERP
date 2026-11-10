@@ -1,4 +1,4 @@
-import { Bell, Download, MoreHorizontal, Plus, Settings, Trash2 } from "lucide-react";
+import { Bell, Download, MoreHorizontal, Plus, Settings, Trash2 } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";

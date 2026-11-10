@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Columns3, RotateCcw } from "lucide-react";
+import { Columns3, RotateCcw } from "@/components/icons";
 
 import { useTablePreferences } from "@/components/data/use-table-preferences";
 import { useMediaQuery } from "@/components/ui/use-breakpoint";

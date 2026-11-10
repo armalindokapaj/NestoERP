@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { ArrowUpRight, ListPlus, Loader2, Plus, SquareCheckBig } from "lucide-react";
+import { ArrowUpRight, ListPlus, Loader2, Plus, SquareCheckBig } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";

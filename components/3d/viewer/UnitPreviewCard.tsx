@@ -18,7 +18,7 @@ import {
   Ruler,
   SquareStack,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 import { PlaceholderImage } from "@/components/3d/viewer/shared/PlaceholderImage";
 import { PublisherCard } from "@/components/3d/viewer/shared/PublisherCard";
 import { useViewerStore } from "@/lib/3d/viewer/store";

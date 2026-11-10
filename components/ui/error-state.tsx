@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { CircleAlert, FileQuestion, Lock, TriangleAlert, WifiOff } from "lucide-react";
+import { CircleAlert, FileQuestion, Lock, TriangleAlert, WifiOff } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";

@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";

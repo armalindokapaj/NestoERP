@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { gsap } from "gsap";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, X } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useEffectiveReducedMotion } from "@/components/3d/viewer/hooks/useEffectiveReducedMotion";
 import { useViewerStore } from "@/lib/3d/viewer/store";

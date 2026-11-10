@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { MoveRight, Pencil, Trash2 } from "lucide-react";
+import { MoveRight, Pencil, Trash2 } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/forms/confirm-action";

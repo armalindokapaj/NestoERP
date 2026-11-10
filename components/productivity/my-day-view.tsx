@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, ListChecks, TriangleAlert } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, ListChecks, TriangleAlert } from "@/components/icons";
 
 import { PriorityBadge, StatusBadge } from "@/components/modules/status-badge";
 import { MyDayComplete } from "@/components/productivity/my-day-complete";

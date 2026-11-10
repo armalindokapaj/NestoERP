@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { SearchX } from "lucide-react";
+import { SearchX } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "@/lib/i18n/server";

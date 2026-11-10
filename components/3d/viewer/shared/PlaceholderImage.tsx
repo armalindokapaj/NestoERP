@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Home, LayoutGrid, ImageIcon, User, PlayCircle } from "lucide-react";
+import { Building2, Home, LayoutGrid, ImageIcon, User, PlayCircle } from "@/components/icons";
 import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import { threeDLabel } from "@/lib/i18n/modules/threeD/labels";
 import { cn } from "@/lib/3d/viewer/utils";

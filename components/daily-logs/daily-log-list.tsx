@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { Camera, NotebookPen } from "lucide-react";
+import { Camera, NotebookPen } from "@/components/icons";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { getLocale } from "@/lib/i18n/server";

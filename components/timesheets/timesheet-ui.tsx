@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { CircleAlert, Info, TriangleAlert } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { TIMESHEET_STATUS_LABELS, type TimesheetStatus, type TimesheetWarning } from "@/lib/modules/timesheets/timesheet.types";

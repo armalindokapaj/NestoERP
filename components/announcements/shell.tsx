@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
-import { TriangleAlert, X } from "lucide-react";
+import { TriangleAlert, X } from "@/components/icons";
 
 import { useCommonTranslations } from "@/components/i18n/common-text";
 

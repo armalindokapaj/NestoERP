@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, FileText, ImageIcon, Loader2, Upload, X } from "lucide-react";
+import { Camera, FileText, ImageIcon, Loader2, Upload, X } from "@/components/icons";
 
 import { UploadQueueList } from "@/components/documents/document-uploader";
 import { useDocumentsTranslations } from "@/components/documents/documents-text";

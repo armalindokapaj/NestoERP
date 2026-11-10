@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { notFound, redirect } from "next/navigation";
-import { ShieldQuestion } from "lucide-react";
+import { ShieldQuestion } from "@/components/icons";
 
 import { EnterCompany } from "@/components/notifications/enter-company";
 import { AccessError } from "@/lib/access/guards";

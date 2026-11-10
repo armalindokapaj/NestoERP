@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { FileText } from "@/components/icons";
 import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";

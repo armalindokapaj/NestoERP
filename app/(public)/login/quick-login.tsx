@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { LogIn, TriangleAlert } from "lucide-react";
+import { LogIn, TriangleAlert } from "@/components/icons";
 
 import { quickLoginAction } from "@/lib/actions/quick-login";
 import type { QuickLoginSection } from "@/lib/auth/quick-login";

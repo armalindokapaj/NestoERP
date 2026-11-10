@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HardHat } from "lucide-react";
+import { HardHat } from "@/components/icons";
 import { redirect } from "next/navigation";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";

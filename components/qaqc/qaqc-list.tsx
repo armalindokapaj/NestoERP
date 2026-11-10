@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck } from "@/components/icons";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, CloudDownload } from "lucide-react";
+import { CheckCircle2, CloudDownload } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

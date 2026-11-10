@@ -13,7 +13,9 @@ import { StartHere } from "./start-here";
  *
  * The date as a gold eyebrow, a two-colour serif heading ("Company *overview*",
  * the second word in gold italic), then the greeting and the lines of context,
- * closed by a gold hairline (Black & Gold reskin §5b).
+ * closed by a gold hairline (Black & Gold reskin §5b). Theme 2 sets it as the
+ * reference's hero: the first word solid, the second drawn in outline on the
+ * line below, closed by a gold square for a full stop.
  *
  * The role sits beside the title rather than in a corner: the signed-in
  * account's own, from its membership (C-01 §34).
@@ -50,13 +52,13 @@ export async function WelcomeHeader({
   return (
     <>
       <div className="grid gap-x-8 gap-y-5 border-b border-accent/25 pb-6 look2:border-fg max-md:border-0 max-md:pb-1 max-md:pt-1 lg:grid-cols-3" data-testid="dashboard-header">
-        <div className={cn("min-w-0", aside ? "lg:col-span-2" : "lg:col-span-3")} data-testid="dashboard-heading">
+        <div className={cn("min-w-0 look2:animate-[nesto-rise-focus_0.8s_cubic-bezier(0.25,0.46,0.45,0.94)_both] look2:motion-reduce:animate-none", aside ? "lg:col-span-2" : "lg:col-span-3")} data-testid="dashboard-heading">
           <p className="nesto-eyebrow text-accent-strong">{today}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             {/* Version 2: no display face and nothing above the page title (UI-02 §6.2). */}
-            <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05]">
-              {t(`${heading}.lead`)} <em className="italic text-accent-strong look2:font-serif look2:font-light look2:tracking-normal">{t(`${heading}.accent`)}</em>
+            <h1 className="font-serif look2:font-display text-[2.875rem] font-normal leading-none tracking-[-0.01em] text-fg md:text-headline md:leading-[1.05] look2:font-semibold look2:text-[clamp(4rem,9vw,7.5rem)] look2:leading-[0.82] look2:tracking-[-0.035em] look2:[font-variation-settings:'wdth'_62]">
+              {t(`${heading}.lead`)} <em className="italic text-accent-strong look2:block look2:pl-[0.42em] look2:font-display look2:font-semibold look2:not-italic look2:tracking-[-0.035em] look2:text-transparent look2:[-webkit-text-stroke:1.25px_var(--nesto-fg)] look2:[font-variation-settings:'wdth'_62] look2:after:ml-[0.04em] look2:after:inline-block look2:after:size-[0.13em] look2:after:bg-accent look2:after:align-baseline look2:after:content-['']">{t(`${heading}.accent`)}</em>
               {/* The top of the page, as the first of its sections (UI-02 §26.3). */}
             </h1>
             <Badge tone="neutral" className="max-md:hidden">{roleLabel}</Badge>

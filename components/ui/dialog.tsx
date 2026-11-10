@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 
 import { GuardedRoot } from "@/components/unsaved/guarded-root";
 import { restoreFocusAfterClose, safeInitialFocus } from "@/lib/a11y/overlay-focus";

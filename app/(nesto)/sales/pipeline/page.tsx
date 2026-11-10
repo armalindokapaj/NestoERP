@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
-import { Target } from "lucide-react";
+import { Target } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { GroupSalesScope } from "@/components/sales/group-scope";

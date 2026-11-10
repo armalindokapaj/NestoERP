@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { GuardedRoot, useDialogClose } from "@/components/unsaved/guarded-root";

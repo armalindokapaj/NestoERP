@@ -29,6 +29,7 @@ export function KpiGrid({ className, count, ...props }: React.ComponentProps<"di
 export function DashboardGrid({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
+      data-numbered=""
       className={cn(
         /*
          * Dense flow so a full-width widget followed by a half-width one does

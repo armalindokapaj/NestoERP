@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Clock, X } from "lucide-react";
+import { AlertTriangle, Check, Clock, X } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Tag } from "@/components/ui/tag";

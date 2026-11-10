@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";

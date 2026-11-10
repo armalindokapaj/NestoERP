@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { MovementTable } from "@/components/inventory/movement-table";
 import { Pagination } from "@/components/data/pagination";

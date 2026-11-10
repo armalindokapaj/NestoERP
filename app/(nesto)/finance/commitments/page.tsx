@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Handshake } from "lucide-react";
+import { Handshake } from "@/components/icons";
 
 import { ListToolbar } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { Star } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils/cn";

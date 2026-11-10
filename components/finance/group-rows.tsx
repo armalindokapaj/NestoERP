@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { Building2 } from "lucide-react";
+import { Building2 } from "@/components/icons";
 
 import type { TableColumn } from "@/components/data/data-table";
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";

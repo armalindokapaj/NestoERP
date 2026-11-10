@@ -2,7 +2,7 @@
 
 import { forwardRef, useRef, type ChangeEvent } from "react";
 import { gsap } from "gsap";
-import { Check, ChevronDown, Moon, RotateCcw, Sun, Sunrise, Sunset, X } from "lucide-react";
+import { Check, ChevronDown, Moon, RotateCcw, Sun, Sunrise, Sunset, X } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useEffectiveReducedMotion } from "@/components/3d/viewer/hooks/useEffectiveReducedMotion";
 import { clamp, cn } from "@/lib/3d/viewer/utils";

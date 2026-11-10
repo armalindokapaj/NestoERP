@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, ArrowRight, Building2, Check, CheckCircle2, Layers3, Lock, Minus, Orbit, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Check, CheckCircle2, Layers3, Lock, Minus, Orbit, Plus, RefreshCw, Trash2, Users } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";

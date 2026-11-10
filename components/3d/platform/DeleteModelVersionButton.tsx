@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2 } from "@/components/icons";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import Link from "@/components/navigation/nav-link";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, BellOff, MessageSquare, Pencil, RotateCw, Trash2 } from "lucide-react";
+import { Bell, BellOff, MessageSquare, Pencil, RotateCw, Trash2 } from "@/components/icons";
 
 import { useApprovalDraft } from "@/components/approvals/approval-drafts";
 import { useLocale } from "@/components/i18n/i18n-provider";

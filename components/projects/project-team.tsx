@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { MoreHorizontal, UserPlus } from "lucide-react";
+import { MoreHorizontal, UserPlus } from "@/components/icons";
 
 import { adminRoleName } from "@/components/platform/admin-roles";
 import { PersonLink } from "@/components/people/person-link";

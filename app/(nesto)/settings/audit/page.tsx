@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ScrollText } from "lucide-react";
+import { ScrollText } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { SettingsPageHeader } from "@/components/modules/settings-page-header";

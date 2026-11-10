@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { ApprovalQueue } from "@/components/hse/approval-queue";

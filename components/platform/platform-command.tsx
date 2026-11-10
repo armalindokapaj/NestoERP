@@ -5,7 +5,7 @@ import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, ReasonDialog, type FormField } from "@/components/engineering/form-kit";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "@/components/icons";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";

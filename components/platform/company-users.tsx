@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { engineeringApi, failureMessage, isFailure } from "@/components/engineering/engineering-api";

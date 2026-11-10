@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { PackageCheck } from "lucide-react";
+import { PackageCheck } from "@/components/icons";
 
 import { OrderTable } from "@/components/procurement/order-table";
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";

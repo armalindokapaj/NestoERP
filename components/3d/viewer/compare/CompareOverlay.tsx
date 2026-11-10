@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import Link from "@/components/navigation/nav-link";
-import { X, SquareStack } from "lucide-react";
+import { X, SquareStack } from "@/components/icons";
 import { useViewerStore } from "@/lib/3d/viewer/store";
 import { PlaceholderImage } from "@/components/3d/viewer/shared/PlaceholderImage";
 import { usePriceFormat } from "@/components/3d/viewer/hooks/usePriceFormat";

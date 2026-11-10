@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { Archive, PenLine, RotateCcw, Trophy, XCircle } from "lucide-react";
+import { Archive, PenLine, RotateCcw, Trophy, XCircle } from "@/components/icons";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { AssignMemberControl } from "@/components/modules/assign-member-control";

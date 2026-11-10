@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { CheckCircle2, MailWarning } from "lucide-react";
+import { CheckCircle2, MailWarning } from "@/components/icons";
 
 import {
   Field,

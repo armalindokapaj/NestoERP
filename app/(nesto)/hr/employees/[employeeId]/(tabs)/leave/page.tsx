@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays } from "@/components/icons";
 
 import { LeaveBalanceCard } from "@/components/hr/leave-balance-card";
 import { LeaveTable } from "@/components/hr/leave-table";

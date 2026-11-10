@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { MailCheck, MailWarning, RotateCw, X } from "lucide-react";
+import { MailCheck, MailWarning, RotateCw, X } from "@/components/icons";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { StatusBadge } from "@/components/modules/status-badge";

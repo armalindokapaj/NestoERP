@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
-import { Truck } from "lucide-react";
+import { Truck } from "@/components/icons";
 
 import { ReceiptForm } from "@/components/procurement/receipt-form";
 import {

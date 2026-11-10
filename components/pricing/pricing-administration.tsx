@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { CheckCircle2, CirclePlus, Save, Send } from "lucide-react";
+import { CheckCircle2, CirclePlus, Save, Send } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

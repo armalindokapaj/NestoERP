@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { HardHat } from "lucide-react";
+import { HardHat } from "@/components/icons";
 
 import { StopWorkBanner } from "@/components/hse/hse-kpis";
 import {

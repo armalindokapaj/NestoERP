@@ -7,7 +7,7 @@ import { compareDecimal, previewDecimal, sumDecimal } from "@/lib/modules/financ
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { FilePen, FileSignature, Scale, Send, Undo2 } from "lucide-react";
+import { FilePen, FileSignature, Scale, Send, Undo2 } from "@/components/icons";
 
 import { amountLabel, UnitContractStatusBadge } from "@/components/finance/unit-finance/finance-status";
 import { FieldsDialog, today, type Submit } from "@/components/finance/unit-finance/fields-dialog";

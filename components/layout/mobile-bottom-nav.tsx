@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, Plus, RefreshCw, Settings, X } from "lucide-react";
+import { LogOut, Menu, Plus, RefreshCw, Settings, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";

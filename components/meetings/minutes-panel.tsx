@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { FileCheck2, Loader2, LockOpen, Plus, Printer, Trash2 } from "lucide-react";
+import { FileCheck2, Loader2, LockOpen, Plus, Printer, Trash2 } from "@/components/icons";
 
 import { PersonLink } from "@/components/people/person-link";
 import { Badge } from "@/components/ui/badge";

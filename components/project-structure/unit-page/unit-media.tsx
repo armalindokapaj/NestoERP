@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ArrowDown, ArrowUp, ImageIcon, Link2, Loader2, MoreHorizontal, Pencil, Star, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, ImageIcon, Link2, Loader2, MoreHorizontal, Pencil, Star, Trash2, Upload } from "@/components/icons";
 
 import { UploadQueueList } from "@/components/documents/document-uploader";
 import { uploadErrorText, useDocumentsTranslations } from "@/components/documents/documents-text";

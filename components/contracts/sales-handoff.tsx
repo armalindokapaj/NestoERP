@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { FileSignature, TriangleAlert } from "lucide-react";
+import { FileSignature, TriangleAlert } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

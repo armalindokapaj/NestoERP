@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { FolderKanban } from "lucide-react";
+import { FolderKanban } from "@/components/icons";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { StatusBadge } from "@/components/modules/status-badge";

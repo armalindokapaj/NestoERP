@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "@/components/icons";
 
 import { engineeringApi, isFailure } from "@/components/engineering/engineering-api";
 import { FormDialog } from "@/components/engineering/form-kit";

@@ -3,7 +3,7 @@ import { getTranslations } from "@/lib/i18n/server";
 import { adminRoleName } from "@/components/platform/admin-roles";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Building2, ChevronRight } from "lucide-react";
+import { Building2, ChevronRight } from "@/components/icons";
 
 import { ProjectForm } from "@/components/projects/project-form";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";

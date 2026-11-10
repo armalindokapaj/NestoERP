@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { ArrowDown, ArrowUp, CalendarRange, Flag, GanttChart, LayoutDashboard, ListTree, Lock, MoreHorizontal, Network, Plus, Search, SlidersHorizontal, Unlock } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarRange, Flag, GanttChart, LayoutDashboard, ListTree, Lock, MoreHorizontal, Network, Plus, Search, SlidersHorizontal, Unlock } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { ScrollRegion } from "@/components/ui/scroll-region";

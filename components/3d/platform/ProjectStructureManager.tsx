@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Building2, ChevronRight, Layers3, Plus, Trash2 } from "lucide-react";
+import { Building2, ChevronRight, Layers3, Plus, Trash2 } from "@/components/icons";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { selectClass } from "@/components/forms/record-form";

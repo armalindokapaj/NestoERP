@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CircleHelp, X } from "lucide-react";
+import { CircleHelp, X } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { useCommonTranslations } from "@/components/i18n/common-text";

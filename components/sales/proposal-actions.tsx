@@ -11,7 +11,7 @@ import {
   Send,
   ThumbsDown,
   ThumbsUp,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";

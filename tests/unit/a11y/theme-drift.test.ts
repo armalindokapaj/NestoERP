@@ -134,7 +134,8 @@ describe("Theme 2 is an overlay, never a second default", () => {
       .filter(Boolean);
     expect(selectors.length).toBeGreaterThan(0);
     for (const selector of selectors) {
-      for (const part of selector.split(/,\s*(?![^(]*\))/)) expect(part.trim(), part).toMatch(/^:root\[data-look="2"\]/);
+      // The one rule Theme 1 carries is the icon swap: it hides Theme 2's glyph (components/icons).
+      for (const part of selector.split(/,\s*(?![^(]*\))/)) expect(part.trim(), part).toMatch(/^:root(\[data-look="2"\]|:not\(\[data-look="2"\]\) \[data-icon-look="2"\]$)/);
     }
   });
 

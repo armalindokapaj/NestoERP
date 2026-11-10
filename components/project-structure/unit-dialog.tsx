@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

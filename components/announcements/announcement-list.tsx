@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { CalendarDays, CheckCircle2, Megaphone, Paperclip } from "lucide-react";
+import { CalendarDays, CheckCircle2, Megaphone, Paperclip } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";

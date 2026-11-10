@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, Loader2 } from "lucide-react";
+import { ArrowDown, Loader2 } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";

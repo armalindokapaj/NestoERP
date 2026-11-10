@@ -1,4 +1,4 @@
-import { Boxes, Building2, ClipboardCheck, FileSignal, FileText, Flag, FolderKanban, HardHat, NotebookPen, Presentation, ReceiptText, ShoppingCart, SquareCheckBig, type LucideIcon } from "lucide-react";
+import { Boxes, Building2, ClipboardCheck, FileSignal, FileText, Flag, FolderKanban, HardHat, NotebookPen, Presentation, ReceiptText, ShoppingCart, SquareCheckBig, type LucideIcon } from "@/components/icons";
 
 import type { Translate } from "@/lib/i18n/translator";
 import type { NavigableType } from "@/lib/modules/productivity/navigable.types";

@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Wallet } from "lucide-react";
+import { ArrowRight, Wallet } from "@/components/icons";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";

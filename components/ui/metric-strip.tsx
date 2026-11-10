@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils/cn";
  */
 export function MetricStrip({ className, children, ...props }: React.ComponentProps<"dl">) {
   return (
-    <div className="nesto-card min-w-0 overflow-hidden">
+    <div data-metric-strip="" className="nesto-card min-w-0 overflow-hidden">
       {/* Every cell draws its right and bottom hairline; the last ones fall outside the clip. */}
       <dl className={cn("-mb-px -mr-px grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))]", className)} {...props}>
         {children}
@@ -72,14 +72,14 @@ export function MetricCell({
     <div
       aria-busy={loading || undefined}
       className={cn(
-        "relative min-w-0 border-b border-r border-line px-(--nesto-space-card) py-3",
+        "relative min-w-0 border-b border-r border-line px-(--nesto-space-card) py-3 look2:border-b-0 look2:px-4 look2:pb-1 look2:pt-3",
         href &&
           "transition-colors hover:bg-row-hover has-[[data-metric-link]:focus-visible]:outline-2 has-[[data-metric-link]:focus-visible]:-outline-offset-2 has-[[data-metric-link]:focus-visible]:outline-ring",
         className,
       )}
       {...props}
     >
-      <dt className="text-meta font-medium text-fg-muted">
+      <dt className="text-meta font-medium text-fg-muted look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.1em]">
         {href ? (
           <Link
             href={href}
@@ -92,7 +92,7 @@ export function MetricCell({
           label
         )}
       </dt>
-      <dd className="mt-1 text-metric font-semibold text-fg [overflow-wrap:anywhere]">
+      <dd className="mt-1 text-metric font-semibold text-fg [overflow-wrap:anywhere] look2:mt-1.5 look2:font-display look2:text-[2.5rem] look2:leading-none look2:font-medium">
         {loading ? <Skeleton aria-hidden="true" className="h-[calc(var(--nesto-text-metric)*var(--nesto-leading-metric))] w-24 max-w-full" /> : value}
       </dd>
       {scope || comparison ? (

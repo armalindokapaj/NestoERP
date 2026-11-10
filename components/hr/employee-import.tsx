@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { Upload } from "lucide-react";
+import { Upload } from "@/components/icons";
 
 import { engineeringApi, failureMessage, failureOutcome } from "@/components/engineering/engineering-api";
 import { useTranslations } from "@/components/i18n/i18n-provider";

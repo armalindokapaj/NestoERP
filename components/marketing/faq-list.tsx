@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus } from "@/components/icons";
 
 import type { FaqItem } from "@/lib/i18n/site";
 import { cn } from "@/lib/utils/cn";

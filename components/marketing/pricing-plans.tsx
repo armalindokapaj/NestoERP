@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { pricing } from "@/config/marketing";

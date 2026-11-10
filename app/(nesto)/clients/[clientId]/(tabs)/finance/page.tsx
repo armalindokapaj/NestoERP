@@ -1,7 +1,7 @@
 import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ReceiptText } from "lucide-react";
+import { ReceiptText } from "@/components/icons";
 
 import { CurrencyTotals } from "@/components/finance/money";
 import { InvoiceTable } from "@/components/finance/invoice-table";

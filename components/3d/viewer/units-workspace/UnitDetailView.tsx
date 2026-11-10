@@ -1,6 +1,6 @@
 "use client";
 
-import { Bath, BedDouble, Building2, ExternalLink, Heart, Layers, Ruler } from "lucide-react";
+import { Bath, BedDouble, Building2, ExternalLink, Heart, Layers, Ruler } from "@/components/icons";
 import Link from "@/components/navigation/nav-link";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { cn } from "@/lib/3d/viewer/utils";

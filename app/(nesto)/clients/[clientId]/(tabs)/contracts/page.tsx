@@ -1,7 +1,7 @@
 import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Scale } from "lucide-react";
+import { Scale } from "@/components/icons";
 
 import { ContractTable } from "@/components/contracts/contract-table";
 import { EmptyState } from "@/components/ui/empty-state";

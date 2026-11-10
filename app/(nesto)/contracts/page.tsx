@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Scale } from "lucide-react";
+import { ArrowRight, Scale } from "@/components/icons";
 
 import { ContractKpiGrid } from "@/components/contracts/contract-kpis";
 import { ModulePage } from "@/components/modules/module-page";

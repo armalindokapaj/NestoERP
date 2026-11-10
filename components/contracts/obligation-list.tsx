@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ClipboardList, Plus } from "lucide-react";
+import { ClipboardList, Plus } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

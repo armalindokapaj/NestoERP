@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Banknote } from "lucide-react";
+import { Banknote } from "@/components/icons";
 
 import { ListToolbar } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";

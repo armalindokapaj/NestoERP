@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
-import { Check, Loader2, Megaphone } from "lucide-react";
+import { Check, Loader2, Megaphone } from "@/components/icons";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

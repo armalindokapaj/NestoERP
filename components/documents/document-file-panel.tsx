@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Download, ExternalLink, FileWarning, Loader2, ShieldAlert } from "lucide-react";
+import { Download, ExternalLink, FileWarning, Loader2, ShieldAlert } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

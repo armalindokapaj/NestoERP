@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CloudOff, Loader2, RefreshCw, TriangleAlert, CheckCircle2 } from "lucide-react";
+import { CloudOff, Loader2, RefreshCw, TriangleAlert, CheckCircle2 } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils/cn";

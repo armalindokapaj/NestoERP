@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "@/components/icons";
 
 import { getEditorTranslations } from "@/lib/3d/platform/editor-text-server";
 

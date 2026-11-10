@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Receipt } from "lucide-react";
+import { Receipt } from "@/components/icons";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Button } from "@/components/ui/button";

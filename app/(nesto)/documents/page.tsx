@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Files } from "lucide-react";
+import { ArrowRight, Files } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";

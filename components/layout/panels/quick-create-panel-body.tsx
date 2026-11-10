@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type LucideIcon } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";

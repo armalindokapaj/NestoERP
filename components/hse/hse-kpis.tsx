@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "@/components/icons";
 
 import { getTranslations } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/translator";

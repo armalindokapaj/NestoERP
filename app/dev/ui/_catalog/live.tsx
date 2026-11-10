@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, ArrowUp, Bold, ImageOff, Star } from "lucide-react";
+import { ArrowDown, ArrowUp, Bold, ImageOff, Star } from "@/components/icons";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";

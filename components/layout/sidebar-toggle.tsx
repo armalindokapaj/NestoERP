@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useSidebar } from "@/components/layout/sidebar-provider";

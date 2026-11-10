@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, CheckCheck, Loader2, Megaphone, X } from "lucide-react";
+import { Check, CheckCheck, Loader2, Megaphone, X } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";

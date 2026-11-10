@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Smartphone, Tablet } from "lucide-react";
+import { Smartphone, Tablet } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";

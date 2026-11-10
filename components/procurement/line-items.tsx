@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { CellError, DecimalCell, RemovedLineNotice, useLineRows, useRowErrors } from "@/components/finance/line-rows";

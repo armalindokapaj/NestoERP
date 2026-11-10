@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "@/components/navigation/nav-link";
-import { ListChecks, Plus } from "lucide-react";
+import { ListChecks, Plus } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { ActionStatusToggle } from "@/components/meetings/action-status-toggle";

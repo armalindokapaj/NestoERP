@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ToggleRight } from "lucide-react";
+import { ToggleRight } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "@/lib/i18n/server";

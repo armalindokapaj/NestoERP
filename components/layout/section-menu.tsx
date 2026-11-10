@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Check, ChevronDown, ExternalLink } from "lucide-react";
+import { Check, ChevronDown, ExternalLink } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";

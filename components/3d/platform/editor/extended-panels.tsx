@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Compass, LoaderCircle, MapPin, Plus, RotateCcw, ScanSearch, Search, Trash2, TriangleAlert, Upload, UploadCloud } from "lucide-react";
+import { Compass, LoaderCircle, MapPin, Plus, RotateCcw, ScanSearch, Search, Trash2, TriangleAlert, Upload, UploadCloud } from "@/components/icons";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import { Button } from "@/components/ui/button";

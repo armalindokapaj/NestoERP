@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/navigation/nav-link";
-import { Building2, ChevronRight } from "lucide-react";
+import { Building2, ChevronRight } from "@/components/icons";
 
 import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
 import { ProjectStatusBadge } from "./project-status-badge";

@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, TriangleAlert } from "lucide-react";
+import { Check, TriangleAlert } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

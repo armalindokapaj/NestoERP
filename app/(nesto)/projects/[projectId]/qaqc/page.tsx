@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "@/components/icons";
 
 import {
   CorrectiveActionTable,

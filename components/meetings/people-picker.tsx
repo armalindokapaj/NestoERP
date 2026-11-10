@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { Search } from "@/components/icons";
 
 import { Input } from "@/components/ui/input";
 import { PersonAvatar } from "./meeting-ui";

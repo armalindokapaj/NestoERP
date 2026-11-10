@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeCheck, MessageCircle, Phone } from "lucide-react";
+import { BadgeCheck, MessageCircle, Phone } from "@/components/icons";
 import { PlaceholderImage } from "@/components/3d/viewer/shared/PlaceholderImage";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useTrackEvent } from "@/components/3d/viewer/hooks/useTrackEvent";

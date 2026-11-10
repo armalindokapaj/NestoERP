@@ -2,7 +2,7 @@
 
 import Link from "@/components/navigation/nav-link";
 import { useState } from "react";
-import { ChevronDown, LogOut, Settings } from "lucide-react";
+import { ChevronDown, LogOut, Settings } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useSignOut } from "@/components/layout/use-sign-out";

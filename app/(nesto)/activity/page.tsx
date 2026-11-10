@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Settings2 } from "lucide-react";
+import { Settings2 } from "@/components/icons";
 
 import { ActivityView, type ActivityQueryState } from "@/components/activity/activity-view";
 import { AttentionList } from "@/components/notifications/attention-list";

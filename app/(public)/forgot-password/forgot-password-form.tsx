@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MailCheck } from "lucide-react";
+import { MailCheck } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

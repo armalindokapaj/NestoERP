@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { RotateCw } from "lucide-react";
+import { RotateCw } from "@/components/icons";
 
 import { cn } from "@/lib/utils/cn";
 import { useCommonTranslations } from "@/components/i18n/common-text";

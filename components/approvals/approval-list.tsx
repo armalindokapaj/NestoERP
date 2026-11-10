@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronRight, X } from "lucide-react";
+import { Check, ChevronRight, X } from "@/components/icons";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { Skeleton } from "@/components/ui/skeleton";

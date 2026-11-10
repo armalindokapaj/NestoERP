@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Network } from "lucide-react";
+import { Network } from "@/components/icons";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";
 import { ModulePage } from "@/components/modules/module-page";

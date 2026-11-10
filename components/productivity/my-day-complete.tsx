@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 
 import { useMiscTranslations } from "@/components/activity/misc-text";
 import { useRouter } from "@/components/navigation/guarded-router";

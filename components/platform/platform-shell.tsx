@@ -5,7 +5,7 @@ import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, UserRound, X } from "lucide-react";
+import { LogOut, Menu, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, UserRound, X } from "@/components/icons";
 
 import { OrganizationMark } from "@/components/layout/organization-mark";
 import { PoweredBy } from "@/components/layout/powered-by";

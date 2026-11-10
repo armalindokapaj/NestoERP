@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, CircleCheck } from "lucide-react";
+import { CircleAlert, CircleCheck } from "@/components/icons";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 
 import { Badge } from "@/components/ui/badge";

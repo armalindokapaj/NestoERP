@@ -1,4 +1,4 @@
-import { CircleHelp } from "lucide-react";
+import { CircleHelp } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { FoldIntoPageMenu } from "@/components/navigation/page-menu";

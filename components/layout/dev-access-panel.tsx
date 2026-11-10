@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Wrench } from "lucide-react";
+import { ChevronDown, Wrench } from "@/components/icons";
 
 import { cn } from "@/lib/utils/cn";
 

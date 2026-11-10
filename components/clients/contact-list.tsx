@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Archive, ArchiveRestore, MoreHorizontal, PenLine, Star, UserPlus } from "lucide-react";
+import { Archive, ArchiveRestore, MoreHorizontal, PenLine, Star, UserPlus } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

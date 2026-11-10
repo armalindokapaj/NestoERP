@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { Inbox, SearchX } from "lucide-react";
+import { Inbox, SearchX } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";

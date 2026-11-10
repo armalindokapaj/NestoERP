@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { DraftingCompass, FileStack, MessageSquareText, Send } from "lucide-react";
+import { DraftingCompass, FileStack, MessageSquareText, Send } from "@/components/icons";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";

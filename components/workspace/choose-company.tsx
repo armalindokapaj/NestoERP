@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Building2, Loader2 } from "lucide-react";
+import { Building2, Loader2 } from "@/components/icons";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";

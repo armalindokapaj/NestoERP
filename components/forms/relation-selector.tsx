@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { BottomSheet } from "@/components/ui/bottom-sheet";

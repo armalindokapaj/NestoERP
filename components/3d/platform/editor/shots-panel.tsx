@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, ChevronDown, ChevronUp, Copy, Play, Star, Trash2 } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, Copy, Play, Star, Trash2 } from "@/components/icons";
 
 import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTypes";
 import type { CameraPreset, Project3DConfig } from "@/lib/3d/runtime/types";

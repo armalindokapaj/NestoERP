@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "@/components/icons";
 
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Archive, ChevronDown, MoveRight, Pencil, Tag, Tags, X } from "lucide-react";
+import { Archive, ChevronDown, MoveRight, Pencil, Tag, Tags, X } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";

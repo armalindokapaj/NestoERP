@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search } from "@/components/icons";
 
 import { AnnouncementList } from "@/components/announcements/announcement-list";
 import { ProductivitySettingsForm } from "@/components/announcements/productivity-settings-form";

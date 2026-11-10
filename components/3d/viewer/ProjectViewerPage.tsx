@@ -3,7 +3,7 @@
 import { SignOutButton } from "@/components/auth/sign-out-button";
 
 import * as React from "react";
-import { ChevronLeft, RefreshCw } from "lucide-react";
+import { ChevronLeft, RefreshCw } from "@/components/icons";
 
 import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import Link from "@/components/navigation/nav-link";

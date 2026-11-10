@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "@/components/icons";
 import { redirect } from "next/navigation";
 
 import { ContractApprovalQueue } from "@/components/contracts/approval-queue";

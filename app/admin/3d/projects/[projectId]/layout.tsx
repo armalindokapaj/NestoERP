@@ -4,7 +4,7 @@ import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import type { ReactNode } from "react";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "@/components/icons";
 
 import { ExperienceEditorSync } from "@/components/3d/platform/ExperienceEditorSync";
 import { ExperienceWorkspaceNav } from "@/components/3d/platform/ExperienceWorkspaceNav";

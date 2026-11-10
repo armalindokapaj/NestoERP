@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BadgeCheck, ChevronDown, ChevronUp, ExternalLink, PauseCircle, PlayCircle, Unlock, X } from "lucide-react";
+import { BadgeCheck, ChevronDown, ChevronUp, ExternalLink, PauseCircle, PlayCircle, Unlock, X } from "@/components/icons";
 
 import { reveal } from "@/components/forms/form-contract";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Building2 } from "lucide-react";
+import { Building2 } from "@/components/icons";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { SignOutButton } from "@/components/auth/sign-out-button";

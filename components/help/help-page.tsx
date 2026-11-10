@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { Button } from "@/components/ui/button";

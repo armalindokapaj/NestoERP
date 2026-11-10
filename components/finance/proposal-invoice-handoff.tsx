@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { Receipt, TriangleAlert } from "lucide-react";
+import { Receipt, TriangleAlert } from "@/components/icons";
 
 import { StatusText } from "@/components/i18n/common-text";
 import { ModuleMessages } from "@/components/i18n/module-messages";
