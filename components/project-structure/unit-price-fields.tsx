@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { compareDecimal, parseDecimalInput } from "@/lib/forms/decimal";
 import { MONEY_RULE } from "@/lib/modules/finance/finance.fields";
-import { PRICE_ENTRIES, priceFromRate, priceToSave, saleArea, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch, type SaleAreas } from "@/lib/modules/sales/units/unit-pricing.rules";
-import { putOnSaleWithPrice } from "@/lib/modules/sales/units/unit-sales.rules";
+import { PRICE_ENTRIES, priceFromRate, priceToSave, saleArea, savedPriceBox, switchPriceEntry, untouchedTotal, type PriceEntry, type PriceEntrySwitch, type SaleAreas } from "@/lib/modules/sales/units/unit-pricing.rules";
+import { putOnSaleWithPrice, salesExpectedVersion } from "@/lib/modules/sales/units/unit-sales.rules";
 import type { UnitCommercialStatus, UnitPriceBasis, UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import { cn } from "@/lib/utils/cn";
 import { areaText, Field, failureMessage, numberText, structureApi } from "./structure-ui";
@@ -27,9 +27,11 @@ import { areaText, Field, failureMessage, numberText, structureApi } from "./str
  * area used (saleable or gross; fixed without either); the rate is never stored.
  *
  * It opens on Per m², the way prices are set on the floor price list. A total
- * opened as its rate stands for that exact total while the rate and the area
- * are left as they were; change the areas in the same dialog and the total
- * follows area × rate, with the saved total shown beside it.
+ * opened as its rate stands for that exact total until the person types in the
+ * box or switches it: an area changed in the same dialog only moves the rate
+ * shown, and nothing about the price is saved or offered (review 2026-11-10).
+ * Once the person has typed a rate, the total follows area × rate, with the
+ * saved total shown beside it.
  *
  * A price saved on a unit that is not for sale offers "Also put it on sale",
  * ticked by default, to somebody who may change the sale status, when the unit
@@ -125,14 +127,7 @@ function savedFrom(sales: UnitSalesDTO): Saved {
 
 /** How the box opens on a saved price: on its rate when the unit has an area — standing for the exact total — else on the total. */
 function openingOf(saved: Saved | null): { entry: PriceEntry; text: string; last: PriceEntrySwitch | null; convertedOn: string | null } {
-  const area = saved ? saleArea(saved.areas).area : null;
-  const price = saved?.askingPrice ?? null;
-  if (price !== null && area !== null) {
-    const switched = switchPriceEntry(price, area, "TOTAL", "PER_SQM", null);
-    return { entry: "PER_SQM", text: switched.text, last: switched.last, convertedOn: area };
-  }
-  if (price !== null) return { entry: "TOTAL", text: price, last: null, convertedOn: null };
-  return { entry: INITIAL_ENTRY, text: "", last: null, convertedOn: null };
+  return savedPriceBox(saved?.askingPrice ?? null, saved ? saleArea(saved.areas).area : null, INITIAL_ENTRY);
 }
 
 export function useUnitPrice({
@@ -162,11 +157,13 @@ export function useUnitPrice({
   const opening = openingOf(initialSaved);
   const [load, setLoad] = React.useState<Load>(!enabled ? "unavailable" : given ? (initialSaved ? "ready" : "unavailable") : unitId ? "loading" : "ready");
   const [saved, setSaved] = React.useState<Saved | null>(initialSaved);
-  const [entry, setEntry] = React.useState<PriceEntry>(opening.entry);
-  const [text, setTextState] = React.useState(opening.text);
+  const [entryState, setEntry] = React.useState<PriceEntry>(opening.entry);
+  const [textState, setTextState] = React.useState(opening.text);
   /** The last switch of the box, and the area it was made on. */
-  const [last, setLast] = React.useState<PriceEntrySwitch | null>(opening.last);
-  const [convertedOn, setConvertedOn] = React.useState<string | null>(opening.convertedOn);
+  const [lastState, setLast] = React.useState<PriceEntrySwitch | null>(opening.last);
+  const [convertedOnState, setConvertedOn] = React.useState<string | null>(opening.convertedOn);
+  /** Whether the person typed in the price box or switched it; until then it stands for the saved price. */
+  const [boxTouched, setBoxTouched] = React.useState(false);
   const [touched, setTouched] = React.useState(false);
   const [error, setError] = React.useState<{ message: string } | null>(null);
   const [putOnSale, setPutOnSale] = React.useState(true);
@@ -205,6 +202,10 @@ export function useUnitPrice({
   }, [error]);
 
   const { area, basis } = saleArea(areas);
+  // Untouched, the box is the saved price on the areas as they are now: an area typed in the same dialog
+  // moves the rate shown and leaves the price as it was — it is neither re-priced nor offered for sale.
+  const box = !boxTouched && saved ? savedPriceBox(saved.askingPrice, area, entryState) : { entry: entryState, text: textState, last: lastState, convertedOn: convertedOnState };
+  const { entry, text, last, convertedOn } = box;
   const sameArea = convertedOn !== null && area !== null && compareDecimal(convertedOn, area) === 0;
   const perSqm = entry === "PER_SQM";
   const areaOk = area !== null;
@@ -222,11 +223,21 @@ export function useUnitPrice({
   // A price that will be saved — one typed that differs from the saved one — on a unit not for sale offers to put it on sale.
   // A unit not saved yet is published and in use the moment it is created (b91e4312), so it can be.
   const savedPrice = saved?.askingPrice ?? null;
-  const priceChanges = total !== null && (savedPrice === null || compareDecimal(total, savedPrice) !== 0);
+  const priceChanges = boxTouched && total !== null && (savedPrice === null || compareDecimal(total, savedPrice) !== 0);
   const offersPutOnSale =
     shown && load === "ready" && !sold && priceChanges && putOnSaleWithPrice(saved ? { canManageStatus: saved.canManageStatus, status: saved.status, sellable: saved.sellable } : { canManageStatus, status: "NOT_FOR_SALE", sellable: true });
 
+  /** The person's first touch starts from the box as it reads now, the saved price on today's areas. */
+  function touchBox() {
+    if (boxTouched) return;
+    setEntry(box.entry);
+    setLast(box.last);
+    setConvertedOn(box.convertedOn);
+    setBoxTouched(true);
+  }
+
   function setText(next: string) {
+    touchBox();
     setTextState(numberText(next));
     setTouched(true);
     setError(null);
@@ -236,6 +247,7 @@ export function useUnitPrice({
     if (next === entry) return;
     // A switch made on another area no longer holds: convert afresh on this one.
     const switched = switchPriceEntry(text, area, entry, next, sameArea ? last : null);
+    touchBox();
     setTextState(switched.text);
     setLast(switched.last);
     setConvertedOn(area);
@@ -266,6 +278,8 @@ export function useUnitPrice({
 
   async function save(id: string, code: string, options: { quiet?: boolean } = {}): Promise<PriceSaveResult> {
     if (!shown || load !== "ready" || sold) return { price: "unchanged" };
+    // A box nobody touched is the saved price: an area changed beside it never re-prices the unit.
+    if (saved && !boxTouched) return { price: "unchanged" };
     const typed = text.trim() === "" ? "" : perSqm ? (total ?? "") : (typedTotal?.ok ? typedTotal.value : text);
     if (!saved && typed === "") return { price: "unchanged" };
     const { askingPrice, priceBasis } = priceToSave(typed, currency ?? "", saved ?? { askingPrice: null, currency: null, priceBasis: "FIXED_UNIT_PRICE" }, areas);
@@ -283,7 +297,8 @@ export function useUnitPrice({
           ...(currency ? { currency } : {}),
           // The notes go back as they are: the same door saves them, and leaving them out would clear them.
           salesNotes: saved?.salesNotes ?? null,
-          ...(saved && saved.version > 0 ? { expectedVersion: saved.version } : {}),
+          // A unit with no sales record yet is checked as one: a price somebody saved meanwhile is not overwritten.
+          expectedVersion: salesExpectedVersion(saved?.version ?? 0),
         },
       });
       version = answer.version;

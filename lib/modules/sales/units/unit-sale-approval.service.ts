@@ -10,6 +10,7 @@ import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { notifyApprovalDecided, notifyApprovalRequested, recordApprovalCancelled } from "@/lib/core/notifications/approval-notifications";
 import { runInTransaction } from "@/lib/core/transactions/transaction";
 import { prisma } from "@/lib/database/prisma";
+import { unitCode } from "@/lib/modules/project-structure/structure.rules";
 import { fail } from "@/lib/modules/project-structure/structure.service";
 import { resolveUnitSalesSettings } from "@/lib/modules/settings/sales-settings.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
@@ -68,8 +69,8 @@ export async function requestSaleApproval(context: UserContext, unitId: string, 
         throw error;
       });
     await notifyApprovalRequested(tx, context, { ...RECORD, approvalId: approval.id, recordId: unit.id, approvePermissions: ["project.unit.sale.approve"] });
-    await recordActivity(tx, context, { module: SALES_ACTIVITY_MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_SALE_APPROVAL_REQUESTED", message: `asked for approval to sell ${unit.unitCode}`, metadata: { projectId: unit.projectId } });
-    await recordUserAction(context, { actionKey: AuditAction.UNIT_SALE_APPROVAL_REQUESTED, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, after: { approvalId: approval.id, reservationId: reservation!.id, note: input.note } }, { tx });
+    await recordActivity(tx, context, { module: SALES_ACTIVITY_MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_SALE_APPROVAL_REQUESTED", message: `asked for approval to sell ${unitCode(unit)}`, metadata: { projectId: unit.projectId } });
+    await recordUserAction(context, { actionKey: AuditAction.UNIT_SALE_APPROVAL_REQUESTED, entity: { type: UNIT_ENTITY, id: unit.id, label: unitCode(unit) }, projectId: unit.projectId, after: { approvalId: approval.id, reservationId: reservation!.id, note: input.note } }, { tx });
     return { approvalId: approval.id };
   });
 }
@@ -91,7 +92,7 @@ async function decide(context: UserContext, unitId: string, decision: "APPROVED"
       mayDecide: (member) => can(member, "project.unit.sale.approve"),
       refusal: () => new AccessError("FORBIDDEN", "You cannot decide your own request.", { code: "SELF_APPROVAL" }),
       tx,
-      label: unit.unitCode,
+      label: unitCode(unit),
       projectId: unit.projectId,
       decision,
     });
@@ -104,8 +105,8 @@ async function decide(context: UserContext, unitId: string, decision: "APPROVED"
     });
     if (decided.count === 0) throw new AccessError("CONFLICT", "This request has already been decided.", { code: "APPROVAL_ALREADY_DECIDED" });
     await notifyApprovalDecided(tx, context, { ...RECORD, approvalId: pending.id, recordId: unit.id, decision, note, submittedByMemberId: pending.submittedByMemberId });
-    await recordActivity(tx, context, { module: SALES_ACTIVITY_MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: `UNIT_SALE_${decision}`, message: decision === "APPROVED" ? `approved the sale of ${unit.unitCode}` : `rejected the sale of ${unit.unitCode}`, metadata: { projectId: unit.projectId } });
-    await recordUserAction(context, { actionKey: AuditAction.UNIT_SALE_APPROVAL_DECIDED, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, before: { approvalId: pending.id, status: "PENDING" }, after: { approvalId: pending.id, reservationId: pending.reservationId, status: decision, note } }, { tx });
+    await recordActivity(tx, context, { module: SALES_ACTIVITY_MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: `UNIT_SALE_${decision}`, message: decision === "APPROVED" ? `approved the sale of ${unitCode(unit)}` : `rejected the sale of ${unitCode(unit)}`, metadata: { projectId: unit.projectId } });
+    await recordUserAction(context, { actionKey: AuditAction.UNIT_SALE_APPROVAL_DECIDED, entity: { type: UNIT_ENTITY, id: unit.id, label: unitCode(unit) }, projectId: unit.projectId, before: { approvalId: pending.id, status: "PENDING" }, after: { approvalId: pending.id, reservationId: pending.reservationId, status: decision, note } }, { tx });
   });
 }
 

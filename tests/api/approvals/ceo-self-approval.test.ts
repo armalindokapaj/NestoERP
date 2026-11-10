@@ -1,6 +1,16 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AccessError } from "@/lib/access/guards";
+import { setFileScanner } from "@/lib/core/storage";
+import { LocalStorageProvider } from "@/lib/core/storage/providers/local.provider";
+import { setStorageProvider } from "@/lib/core/storage/storage-provider.factory";
+import { attachDocumentFromBytes } from "@/lib/modules/documents/storage/upload.service";
+import { decideReview, listEligibleReviewers, requestReview } from "@/lib/modules/documents/versions/review.service";
+import { listVersions } from "@/lib/modules/documents/versions/version.service";
 import type { PlatformContext } from "@/lib/context/platform-context";
 import type { UserContext } from "@/lib/context/types";
 import { approvalQuerySchema } from "@/lib/modules/approvals/approvals.schema";
@@ -29,6 +39,7 @@ import { shownCycle } from "./aud10-cycles";
 const COMPANY_NAME = "TSA Solo Co";
 const EMAILS = ["tsa-ceo@nesto.test", "tsa-holder@nesto.test", "tsa-buyer@nesto.test"];
 
+let storageRoot: string;
 let admin: PlatformContext;
 let company: string;
 let ceoMember: string;
@@ -36,6 +47,12 @@ let ceo: UserContext;
 let clientId: string;
 
 async function removeCompany(companyId: string) {
+  const documentIds = (await prisma.document.findMany({ where: { companyId }, select: { id: true } })).map((row) => row.id);
+  await prisma.documentReview.deleteMany({ where: { companyId } });
+  await prisma.documentUploadSession.deleteMany({ where: { companyId } });
+  await prisma.document.updateMany({ where: { id: { in: documentIds } }, data: { currentVersionId: null } });
+  await prisma.documentVersion.deleteMany({ where: { companyId } });
+  await prisma.document.deleteMany({ where: { id: { in: documentIds } } });
   const invoiceIds = (await prisma.invoice.findMany({ where: { companyId }, select: { id: true } })).map((row) => row.id);
   const requestIds = (await prisma.purchaseRequest.findMany({ where: { companyId }, select: { id: true } })).map((row) => row.id);
   await prisma.approvalStep.deleteMany({ where: { companyId } });
@@ -138,7 +155,22 @@ async function submittedRequest(by: UserContext): Promise<string> {
 const selfApprovals = (entityId: string) => prisma.auditEvent.count({ where: { entityId, actionKey: "APPROVAL_SELF_APPROVED" } });
 const selfLines = (entityId: string) => prisma.activity.count({ where: { entityId, action: "APPROVAL_SELF_APPROVED" } });
 
+/** A company document with one available version, raised by `by`. */
+async function companyDocument(by: UserContext): Promise<{ documentId: string; versionId: string }> {
+  const { documentId } = await attachDocumentFromBytes(
+    by,
+    { name: "TSA Policy", context: "company", fileName: "Policy.pdf", mimeType: "application/pdf" } as Parameters<typeof attachDocumentFromBytes>[1],
+    new TextEncoder().encode("%PDF-1.4\nTSA policy\n%%EOF\n"),
+  );
+  const { currentVersionId } = await prisma.document.findUniqueOrThrow({ where: { id: documentId }, select: { currentVersionId: true } });
+  return { documentId, versionId: currentVersionId! };
+}
+
 beforeAll(async () => {
+  storageRoot = await mkdtemp(path.join(tmpdir(), "nesto-tsa-"));
+  process.env.STORAGE_URL_SECRET = "test-storage-signing-secret-value";
+  setStorageProvider(new LocalStorageProvider({ root: storageRoot, baseUrl: "http://localhost:3000" }));
+  setFileScanner(null);
   await removeAll();
   admin = await loginAsPlatformAdmin();
   ({ companyId: company } = await createCompany(admin, createCompanySchema.parse({ name: COMPANY_NAME })));
@@ -150,6 +182,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await removeAll();
+  setFileScanner(undefined);
+  setStorageProvider(null);
+  await rm(storageRoot, { recursive: true, force: true });
   await cleanupSessions();
 });
 
@@ -176,6 +211,20 @@ describe("a CEO alone in the company", () => {
 
     await expect(decideApproval(ceo, "procurement", approval.id, "APPROVE", { note: null })).resolves.toMatchObject({ outcome: "APPROVED" });
     expect(await selfApprovals(requestId)).toBe(1);
+  });
+
+  it("reviews their own document version, the only reviewer there is, and the record says so (review 2026-11-10)", async () => {
+    const { documentId, versionId } = await companyDocument(ceo);
+    // Nobody else could review it, so the CEO is offered as its reviewer.
+    expect((await listEligibleReviewers(ceo, documentId, undefined)).map((row) => row.memberId)).toEqual([ceoMember]);
+    const { reviewId } = await requestReview(ceo, versionId, { reviewerMemberId: ceoMember });
+    const shown = await listVersions(ceo, documentId);
+    expect(shown.versions[0]!.reviews[0]).toMatchObject({ id: reviewId, canDecide: true });
+
+    await decideReview(ceo, reviewId, "APPROVED", undefined);
+    expect((await prisma.documentVersion.findUniqueOrThrow({ where: { id: versionId }, select: { reviewState: true } })).reviewState).toBe("APPROVED");
+    expect(await selfApprovals(documentId)).toBe(1);
+    expect(await selfLines(documentId)).toBe(1);
   });
 });
 
@@ -224,6 +273,21 @@ describe("a CEO and a CEO-access holder", () => {
     // The module's own words, naming nobody: the rule does not look for a buyer.
     expect(error.message).toBe("You submitted this, so somebody else has to decide on it.");
     expect(await selfApprovals(requestId)).toBe(0);
+  });
+
+  it("refuses the CEO a review of their own document while somebody else could review it, and offers them instead", async () => {
+    const fresh = await loginAsMembership(ceoMember);
+    const { documentId, versionId } = await companyDocument(fresh);
+    const offered = (await listEligibleReviewers(fresh, documentId, undefined)).map((row) => row.memberId);
+    expect(offered).toContain(holder.membershipId);
+    expect(offered).not.toContain(ceoMember);
+    const error = await requestReview(fresh, versionId, { reviewerMemberId: ceoMember }).then(
+      () => null,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(AccessError);
+    expect((error as AccessError).message).toBe("SELF_REVIEW_NOT_ALLOWED");
+    expect(await selfApprovals(documentId)).toBe(0);
   });
 
   it("keeps another company's members out of the count", async () => {

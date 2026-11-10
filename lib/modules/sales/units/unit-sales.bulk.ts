@@ -6,7 +6,7 @@ import type { UnitBulkInput } from "@/lib/modules/project-structure/unit-bulk.sc
 import type { UnitCommercialStatusKey } from "@/lib/modules/project-structure/structure.types";
 import { bulkAskingPrice } from "./unit-pricing.rules";
 import { salesCapabilities } from "./unit-sales.core";
-import { sellability } from "./unit-sales.rules";
+import { salesExpectedVersion, sellability } from "./unit-sales.rules";
 import { changeSaleStatus, updateCommercialDetails } from "./unit-sales.service";
 
 /**
@@ -30,8 +30,6 @@ export async function runSalesBulk(context: UserContext, projectId: string, inpu
   if (!salesCapabilities(context).canView) throw new AccessError("FORBIDDEN", "You cannot see this project's sales.");
   if (input.action === "price") assertPermission(context, "project.unit.price.manage");
   if (input.action === "status" || (input.action === "price" && input.putOnSale)) assertPermission(context, "project.unit.sales_status.manage");
-  // The version a sales change is checked against; 0 is a unit with no sales record yet, as on its own page.
-  const expected = (version: number) => (version > 0 ? version : undefined);
 
   if (input.action === "status") {
     const change = input.change;
@@ -41,7 +39,7 @@ export async function runSalesBulk(context: UserContext, projectId: string, inpu
       async (target, ref) => {
         const skip = saleStatusSkip(change, target.status);
         if (skip) throw new BulkSkipError(skip, skipFor(target, skip).message);
-        const moved = await changeSaleStatus(context, target.id, { action: change, reason: null, expectedVersion: expected(ref.version) });
+        const moved = await changeSaleStatus(context, target.id, { action: change, reason: null, expectedVersion: salesExpectedVersion(ref.version) });
         return { version: target.version, salesVersion: moved.version, status: moved.status, priced: target.askingPrice !== null };
       },
       { concurrency: BULK_CONCURRENCY, operation: "sales.units.bulk_status" },
@@ -59,7 +57,8 @@ export async function runSalesBulk(context: UserContext, projectId: string, inpu
       const price = bulkAskingPrice(entry, amount, { saleableArea: target.saleableArea, grossArea: target.grossArea });
       if (!price) throw new BulkSkipError("no_area", skipFor(target, "no_area").message);
       // The unit keeps its sales notes and its currency (the company's base currency on a first price).
-      const saved = await updateCommercialDetails(context, target.id, { ...price, reason, expectedVersion: expected(ref.version) });
+      // Checked against the version ticked, 1 for a unit that had no sales record: a price saved since is skipped as changed.
+      const saved = await updateCommercialDetails(context, target.id, { ...price, reason, expectedVersion: salesExpectedVersion(ref.version) });
       let salesVersion = saved.version;
       let status: UnitCommercialStatusKey = target.status;
       if (putOnSale && target.status === "NOT_FOR_SALE") {

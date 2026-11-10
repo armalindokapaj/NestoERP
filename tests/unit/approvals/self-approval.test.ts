@@ -19,7 +19,16 @@ const colleagues: UserContext[] = [];
 const reach = new Map<string, boolean>();
 
 vi.mock("@/lib/database/prisma", () => ({
-  prisma: { companyMember: { findMany: vi.fn(async () => colleagues.map((member) => ({ id: member.membershipId }))) } },
+  prisma: {
+    companyMember: {
+      findMany: vi.fn(async () =>
+        colleagues.map((member) => {
+          const [firstName = "", ...rest] = member.fullName.split(" ");
+          return { id: member.membershipId, user: { firstName, lastName: rest.join(" ") } };
+        }),
+      ),
+    },
+  },
 }));
 vi.mock("@/lib/context/member-context", () => ({
   buildMemberContexts: vi.fn(async (_companyId: string, ids: string[]) => new Map(colleagues.filter((member) => ids.includes(member.membershipId)).map((member) => [member.membershipId, member]))),
@@ -33,7 +42,8 @@ const recordUserAction = vi.fn(async () => undefined);
 vi.mock("@/lib/modules/shared/activity", () => ({ recordActivity: (...args: unknown[]) => recordActivity(...(args as [])) }));
 vi.mock("@/lib/core/audit/audit.service", () => ({ recordUserAction: (...args: unknown[]) => recordUserAction(...(args as [])) }));
 
-const { assertOwnDecisionAllowed, holdsCeoRights, mayDecideOwn } = await import("@/lib/core/approvals/self-approval");
+const { assertOwnDecisionAllowed, holdsCeoRights, mayDecideOwn, ownStepDecision } = await import("@/lib/core/approvals/self-approval");
+const { stepEligibility } = await import("@/lib/core/approvals/approval-steps");
 
 let next = 0;
 function member(role: RoleKey, options: { ceoAccess?: boolean; name?: string } = {}): UserContext {
@@ -166,5 +176,52 @@ describe("deciding your own request", () => {
     expect(await mayDecideOwn(member("CEO"), invoice(ceo))).toBe(false);
     expect(await mayDecideOwn(member("FINANCE"), invoice(ceo))).toBe(false);
     expect(recordActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe("deciding a step of your own chain", () => {
+  type Step = Parameters<typeof ownStepDecision>[1]["step"];
+  const step = (stepNumber: number, approver: { approverPermission?: string; approverRoleKey?: string; approverMemberId?: string }): Step =>
+    ({
+      id: `step_${stepNumber}`,
+      stepNumber,
+      label: stepNumber === 1 ? "Procurement" : "Executive",
+      approverMemberId: approver.approverMemberId ?? null,
+      approverRoleKey: approver.approverRoleKey ?? null,
+      approverPermission: approver.approverPermission ?? null,
+      status: "PENDING",
+      decidedByMemberId: null,
+      onBehalfOfMemberId: null,
+      decidedAt: null,
+      decisionNote: null,
+    }) as Step;
+  // A purchase order above the executive limit: Procurement, then the CEO (approval.policy.ts).
+  const procurement = step(1, { approverPermission: "procurement.order.approve" });
+  const executive = step(2, { approverRoleKey: "CEO" });
+
+  it("does not count the only CEO for the first step when the Executive step after it is theirs", async () => {
+    const holder = member("ARCHITECT", { ceoAccess: true, name: "Hana Test" });
+    const ceo = member("CEO", { name: "Chief Test" });
+    colleagues.push(ceo);
+    expect(can(ceo, "procurement.order.approve")).toBe(true);
+    // The CEO may not take the Procurement step: the Executive one is kept for them.
+    await expect(stepEligibility(ceo, procurement, { providerKey: "procurement", steps: [procurement, executive], submittedByMemberId: holder.membershipId })).resolves.toEqual({ eligible: false, reason: "RESERVED_FOR_LATER_STEP" });
+    // So nobody else could take it, and the holder who asked may, rather than leaving the order stuck.
+    await expect(ownStepDecision(holder, { submittedByMemberId: holder.membershipId, step: procurement, steps: [procurement, executive] })).resolves.toEqual({ own: true, allowed: true, because: "NOBODY_ELSE" });
+    await expect(stepEligibility(holder, procurement, { providerKey: "procurement", steps: [procurement, executive], submittedByMemberId: holder.membershipId, allowSelf: true })).resolves.toEqual({ eligible: true, onBehalfOfMemberId: null });
+  });
+
+  it("still counts the CEO, and names them, when no later step is theirs", async () => {
+    const holder = member("ARCHITECT", { ceoAccess: true, name: "Hana Test" });
+    colleagues.push(member("CEO", { name: "Chief Test" }));
+    const verdict = await ownStepDecision(holder, { submittedByMemberId: holder.membershipId, step: procurement, steps: [procurement] });
+    expect(verdict).toMatchObject({ own: true, allowed: false, others: [expect.objectContaining({ name: "Chief Test" })] });
+  });
+
+  it("counts the CEO again once the Executive step is no longer pending", async () => {
+    const holder = member("ARCHITECT", { ceoAccess: true, name: "Hana Test" });
+    colleagues.push(member("CEO", { name: "Chief Test" }));
+    const closed = { ...executive, status: "CANCELLED" } as Step;
+    await expect(ownStepDecision(holder, { submittedByMemberId: holder.membershipId, step: procurement, steps: [procurement, closed] })).resolves.toMatchObject({ own: true, allowed: false });
   });
 });

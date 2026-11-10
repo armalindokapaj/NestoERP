@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { failureMessage, structureApi } from "@/components/project-structure/structure-ui";
 import { Checkbox } from "@/components/ui/checkbox";
+import { salesExpectedVersion } from "@/lib/modules/sales/units/unit-sales.rules";
 
 /**
  * "Also put it on sale" (2026-11-09): wherever a price is saved on a unit that
@@ -56,7 +57,7 @@ export async function putOnSaleAfterPrice(unitId: string, salesVersion: number):
   try {
     const moved = await structureApi<{ version: number }>(`/api/project-units/${unitId}/sales/status`, {
       method: "POST",
-      body: { action: "put_on_sale", ...(salesVersion > 0 ? { expectedVersion: salesVersion } : {}) },
+      body: { action: "put_on_sale", expectedVersion: salesExpectedVersion(salesVersion) },
     });
     return { moved: true, version: moved.version };
   } catch (error) {

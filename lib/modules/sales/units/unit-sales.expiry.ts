@@ -8,6 +8,7 @@ import { NotificationEvent } from "@/lib/core/notifications/notification.events"
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { prisma } from "@/lib/database/prisma";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { closeReservation, expireReservedProfile, notifyReservation, recordStatusChange, reservationAudience } from "./unit-sales.core";
 import { cancelSaleApprovals } from "./unit-sale-approval.service";
 
@@ -40,10 +41,13 @@ const ROW = {
   opportunityId: true,
   createdByMemberId: true,
   opportunity: { select: { ownerMemberId: true } },
-  unit: { select: { unitCode: true, projectId: true, project: { select: { name: true } } } },
+  unit: { select: { unitCode: true, projectId: true, project: { select: { name: true } }, floor: { select: { building: { select: { code: true } } } } } },
 } as const;
 
-type Row = { id: string; unitId: string; expiresAt: Date; opportunityId: string; createdByMemberId: string; opportunity: { ownerMemberId: string }; unit: { unitCode: string; projectId: string; project: { name: string } } };
+type Row = { id: string; unitId: string; expiresAt: Date; opportunityId: string; createdByMemberId: string; opportunity: { ownerMemberId: string }; unit: { unitCode: string; projectId: string; project: { name: string }; floor: { building: { code: string | null } } } };
+
+/** The unit as people read it, "T-501" (2026-11-09), in the notices and the audit trail, as when it was reserved. */
+const unitOf = (row: Row) => ({ id: row.unitId, unitCode: unitLabel(row.unit.floor.building.code, row.unit.unitCode), projectId: row.unit.projectId, projectName: row.unit.project.name });
 
 async function expireOne(companyId: string, row: Row, now: Date): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
@@ -59,7 +63,7 @@ async function expireOne(companyId: string, row: Row, now: Date): Promise<boolea
       companyId,
       {
         actionKey: AuditAction.UNIT_RESERVATION_EXPIRED,
-        entity: { type: "ProjectUnit", id: row.unitId, label: row.unit.unitCode },
+        entity: { type: "ProjectUnit", id: row.unitId, label: unitOf(row).unitCode },
         projectId: row.unit.projectId,
         before: { status: "RESERVED", reservationStatus: "ACTIVE", expiresAt: row.expiresAt.toISOString() },
         after: { status: "FOR_SALE", reservationId: row.id, reservationStatus: "EXPIRED" },
@@ -67,7 +71,7 @@ async function expireOne(companyId: string, row: Row, now: Date): Promise<boolea
       { tx },
     );
     if (await claimIdempotencyKey(tx, { companyId, jobKey: JOB, key: `expired:${row.id}` })) {
-      await notifyReservation(tx, { eventType: NotificationEvent.UNIT_RESERVATION_EXPIRED, companyId, unit: { id: row.unitId, unitCode: row.unit.unitCode, projectId: row.unit.projectId, projectName: row.unit.project.name }, reservationId: row.id, memberIds: reservationAudience(row), actorMemberId: null, expiresAt: row.expiresAt });
+      await notifyReservation(tx, { eventType: NotificationEvent.UNIT_RESERVATION_EXPIRED, companyId, unit: unitOf(row), reservationId: row.id, memberIds: reservationAudience(row), actorMemberId: null, expiresAt: row.expiresAt });
     }
     return true;
   });
@@ -81,7 +85,7 @@ async function warnOne(companyId: string, row: Row): Promise<boolean> {
     const marked = await tx.unitReservation.updateMany({ where: { id: row.id, companyId, status: "ACTIVE", expiresAt: row.expiresAt, expiryWarnedAt: null }, data: { expiryWarnedAt: new Date() } });
     if (!marked.count || !(await claimIdempotencyKey(tx, claim))) return false;
     const hours = Math.max(1, Math.round((row.expiresAt.getTime() - Date.now()) / 3_600_000));
-    await notifyReservation(tx, { eventType: NotificationEvent.UNIT_RESERVATION_EXPIRING, companyId, unit: { id: row.unitId, unitCode: row.unit.unitCode, projectId: row.unit.projectId, projectName: row.unit.project.name }, reservationId: row.id, memberIds: reservationAudience(row), actorMemberId: null, expiresAt: row.expiresAt, whenLabel: `in about ${hours} ${hours === 1 ? "hour" : "hours"}` });
+    await notifyReservation(tx, { eventType: NotificationEvent.UNIT_RESERVATION_EXPIRING, companyId, unit: unitOf(row), reservationId: row.id, memberIds: reservationAudience(row), actorMemberId: null, expiresAt: row.expiresAt, whenLabel: `in about ${hours} ${hours === 1 ? "hour" : "hours"}` });
     return true;
   });
 }

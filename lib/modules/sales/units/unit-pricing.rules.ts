@@ -145,6 +145,22 @@ export function switchPriceEntry(text: string, area: string | null, from: PriceE
 }
 
 /**
+ * The price box for a saved price, as it reads until the person types in it or
+ * switches it: in the entry it shows, on the unit's sale area as it is now — a
+ * rate standing for the exact saved total, or the total itself when there is
+ * no area or it shows Total. An area changed in the same form moves the rate
+ * shown, never the price (review 2026-11-10). Empty without a saved price.
+ */
+export function savedPriceBox(price: string | null, area: string | null, entry: PriceEntry): { entry: PriceEntry; text: string; last: PriceEntrySwitch | null; convertedOn: string | null } {
+  if (price === null) return { entry, text: "", last: null, convertedOn: null };
+  if (entry === "PER_SQM" && area !== null) {
+    const switched = switchPriceEntry(price, area, "TOTAL", "PER_SQM", null);
+    return { entry: "PER_SQM", text: switched.text, last: switched.last, convertedOn: area };
+  }
+  return { entry: "TOTAL", text: price, last: null, convertedOn: null };
+}
+
+/**
  * The total a rate box stands for when it still holds, unedited, the rate a
  * total was converted into: that total itself, not the rate times the area —
  * looking at the rate never changes the price. Null for a rate that was typed.
@@ -169,6 +185,19 @@ export function priceToSave(total: string, currency: string, saved: { askingPric
       ? saved.askingPrice === null
       : saved.askingPrice !== null && hundredths(parsed.value) === hundredths(saved.askingPrice) && currency === saved.currency);
   return same ? { askingPrice: saved.askingPrice ?? "", priceBasis: saved.priceBasis } : { askingPrice: total, priceBasis: saleArea(areas).basis };
+}
+
+/**
+ * Whether a save sets a new asking price: there is a price, and it is not the
+ * one saved — `priceToSave` sends an unchanged price exactly as it was saved,
+ * so amount and basis both match then — or it is the same amount in another
+ * currency. What "Also put it on sale" asks: saving only the notes or the
+ * reason, or clearing the price, never puts a held-back unit on sale (review
+ * 2026-11-10).
+ */
+export function changesAskingPrice(saving: { askingPrice: string; priceBasis: UnitPriceBasis }, saved: { askingPrice: string | null; currency: string | null; priceBasis: UnitPriceBasis }, currency: string): boolean {
+  if (saving.askingPrice === "") return false;
+  return saving.askingPrice !== (saved.askingPrice ?? "") || saving.priceBasis !== saved.priceBasis || currency !== saved.currency;
 }
 
 /**

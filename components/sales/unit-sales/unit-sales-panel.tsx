@@ -27,7 +27,7 @@ import { soldMissingText } from "./sold-missing";
 import { CommercialStatusBadge, moneyLabel, perSqmLabel } from "./commercial-status";
 import { CorrectDialog, PriceDialog, ReopenDialog } from "./unit-sales-dialogs";
 import { SaleStatusDialogs } from "./sale-status-dialogs";
-import { saleStatusOffers } from "@/lib/modules/sales/units/unit-sales.rules";
+import { salesExpectedVersion, saleStatusOffers } from "@/lib/modules/sales/units/unit-sales.rules";
 
 /**
  * A unit's Sales section (E-05E §15, §19-§31, §55): where the sale stands, the
@@ -76,7 +76,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
   async function markSold() {
     setPending(true);
     try {
-      await submit(`/api/project-units/${sales.unitId}/mark-sold`, sales.version > 0 ? { expectedVersion: sales.version } : {}, t("unitSales.isSold", { unit: sales.unitLabel }));
+      await submit(`/api/project-units/${sales.unitId}/mark-sold`, { expectedVersion: salesExpectedVersion(sales.version) }, t("unitSales.isSold", { unit: sales.unitLabel }));
       setOpen(null);
     } catch (error) {
       setOpen(null);

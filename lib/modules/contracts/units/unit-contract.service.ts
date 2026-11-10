@@ -14,7 +14,7 @@ import { prisma } from "@/lib/database/prisma";
 import { pageWindow, skipFor, withTieBreaker } from "@/lib/modules/shared/list-query";
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import { fail, findReadableUnit } from "@/lib/modules/project-structure/structure.service";
-import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
+import { unitCode, unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import { contractMachine } from "../contracts/contract.machine";
 import { contractEditMode } from "../contracts/contract.status";
@@ -331,10 +331,10 @@ export async function requestUnitContract(context: UserContext, unitId: string, 
       data: { companyId: context.companyId, projectId: unit.projectId, unitId: unit.id, reservationId: reservation.id, clientId: reservation.clientId, opportunityId: reservation.opportunityId, notes: input.notes, requestedByMemberId: context.membershipId },
       select: { id: true },
     });
-    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_REQUESTED", message: `asked Legal for a contract for ${unit.unitCode}`, metadata: { projectId: unit.projectId, requestId: request.id } });
+    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_REQUESTED", message: `asked Legal for a contract for ${unitCode(unit)}`, metadata: { projectId: unit.projectId, requestId: request.id } });
     await recordUserAction(
       context,
-      { actionKey: AuditAction.UNIT_CONTRACT_REQUESTED, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, after: { requestId: request.id, reservationId: reservation.id, clientId: reservation.clientId, opportunityId: reservation.opportunityId, status: "OPEN" } },
+      { actionKey: AuditAction.UNIT_CONTRACT_REQUESTED, entity: { type: UNIT_ENTITY, id: unit.id, label: unitCode(unit) }, projectId: unit.projectId, after: { requestId: request.id, reservationId: reservation.id, clientId: reservation.clientId, opportunityId: reservation.opportunityId, status: "OPEN" } },
       { tx },
     );
     // Legal's queue, not a person: whoever may draft this unit's contract (§12).
@@ -346,7 +346,7 @@ export async function requestUnitContract(context: UserContext, unitId: string, 
       entityId: unit.id,
       actorMemberId: context.membershipId,
       projectId: unit.projectId,
-      payload: { requestId: request.id, unitCode: unit.unitCode, projectName: unit.project.name, excludeMemberIds: [context.membershipId] },
+      payload: { requestId: request.id, unitCode: unitCode(unit), projectName: unit.project.name, excludeMemberIds: [context.membershipId] },
     });
     return { requestId: request.id };
   });
@@ -367,7 +367,7 @@ export async function withdrawContractRequest(context: UserContext, requestId: s
     const request = await tx.unitContractRequest.findFirstOrThrow({ where: { companyId: context.companyId, id: requestId }, select: { id: true, status: true } });
     if (request.status !== "OPEN") throw fail("CONTRACT_REQUEST_CLOSED", "This request has already been answered.", "CONFLICT");
     await moveRequest(tx, context, request, "cancel", { data: { closeReason: "Withdrawn by Sales." } });
-    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_REQUEST_WITHDRAWN", message: `withdrew the contract request for ${unit.unitCode}`, metadata: { projectId: unit.projectId, requestId } });
+    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_REQUEST_WITHDRAWN", message: `withdrew the contract request for ${unitCode(unit)}`, metadata: { projectId: unit.projectId, requestId } });
   });
 }
 
@@ -421,8 +421,8 @@ export async function declineContractRequest(context: UserContext, requestId: st
     const request = await tx.unitContractRequest.findFirstOrThrow({ where: { companyId: context.companyId, id: requestId }, select: { id: true, status: true, requestedByMemberId: true } });
     if (request.status !== "OPEN") throw fail("CONTRACT_REQUEST_CLOSED", "This request has already been answered.", "CONFLICT");
     await moveRequest(tx, context, request, "decline", { reason: input.reason, data: { closeReason: input.reason } });
-    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_REQUEST_DECLINED", message: `declined the contract request for ${unit.unitCode}`, metadata: { projectId: unit.projectId, requestId } });
-    await recordUserAction(context, { actionKey: AuditAction.UNIT_CONTRACT_REQUEST_DECLINED, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, before: { requestId, status: "OPEN" }, after: { requestId, status: "DECLINED", reason: input.reason } }, { tx });
+    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_REQUEST_DECLINED", message: `declined the contract request for ${unitCode(unit)}`, metadata: { projectId: unit.projectId, requestId } });
+    await recordUserAction(context, { actionKey: AuditAction.UNIT_CONTRACT_REQUEST_DECLINED, entity: { type: UNIT_ENTITY, id: unit.id, label: unitCode(unit) }, projectId: unit.projectId, before: { requestId, status: "OPEN" }, after: { requestId, status: "DECLINED", reason: input.reason } }, { tx });
     if (request.requestedByMemberId !== context.membershipId) {
       await enqueueNotificationEvent(tx, {
         companyId: context.companyId,
@@ -432,7 +432,7 @@ export async function declineContractRequest(context: UserContext, requestId: st
         entityId: unit.id,
         actorMemberId: context.membershipId,
         projectId: unit.projectId,
-        payload: { memberIds: [request.requestedByMemberId], requestId, unitCode: unit.unitCode },
+        payload: { memberIds: [request.requestedByMemberId], requestId, unitCode: unitCode(unit) },
       });
     }
   });
@@ -474,22 +474,22 @@ export async function createUnitContract(context: UserContext, unitId: string, i
     const now = new Date();
     const included: Included[] = [];
     for (const row of units) {
-      if (await liveContract(tx, context.companyId, row.id)) throw fail("UNIT_CONTRACT_EXISTS", `${row.unitCode} already has an active primary Contract.`, "CONFLICT");
+      if (await liveContract(tx, context.companyId, row.id)) throw fail("UNIT_CONTRACT_EXISTS", `${unitCode(row)} already has an active primary Contract.`, "CONFLICT");
       const standing = await standingOf(tx, context.companyId, row.id);
       const problem = standingProblem(standing, now);
-      if (problem) throw fail("UNIT_NOT_READY_FOR_CONTRACT", units.length > 1 ? `${row.unitCode}: ${problem}` : problem, "CONFLICT");
+      if (problem) throw fail("UNIT_NOT_READY_FOR_CONTRACT", units.length > 1 ? `${unitCode(row)}: ${problem}` : problem, "CONFLICT");
       const given = input.values.find((value) => value.unitId === row.id);
       const agreed = standing.reservation!.agreedPrice!;
       const value = given ? new Prisma.Decimal(given.value) : agreed;
       // A value other than the agreed price is Legal's to set, never silently (§14).
-      if (!value.equals(agreed) && !given?.valueNote) throw new AccessError("VALIDATION_ERROR", `Say why ${row.unitCode}'s value differs from the agreed price.`, { values: [`Say why ${row.unitCode}'s value differs from the agreed price.`] });
+      if (!value.equals(agreed) && !given?.valueNote) throw new AccessError("VALIDATION_ERROR", `Say why ${unitCode(row)}'s value differs from the agreed price.`, { values: [`Say why ${unitCode(row)}'s value differs from the agreed price.`] });
       included.push({ unit: row, standing, value, valueNote: value.equals(agreed) ? null : (given?.valueNote ?? null) });
     }
     const first = included[0]!.standing.reservation!;
     for (const row of included.slice(1)) {
       const reservation = row.standing.reservation!;
-      if (reservation.clientId !== first.clientId || reservation.opportunityId !== first.opportunityId) throw new AccessError("VALIDATION_ERROR", `${row.unit.unitCode} is reserved for another client or deal.`, { additionalUnitIds: [`${row.unit.unitCode} is reserved for another client or deal.`] });
-      if ((reservation.currency ?? null) !== (first.currency ?? null)) throw new AccessError("VALIDATION_ERROR", `${row.unit.unitCode} was agreed in another currency.`, { additionalUnitIds: [`${row.unit.unitCode} was agreed in another currency.`] });
+      if (reservation.clientId !== first.clientId || reservation.opportunityId !== first.opportunityId) throw new AccessError("VALIDATION_ERROR", `${unitCode(row.unit)} is reserved for another client or deal.`, { additionalUnitIds: [`${unitCode(row.unit)} is reserved for another client or deal.`] });
+      if ((reservation.currency ?? null) !== (first.currency ?? null)) throw new AccessError("VALIDATION_ERROR", `${unitCode(row.unit)} was agreed in another currency.`, { additionalUnitIds: [`${unitCode(row.unit)} was agreed in another currency.`] });
     }
     // Sales asks, Legal drafts: the unit the contract is drafted for must have been requested (§12).
     const request = await tx.unitContractRequest.findFirst({ where: { companyId: context.companyId, unitId: unit.id, status: "OPEN", reservation: { is: { status: { in: ["ACTIVE", "CONVERTED_TO_SALE"] } } } }, select: { id: true } });
@@ -502,7 +502,7 @@ export async function createUnitContract(context: UserContext, unitId: string, i
     if (clash) throw new AccessError("CONFLICT", `Contract number ${contractNumber} is already used in this company.`, { contractNumber: [`${contractNumber} is already used.`] });
 
     const total = included.reduce((sum, row) => sum.plus(row.value), new Prisma.Decimal(0));
-    const codes = included.map((row) => row.unit.unitCode).join(", ");
+    const codes = included.map((row) => unitCode(row.unit)).join(", ");
     const contract = await tx.contract.create({
       data: {
         companyId: context.companyId,
@@ -536,7 +536,7 @@ export async function createUnitContract(context: UserContext, unitId: string, i
 
     await recordActivity(tx, context, { module: MODULE, entityType: "Contract", entityId: contract.id, action: "LEGAL_CONTRACT_CREATED", message: `drafted sale contract ${contractNumber}`, metadata: { contractType: SALE_AGREEMENT, clientId: first.clientId, projectId: unit.projectId } });
     for (const row of included) {
-      await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: row.unit.id, action: "UNIT_CONTRACT_CREATED", message: `drafted sale contract ${contractNumber} for ${row.unit.unitCode}`, metadata: { projectId: row.unit.projectId, contractId: contract.id } });
+      await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: row.unit.id, action: "UNIT_CONTRACT_CREATED", message: `drafted sale contract ${contractNumber} for ${unitCode(row.unit)}`, metadata: { projectId: row.unit.projectId, contractId: contract.id } });
     }
     await recordUserAction(
       context,
@@ -579,7 +579,7 @@ export async function updateContractUnitValue(context: UserContext, contractId: 
     const total = contract.units.reduce((sum, row) => sum.plus(row.id === link.id ? value : (row.value ?? 0)), new Prisma.Decimal(0));
     const saved = await tx.contract.updateMany({ where: { companyId: context.companyId, id: contract.id, status: contract.status }, data: { contractValue: total, updatedByMemberId: context.membershipId } });
     if (!saved.count) throw fail("CONTRACT_STALE", "This contract changed since you opened it. Reload to see the latest.", "CONFLICT");
-    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_UPDATED", message: `changed ${unit.unitCode}'s value on sale contract ${contract.contractNumber}`, metadata: { projectId: unit.projectId, contractId } });
+    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: "UNIT_CONTRACT_UPDATED", message: `changed ${unitCode(unit)}'s value on sale contract ${contract.contractNumber}`, metadata: { projectId: unit.projectId, contractId } });
     await recordUserAction(
       context,
       { actionKey: AuditAction.UNIT_CONTRACT_UPDATED, entity: { type: "Contract", id: contract.id, label: contract.contractNumber }, projectId: contract.projectId, before: { contractId, unitId: unit.id, value: moneyText(link.value), contractValue: moneyText(contract.contractValue) }, after: { contractId, unitId: unit.id, value: value.toFixed(2), valueNote: input.valueNote, contractValue: total.toFixed(2) } },

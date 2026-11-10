@@ -28,7 +28,7 @@ import {
   readableTransmittalWhere,
 } from "./engineering.permissions";
 import { engineeringRevisionMachine } from "./engineering.revision.machine";
-import { loadRevisionParent, revisionCapabilities, revisionDTOs, revisionsOf } from "./engineering.revisions";
+import { loadRevisionParent, revisionCapabilitiesOf, revisionDTOs, revisionsOf } from "./engineering.revisions";
 import type { CreateEngineeringDocumentInput, EngineeringDocumentListQuery, UpdateEngineeringDocumentInput } from "./engineering.schema";
 import { companyToday, resolveEngineeringSettings } from "./engineering.settings";
 import {
@@ -182,7 +182,7 @@ export async function getEngineeringDocument(context: UserContext, id: string): 
   const submittals = submittalIds.length && engineeringOpen(context, "submittal.view") ? await prisma.technicalSubmittal.findMany({ where: { AND: [readableSubmittalWhere(context), { id: { in: submittalIds } }] }, select: { id: true, projectId: true, submittalNumber: true, title: true } }) : [];
   const live = !projectArchived(row.project) && row.status !== "VOID" && row.status !== "SUPERSEDED";
   const edit = live && can(context, "engineering_document.edit");
-  const capabilitiesByRevision = Object.fromEntries(revisions.map((revision) => [revision.id, revisionCapabilities(context, parent, revision, settings)]));
+  const capabilitiesByRevision = await revisionCapabilitiesOf(context, parent, revisions, settings);
   return {
     ...base,
     authorText: row.authorText,

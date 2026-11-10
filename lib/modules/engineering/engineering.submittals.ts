@@ -18,7 +18,7 @@ import { loadEngineeringProject, projectEngineeringOptions, type ProjectEngineer
 import { linkableTypesFor, listLinks, tasksFromRecord } from "./engineering.links";
 import { notifyEngineering } from "./engineering.notify";
 import { engineeringOpen, filesOpen, filesWritable, LINK_TYPE, MODULE, readableRfiWhere, readableSubmittalWhere, SUBMITTAL_ACTIVITY, SUBMITTAL_RECORD } from "./engineering.permissions";
-import { loadRevisionParent, revisionCapabilities, revisionDTOs, revisionsOf } from "./engineering.revisions";
+import { loadRevisionParent, revisionCapabilitiesOf, revisionDTOs, revisionsOf } from "./engineering.revisions";
 import type { CreateSubmittalInput, SubmittalListQuery, UpdateSubmittalInput } from "./engineering.schema";
 import { companyToday, resolveEngineeringSettings } from "./engineering.settings";
 import {
@@ -194,7 +194,7 @@ export async function getSubmittal(context: UserContext, id: string): Promise<Su
     workArea: row.workArea,
     voidReason: row.voidReason,
     revisions: await revisionDTOs(context, parent, revisions),
-    revisionCapabilities: Object.fromEntries(revisions.map((revision) => [revision.id, revisionCapabilities(context, parent, revision, settings)])),
+    revisionCapabilities: await revisionCapabilitiesOf(context, parent, revisions, settings),
     links: [...links, ...tasks.map((task) => ({ linkId: "", type: "task" as const, typeLabel: "Task", id: task.id, label: task.label, href: task.href }))],
     linkedRfis: rfis.map((rfi) => ({ id: rfi.id, label: `${rfi.rfiNumber} · ${rfi.subject}`, href: `/projects/${rfi.projectId}/engineering/rfis/${rfi.id}` })),
     version: row.version,

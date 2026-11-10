@@ -102,6 +102,11 @@ export async function listVersions(context: UserContext, documentId: string): Pr
     can(context, "document.update") &&
     (await canChangeDocumentFile(context, document));
 
+  // A review you asked of yourself is yours to decide only while nobody else could (review.service.ts).
+  const ownPending = versions.some((version) => version.reviews.some((review) => review.status === "PENDING" && review.requestedByMemberId === context.membershipId && review.reviewerMemberId === context.membershipId));
+  // Loaded here: review.service.ts reads this module.
+  const reviewsOwn = ownPending && (await (await import("./review.service")).mayReviewOwnRequest(context, document.id));
+
   return {
     documentId: document.id,
     capabilities: { canUploadVersion, reviewable },
@@ -131,6 +136,7 @@ export async function listVersions(context: UserContext, documentId: string): Pr
         canDecide:
           review.status === "PENDING" &&
           review.reviewerMemberId === context.membershipId &&
+          (review.requestedByMemberId !== context.membershipId || reviewsOwn) &&
           can(context, "document.review.decide"),
       })),
       capabilities: {

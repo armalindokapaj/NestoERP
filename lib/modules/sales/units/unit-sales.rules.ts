@@ -94,6 +94,19 @@ export function moneyText(value: { toFixed(digits: number): string } | null | un
 }
 
 /**
+ * The version a change to a unit's sales is checked against: the version the
+ * person saw, and 1 for a unit that had no sales record when they saw it (0).
+ * The record is created at version 1 the first time anything is saved, and
+ * every save moves it on, so a record still at 1 is one nobody has changed —
+ * and a price somebody else saved in the meantime (2 or more) is refused as
+ * stale, not silently replaced. Never left out: without a version the server
+ * checks nothing.
+ */
+export function salesExpectedVersion(seen: number): number {
+  return Math.max(seen, 1);
+}
+
+/**
  * Whether saving a price offers "Also put it on sale" (2026-11-09): the person
  * may change the sale status, and the unit is not for sale — no sales record
  * counts as not for sale — and can be offered, being in use and published.

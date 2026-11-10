@@ -105,6 +105,20 @@ function priorDeciders(steps: StepRow[]): Set<string> {
   return people;
 }
 
+/**
+ * Whether a later pending step of the chain is this member's, by name or by
+ * role: they keep themselves for it, so they never decide this one
+ * (`stepEligibility`), and nobody counts them as somebody who could.
+ */
+export function reservedForLaterStep(member: Pick<UserContext, "membershipId" | "role">, step: Pick<StepRow, "stepNumber">, steps: StepRow[]): boolean {
+  return steps.some(
+    (row) =>
+      row.stepNumber > step.stepNumber &&
+      row.status === "PENDING" &&
+      (row.approverMemberId === member.membershipId || (row.approverRoleKey !== null && row.approverRoleKey === member.role)),
+  );
+}
+
 export type StepEligibility =
   | { eligible: true; onBehalfOfMemberId: string | null }
   | { eligible: false; reason: "SELF_APPROVAL" | "ALREADY_DECIDED_STEP" | "RESERVED_FOR_LATER_STEP" | "NOT_APPROVER" };
@@ -137,13 +151,7 @@ export async function stepEligibility(
   // A later step that belongs to this person — by name or by role — is theirs to
   // take, so an earlier one goes to somebody else; otherwise the only CEO could
   // approve step one and leave the executive step with nobody able to decide it.
-  const reservedLater = options.steps.some(
-    (row) =>
-      row.stepNumber > step.stepNumber &&
-      row.status === "PENDING" &&
-      (row.approverMemberId === me || (row.approverRoleKey !== null && row.approverRoleKey === context.role)),
-  );
-  if (reservedLater) return { eligible: false, reason: "RESERVED_FOR_LATER_STEP" };
+  if (reservedForLaterStep(context, step, options.steps)) return { eligible: false, reason: "RESERVED_FOR_LATER_STEP" };
 
   // A step may name a permission, a person or a role — or a person or role who
   // must also hold the permission (a timesheet's designated approver, PRD #42 §74).
@@ -187,7 +195,13 @@ export async function stepEligibility(
 export async function eligibleMembersForStep(
   companyId: string,
   step: Pick<StepRow, "approverMemberId" | "approverRoleKey" | "approverPermission">,
-  options: { exclude: string[]; canReadAs: (memberContext: UserContext) => Promise<boolean>; limit?: number },
+  options: {
+    exclude: string[];
+    canReadAs: (memberContext: UserContext) => Promise<boolean>;
+    limit?: number;
+    /** Members the caller does not count, besides those excluded by id: one kept for a later step of the chain. */
+    skip?: (memberContext: UserContext) => boolean;
+  },
 ): Promise<string[]> {
   const where: Prisma.CompanyMemberWhereInput = {
     companyId,
@@ -203,6 +217,7 @@ export async function eligibleMembersForStep(
   const eligible: string[] = [];
   for (const [memberId, memberContext] of contexts) {
     if (step.approverPermission && !can(memberContext, step.approverPermission as Permission)) continue;
+    if (options.skip?.(memberContext)) continue;
     if (!(await options.canReadAs(memberContext))) continue;
     eligible.push(memberId);
     if (options.limit && eligible.length >= options.limit) break;

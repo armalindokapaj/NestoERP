@@ -3,6 +3,7 @@ import { prisma } from "@/lib/database/prisma";
 import { getRequestLocale } from "@/lib/i18n/server";
 import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
+import { unitIdsMatchingCode } from "@/lib/modules/project-structure/structure.service";
 import { approveUnitSale, rejectUnitSale } from "@/lib/modules/sales/units/unit-sale-approval.service";
 import { createCycleProvider, type CycleTable, type RecordFacts } from "../approvals.cycle-provider";
 import { amountWhere, formatAmount, formatDate, MATCH_LIMIT, moneyOf, projectRef, projectWhere, term, valueSignals } from "./shared";
@@ -29,13 +30,15 @@ export const unitSalesApprovalProvider = createCycleProvider({
       selfPermission: null,
       reason: "This company approves a sale before the unit is marked Sold.",
       async match(context, filters) {
+        // By the code the list shows, "T-501", as the unit lists search: "T-501", "T501" and "501" all find it.
+        const byCode = filters.q ? await unitIdsMatchingCode(context.companyId, filters.q, MATCH_LIMIT) : [];
         const rows = await prisma.projectUnit.findMany({
           where: {
             AND: [
               readableUnitWhere(context),
               projectWhere(filters),
               filters.amountMin !== undefined || filters.amountMax !== undefined ? { reservations: { some: { status: "ACTIVE", ...amountWhere("agreedPrice", filters) } } } : {},
-              filters.q ? { OR: [{ unitCode: term(filters.q) }, { project: { name: term(filters.q) } }] } : {},
+              filters.q ? { OR: [{ id: { in: byCode } }, { unitCode: term(filters.q) }, { project: { name: term(filters.q) } }] } : {},
             ],
           },
           select: { id: true },

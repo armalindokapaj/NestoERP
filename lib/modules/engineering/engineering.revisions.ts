@@ -6,6 +6,7 @@ import type { Permission } from "@/config/permissions";
 import { can } from "@/lib/access/can";
 import { AccessError, assertModule, assertPermission } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { deciderNames, ownDecision, recordSelfApproval, type OwnDecision } from "@/lib/core/approvals/self-approval";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
@@ -226,17 +227,47 @@ function assertLive(parent: RevisionParent) {
 /* Capabilities                                                                */
 /* -------------------------------------------------------------------------- */
 
-function reviewGate(context: UserContext, parent: RevisionParent, revision: RevisionRow, settings: Pick<EngineeringSettingsDTO, "allowSelfReview">): string | null {
-  if (!settings.allowSelfReview && revision.submittedByMemberId === context.membershipId) return "You submitted this revision, so another reviewer decides it.";
+/**
+ * Whether the person reviewing submitted this revision, and whether they may
+ * review it anyway. The company's "allow self review" setting is the module's
+ * own rule, as a self grant is elsewhere: unconditional, and not recorded as a
+ * self-approval. Without it a CEO, or a CEO-access holder, may review their own
+ * only when nobody else in the company could approve it, and it is then
+ * recorded (lib/core/approvals/self-approval.ts). Everybody else never.
+ */
+async function ownReview(context: UserContext, parent: RevisionParent, revision: RevisionRow, settings: Pick<EngineeringSettingsDTO, "allowSelfReview">): Promise<OwnDecision> {
+  if (revision.submittedByMemberId !== context.membershipId) return { own: false };
+  if (settings.allowSelfReview) return { own: true, allowed: true, because: "SELF_GRANT" };
+  const spec = KIND[parent.kind];
+  return ownDecision(context, { own: true, record: { type: spec.record, id: parent.id }, mayDecide: (member) => can(member, spec.review) && can(member, spec.approve) });
+}
+
+const SELF_REVIEW = "You submitted this revision, so another reviewer decides it.";
+
+function reviewGate(context: UserContext, parent: RevisionParent, own: OwnDecision): string | null {
+  if (own.own && !own.allowed) return own.others.length > 0 ? `${SELF_REVIEW} ${deciderNames(own.others)} can.` : SELF_REVIEW;
   if (parent.reviewerMemberId && parent.reviewerMemberId !== context.membershipId && !can(context, KIND[parent.kind].approve)) return "This revision is assigned to another reviewer.";
   return null;
 }
 
-export function revisionCapabilities(context: UserContext, parent: RevisionParent, revision: RevisionRow, settings: Pick<EngineeringSettingsDTO, "allowSelfReview">): RevisionCapabilities {
+/** What the reader may do with each revision of a record, by id. */
+export async function revisionCapabilitiesOf(context: UserContext, parent: RevisionParent, revisions: RevisionRow[], settings: Pick<EngineeringSettingsDTO, "allowSelfReview">): Promise<Record<string, RevisionCapabilities>> {
+  const entries = await Promise.all(
+    revisions.map(async (revision): Promise<[string, RevisionCapabilities]> => {
+      // Only the current revision in review is decided; nobody is asked about the others.
+      const reviewing = IN_REVIEW.includes(revision.status) && revision.id === parent.currentRevisionId;
+      const own = reviewing ? await ownReview(context, parent, revision, settings) : ({ own: false } as const);
+      return [revision.id, revisionCapabilities(context, parent, revision, own)];
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+export function revisionCapabilities(context: UserContext, parent: RevisionParent, revision: RevisionRow, own: OwnDecision): RevisionCapabilities {
   const spec = KIND[parent.kind];
   const live = !parent.closed && !projectArchived(parent.project) && engineeringOpen(context, parent.kind === "document" ? "engineering_document.view" : "submittal.view");
   const reviewing = live && IN_REVIEW.includes(revision.status) && revision.id === parent.currentRevisionId;
-  const gate = reviewing ? reviewGate(context, parent, revision, settings) : null;
+  const gate = reviewing ? reviewGate(context, parent, own) : null;
   const canReview = reviewing && can(context, spec.review) && gate === null;
   return {
     canSubmit: live && revision.status === "DRAFT" && can(context, spec.submit),
@@ -414,7 +445,7 @@ export async function startReview(context: UserContext, kind: RevisionKind, revi
   assertLive(parent);
   if (revision.status !== "SUBMITTED" || revision.id !== parent.currentRevisionId) throw fail("REVISION_NOT_SUBMITTED", "Only the submitted current revision goes under review.", "CONFLICT");
   const { settings } = await companyToday(context.companyId);
-  const gate = reviewGate(context, parent, revision, settings);
+  const gate = reviewGate(context, parent, await ownReview(context, parent, revision, settings));
   if (gate) throw fail(gate.startsWith("You submitted") ? "REVIEW_SELF_FORBIDDEN" : "REVIEW_NOT_ASSIGNED", gate, "FORBIDDEN");
   await prisma.$transaction(async (tx) => {
     await moveRevision(tx, context, kind, revision, "start_review", { reviewStartedAt: new Date() });
@@ -433,12 +464,17 @@ export async function decideRevision(context: UserContext, kind: RevisionKind, r
   assertLive(parent);
   if (!IN_REVIEW.includes(revision.status) || revision.id !== parent.currentRevisionId) throw fail("REVISION_NOT_IN_REVIEW", "Only the current revision, while submitted or under review, takes a decision.", "CONFLICT");
   const { settings } = await companyToday(context.companyId);
-  const gate = reviewGate(context, parent, revision, settings);
+  const own = await ownReview(context, parent, revision, settings);
+  const gate = reviewGate(context, parent, own);
   if (gate) throw fail(gate.startsWith("You submitted") ? "REVIEW_SELF_FORBIDDEN" : "REVIEW_NOT_ASSIGNED", gate, "FORBIDDEN");
 
   const approving = APPROVING_DECISIONS.includes(input.decision);
   const now = new Date();
   await prisma.$transaction(async (tx) => {
+    // Their own, allowed because nobody else could approve it: written down as self-approved.
+    if (own.own && own.allowed && own.because === "NOBODY_ELSE") {
+      await recordSelfApproval(tx, context, { record: { type: spec.record, id: parent.id }, label: parent.number, projectId: parent.projectId, decision: input.decision });
+    }
     // The decision is written once: it goes in the write that finalises the
     // revision, which is guarded by the review state this reviewer read, and
     // nothing leads out of FINALIZED but being superseded.

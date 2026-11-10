@@ -181,6 +181,22 @@ export function unitCodeMatch(q: string): Prisma.Sql {
 }
 
 /**
+ * The ids of this company's units a code search finds, the way the unit lists
+ * find them (`unitCodeMatch`): "T-501", "T501" and "501" all find unit 501 of
+ * building T. For searches built on Prisma's filters, which cannot fold the
+ * building's code into the unit's; the caller still applies its own reach.
+ */
+export async function unitIdsMatchingCode(companyId: string, q: string, limit: number): Promise<string[]> {
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`SELECT u."id" FROM "project_units" u
+    JOIN "project_floors" f ON f."id" = u."floorId"
+    JOIN "project_buildings" b ON b."id" = f."buildingId"
+    WHERE u."companyId" = ${companyId} AND ${unitCodeMatch(q)}
+    ORDER BY u."id" ASC
+    LIMIT ${limit}`;
+  return rows.map((row) => row.id);
+}
+
+/**
  * The area a unit is sold by, in SQL (2026-11-09): the saleable area when it
  * is above zero, else the gross area — null when neither is, so a division by
  * it is never by zero. Reads the alias `u`; the same rule as `saleArea`.

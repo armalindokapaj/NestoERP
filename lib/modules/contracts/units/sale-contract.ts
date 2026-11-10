@@ -11,6 +11,7 @@ import { enqueueNotificationEvent } from "@/lib/core/notifications/notification.
 import { prisma } from "@/lib/database/prisma";
 import { cancelSchedulesWithContract, completeScheduleWithContract } from "@/lib/modules/finance/units/unit-finance.service";
 import { readableUnitWhere, structureOpen } from "@/lib/modules/project-structure/structure.permissions";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { findReadableUnit } from "@/lib/modules/project-structure/structure.service";
 import { recordActivity } from "@/lib/modules/shared/activity";
 import type { ContractAction } from "../contracts/contract.machine";
@@ -88,11 +89,12 @@ export async function findLegalUnit(context: UserContext, unitId: string) {
   return unit;
 }
 
-export type SaleUnit = { unitId: string; unitCode: string; projectId: string; released: boolean };
+/** `label` is the unit as people read it, "T-501" (2026-11-09): what notices and activity lines name it by. */
+export type SaleUnit = { unitId: string; unitCode: string; label: string; projectId: string; released: boolean };
 
 export async function saleContractUnits(client: Client, companyId: string, contractId: string): Promise<SaleUnit[]> {
-  const rows = await client.contractUnit.findMany({ where: { companyId, contractId }, orderBy: { createdAt: "asc" }, select: { unitId: true, releasedAt: true, unit: { select: { unitCode: true, projectId: true } } } });
-  return rows.map((row) => ({ unitId: row.unitId, unitCode: row.unit.unitCode, projectId: row.unit.projectId, released: row.releasedAt !== null }));
+  const rows = await client.contractUnit.findMany({ where: { companyId, contractId }, orderBy: { createdAt: "asc" }, select: { unitId: true, releasedAt: true, unit: { select: { unitCode: true, projectId: true, floor: { select: { building: { select: { code: true } } } } } } } });
+  return rows.map((row) => ({ unitId: row.unitId, unitCode: row.unit.unitCode, label: unitLabel(row.unit.floor.building.code, row.unit.unitCode), projectId: row.unit.projectId, released: row.releasedAt !== null }));
 }
 
 type SaleContractRef = { id: string; contractType: string; contractNumber: string; projectId: string | null; ownerMemberId: string };
@@ -141,13 +143,13 @@ async function notify(tx: Tx, context: UserContext, contract: SaleContractRef, u
     entityId: first.unitId,
     actorMemberId: context.membershipId,
     projectId: first.projectId,
-    payload: { memberIds, unitCode: units.map((unit) => unit.unitCode).join(", "), contractNumber: contract.contractNumber, contractId: contract.id, projectName: project?.name ?? null, verb: extra.verb ?? null },
+    payload: { memberIds, unitCode: units.map((unit) => unit.label).join(", "), contractNumber: contract.contractNumber, contractId: contract.id, projectName: project?.name ?? null, verb: extra.verb ?? null },
   });
 }
 
 async function unitActivity(tx: Tx, context: UserContext, contract: SaleContractRef, units: SaleUnit[], action: string, message: (unitCode: string) => string) {
   for (const unit of units) {
-    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.unitId, action, message: message(unit.unitCode), metadata: { projectId: unit.projectId, contractId: contract.id } });
+    await recordActivity(tx, context, { module: MODULE, entityType: UNIT_ENTITY, entityId: unit.unitId, action, message: message(unit.label), metadata: { projectId: unit.projectId, contractId: contract.id } });
   }
 }
 

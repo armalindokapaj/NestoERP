@@ -50,13 +50,29 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
    * section's ⋯ in its own page header, after its title or status.
    */
   const header = <ProjectCompactHeader identity={identity} className="lg:hidden" />;
+  const overviewMenu = segment === null ? overviewTrailing : undefined;
   return (
     <>
       <Breadcrumbs items={trail} level="layout" />
-      {/* A project with no section but its Overview draws no tab row; its header stands alone. */}
-      {tabs.length <= 1 ? header : null}
+      {/*
+        * A project with no section but its Overview draws no tab row; its header
+        * stands alone, and on the Overview the project's menu still ends it, as it
+        * ends the tab row's place in a project with sections.
+        */}
+      {tabs.length <= 1 ? (
+        overviewMenu ? (
+          <div className="flex items-stretch gap-2 lg:hidden" data-project-header-alone>
+            {header}
+            <div className="flex h-(--nesto-shell-tab-row-h) shrink-0 items-center gap-1" data-project-menu>
+              {overviewMenu}
+            </div>
+          </div>
+        ) : (
+          header
+        )
+      ) : null}
       {/* The Overview's menu ends the compact row below lg, on the Overview only; from lg the row is the tabs alone. */}
-      <ContextTabs label={sectionsLabel} tabs={tabs} primary={PRIMARY} rootKey="overview" trailing={segment === null ? overviewTrailing : undefined} lead={header} />
+      <ContextTabs label={sectionsLabel} tabs={tabs} primary={PRIMARY} rootKey="overview" trailing={overviewMenu} lead={header} />
     </>
   );
 }

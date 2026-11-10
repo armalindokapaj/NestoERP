@@ -192,7 +192,7 @@ type Composed = {
 const COMPOSED: Composed[] = [
   {
     file: "lib/modules/sales/units/unit-sales.service.ts",
-    written: 'verbs[input.action].replace("%s", unit.unitCode)',
+    written: 'verbs[input.action].replace("%s", unitCode(unit))',
     table: { name: "verbs" },
     phrase: (text) => text.replace("%s", "{unitCode}"),
   },

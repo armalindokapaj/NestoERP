@@ -8,6 +8,7 @@ import { useSalesTranslations } from "@/components/sales/sales-text";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/i18n/format";
+import { salesExpectedVersion } from "@/lib/modules/sales/units/unit-sales.rules";
 import type { UnitSalesDTO } from "@/lib/modules/sales/units/unit-sales.types";
 import { dateValue, ReasonDialog, ReserveDialog } from "./unit-sales-dialogs";
 
@@ -28,7 +29,7 @@ export function SaleStatusDialogs({ open, onClose, sales, submit }: { open: stri
   const toast = useToast();
   const [pending, setPending] = React.useState(false);
   const reservation = sales.activeReservation;
-  const expected = sales.version > 0 ? { expectedVersion: sales.version } : {};
+  const expected = { expectedVersion: salesExpectedVersion(sales.version) };
 
   async function quick(action: "put_on_sale" | "take_off_sale" | "release_hold", success: string) {
     setPending(true);

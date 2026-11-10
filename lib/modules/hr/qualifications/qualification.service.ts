@@ -3,6 +3,7 @@ import type { CredentialVerificationStatus, Prisma, QualificationType, Qualifica
 import { can } from "@/lib/access/can";
 import { AccessError, invalidRecordLink, stateDenied } from "@/lib/access/guards";
 import type { UserContext } from "@/lib/context/types";
+import { holdsCeoRights, namedRefusal, ownDecision, recordSelfApproval, type OwnDecision } from "@/lib/core/approvals/self-approval";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import { resolveAttentionForRecord } from "@/lib/core/notifications/attention.reconcile";
@@ -17,7 +18,8 @@ import { fileSupportingDocument } from "@/lib/modules/hr/documents/employee-docu
 import { categoryForQualification, expiryStateOf } from "@/lib/modules/hr/documents/employee-document.types";
 import { dayOf, dbDay, todayDay } from "@/lib/modules/hr/employment/employment.dates";
 import { personName } from "@/lib/modules/hr/hr.person";
-import { fullQualificationWhere, qualificationRole, readerPersonId, summaryQualificationWhere } from "./qualification.access";
+import { buildEmployeeScopeWhere } from "@/lib/modules/hr/hr.scope";
+import { fullQualificationWhere, hrReachesPerson, qualificationRole, readerPersonId, summaryQualificationWhere } from "./qualification.access";
 import { qualificationVerificationMachine } from "./qualification.machine";
 import type {
   ArchiveQualificationInput,
@@ -115,6 +117,35 @@ async function createdByReader(context: UserContext, row: Pick<Row, "createdByMe
   if (!row.createdByMemberId) return false;
   if (row.createdByMemberId === context.membershipId) return true;
   return (await prisma.companyMember.count({ where: { id: row.createdByMemberId, userId: context.userId } })) > 0;
+}
+
+/**
+ * The person never checks their own (§74, §191), with one exception
+ * (lib/core/approvals/self-approval.ts): a CEO, or a CEO-access holder, who may
+ * verify qualifications and whose HR scope would reach them were they somebody
+ * else, may check their own — one HR would see, not one they keep private —
+ * when nobody else in the company could. It is then recorded as self-approved.
+ */
+async function ownCheck(context: UserContext, role: Role, personId: string, row: Row): Promise<OwnDecision> {
+  if (role.ownPersonId !== personId) return { own: false };
+  const refused: OwnDecision = { own: true, allowed: false, others: [] };
+  if (!holdsCeoRights(context) || !can(context, "hr.qualification.verify") || !can(context, "hr.document.view")) return refused;
+  if (row.verificationStatus !== "UNVERIFIED" || row.archivedAt !== null || row.visibility === "PRIVATE") return refused;
+  const inScope = await prisma.personProfile.count({ where: { parentGroupId: context.parentGroupId, id: personId, employments: { some: buildEmployeeScopeWhere(context) } } });
+  if (!inScope) return refused;
+  return ownDecision(context, {
+    own: true,
+    record: { type: "person_qualification", id: row.id },
+    mayDecide: (member) => can(member, "hr.qualification.verify"),
+    reaches: async (member) => hrReachesPerson(member, personId, await readerPersonId(member)),
+  });
+}
+
+/** The role this row is read with: a verifier of their own where `ownCheck` allows it. */
+async function roleFor(context: UserContext, role: Role, personId: string, row: Row): Promise<Role> {
+  if (role.ownPersonId !== personId || !holdsCeoRights(context)) return role;
+  const own = await ownCheck(context, role, personId, row);
+  return own.own && own.allowed ? { ...role, verifier: true } : role;
 }
 
 function actionsFor(role: Role, row: Row, ownCreated: boolean): QualificationActions {
@@ -231,13 +262,14 @@ export async function getPersonQualifications(context: UserContext, personId: st
     : [];
 
   const today = todayDay();
-  const [names, openable, ownCreated] = await Promise.all([
+  const [names, openable, ownCreated, roles] = await Promise.all([
     memberNames(rows.map((row) => row.verifiedByMemberId)),
     openableFiles(context, rows),
     Promise.all(rows.map((row) => createdByReader(context, row))),
+    Promise.all(rows.map((row) => roleFor(context, role, person.id, row))),
   ]);
   const records = rows
-    .map((row, index) => toDTO(row, role, ownCreated[index]!, names, openable, today))
+    .map((row, index) => toDTO(row, roles[index]!, ownCreated[index]!, names, openable, today))
     .sort((a, b) => sectionOrder(a) - sectionOrder(b) || Number(b.isCurrent) - Number(a.isCurrent) || (b.issueDate ?? "").localeCompare(a.issueDate ?? "") || a.title.localeCompare(b.title));
   const summaryRows = summaries
     .map((row): QualificationSummaryDTO => ({
@@ -291,8 +323,8 @@ async function findReadable(context: UserContext, personId: string, id: string, 
 async function getOne(context: UserContext, personId: string, id: string): Promise<QualificationDTO> {
   const role = await qualificationRole(context, personId);
   const row = await findReadable(context, personId, id, role.ownPersonId);
-  const [names, openable, ownCreated] = await Promise.all([memberNames([row.verifiedByMemberId]), openableFiles(context, [row]), createdByReader(context, row)]);
-  return toDTO(row, role, ownCreated, names, openable, todayDay());
+  const [names, openable, ownCreated, rowRole] = await Promise.all([memberNames([row.verifiedByMemberId]), openableFiles(context, [row]), createdByReader(context, row), roleFor(context, role, personId, row)]);
+  return toDTO(row, rowRole, ownCreated, names, openable, todayDay());
 }
 
 export { getOne as getQualification };
@@ -536,13 +568,18 @@ export async function updateQualification(context: UserContext, personId: string
 
 async function decide(context: UserContext, personId: string, id: string, decision: { action: "verify" | "reject" | "resubmit"; note: string | null; expectedVersion: number; documentId?: string | null }): Promise<QualificationDTO> {
   const person = await loadPerson(context, personId);
-  const role = await qualificationRole(context, person.id);
-  const row = await findReadable(context, person.id, id, role.ownPersonId);
+  const plain = await qualificationRole(context, person.id);
+  const row = await findReadable(context, person.id, id, plain.ownPersonId);
+  const own: OwnDecision = decision.action === "resubmit" ? { own: false } : await ownCheck(context, plain, person.id, row);
+  const role = own.own && own.allowed ? { ...plain, verifier: true } : plain;
   const actions = actionsFor(role, row, await createdByReader(context, row));
   const allowed = decision.action === "resubmit" ? actions.canResubmit : decision.action === "verify" ? actions.canVerify : actions.canReject;
   if (!allowed) {
-    // The person never checks their own (§74, §191).
-    if (role.ownPersonId === person.id && decision.action !== "resubmit") throw fail("QUALIFICATION_SELF_VERIFICATION", "You cannot verify your own qualification.", "FORBIDDEN");
+    // The person never checks their own (§74, §191) — a CEO only when nobody else could.
+    if (role.ownPersonId === person.id && decision.action !== "resubmit") {
+      if (own.own && !own.allowed && own.others.length > 0) throw namedRefusal(own.others);
+      throw fail("QUALIFICATION_SELF_VERIFICATION", "You cannot verify your own qualification.", "FORBIDDEN");
+    }
     assertTransitionAllowed(qualificationVerificationMachine, { currentState: row.verificationStatus, action: decision.action, context, reason: decision.note });
     throw new AccessError("FORBIDDEN");
   }
@@ -550,6 +587,10 @@ async function decide(context: UserContext, personId: string, id: string, decisi
   const evidence = decision.action === "resubmit" && decision.documentId && decision.documentId !== row.supportingDocumentId ? await evidenceFor(context, person.id, decision.documentId) : null;
 
   await runInTransaction(`hr.qualification.${decision.action}`, async (tx) => {
+    // Their own, checked because nobody else could: written down as self-approved.
+    if (own.own && own.allowed && own.because === "NOBODY_ELSE") {
+      await recordSelfApproval(tx, context, { record: { type: "person_qualification", id: row.id }, label: auditEntity(row, person).label, decision: decision.action === "verify" ? "VERIFIED" : "REJECTED" });
+    }
     if (evidence) {
       await fileSupportingDocument(tx, context, { employmentId: evidence.employmentId, documentId: evidence.documentId, category: categoryForQualification(row.type), title: row.title, issuer: row.issuer, documentNumber: row.documentNumber, issueDate: dateText(row.issueDate), expiryDate: dateText(row.expiryDate), employeeName: evidence.employeeName });
     }

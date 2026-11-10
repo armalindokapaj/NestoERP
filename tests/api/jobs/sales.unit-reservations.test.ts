@@ -125,6 +125,25 @@ describe("sales.unit-reservations", () => {
       expect(await prisma.unitCommercialStatusHistory.findFirst({ where: { unitId: fixture.unitId } })).toMatchObject({ fromStatus: "RESERVED", toStatus: "FOR_SALE", source: "SYSTEM_EXPIRY", actorMemberId: null });
     });
 
+    it("names the unit in its notices and audit as people read it, its building's code and its own (2026-11-09)", async () => {
+      const expiring = await reservation(COMPANY_A, -2);
+      const warned = await reservation(COMPANY_A, 5);
+      for (const fixture of [expiring, warned]) {
+        const { floor } = await prisma.projectUnit.findUniqueOrThrow({ where: { id: fixture.unitId }, select: { floor: { select: { buildingId: true } } } });
+        await prisma.projectBuilding.update({ where: { id: floor.buildingId }, data: { code: `Q${serial}`, codeKey: `Q${serial}${fixture.unitId}`.toUpperCase() } });
+      }
+      await invokeJob(JOB, { companyIds: [COMPANY_A] });
+
+      for (const [fixture, eventType] of [[expiring, "UNIT_RESERVATION_EXPIRED"], [warned, "UNIT_RESERVATION_EXPIRING"]] as const) {
+        const { unitCode, floor } = await prisma.projectUnit.findUniqueOrThrow({ where: { id: fixture.unitId }, select: { unitCode: true, floor: { select: { building: { select: { code: true } } } } } });
+        const label = `${floor.building.code}-${unitCode}`;
+        const [notice] = await events(fixture.unitId, eventType);
+        expect((notice?.payloadJson as { unitCode: string }).unitCode).toBe(label);
+      }
+      const audit = await prisma.auditEvent.findFirstOrThrow({ where: { entityId: expiring.unitId, actionKey: "UNIT_RESERVATION_EXPIRED" }, select: { entityLabelSnapshot: true } });
+      expect(audit.entityLabelSnapshot).toMatch(/^Q\d+-J-/);
+    });
+
     it("warns once a day before, again only when the expiry moves, and leaves a later reservation alone", async () => {
       const soon = await reservation(COMPANY_A, 5);
       const later = await reservation(COMPANY_A, 72);

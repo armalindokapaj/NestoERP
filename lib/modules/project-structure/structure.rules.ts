@@ -164,6 +164,15 @@ export function unitLabel(buildingCode: string | null, unitCode: string): string
 }
 
 /**
+ * A unit's code as people read it, "T-501": `unitLabel` of a unit read with its
+ * building's code. Named for the `{unitCode}` it fills in activity lines,
+ * notices and refusals, so their catalogue keys stay as they were.
+ */
+export function unitCode(unit: { unitCode: string; floor: { building: { code: string | null } } }): string {
+  return unitLabel(unit.floor.building.code, unit.unitCode);
+}
+
+/**
  * A unit search as codes are compared (2026-11-09): upper case with only the
  * letters and digits kept, so "T-501", "t 501" and "T501" all read "T501" and
  * find the unit the lists call T-501, and "501" still finds it by its own code.

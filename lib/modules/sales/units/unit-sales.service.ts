@@ -43,7 +43,7 @@ import {
 } from "./unit-sales.core";
 import { canMarkUnitSold, defaultExpiry, moneyText, saleStatusOf, sellability } from "./unit-sales.rules";
 import { saleArea, saleRate } from "./unit-pricing.rules";
-import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
+import { unitCode, unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { cancelSaleApprovals, latestSaleApproval } from "./unit-sale-approval.service";
 import type { commercialDetailsSchema, correctReservationSchema, dealUnitSchema, extendReservationSchema, releaseReservationSchema, reopenSaleSchema, reserveSchema, saleStatusSchema } from "./unit-sales.schema";
 import { MAX_RESERVATION_DAYS, type ReservationDTO, type UnitSalesDTO } from "./unit-sales.types";
@@ -72,7 +72,7 @@ function unitRef(unit: Unit) {
 
 async function evidence(tx: Tx, context: UserContext, unit: Unit, input: { action: string; message: string; audit: { actionKey: string; before?: Record<string, unknown>; after?: Record<string, unknown>; metadata?: Record<string, unknown> } }) {
   await recordActivity(tx, context, { module: SALES_ACTIVITY_MODULE, entityType: UNIT_ENTITY, entityId: unit.id, action: input.action, message: input.message, metadata: { projectId: unit.projectId } });
-  await recordUserAction(context, { actionKey: input.audit.actionKey, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, before: input.audit.before, after: input.audit.after, metadata: input.audit.metadata }, { tx });
+  await recordUserAction(context, { actionKey: input.audit.actionKey, entity: { type: UNIT_ENTITY, id: unit.id, label: unitCode(unit) }, projectId: unit.projectId, before: input.audit.before, after: input.audit.after, metadata: input.audit.metadata }, { tx });
 }
 
 async function move(tx: Tx, context: UserContext, unit: Unit, profile: ProfileRow, action: UnitCommercialAction, input: { to?: UnitCommercialStatus; reason?: string | null; data?: Record<string, unknown>; reservationId?: string | null; opportunityId?: string | null }) {
@@ -279,7 +279,7 @@ export async function updateCommercialDetails(context: UserContext, unitId: stri
       const shown = (price: string | null, code: string | null) => (price === null ? "no price" : `${code ?? ""} ${numberText(Number(price), { minimumFractionDigits: 2 }, SOURCE_LOCALE, "en")}`.trim());
       await evidence(tx, context, unit, {
         action: "UNIT_PRICE_CHANGED",
-        message: `changed the asking price of ${unit.unitCode} from ${shown(oldPrice, profile.currency)} to ${shown(input.askingPrice, currency)}`,
+        message: `changed the asking price of ${unitCode(unit)} from ${shown(oldPrice, profile.currency)} to ${shown(input.askingPrice, currency)}`,
         audit: { actionKey: AuditAction.UNIT_PRICE_CHANGED, before: { askingPrice: oldPrice, currency: profile.currency, priceBasis: profile.priceBasis }, after: { askingPrice: input.askingPrice, currency, priceBasis: input.priceBasis, reason: input.reason } },
       });
     }
@@ -308,7 +308,7 @@ export async function changeSaleStatus(context: UserContext, unitId: string, inp
     const verbs = { put_on_sale: "put %s on sale", take_off_sale: "took %s off sale", hold: "put %s on hold", release_hold: "released the hold on %s" } as const;
     await evidence(tx, context, unit, {
       action: "UNIT_COMMERCIAL_STATUS_CHANGED",
-      message: verbs[input.action].replace("%s", unit.unitCode),
+      message: verbs[input.action].replace("%s", unitCode(unit)),
       audit: { actionKey: AuditAction.UNIT_COMMERCIAL_STATUS_CHANGED, before: { status: profile.status, holdReason: profile.holdReason }, after: { status: to, holdReason: data.holdReason, holdUntil: data.holdUntil?.toISOString() ?? null } },
     });
     return { status: to, version: profile.version + 1 };
@@ -407,10 +407,10 @@ export async function reserveUnit(context: UserContext, unitId: string, input: z
 
     await evidence(tx, context, unit, {
       action: "UNIT_RESERVED",
-      message: `reserved ${unit.unitCode} until ${expiresAt.toISOString().slice(0, 10)}`,
+      message: `reserved ${unitCode(unit)} until ${expiresAt.toISOString().slice(0, 10)}`,
       audit: { actionKey: AuditAction.UNIT_RESERVED, before: { status: profile.status }, after: { status: "RESERVED", reservationId: reservation.id, clientId: client!.id, opportunityId: dealId, expiresAt: expiresAt.toISOString(), agreedPrice, currency } },
     });
-    if (linked) await recordUserAction(context, { actionKey: AuditAction.DEAL_UNIT_LINKED, entity: { type: UNIT_ENTITY, id: unit.id, label: unit.unitCode }, projectId: unit.projectId, after: { opportunityId: dealId, unitId: unit.id, agreedPrice, currency } }, { tx });
+    if (linked) await recordUserAction(context, { actionKey: AuditAction.DEAL_UNIT_LINKED, entity: { type: UNIT_ENTITY, id: unit.id, label: unitCode(unit) }, projectId: unit.projectId, after: { opportunityId: dealId, unitId: unit.id, agreedPrice, currency } }, { tx });
     return { reservationId: reservation.id, clientId: client!.id, opportunityId: dealId!, version: profile.version + 1 };
   });
 }
@@ -473,7 +473,7 @@ export async function extendReservation(context: UserContext, reservationId: str
     await tx.unitReservationExtension.create({ data: { companyId: context.companyId, reservationId: reservation.id, oldExpiresAt: reservation.expiresAt, newExpiresAt: input.expiresAt, reason: input.reason, extendedByMemberId: context.membershipId } });
     await evidence(tx, context, unit, {
       action: "UNIT_RESERVATION_EXTENDED",
-      message: `extended the reservation of ${unit.unitCode} to ${input.expiresAt.toISOString().slice(0, 10)}`,
+      message: `extended the reservation of ${unitCode(unit)} to ${input.expiresAt.toISOString().slice(0, 10)}`,
       audit: { actionKey: AuditAction.UNIT_RESERVATION_EXTENDED, before: { reservationId: reservation.id, expiresAt: reservation.expiresAt.toISOString() }, after: { reservationId: reservation.id, expiresAt: input.expiresAt.toISOString(), reason: input.reason } },
     });
     return { expiresAt: input.expiresAt.toISOString() };
@@ -497,7 +497,7 @@ export async function releaseReservation(context: UserContext, reservationId: st
     const to = await move(tx, context, unit, profile, "release_reservation", { reason: input.reason, reservationId: reservation.id, opportunityId: reservation.opportunityId });
     await evidence(tx, context, unit, {
       action: "UNIT_RESERVATION_RELEASED",
-      message: `released the reservation of ${unit.unitCode}`,
+      message: `released the reservation of ${unitCode(unit)}`,
       audit: { actionKey: AuditAction.UNIT_RESERVATION_RELEASED, before: { status: profile.status, reservationStatus: "ACTIVE" }, after: { status: to, reservationId: reservation.id, reservationStatus: "RELEASED", reason: input.reason } },
     });
     await notifyReservation(tx, { eventType: NotificationEvent.UNIT_RESERVATION_RELEASED, companyId: context.companyId, unit: unitRef(unit), reservationId: reservation.id, memberIds: reservationAudience(reservation), actorMemberId: context.membershipId });
@@ -525,7 +525,7 @@ export async function correctReservation(context: UserContext, reservationId: st
     }
     await evidence(tx, context, unit, {
       action: "UNIT_RESERVATION_CORRECTED",
-      message: `corrected the reservation of ${unit.unitCode}`,
+      message: `corrected the reservation of ${unitCode(unit)}`,
       audit: {
         actionKey: AuditAction.UNIT_RESERVATION_CORRECTED,
         before: { reservationId: reservation.id, agreedPrice: moneyText(reservation.agreedPrice), currency: reservation.currency, notes: reservation.notes },
@@ -563,7 +563,7 @@ export async function markUnitSold(context: UserContext, unitId: string, input: 
     const to = await move(tx, context, unit, profile, "mark_sold", { reservationId: reservation!.id, opportunityId: reservation!.opportunityId });
     await evidence(tx, context, unit, {
       action: "UNIT_MARKED_SOLD",
-      message: `marked ${unit.unitCode} Sold`,
+      message: `marked ${unitCode(unit)} Sold`,
       audit: {
         actionKey: AuditAction.UNIT_MARKED_SOLD,
         before: { status: profile.status, reservationStatus: "ACTIVE" },
@@ -612,7 +612,7 @@ export async function reopenSale(context: UserContext, unitId: string, input: z.
     const to = await move(tx, context, unit, profile, "reopen", { to: input.to, reason: input.reason, reservationId: reservationId ?? sale?.id ?? null, opportunityId: sale?.opportunityId ?? null });
     await evidence(tx, context, unit, {
       action: "UNIT_SALE_REOPENED",
-      message: `reopened the sale of ${unit.unitCode}`,
+      message: `reopened the sale of ${unitCode(unit)}`,
       audit: { actionKey: AuditAction.UNIT_SALE_REOPENED, before: { status: profile.status, reservationId: sale?.id ?? null, reservationStatus: sale ? "CONVERTED_TO_SALE" : null }, after: { status: to, reservationId: reservationId ?? sale?.id ?? null, reservationStatus: reservationId ? "ACTIVE" : sale ? "CANCELLED" : null, reason: input.reason } },
     });
     return { status: to, reservationId };
@@ -683,10 +683,10 @@ export async function addUnitToDeal(context: UserContext, opportunityId: string,
   });
   await runInTransaction("sales.deal.unit.link", async (tx) => {
     const linked = await linkUnitToDeal(tx, context, unit, deal.id, { agreedPrice: input.agreedPrice ?? null, currency: input.currency ?? null });
-    if (!linked) throw fail("DEAL_UNIT_EXISTS", `${unit.unitCode} is already in this opportunity.`, "CONFLICT");
+    if (!linked) throw fail("DEAL_UNIT_EXISTS", `${unitCode(unit)} is already in this opportunity.`, "CONFLICT");
     await evidence(tx, context, unit, {
       action: "DEAL_UNIT_LINKED",
-      message: `added ${unit.unitCode} to an opportunity`,
+      message: `added ${unitCode(unit)} to an opportunity`,
       audit: { actionKey: AuditAction.DEAL_UNIT_LINKED, after: { opportunityId: deal.id, unitId: unit.id, agreedPrice: input.agreedPrice ?? null, currency: input.currency ?? null } },
     });
   });
@@ -699,12 +699,12 @@ export async function removeUnitFromDeal(context: UserContext, opportunityId: st
   const unit = await findSellableUnit(context, unitId);
   await runInTransaction("sales.deal.unit.unlink", async (tx) => {
     const holding = await tx.unitReservation.count({ where: { companyId: context.companyId, unitId: unit.id, opportunityId: deal.id, status: { in: ["ACTIVE", "CONVERTED_TO_SALE"] } } });
-    if (holding) throw fail("DEAL_UNIT_HELD", `This opportunity holds ${unit.unitCode} reserved or sold. Release the reservation or reopen the sale first.`, "CONFLICT");
+    if (holding) throw fail("DEAL_UNIT_HELD", `This opportunity holds ${unitCode(unit)} reserved or sold. Release the reservation or reopen the sale first.`, "CONFLICT");
     const removed = await tx.opportunityUnit.deleteMany({ where: { companyId: context.companyId, opportunityId: deal.id, unitId: unit.id } });
-    if (!removed.count) throw fail("DEAL_UNIT_NOT_FOUND", `${unit.unitCode} is not in this opportunity.`, "NOT_FOUND");
+    if (!removed.count) throw fail("DEAL_UNIT_NOT_FOUND", `${unitCode(unit)} is not in this opportunity.`, "NOT_FOUND");
     await evidence(tx, context, unit, {
       action: "DEAL_UNIT_UNLINKED",
-      message: `removed ${unit.unitCode} from an opportunity`,
+      message: `removed ${unitCode(unit)} from an opportunity`,
       audit: { actionKey: AuditAction.DEAL_UNIT_UNLINKED, before: { opportunityId: deal.id, unitId: unit.id } },
     });
   });

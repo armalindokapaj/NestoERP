@@ -5,7 +5,7 @@ import { can } from "@/lib/access/can";
 import { AccessError } from "@/lib/access/guards";
 import { buildMemberContexts } from "@/lib/context/member-context";
 import type { UserContext } from "@/lib/context/types";
-import { eligibleMembersForStep, type StepRow } from "@/lib/core/approvals/approval-steps";
+import { eligibleMembersForStep, reservedForLaterStep, type StepRow } from "@/lib/core/approvals/approval-steps";
 import { AuditAction } from "@/lib/core/audit/audit-policy.registry";
 import { recordUserAction } from "@/lib/core/audit/audit.service";
 import type { RecordType } from "@/lib/core/records/record.types";
@@ -129,7 +129,10 @@ export async function mayDecideOwn(context: UserContext, input: { own: boolean; 
 /**
  * The same rule for one step of a chain (PRD #41 §21): somebody else counts if
  * the step could go to them — the step's person, role or permission, a reader
- * of the record, and not anybody who decided an earlier step of it.
+ * of the record, not anybody who decided an earlier step of it, and not anybody
+ * a later pending step is kept for. The last is `stepEligibility`'s own rule:
+ * the only CEO, who takes the Executive step, may not take the Procurement
+ * step before it, so counting them here would leave that step to nobody.
  */
 export async function ownStepDecision(
   context: UserContext,
@@ -151,6 +154,7 @@ export async function ownStepDecision(
   const ids = await eligibleMembersForStep(context.companyId, input.step, {
     exclude: [context.membershipId, ...prior],
     canReadAs: input.canReadAs ?? (async () => true),
+    skip: (member) => reservedForLaterStep(member, input.step, input.steps),
     limit: 3,
   });
   if (ids.length === 0) return { own: true, allowed: true, because: "NOBODY_ELSE" };

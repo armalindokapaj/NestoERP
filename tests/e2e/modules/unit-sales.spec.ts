@@ -108,6 +108,11 @@ test("Sales prices a unit, puts it on sale, reserves it for a new client and dea
   await rate.fill("2000");
   await expect(price.getByTestId("price-per-sqm-total")).toHaveText("105.00 m² saleable × €2,000 = €210,000");
   await price.getByLabel("Reason for the change").fill("Launch price list");
+  // A new price on a unit not for sale offers "Also put it on sale", ticked; unticked, the unit stays held back (2026-11-09).
+  const onSale = price.getByTestId("price-put-on-sale").getByRole("checkbox");
+  await expect(onSale).toBeChecked();
+  await onSale.click();
+  await expect(onSale).not.toBeChecked();
   await price.getByRole("button", { name: "Save price" }).click();
   await expect(page.getByTestId("asking-price")).toHaveText("€210,000");
   await expect(page.getByTestId("price-per-sqm")).toHaveText("€2,000/m²");
