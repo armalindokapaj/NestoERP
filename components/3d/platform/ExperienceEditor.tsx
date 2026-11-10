@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import {
   Blocks, BookMarked, Camera, CircleGauge, Cuboid, ExternalLink, Layers3, Lightbulb, LoaderCircle, Map as MapIcon, MousePointerClick, Mountain, Palette, PanelLeftClose,
   PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Rocket, RotateCcw, Ruler, Search, Expand, Minimize, ScanLine, Sun, Trash2, Video, X,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";
 import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTypes";

@@ -1,6 +1,6 @@
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
-import { Box, GitBranch, Layers3, PackageCheck } from "lucide-react";
+import { Box, GitBranch, Layers3, PackageCheck } from "@/components/icons";
 
 import { EntitlementControl } from "@/components/3d/platform/EntitlementControl";
 import { ExperienceMetadataForm } from "@/components/3d/platform/ExperienceMetadataForm";

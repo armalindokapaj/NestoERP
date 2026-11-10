@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { ArrowUpRight, ExternalLink, Link2, MoreHorizontal, Star } from "lucide-react";
+import { ArrowUpRight, ExternalLink, Link2, MoreHorizontal, Star } from "@/components/icons";
 
 import {
   DropdownMenu,

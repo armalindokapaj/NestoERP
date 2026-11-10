@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { Suspense } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { StatusBadge } from "@/components/modules/status-badge";

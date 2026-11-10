@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RotateCcw, SlidersHorizontal } from "lucide-react";
+import { RotateCcw, SlidersHorizontal } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { UserRoundPlus } from "lucide-react";
+import { UserRoundPlus } from "@/components/icons";
 
 import { ProgressTable } from "@/components/hr/progress-table";
 import { ModulePage } from "@/components/modules/module-page";

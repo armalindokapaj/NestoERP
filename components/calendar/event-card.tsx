@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Repeat } from "lucide-react";
+import { Repeat } from "@/components/icons";
 
 import { formatClock } from "@/lib/modules/calendar/calendar.format";
 import type { CalendarEventDTO } from "@/lib/modules/calendar/calendar.types";

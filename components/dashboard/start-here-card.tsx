@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, X } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { useTranslations } from "@/components/i18n/i18n-provider";

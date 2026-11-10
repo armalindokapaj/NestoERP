@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Loader2, MessageSquarePlus, Play } from "lucide-react";
+import { CheckCircle2, Loader2, MessageSquarePlus, Play } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";

@@ -4,7 +4,7 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
-import { FolderKanban, LayoutGrid, List, SearchX } from "lucide-react";
+import { FolderKanban, LayoutGrid, List, SearchX } from "@/components/icons";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import { Button } from "@/components/ui/button";
@@ -210,7 +210,7 @@ export function ProjectsPortfolio({
             className="py-12"
           />
         ) : (
-          <div className={view === "list" ? "divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface" : GALLERY_GRID} data-testid="project-gallery" data-view={view}>
+          <div className={view === "list" ? "divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface" : GALLERY_GRID} data-testid="project-gallery" data-view={view} data-numbered="">
             {items.map((project) => view === "list" ? (
               <ProjectCompactRow key={project.id} project={project} />
             ) : (

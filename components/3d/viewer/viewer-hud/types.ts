@@ -1,4 +1,4 @@
-import { Building2, Clock, Compass, Image } from "lucide-react";
+import { Building2, Clock, Compass, Image } from "@/components/icons";
 
 export type NavigationVisualState = "idle" | "hover" | "active";
 

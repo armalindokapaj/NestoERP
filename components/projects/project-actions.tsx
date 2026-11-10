@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Archive, ArchiveRestore, CloudDownload, CloudOff, Images, Loader2, MoreHorizontal, PenLine, RefreshCw, Star, Users } from "lucide-react";
+import { Archive, ArchiveRestore, CloudDownload, CloudOff, Images, Loader2, MoreHorizontal, PenLine, RefreshCw, Star, Users } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

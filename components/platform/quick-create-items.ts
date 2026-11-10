@@ -1,4 +1,4 @@
-import { Building2, FolderKanban, Network } from "lucide-react";
+import { Building2, FolderKanban, Network } from "@/components/icons";
 
 /**
  * The one global Create (Admin IA §19, §20). Each entry opens the directory

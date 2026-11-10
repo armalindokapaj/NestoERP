@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@/components/icons";
 
 import { PageSizeSelect } from "@/components/data/page-size-select";
 import { pageHref, pageWindow, type SearchParamsInput } from "@/lib/modules/shared/list-query";

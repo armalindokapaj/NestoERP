@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ThumbsDown, ThumbsUp } from "lucide-react";
+import { ThumbsDown, ThumbsUp } from "@/components/icons";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Money } from "@/components/finance/money";

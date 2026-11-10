@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { InventoryExportLink } from "@/components/inventory/export-link";
 import { MovementTable } from "@/components/inventory/movement-table";

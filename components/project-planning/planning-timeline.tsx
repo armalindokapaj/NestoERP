@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@/components/icons";
 
 import type { Locale } from "@/lib/i18n/config";
 import { monthName } from "@/lib/i18n/format";

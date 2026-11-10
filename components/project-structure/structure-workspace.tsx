@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { floorName } from "@/lib/i18n/stock-names";
-import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, Tags, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, Tags, Trash2 } from "@/components/icons";
 import Link from "@/components/navigation/nav-link";
 
 import { selectClass } from "@/components/forms/record-form";

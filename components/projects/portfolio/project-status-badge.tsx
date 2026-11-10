@@ -6,6 +6,9 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 
 import { cn } from "@/lib/utils/cn";
 
+/** Theme 2: the reference's legend — built solid, under construction hatched, pending an outline, archived dashed. */
+const MARKS: Record<ProjectStatus, string> = { PENDING: "outline", ACTIVE: "hatch", FINISHED: "solid", ARCHIVED: "dashed" };
+
 const DOTS: Record<ProjectStatus, string> = {
   PENDING: "bg-warning",
   ACTIVE: "bg-success",
@@ -26,11 +29,14 @@ export function ProjectStatusBadge({ status, className }: { status: ProjectStatu
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border border-line bg-surface/95 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-fg shadow-card backdrop-blur-sm",
+        // Theme 2: mono capitals with the status mark before them. On a render, the card makes it the reference's dark glass chip.
+        "look2:font-mono look2:text-[0.625rem] look2:font-medium look2:tracking-[0.1em] look2:shadow-none",
         className,
       )}
       data-testid="project-status"
+      data-mark={MARKS[status]}
     >
-      <span aria-hidden="true" className={cn("size-1.5 rounded-full", DOTS[status])} />
+      <span aria-hidden="true" className={cn("size-1.5 rounded-full look2:hidden", DOTS[status])} />
       {t(`status.${status}`)}
     </span>
   );

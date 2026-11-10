@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/icons";
 import { useDropdown } from "@/components/3d/viewer/hooks/useDropdown";
 import { DropdownPanel } from "@/components/3d/viewer/shared/Dropdown";
 import { cn } from "@/lib/3d/viewer/utils";

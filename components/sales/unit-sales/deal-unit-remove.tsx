@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 
 import { failureMessage, structureApi } from "@/components/project-structure/structure-ui";
 import { Button } from "@/components/ui/button";

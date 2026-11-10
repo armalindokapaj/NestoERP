@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "@/components/icons";
 
 import { useRouter } from "@/components/navigation/guarded-router";
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";

@@ -1,6 +1,6 @@
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Target } from "lucide-react";
+import { Target } from "@/components/icons";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";

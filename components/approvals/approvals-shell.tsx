@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "next/navigation";
-import { Inbox, ListFilter, Rows3, Rows4, SlidersHorizontal, TriangleAlert, UserRoundCog } from "lucide-react";
+import { Inbox, ListFilter, Rows3, Rows4, SlidersHorizontal, TriangleAlert, UserRoundCog } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { WhatIsThis } from "@/components/help/what-is-this";

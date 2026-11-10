@@ -4,7 +4,7 @@ import * as React from "react";
 import { useStatusText } from "@/components/i18n/common-text";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { AlertTriangle, Check, FileText, Link2, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Upload, X } from "lucide-react";
+import { AlertTriangle, Check, FileText, Link2, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Upload, X } from "@/components/icons";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { FavoriteButton } from "@/components/productivity/favorite-button";

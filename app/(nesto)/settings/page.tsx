@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ChevronRight, HardDrive, Languages } from "lucide-react";
+import { ChevronRight, HardDrive, Languages } from "@/components/icons";
 
 import { getIcon } from "@/components/layout/nav-icon";
 import { LanguagePreference } from "@/components/settings/language-preference";

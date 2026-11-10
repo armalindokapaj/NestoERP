@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "@/components/icons";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { useLocale } from "@/components/i18n/i18n-provider";

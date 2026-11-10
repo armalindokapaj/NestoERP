@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, MessageSquare, MoreHorizontal, Pencil, Plus, Send, Stamp } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, MessageSquare, MoreHorizontal, Pencil, Plus, Send, Stamp } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { useIsBelow } from "@/components/ui/use-breakpoint";

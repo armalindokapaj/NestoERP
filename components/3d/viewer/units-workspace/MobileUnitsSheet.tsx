@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { ArrowLeft, ChevronUp, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowLeft, ChevronUp, Search, SlidersHorizontal, X } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useViewerStore } from "@/lib/3d/viewer/store";
 import { useViewerPreferences } from "@/components/3d/viewer/hooks/useViewerPreferences";

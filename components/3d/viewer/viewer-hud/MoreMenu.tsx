@@ -20,7 +20,7 @@ import {
   Settings as SettingsIcon,
   Share2,
   ZoomIn,
-} from "lucide-react";
+} from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useIsDesktop } from "@/components/3d/viewer/hooks/useMediaQuery";
 import { useClickOutside } from "@/components/3d/viewer/hooks/useClickOutside";

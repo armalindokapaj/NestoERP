@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { PageMenuItems, useClaimPageMenu } from "@/components/navigation/page-menu";
-import { Crown, MoreHorizontal, PenLine, ShieldOff, UserCheck, UserMinus } from "lucide-react";
+import { Crown, MoreHorizontal, PenLine, ShieldOff, UserCheck, UserMinus } from "@/components/icons";
 
 import { useTeamServerText, useTeamTranslations } from "@/components/team/team-text";
 import { Button } from "@/components/ui/button";

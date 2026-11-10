@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@/components/icons";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { RecordDocuments } from "@/components/documents/record-documents";

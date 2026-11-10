@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { Presentation, Repeat, Video } from "lucide-react";
+import { Presentation, Repeat, Video } from "@/components/icons";
 
 import { CompanyRecordLink } from "@/components/workspace/company-record-link";
 import { CompanyTag } from "@/components/workspace/company-tag";

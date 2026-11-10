@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { Check, CheckCheck, Loader2, RotateCcw } from "lucide-react";
+import { Check, CheckCheck, Loader2, RotateCcw } from "@/components/icons";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { relativeTime } from "@/lib/activity/client";

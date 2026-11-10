@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BedDouble, Bath, Ruler, X } from "lucide-react";
+import { BedDouble, Bath, Ruler, X } from "@/components/icons";
 import type { Project, Unit } from "@/lib/3d/viewer/types";
 import { usePriceFormat } from "@/components/3d/viewer/hooks/usePriceFormat";
 import { useT } from "@/lib/3d/viewer/i18n";

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Scale } from "lucide-react";
+import { Scale } from "@/components/icons";
 
 import { ContractTable } from "@/components/contracts/contract-table";
 import { RecordContextHeader } from "@/components/modules/record-header";

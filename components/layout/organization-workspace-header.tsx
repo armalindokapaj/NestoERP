@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, ChevronDown } from "lucide-react";
+import { Building2, ChevronDown } from "@/components/icons";
 import * as React from "react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";

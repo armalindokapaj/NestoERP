@@ -4,6 +4,7 @@ import { createLucideIcon } from "lucide-react";
  * The navigation icons drawn in the approved Black & Gold mockup, built from its
  * exact 24 × 24 paths so they behave like every other `LucideIcon`: sized with
  * `className`, weighted with `strokeWidth`, registered by name in `nav-icon.tsx`.
+ * Theme 1's drawing; components/icons/index.ts pairs each with its Theme 2 glyph.
  */
 const icon = (name: string, d: string) => createLucideIcon(name, [["path", { d, key: "d" }]]);
 

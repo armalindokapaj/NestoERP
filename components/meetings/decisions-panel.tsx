@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Gavel, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Gavel, Loader2, Pencil, Plus, Trash2 } from "@/components/icons";
 
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";

@@ -3,7 +3,7 @@ import { formatRelativeTime } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { localizeActivity } from "@/lib/i18n/system";
 import { notFound } from "next/navigation";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";

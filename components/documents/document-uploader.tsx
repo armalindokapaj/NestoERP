@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { CheckCircle2, CircleAlert, RotateCcw, Upload, X } from "lucide-react";
+import { CheckCircle2, CircleAlert, RotateCcw, Upload, X } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

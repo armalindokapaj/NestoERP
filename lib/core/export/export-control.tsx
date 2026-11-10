@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Download } from "lucide-react";
+import { Download } from "@/components/icons";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { FoldIntoPageMenu, usePageMenuInline } from "@/components/navigation/page-menu";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

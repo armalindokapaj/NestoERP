@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { StatusBadge } from "@/components/modules/status-badge";

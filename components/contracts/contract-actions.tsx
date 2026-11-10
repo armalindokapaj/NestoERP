@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   Undo2,
   XCircle,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { AssignMemberControl } from "@/components/modules/assign-member-control";
 import { RejectDialog } from "@/components/finance/reject-dialog";

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Boxes, Building2, FolderKanban, History, LayoutDashboard, Orbit, Settings2, Users } from "lucide-react";
+import { Boxes, Building2, FolderKanban, History, LayoutDashboard, Orbit, Settings2, Users } from "@/components/icons";
 
 import type { PlatformPermission } from "@/config/platform";
 

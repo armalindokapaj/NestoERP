@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MapPin } from "lucide-react";
+import { MapPin } from "@/components/icons";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand, type FormField } from "@/components/engineering/form-kit";

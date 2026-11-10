@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
-import { Package } from "lucide-react";
+import { Package } from "@/components/icons";
 
 import { StockTable } from "@/components/inventory/stock-table";
 import { Pagination } from "@/components/data/pagination";

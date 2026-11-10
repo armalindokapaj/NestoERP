@@ -15,7 +15,7 @@ import {
   SendHorizontal,
   ThumbsDown,
   ThumbsUp,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { Button } from "@/components/ui/button";

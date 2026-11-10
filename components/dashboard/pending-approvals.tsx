@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 
 import { FittedRows } from "@/components/dashboard/fitted-rows";
 import Link from "@/components/navigation/nav-link";

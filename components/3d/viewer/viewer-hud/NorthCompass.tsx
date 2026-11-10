@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Navigation2 } from "lucide-react";
+import { Navigation2 } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTypes";
 

@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { usePathname, useRouter } from "next/navigation";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

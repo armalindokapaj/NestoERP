@@ -3,7 +3,7 @@ import { formatDateTime } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { localizeActivity } from "@/lib/i18n/system";
 import { redirect } from "next/navigation";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { RecordContextHeader } from "@/components/modules/record-header";

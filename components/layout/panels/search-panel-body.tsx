@@ -24,7 +24,7 @@ import {
   Target,
   Truck,
   UserRound,
-} from "lucide-react";
+} from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { useTranslations } from "@/components/i18n/i18n-provider";

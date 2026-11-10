@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight, Loader2, Plus, Search } from "lucide-react";
+import { ChevronRight, Loader2, Plus, Search } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";

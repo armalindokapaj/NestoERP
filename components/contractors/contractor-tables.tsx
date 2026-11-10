@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { Building2, HardHat, Package } from "lucide-react";
+import { Building2, HardHat, Package } from "@/components/icons";
 
 import { Due, Person, Ref, ReviewBadge } from "@/components/engineering/engineering-ui";
 import { EmptyState } from "@/components/ui/empty-state";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";

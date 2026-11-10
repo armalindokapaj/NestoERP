@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Link2, ListPlus, X } from "lucide-react";
+import { Link2, ListPlus, X } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

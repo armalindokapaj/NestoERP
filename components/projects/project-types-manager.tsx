@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { projectTypeName } from "@/lib/i18n/stock-names";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "@/components/icons";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import { COMMITTED, failureOutcome, INVALID } from "@/components/project-planning/use-values-editor";

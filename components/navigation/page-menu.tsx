@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BookOpen, CircleHelp, MoreHorizontal } from "lucide-react";
+import { BookOpen, CircleHelp, MoreHorizontal } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { BELOW_LG_QUERY } from "@/components/layout/use-phone";

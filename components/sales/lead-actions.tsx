@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Archive, ArrowRightLeft, CheckCircle2, PenLine, PhoneCall, RotateCcw, XCircle } from "lucide-react";
+import { Archive, ArrowRightLeft, CheckCircle2, PenLine, PhoneCall, RotateCcw, XCircle } from "@/components/icons";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { AssignMemberControl } from "@/components/modules/assign-member-control";

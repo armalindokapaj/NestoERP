@@ -3,7 +3,7 @@
 import { OPEN_QUICK_CREATE_EVENT } from "@/components/layout/mobile-bottom-nav";
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Plus, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";

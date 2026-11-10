@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { MailPlus } from "lucide-react";
+import { MailPlus } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { InvitationList } from "@/components/team/invitation-list";

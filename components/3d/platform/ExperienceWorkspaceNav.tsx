@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, GitBranch, Home, Layers3, PackageCheck } from "lucide-react";
+import { Box, GitBranch, Home, Layers3, PackageCheck } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils/cn";

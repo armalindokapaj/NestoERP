@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { SquareStack } from "lucide-react";
+import { SquareStack } from "@/components/icons";
 import { useViewerStore } from "@/lib/3d/viewer/store";
 import { useIsDesktop } from "@/components/3d/viewer/hooks/useMediaQuery";
 import { useIdleFade } from "@/components/3d/viewer/hooks/useIdleFade";

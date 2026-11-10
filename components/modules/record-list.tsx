@@ -1,4 +1,4 @@
-import { Inbox } from "lucide-react";
+import { Inbox } from "@/components/icons";
 import { getTranslations } from "@/lib/i18n/server";
 
 import { DataTable, type TableColumn } from "@/components/data/data-table";

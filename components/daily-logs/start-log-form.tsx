@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { NotebookPen } from "lucide-react";
+import { NotebookPen } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

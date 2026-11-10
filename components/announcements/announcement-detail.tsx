@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ArrowLeft, CalendarDays, CheckCircle2, Copy, FileText, Pencil, Pin, PinOff, Send, Upload } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, Copy, FileText, Pencil, Pin, PinOff, Send, Upload } from "@/components/icons";
 
 import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { PersonLink } from "@/components/people/person-link";

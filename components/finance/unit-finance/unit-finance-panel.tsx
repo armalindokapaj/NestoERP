@@ -7,7 +7,7 @@ import { compareDecimal, isZeroDecimal, previewDecimal, sumDecimal } from "@/lib
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Banknote, CalendarRange, FileText, MoreHorizontal, Plus, Receipt, Trash2 } from "lucide-react";
+import { Banknote, CalendarRange, FileText, MoreHorizontal, Plus, Receipt, Trash2 } from "@/components/icons";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { StatusText } from "@/components/i18n/common-text";

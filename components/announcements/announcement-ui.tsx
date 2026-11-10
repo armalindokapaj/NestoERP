@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Pin } from "lucide-react";
+import { Pin } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/lib/i18n/config";

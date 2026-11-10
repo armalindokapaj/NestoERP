@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 
 import { Field, FieldErrorProvider, FormSection, selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

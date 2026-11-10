@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle } from "@/components/icons";
 
 import { GroupImplementationActions } from "@/components/platform/platform-actions";
 import { PlatformCommandMenu } from "@/components/platform/platform-command";

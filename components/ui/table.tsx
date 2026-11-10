@@ -85,7 +85,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<"thead">
   return (
     <thead
       className={cn(
-        "sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur-sm",
+        "sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur-sm look2:border-fg",
         // Version 2: a sticky layer is a solid ground, so no row shows through it (UI-02 §6.3).
         className,
       )}

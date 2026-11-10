@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

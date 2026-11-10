@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { SearchX } from "lucide-react";
+import { SearchX } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";

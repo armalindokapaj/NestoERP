@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Clock } from "lucide-react";
+import { Check, Clock } from "@/components/icons";
 import type { ConstructionStage } from "@/lib/3d/viewer/types";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { cn } from "@/lib/3d/viewer/utils";

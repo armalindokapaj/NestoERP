@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@/components/icons";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
 import Link from "@/components/navigation/nav-link";

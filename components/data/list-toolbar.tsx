@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { useNavigationFeedback } from "@/components/navigation/navigation-feedback";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 
 import { FilterChips } from "@/components/data/filter-chips";
 import { FilterSheet } from "@/components/data/filter-sheet";

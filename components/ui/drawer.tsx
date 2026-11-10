@@ -63,6 +63,7 @@ export function DrawerContent({
           sideClasses[side],
           className,
         )}
+        data-phone-sheet={side === "bottom" ? "dock" : undefined}
         // The same focus rules as Dialog (AUD-11 §4, AV-05).
         onOpenAutoFocus={(event) => {
           onOpenAutoFocus?.(event);

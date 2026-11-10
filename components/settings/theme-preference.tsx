@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { THEME_COOKIE, type ThemeChoice } from "@/lib/layout/theme-state";

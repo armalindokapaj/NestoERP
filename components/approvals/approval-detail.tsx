@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { ArrowLeft, ArrowUpRight, CircleAlert, Download, ExternalLink, Eye, EyeOff, FileText, Info, MessageSquare, RotateCw, TriangleAlert, UserRoundCheck, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, CircleAlert, Download, ExternalLink, Eye, EyeOff, FileText, Info, MessageSquare, RotateCw, TriangleAlert, UserRoundCheck, X } from "@/components/icons";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { PersonLink } from "@/components/people/person-link";

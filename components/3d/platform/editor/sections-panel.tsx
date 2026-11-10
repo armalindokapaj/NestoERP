@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Copy, Plus, Scissors, Trash2 } from "lucide-react";
+import { Copy, Plus, Scissors, Trash2 } from "@/components/icons";
 
 import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTypes";
 import { SECTION_FOOTPRINT_MAX_M, SECTION_HEIGHT_STOPS_M, SECTION_MAX_DIMENSION_M } from "@/lib/3d/runtime/render-engine/sections";

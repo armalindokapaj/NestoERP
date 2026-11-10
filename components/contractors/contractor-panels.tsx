@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Mail, Pencil, Phone, Plus, Trash2, Upload } from "lucide-react";
+import { Mail, Pencil, Phone, Plus, Trash2, Upload } from "@/components/icons";
 
 import { UPLOAD_IN_FLIGHT, useUploadQueue } from "@/components/documents/upload-queue";
 import { engineeringApi, failureMessage } from "@/components/engineering/engineering-api";

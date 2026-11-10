@@ -4,7 +4,7 @@ import { numberText } from "@/lib/i18n/format";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
-import { FileText, ImageIcon } from "lucide-react";
+import { FileText, ImageIcon } from "@/components/icons";
 
 import { DetailGrid } from "@/components/modules/record-header";
 import { ReadinessPanel } from "@/components/project-structure/unit-page/publication-badge";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Building2, CircleHelp, LogOut, Moon, Settings, ShieldCheck, Sparkles, Sun } from "lucide-react";
+import { Building2, CircleHelp, LogOut, Moon, Settings, ShieldCheck, Sparkles, Sun } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { LocaleSwitch } from "@/components/i18n/locale-switch";

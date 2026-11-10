@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Play, RotateCcw, Square } from "lucide-react";
+import { Play, RotateCcw, Square } from "@/components/icons";
 
 import type { ThreeProjectViewerHandle } from "@/components/3d/company/viewerTypes";
 import type { Project3DConfig } from "@/lib/3d/runtime/types";

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ArrowRight, CalendarClock, ChevronDown, PenLine } from "lucide-react";
+import { ArrowRight, CalendarClock, ChevronDown, PenLine } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

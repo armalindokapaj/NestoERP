@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

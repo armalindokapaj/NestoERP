@@ -2,7 +2,7 @@ import { Money } from "@/components/finance/money";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PersonLink } from "@/components/people/person-link";
-import { Wallet } from "lucide-react";
+import { Wallet } from "@/components/icons";
 import { formatDate } from "@/lib/i18n/format";
 import type { CompensationDTO } from "@/lib/modules/hr/hr.types";
 import { getLocale, getTranslations } from "@/lib/i18n/server";

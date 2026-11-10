@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { HardHat } from "lucide-react";
+import { HardHat } from "@/components/icons";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";

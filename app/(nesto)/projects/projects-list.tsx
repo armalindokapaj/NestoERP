@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { FolderKanban } from "lucide-react";
+import { FolderKanban } from "@/components/icons";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";

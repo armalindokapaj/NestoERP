@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { Prisma } from "@prisma/client";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Handshake } from "lucide-react";
+import { Handshake } from "@/components/icons";
 
 import { OpportunityTable } from "@/components/sales/opportunity-table";
 import { ProposalTable } from "@/components/sales/proposal-table";

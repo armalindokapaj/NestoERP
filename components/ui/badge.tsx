@@ -43,10 +43,19 @@ export type BadgeProps = React.ComponentProps<"span"> &
     icon?: React.ReactNode;
   };
 
+/**
+ * Theme 2 draws each tone's mark before the label, the way the reference
+ * draws a tower's status on its elevation (styles/look-2.css, "Status marks"):
+ * solid for done, hatched for needing attention, an outline for in review,
+ * dashed for draft or archived, crossed for rejected. The shape carries the
+ * state as well as the colour. A badge with an icon of its own draws no mark.
+ */
+const MARKS = { default: "dashed", neutral: "dashed", success: "solid", warning: "hatch", danger: "cross", info: "outline" } as const;
+
 export function Badge({ className, tone, wrap, icon, children, ...props }: BadgeProps) {
   return (
-    <span className={cn(badgeVariants({ tone, wrap }), className)} {...props}>
-      {icon ? <span aria-hidden="true" className="inline-flex shrink-0 [&_svg]:size-3">{icon}</span> : null}
+    <span data-mark={MARKS[tone ?? "default"]} className={cn(badgeVariants({ tone, wrap }), className)} {...props}>
+      {icon ? <span aria-hidden="true" data-badge-icon="" className="inline-flex shrink-0 [&_svg]:size-3">{icon}</span> : null}
       {children}
     </span>
   );

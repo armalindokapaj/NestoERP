@@ -1,7 +1,7 @@
 import { getTranslations } from "@/lib/i18n/server";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { Files } from "lucide-react";
+import { Files } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { DocumentTable } from "@/components/documents/document-table";

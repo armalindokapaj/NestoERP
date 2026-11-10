@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { openInSwitchedWorkspace, requestWorkspaceSwitch } from "@/lib/workspace/client";

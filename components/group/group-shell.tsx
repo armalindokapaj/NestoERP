@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
+import { Building2, LayoutDashboard, ShieldCheck, Users } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { OrganizationMark } from "@/components/layout/organization-mark";

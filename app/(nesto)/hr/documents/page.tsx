@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Files } from "lucide-react";
+import { Files } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { DocumentTable } from "@/components/documents/document-table";

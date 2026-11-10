@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { PenLine } from "lucide-react";
+import { PenLine } from "@/components/icons";
 
 import { RejectDialog } from "@/components/finance/reject-dialog";
 import { Button } from "@/components/ui/button";

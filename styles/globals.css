@@ -989,6 +989,15 @@
   }
 }
 
+/* Theme 2's entrance: the reference's rise, out of a soft focus. */
+@keyframes nesto-rise-focus {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(8px);
+  }
+}
+
 /*
  * Phone text inputs are at least 16px (AUD-04 §3, MW-19): below that iOS
  * Safari zooms the page on focus and the layout jumps. Unlayered on purpose —

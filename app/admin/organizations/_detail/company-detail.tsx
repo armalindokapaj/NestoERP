@@ -1,7 +1,7 @@
 import Link from "@/components/navigation/nav-link";
 import { adminActionLabel } from "@/components/platform/admin-actions";
 import { LogoUpload } from "@/components/platform/logo-upload";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle } from "@/components/icons";
 
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { CompanyLeadershipCard } from "@/components/platform/company-leadership";

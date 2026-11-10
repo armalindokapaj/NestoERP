@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";

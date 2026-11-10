@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, useDialogClose } from "@/components/ui/dialog";

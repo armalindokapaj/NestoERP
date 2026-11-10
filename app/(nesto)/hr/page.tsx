@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, UserRoundCog } from "lucide-react";
+import { ArrowRight, UserRoundCog } from "@/components/icons";
 
 import { LeaveBalanceCard } from "@/components/hr/leave-balance-card";
 import { ModulePage } from "@/components/modules/module-page";

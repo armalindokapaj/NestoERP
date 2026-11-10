@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { Wallet } from "@/components/icons";
 
 import { BudgetRiskBadge } from "@/components/finance/budget-risk-badge";
 import { FinanceViews } from "@/components/finance/unit-finance/finance-views";

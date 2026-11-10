@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { floorName, unitTypeName } from "@/lib/i18n/stock-names";
 import Link from "@/components/navigation/nav-link";
-import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, SlidersHorizontal } from "@/components/icons";
 
 import { unitContractStatusText, useFinanceTranslations } from "@/components/finance/finance-text";
 import { selectClass } from "@/components/forms/record-form";

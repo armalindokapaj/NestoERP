@@ -1,4 +1,4 @@
-import { Scale } from "lucide-react";
+import { Scale } from "@/components/icons";
 import { redirect } from "next/navigation";
 
 import { ContractTable } from "@/components/contracts/contract-table";

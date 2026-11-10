@@ -3,7 +3,7 @@ import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Image from "next/image";
 import Link from "@/components/navigation/nav-link";
-import { Box, Building2, CalendarClock, Layers3, Orbit, PackageOpen } from "lucide-react";
+import { Box, Building2, CalendarClock, Layers3, Orbit, PackageOpen } from "@/components/icons";
 
 import { NewExperienceDialog } from "@/components/3d/platform/NewExperienceDialog";
 import { Badge } from "@/components/ui/badge";

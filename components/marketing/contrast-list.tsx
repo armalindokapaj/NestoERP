@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 
 import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";

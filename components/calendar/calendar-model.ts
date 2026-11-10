@@ -14,7 +14,7 @@ import {
   ShoppingCart,
   UserRound,
   Users,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { dateText, weekdayName } from "@/lib/i18n/format";

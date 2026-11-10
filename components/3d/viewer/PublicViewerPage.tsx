@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw } from "@/components/icons";
 
 import { useThreeDTranslations } from "@/components/3d/three-d-text";
 import { public3DBootstrapSchema, type Public3DBootstrap } from "@/lib/3d/public/public-manifest";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { Camera, FileText, ImageIcon, Loader2, Pencil, Upload } from "lucide-react";
+import { Camera, FileText, ImageIcon, Loader2, Pencil, Upload } from "@/components/icons";
 
 import { UploadQueueList } from "@/components/documents/document-uploader";
 import { acceptedTypesText, uploadAccept } from "@/components/documents/upload-client";

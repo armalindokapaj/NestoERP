@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as ToastPrimitive from "@radix-ui/react-toast";
-import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from "@/components/icons";
 
 import { cn } from "@/lib/utils/cn";
 import { useTranslations } from "@/components/i18n/i18n-provider";

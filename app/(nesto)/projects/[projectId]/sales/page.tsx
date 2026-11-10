@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
-import { Tags } from "lucide-react";
+import { Tags } from "@/components/icons";
 
 import { RecordContextHeader } from "@/components/modules/record-header";
 import Link from "@/components/navigation/nav-link";

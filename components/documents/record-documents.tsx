@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { Files } from "lucide-react";
+import { Files } from "@/components/icons";
 
 import { DocumentTable } from "@/components/documents/document-table";
 import { Button } from "@/components/ui/button";

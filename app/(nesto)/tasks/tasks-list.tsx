@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { SquareCheckBig } from "lucide-react";
+import { SquareCheckBig } from "@/components/icons";
 import Link from "@/components/navigation/nav-link";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";

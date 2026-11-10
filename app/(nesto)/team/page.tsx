@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, UsersRound } from "lucide-react";
+import { ArrowRight, UsersRound } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { Badge } from "@/components/ui/badge";

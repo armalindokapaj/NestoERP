@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import {

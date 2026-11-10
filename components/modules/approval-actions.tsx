@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { BadgeCheck, Ban } from "lucide-react";
+import { BadgeCheck, Ban } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { MainAction } from "@/components/ui/mobile-action-bar";

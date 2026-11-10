@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { fill } from "@/lib/i18n/site";

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import { UiText } from "@/components/i18n/ui-text";

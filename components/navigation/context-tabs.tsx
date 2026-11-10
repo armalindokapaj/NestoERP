@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/icons";
 import { usePathname } from "next/navigation";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";

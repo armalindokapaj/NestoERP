@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ExternalLink, MoreHorizontal, MoveRight, Pencil, Trash2 } from "@/components/icons";
 
 import { RecordActionSheet, SheetActionButton, SheetActionLink } from "@/components/data/record-action-sheet";
 import { Button } from "@/components/ui/button";

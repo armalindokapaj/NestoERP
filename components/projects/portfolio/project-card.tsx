@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/navigation/nav-link";
-import { Building2, MapPin } from "lucide-react";
+import { Building2, MapPin } from "@/components/icons";
 
 import type { ProjectCardDTO } from "@/lib/modules/projects/project.types";
 import { cn } from "@/lib/utils/cn";
@@ -42,12 +42,14 @@ export function ProjectCard({
   const location = locationLabel(project.location);
 
   return (
-    <article className="group relative min-w-0" data-testid="project-card" data-project-id={project.id}>
+    <article className="group relative min-w-0" data-plate="" data-testid="project-card" data-project-id={project.id}>
       <div
         className={cn(
           COVER_ASPECT,
           "relative overflow-hidden rounded-xl border border-line bg-surface-muted shadow-card transition-[border-color,box-shadow,transform] duration-200",
           "group-hover:-translate-y-0.5 group-hover:border-accent/40 group-hover:shadow-menu",
+          // Theme 2: the reference's plate — 10px corners, no border, the long lift under it, deeper on hover.
+          "look2:rounded-[10px] look2:border-transparent look2:shadow-[0_0_0_1px_rgb(15_20_26/0.06),0_18px_40px_-18px_rgb(15_20_26/0.35),0_40px_80px_-40px_rgb(15_20_26/0.25)] look2:duration-700 look2:ease-[cubic-bezier(0.16,1,0.3,1)] look2:group-hover:border-transparent look2:group-hover:shadow-[0_0_0_1px_rgb(15_20_26/0.08),0_26px_50px_-18px_rgb(15_20_26/0.45),0_50px_90px_-40px_rgb(15_20_26/0.3)]",
           "group-has-[a:focus-visible]:ring-2 group-has-[a:focus-visible]:ring-ring group-has-[a:focus-visible]:ring-offset-2 group-has-[a:focus-visible]:ring-offset-canvas",
           "motion-reduce:transition-none motion-reduce:group-hover:translate-y-0",
         )}
@@ -60,12 +62,16 @@ export function ProjectCard({
         />
         {project.cover ? <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" /> : null}
         <div className="absolute bottom-3 left-3">
-          <ProjectStatusBadge status={project.status} />
+          {/* Theme 2: the reference's chip on a render — dark glass, white capitals. */}
+          <ProjectStatusBadge
+            status={project.status}
+            className="look2:border-white/25 look2:bg-black/40 look2:text-white look2:backdrop-blur-[8px] look2:backdrop-saturate-[1.3]"
+          />
         </div>
       </div>
 
-      <div className="mt-3 min-w-0 px-0.5">
-        <h2 className="truncate text-card font-semibold text-fg" title={project.name}>
+      <div className="mt-3 min-w-0 px-0.5 look2:mt-4">
+        <h2 data-numbered-title="" className="truncate text-card font-semibold text-fg look2:text-[1.25rem] look2:font-medium look2:max-sm:line-clamp-2 look2:max-sm:whitespace-normal look2:max-sm:text-[1.0625rem] look2:max-sm:leading-[1.15]" title={project.name}>
           <Link
             href={project.href}
             // A project in another company opens by entering that company;
@@ -77,12 +83,12 @@ export function ProjectCard({
             {project.name}
           </Link>
         </h2>
-        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-table text-fg-muted" data-testid="project-company">
-          <Building2 aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle" />
+        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-table text-fg-muted look2:nesto-standfirst look2:text-body look2:font-normal look2:max-sm:text-table" data-testid="project-company">
+          <Building2 aria-hidden="true" className="size-3.5 shrink-0 text-fg-subtle look2:hidden" />
           <span className="truncate">{project.company.name}</span>
         </p>
         {location ? (
-          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-meta text-fg-subtle" data-testid="project-location">
+          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-meta text-fg-subtle look2:mt-2.5 look2:border-t look2:border-line look2:pt-2.5" data-testid="project-location">
             <MapPin aria-hidden="true" className="size-3.5 shrink-0" />
             <span className="truncate">{location}</span>
           </p>

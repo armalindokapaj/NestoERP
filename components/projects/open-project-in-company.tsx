@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Building2, Loader2 } from "lucide-react";
+import { Building2, Loader2 } from "@/components/icons";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import { Button } from "@/components/ui/button";

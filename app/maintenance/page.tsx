@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Wrench } from "lucide-react";
+import { Wrench } from "@/components/icons";
 
 import { NestoLogo } from "@/components/layout/nesto-logo";
 import { Card } from "@/components/ui/card";

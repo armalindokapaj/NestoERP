@@ -16,7 +16,7 @@ import {
   Stamp,
   TrendingUp,
   Users,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/lib/i18n/config";

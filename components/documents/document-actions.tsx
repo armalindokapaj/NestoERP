@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
 import { PageMenuItems, useClaimPageMenu } from "@/components/navigation/page-menu";
-import { Archive, ArchiveRestore, Download, MoreHorizontal, PenLine } from "lucide-react";
+import { Archive, ArchiveRestore, Download, MoreHorizontal, PenLine } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

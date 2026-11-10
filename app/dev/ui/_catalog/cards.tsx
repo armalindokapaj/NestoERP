@@ -1,4 +1,4 @@
-import { Building2, FileText, ImageOff, Lock, MoreHorizontal, TriangleAlert } from "lucide-react";
+import { Building2, FileText, ImageOff, Lock, MoreHorizontal, TriangleAlert } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

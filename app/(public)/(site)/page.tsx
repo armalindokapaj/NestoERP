@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 
 import { InteractiveStory } from "@/components/marketing/landing/interactive-story";
 import { Container, hairlineCell, hairlineGrid } from "@/components/marketing/section";

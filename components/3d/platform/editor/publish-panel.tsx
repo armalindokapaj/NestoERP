@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink } from "@/components/icons";
 
 import type { Project3DConfig } from "@/lib/3d/runtime/types";
 import { cn } from "@/lib/utils/cn";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Loader2, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, Loader2, TriangleAlert, X } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck } from "@/components/icons";
 
 import { AttendanceTable } from "@/components/hr/attendance-table";
 import { Pagination } from "@/components/data/pagination";

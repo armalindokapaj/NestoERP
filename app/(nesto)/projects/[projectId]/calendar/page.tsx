@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays } from "@/components/icons";
 
 import { ProjectSchedule } from "@/components/calendar/project-schedule";
 import { RecordContextHeader } from "@/components/modules/record-header";

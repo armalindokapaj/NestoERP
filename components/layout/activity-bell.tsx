@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Bell, X } from "lucide-react";
+import { Bell, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { createActivityController, fetchTransport, type ActivityController } from "@/lib/activity/activity-controller";

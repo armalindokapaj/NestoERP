@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { formatDate } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Package } from "lucide-react";
+import { ArrowRight, Package } from "@/components/icons";
 
 import { InventoryKpiGrid } from "@/components/inventory/inventory-kpis";
 import { ModulePage } from "@/components/modules/module-page";

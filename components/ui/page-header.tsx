@@ -21,6 +21,16 @@ export const headerActionsClass = "flex max-w-full shrink-0 flex-wrap items-cent
  */
 export type PageHeaderKind = "page" | "module" | "record" | "context" | "settings";
 
+/**
+ * Theme 2's facts: the reference's figures — each fact under its own hairline,
+ * side by side as the width allows, the name in mono capitals over the value in
+ * the display face (`dt` is already `nesto-eyebrow`).
+ */
+const FACTS =
+  "look2:mt-5 look2:grid look2:grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))] look2:gap-x-6 look2:gap-y-4 " +
+  "look2:[&>div]:border-t look2:[&>div]:border-line look2:[&>div]:pt-2.5 " +
+  "look2:[&_dd]:mt-1.5 look2:[&_dd]:font-display look2:[&_dd]:text-[1.625rem] look2:[&_dd]:leading-none";
+
 type HeaderDrawing = { root: string; row: string; text: string; title: string; subtitle: string; status: string; meta: string };
 
 /**
@@ -34,29 +44,29 @@ const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
   page: {
     root: "look2:nesto-rule look2:pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
-    text: "min-w-0",
+    text: "min-w-0 look2:flex-1 look2:max-md:basis-full",
     title: "font-serif font-normal look2:font-display text-page text-fg md:text-display [overflow-wrap:anywhere]",
     subtitle: "mt-1.5 text-body text-fg-muted look2:nesto-standfirst look2:text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
+    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
   },
   module: {
     root: "look2:nesto-rule look2:pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
-    text: "min-w-0",
+    text: "min-w-0 look2:flex-1 look2:max-md:basis-full",
     title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display look2:md:text-display",
     subtitle: "mt-1.5 text-body text-fg-muted look2:nesto-standfirst look2:text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
+    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
   },
   record: {
     root: "space-y-4",
     row: "flex flex-wrap items-start justify-between gap-4",
-    text: "min-w-0",
+    text: "min-w-0 look2:flex-1 look2:max-md:basis-full",
     title: "text-page font-semibold text-fg [overflow-wrap:anywhere] look2:font-display",
     subtitle: "mt-1 text-table text-fg-subtle [overflow-wrap:anywhere]",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
+    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
   },
   context: {
     root: "space-y-3",
@@ -75,7 +85,7 @@ const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
     title: "mt-2 text-page font-semibold text-fg look2:font-display",
     subtitle: "mt-1.5 text-body text-fg-muted",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
-    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2",
+    meta: "mt-4 flex flex-wrap gap-x-8 gap-y-2 " + FACTS,
   },
 };
 
@@ -134,7 +144,7 @@ export function PageHeaderFrame({
     <div data-page-header={kind} className={cn(d.root, className)}>
       {lead}
       <div data-page-header-row className={cn(d.row, PAGE_MENU_ROW)}>
-        <div className={cn(d.text, PAGE_MENU_TEXT, textClassName)}>
+        <div className={cn(d.text, "look2:animate-[nesto-rise-focus_0.8s_cubic-bezier(0.25,0.46,0.45,0.94)_both] look2:motion-reduce:animate-none", PAGE_MENU_TEXT, textClassName)}>
           {inline ? (
             heading
           ) : (

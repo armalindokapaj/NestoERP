@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Banknote } from "lucide-react";
+import { Banknote } from "@/components/icons";
 
 import { PaymentForm, type PayableTarget } from "@/components/finance/payment-form";
 import { RecordContextHeader } from "@/components/modules/record-header";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ArchiveRestore, RefreshCw } from "lucide-react";
+import { ArchiveRestore, RefreshCw } from "@/components/icons";
 
 import type { FormActionResult, SelectOption } from "@/components/forms/record-form";
 import Link from "@/components/navigation/nav-link";

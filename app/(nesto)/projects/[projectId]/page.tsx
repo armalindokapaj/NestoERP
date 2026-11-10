@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import Link from "@/components/navigation/nav-link";
-import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "lucide-react";
+import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "@/components/icons";
 
 import { WhatIsThis } from "@/components/help/what-is-this";
 import { ProjectMobileOverview, type ProjectQuickAction } from "@/components/projects/mobile/project-mobile-overview";

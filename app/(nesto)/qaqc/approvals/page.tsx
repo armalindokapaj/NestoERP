@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
-import { CheckCheck } from "lucide-react";
+import { CheckCheck } from "@/components/icons";
 
 import { ApprovalQueue } from "@/components/qaqc/approval-queue";
 import { ListToolbar } from "@/components/data/list-toolbar";

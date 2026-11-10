@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 
 import { PricingWizard } from "@/components/pricing/pricing-wizard";
 import { Section, SectionHeader } from "@/components/marketing/section";

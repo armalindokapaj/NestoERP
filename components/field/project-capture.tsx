@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, ChevronRight } from "lucide-react";
+import { Camera, ChevronRight } from "@/components/icons";
 
 import { useDocumentsTranslations } from "@/components/documents/documents-text";
 import Link from "@/components/navigation/nav-link";

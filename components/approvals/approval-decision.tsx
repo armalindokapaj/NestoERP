@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, CornerUpLeft, Loader2, MessageSquarePlus, X } from "lucide-react";
+import { Check, CornerUpLeft, Loader2, MessageSquarePlus, X } from "@/components/icons";
 
 import { useLocale } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

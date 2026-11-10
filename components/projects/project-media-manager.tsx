@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "@/components/i18n/i18n-provider";
-import { ArrowDown, ArrowUp, Film, Image as ImageIcon, Star, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Film, Image as ImageIcon, Star, Trash2, Upload } from "@/components/icons";
 import { useRouter } from "@/components/navigation/guarded-router";
 
 import { UploadQueueList } from "@/components/documents/document-uploader";

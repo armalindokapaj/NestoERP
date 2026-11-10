@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Lock } from "lucide-react";
+import { Lock } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Switch } from "@/components/ui/switch";

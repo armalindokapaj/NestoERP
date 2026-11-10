@@ -4,7 +4,7 @@ import { contractorsLabel } from "@/lib/i18n/modules/contractors/labels";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@/components/icons";
 
 import { CollaborationPanel } from "@/components/collaboration/collaboration-panel";
 import { CompleteWorkPackageButton, EditWorkPackageButton } from "@/components/contractors/contractor-dialogs";

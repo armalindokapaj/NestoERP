@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight, FileText } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { PersonLink } from "@/components/people/person-link";

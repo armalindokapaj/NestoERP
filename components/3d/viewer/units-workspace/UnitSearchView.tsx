@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { ChevronDown, Heart, LayoutGrid, Rows3, Search, X } from "lucide-react";
+import { ChevronDown, Heart, LayoutGrid, Rows3, Search, X } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useClickOutside } from "@/components/3d/viewer/hooks/useClickOutside";
 import { cn } from "@/lib/3d/viewer/utils";

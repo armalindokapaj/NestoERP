@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { localizeActivity } from "@/lib/i18n/system";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { Pagination } from "@/components/data/pagination";
 import { PersonLink } from "@/components/people/person-link";

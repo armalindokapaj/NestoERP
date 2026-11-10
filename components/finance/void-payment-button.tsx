@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Ban } from "lucide-react";
+import { Ban } from "@/components/icons";
 
 import { useFinanceTranslations } from "@/components/finance/finance-text";
 import { RejectDialog } from "@/components/finance/reject-dialog";

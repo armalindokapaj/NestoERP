@@ -2,7 +2,7 @@
 
 import { forwardRef, Fragment, useEffect, useMemo, useRef, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { gsap } from "gsap";
-import { Building2, Check, ChevronDown, SlidersHorizontal, X } from "lucide-react";
+import { Building2, Check, ChevronDown, SlidersHorizontal, X } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useEffectiveReducedMotion } from "@/components/3d/viewer/hooks/useEffectiveReducedMotion";
 import { useViewerPreferences } from "@/components/3d/viewer/hooks/useViewerPreferences";

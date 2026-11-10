@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, useCommand } from "@/components/engineering/form-kit";

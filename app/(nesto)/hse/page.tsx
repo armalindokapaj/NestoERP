@@ -15,7 +15,7 @@ import { resolveModuleExperience } from "@/lib/access/module-access";
 import { requireModule } from "@/lib/context/current-user";
 import { getTranslations } from "@/lib/i18n/server";
 import * as overview from "@/lib/modules/hse/overview/overview.service";
-import { HardHat } from "lucide-react";
+import { HardHat } from "@/components/icons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("hse");

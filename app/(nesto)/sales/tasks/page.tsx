@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { ListChecks } from "lucide-react";
+import { ListChecks } from "@/components/icons";
 
 import { ListToolbar } from "@/components/data/list-toolbar";
 import { Pagination } from "@/components/data/pagination";

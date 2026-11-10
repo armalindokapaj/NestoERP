@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
-import { FileText, MoreHorizontal, Paperclip, ShieldCheck } from "lucide-react";
+import { FileText, MoreHorizontal, Paperclip, ShieldCheck } from "@/components/icons";
 
 import { engineeringApi } from "@/components/engineering/engineering-api";
 import { FormDialog, ReasonDialog, useCommand, type FormField, type FormValues } from "@/components/engineering/form-kit";

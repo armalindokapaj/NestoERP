@@ -1,4 +1,4 @@
-import { Receipt } from "lucide-react";
+import { Receipt } from "@/components/icons";
 import { ZodError } from "zod";
 
 import { ListToolbar, type FilterConfig } from "@/components/data/list-toolbar";

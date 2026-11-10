@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "@/components/icons";
 
 import { announcementApi, failureMessage } from "@/components/announcements/announcement-api";
 import { failureOutcome } from "@/components/engineering/engineering-api";

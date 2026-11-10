@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { ListPlus, MessageCircleQuestionMark, Paperclip, X } from "lucide-react";
+import { ListPlus, MessageCircleQuestionMark, Paperclip, X } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { PersonLink } from "@/components/people/person-link";

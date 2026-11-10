@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { Suspense } from "react";
-import { ArrowRight, Wallet } from "lucide-react";
+import { ArrowRight, Wallet } from "@/components/icons";
 
 import { CurrencyTotals } from "@/components/finance/money";
 import { ModulePage } from "@/components/modules/module-page";

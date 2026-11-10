@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { Plus } from "lucide-react";
+import { Plus } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { Button } from "@/components/ui/button";

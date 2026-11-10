@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, Check, Minus } from "lucide-react";
+import { ArrowDown, Check, Minus } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

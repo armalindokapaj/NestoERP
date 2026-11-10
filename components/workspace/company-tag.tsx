@@ -1,4 +1,4 @@
-import { Building2 } from "lucide-react";
+import { Building2 } from "@/components/icons";
 
 import { cn } from "@/lib/utils/cn";
 

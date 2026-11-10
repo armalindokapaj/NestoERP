@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { engineeringLabel } from "@/lib/i18n/modules/engineering/labels";
 import Link from "@/components/navigation/nav-link";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "@/components/icons";
 
 import { dateLabel, Metric, MetricGrid, Panel, EmptyNote } from "@/components/engineering/engineering-ui";
 import { orNotFound } from "@/components/engineering/page-helpers";

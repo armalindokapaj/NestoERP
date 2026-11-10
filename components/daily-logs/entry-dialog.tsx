@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2 } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

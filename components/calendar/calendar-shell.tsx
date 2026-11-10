@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "@/components/navigation/nav-link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { CalendarPlus, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, RotateCw, SlidersHorizontal } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, RotateCw, SlidersHorizontal } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";

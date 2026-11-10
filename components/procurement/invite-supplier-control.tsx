@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "@/components/navigation/guarded-router";
-import { Plus } from "lucide-react";
+import { Plus } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

@@ -4,7 +4,7 @@ import * as React from "react";
 import { useLocale } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { guardNavigation, useRouter } from "@/components/navigation/guarded-router";
-import { CalendarClock, ChevronDown, Loader2, MapPin, RotateCw, TriangleAlert, Users, Video, X } from "lucide-react";
+import { CalendarClock, ChevronDown, Loader2, MapPin, RotateCw, TriangleAlert, Users, Video, X } from "@/components/icons";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";

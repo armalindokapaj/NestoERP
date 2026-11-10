@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@/lib/i18n/server";
-import { Warehouse } from "lucide-react";
+import { Warehouse } from "@/components/icons";
 
 import { StockTable } from "@/components/inventory/stock-table";
 import { EmptyState } from "@/components/ui/empty-state";

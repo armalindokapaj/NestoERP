@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, WifiOff } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, WifiOff } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";

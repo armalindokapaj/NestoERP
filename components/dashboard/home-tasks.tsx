@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { AlarmClock, CalendarClock, ChevronRight, ListChecks, UserCheck } from "lucide-react";
+import { AlarmClock, CalendarClock, ChevronRight, ListChecks, UserCheck } from "@/components/icons";
 
 import Link from "@/components/navigation/nav-link";
 import type { UserContext } from "@/lib/context/types";

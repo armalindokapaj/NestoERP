@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "@/components/navigation/nav-link";
-import { TriangleAlert, X } from "lucide-react";
+import { TriangleAlert, X } from "@/components/icons";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";

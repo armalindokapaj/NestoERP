@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";

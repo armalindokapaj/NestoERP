@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
-import { UsersRound } from "lucide-react";
+import { UsersRound } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { EmptyState } from "@/components/ui/empty-state";

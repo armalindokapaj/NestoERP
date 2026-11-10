@@ -5,7 +5,7 @@ import { Pagination } from "@/components/data/pagination";
 import { RecordContextHeader } from "@/components/modules/record-header";
 import { PersonLink } from "@/components/people/person-link";
 import { EmptyState } from "@/components/ui/empty-state";
-import { History } from "lucide-react";
+import { History } from "@/components/icons";
 
 import { can } from "@/lib/access/can";
 import { formatDateTime } from "@/lib/i18n/format";

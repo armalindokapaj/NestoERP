@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { formatDate } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import Link from "@/components/navigation/nav-link";
-import { ArrowRight, Handshake } from "lucide-react";
+import { ArrowRight, Handshake } from "@/components/icons";
 
 import { ModulePage } from "@/components/modules/module-page";
 import { GroupSalesScope } from "@/components/sales/group-scope";

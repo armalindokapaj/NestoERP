@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ExternalLink, Loader2, X } from "lucide-react";
+import { ExternalLink, Loader2, X } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { AccessError, resolveAccess, type ResolvedAccess } from "@/lib/field/document-service";

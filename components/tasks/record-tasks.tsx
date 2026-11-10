@@ -1,5 +1,5 @@
 import Link from "@/components/navigation/nav-link";
-import { ListTodo } from "lucide-react";
+import { ListTodo } from "@/components/icons";
 
 import { PersonLink } from "@/components/people/person-link";
 import { Button } from "@/components/ui/button";

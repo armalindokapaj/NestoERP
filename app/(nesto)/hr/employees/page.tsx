@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "@/components/navigation/nav-link";
 import { redirect } from "next/navigation";
-import { Upload } from "lucide-react";
+import { Upload } from "@/components/icons";
 
 import { HrExportLink } from "@/components/hr/export-link";
 import { ModulePage } from "@/components/modules/module-page";

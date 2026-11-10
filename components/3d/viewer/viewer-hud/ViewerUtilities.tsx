@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Expand, Minimize } from "lucide-react";
+import { Camera, Expand, Minimize } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { useIsDesktop } from "@/components/3d/viewer/hooks/useMediaQuery";
 import { MoreMenu, type MoreMenuProjectInfo } from "./MoreMenu";

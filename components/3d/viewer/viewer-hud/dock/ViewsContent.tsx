@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef } from "react";
-import { Building2, Camera, LayoutGrid, Plane, Signpost, X } from "lucide-react";
+import { Building2, Camera, LayoutGrid, Plane, Signpost, X } from "@/components/icons";
 import { useT } from "@/lib/3d/viewer/i18n";
 import { cn } from "@/lib/3d/viewer/utils";
 import type { CameraPreset } from "@/lib/3d/viewer/types";

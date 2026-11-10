@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Star } from "lucide-react";
+import { Star } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";

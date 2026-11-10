@@ -25,21 +25,22 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
 
   const body = (
     <>
-      <div className="flex items-center gap-2.5 md:gap-3">
+      {/* Theme 2: the reference's figure — the number first, its name under it in mono capitals, no icon tile. */}
+      <div className="flex items-center gap-2.5 md:gap-3 look2:mt-2">
         <span
           aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9"
+          className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9 look2:hidden"
         >
           <Icon className="size-4" strokeWidth={1.6} />
         </span>
         {/* Two lines, not an ellipsis: a 2-up phone grid leaves ~90px for "Open Quality Items" (AUD-04 §4, MW-01). */}
-        <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">
+        <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted look2:font-mono look2:text-micro look2:uppercase look2:tracking-[0.1em]">
           {kpiLabel(t, kpi.definition.key, kpi.definition.label)}
         </p>
       </div>
 
       {/* Version 2: the 30/36 dashboard metric (UI-02 §6.2). */}
-      <p className="mt-3 font-serif font-normal look2:font-display text-display tabular-nums text-fg md:mt-4">{kpi.value}</p>
+      <p className="mt-3 font-serif font-normal look2:font-display text-display tabular-nums text-fg md:mt-4 look2:order-first look2:mt-0 look2:text-[2.75rem] look2:leading-none look2:[font-variation-settings:'wdth'_70]">{kpi.value}</p>
       {/* An incomplete figure says so in its hint, never passing for a whole count (AUD-10 §4, CW-03). */}
       {kpi.hint ? <p className={cn("mt-1 text-meta", kpi.incomplete ? "text-warning-strong" : "text-fg-subtle")} data-testid={kpi.incomplete ? "kpi-incomplete" : undefined}>{rowText(t, kpi.hint)}</p> : null}
     </>
@@ -50,9 +51,9 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
 
   if (breakdown) {
     return (
-      <div className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5" data-testid="kpi-by-company">
+      <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col" data-testid="kpi-by-company">
         {href ? (
-          <Link navSource="dashboard" href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+          <Link navSource="dashboard" href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 look2:flex look2:flex-col">
             {body}
           </Link>
         ) : (
@@ -83,14 +84,15 @@ export async function KpiCard({ kpi }: { kpi: ResolvedKpi }) {
   }
 
   if (!href) {
-    return <div className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5">{body}</div>;
+    return <div data-kpi-card="" className="nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 p-4 md:p-5 look2:flex look2:flex-col">{body}</div>;
   }
 
   return (
     <Link navSource="dashboard"
       href={href}
+      data-kpi-card=""
       className={cn(
-        "nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 block p-4 transition-colors hover:border-line-strong md:p-5",
+        "nesto-card relative before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] md:before:left-5 block p-4 transition-colors hover:border-line-strong md:p-5 look2:flex look2:flex-col",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
       )}
     >

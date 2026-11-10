@@ -2,7 +2,7 @@
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import * as React from "react";
-import { ExternalLink, Eye, MoreHorizontal, RotateCcw, Save } from "lucide-react";
+import { ExternalLink, Eye, MoreHorizontal, RotateCcw, Save } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
