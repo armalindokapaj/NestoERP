@@ -538,16 +538,17 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="inline-flex h-9 shrink-0 items-center max-md:hidden justify-center gap-1.5 text-table font-medium transition-colors touch:h-11 touch:min-w-11 rounded-full bg-primary px-4 text-primary-fg hover:bg-primary-hover"
+        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-4 text-body font-medium text-primary-fg transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-md:hidden lg:max-xl:w-10 lg:max-xl:px-0 touch:h-11 touch:min-w-11"
         data-testid="quick-create-button"
         {...warm}
       >
         <Plus aria-hidden="true" className="size-4" />
-        <span className="hidden md:inline">{t("quickCreate.create")}</span>
+        {/* Between lg and xl the bar has room for the + alone; its name is the button's label. */}
+        <span className="hidden md:inline lg:max-xl:hidden">{t("quickCreate.create")}</span>
       </button>
 
-      {/* From md up the panel opens under the button, its right edge on the button's — Create sits at the bar's
-          right — and starts on the bar's lower edge, like every panel opened from the top bar
+      {/* From md up the panel opens under the button, its right edge on the button's — Create stands at the
+          inner edge of the bar's left side — and starts on the bar's lower edge, like every panel opened from the top bar
           (lib/layout/topbar-line.ts). The wrapper is centred in the bar's row, so half its height plus half
           the row's is the row's lower edge.
           Below md the button is the bottom bar's Create: the panel is a bubble of glass floating above the

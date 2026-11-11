@@ -168,7 +168,7 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
 
   return (
     <>
-      {/* The first control of the universal cluster, at the bar's right: an icon, and from xl a field-shaped button with its shortcut (UI-01 §8.1). */}
+      {/* The first control of the universal cluster: an icon, and from lg a field-shaped button that takes what the bar's right side leaves, with its shortcut from xl (UI-01 §8.1). */}
       <button
         ref={triggerRef}
         type="button"
@@ -176,12 +176,12 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         aria-label={t("dialogTitle")}
         aria-keyshortcuts="Meta+K Control+K"
         title={`${t("dialogTitle")} (${shortcut.replace(" ", "")})`}
-        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:flex xl:h-[38px] xl:w-44 xl:justify-start xl:gap-2.5 xl:border xl:border-line xl:bg-surface xl:pl-3.5 xl:pr-2 2xl:w-56"
+        className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11 lg:flex lg:h-10 lg:w-auto lg:min-w-0 lg:flex-1 lg:justify-start lg:gap-2 lg:border lg:border-line lg:bg-surface lg:pl-3.5 lg:pr-2 lg:hover:border-line-strong lg:hover:bg-surface"
         data-testid="search-trigger"
         {...warm}
       >
-        <Search aria-hidden="true" className="size-5 shrink-0 xl:size-4" />
-        <span aria-hidden="true" className="hidden min-w-0 flex-1 truncate text-left text-table text-fg-subtle xl:inline">{t("trigger")}</span>
+        <Search aria-hidden="true" className="size-[18px] shrink-0 lg:size-4" />
+        <span aria-hidden="true" className="hidden min-w-0 flex-1 truncate text-left text-body text-fg-subtle lg:inline">{t("trigger")}</span>
         <kbd aria-hidden="true" className="hidden shrink-0 rounded-md border border-line px-1.5 py-px font-mono text-[0.625rem] tracking-[0.06em] text-fg-subtle xl:inline">{shortcut.replace("Ctrl ", "Ctrl+")}</kbd>
       </button>
 

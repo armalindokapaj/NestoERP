@@ -39,7 +39,7 @@ export async function ModuleTabs({
   }));
 
   return (
-    <ContextTabsFrame label={t("sections", { label: names(`${experience.module}.label`) })} sections={sections} moduleRow>
+    <ContextTabsFrame label={t("sections", { label: names(`${experience.module}.label`) })} sections={sections}>
         {experience.sections.map((section) => {
           const active = section.key === activeSection;
           return (

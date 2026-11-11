@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { SectionStore } from "@/components/navigation/section-store";
 import { readPhoneNav, readRibbonFolded, PHONE_NAV_CHOICES } from "@/lib/layout/nav-layout";
 import { phoneTabs, projectIdFrom } from "@/lib/navigation/phone";
 import type { NavigationGroup } from "@/config/navigation";
@@ -54,21 +53,6 @@ describe("the phone Ribbon", () => {
   });
 });
 
-describe("the module's section row", () => {
-  it("is marked in the section store, so the Ribbon can carry it too", () => {
-    const store = new SectionStore();
-    const items = [
-      { key: "overview", label: "Overview", href: "/finance", active: true },
-      { key: "invoices", label: "Invoices", href: "/finance/invoices", active: false },
-    ];
-    store.set("module", { label: "Finance sections", items, module: true });
-    store.set("record", { label: "Invoice", items });
-    const [moduleLevel, recordLevel] = store.getSnapshot();
-    expect(moduleLevel?.module).toBe(true);
-    expect(recordLevel?.module).toBeUndefined();
-  });
-});
-
 describe("the shell", () => {
   const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
@@ -80,9 +64,18 @@ describe("the shell", () => {
     expect(shell).not.toContain("Dock");
     expect(shell).not.toMatch(/<Sidebar\b/);
     const topbar = read("components/layout/topbar.tsx");
-    expect(topbar).toContain("<Ribbon");
-    expect(topbar).toContain("<ModulesPanel");
-    expect(topbar).toContain("<HomeLink");
+    for (const part of ["<RibbonProvider", "<RibbonTabs", "<RibbonPanel", "<ModulesPanel", "<HomeLink"]) expect(topbar).toContain(part);
+  });
+
+  it("gives the bar three columns from lg, the two sides the same width, so the tabs have the same space either side", () => {
+    const topbar = read("components/layout/topbar.tsx");
+    expect(topbar).toContain("lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]");
+    expect(topbar.match(/lg:max-w-\(--nesto-bar-side\)/g)).toHaveLength(2);
+    expect(read("styles/globals.css")).toMatch(/--nesto-bar-side: 22rem;/);
+  });
+
+  it("leaves a module's sections to the tabs under its title, not the ribbon", () => {
+    expect(read("components/layout/ribbon.tsx")).not.toContain("useSectionLevels");
   });
 
   it("puts the ribbon's state and the phone choice on <html> from the server, for the first paint", () => {
@@ -92,8 +85,4 @@ describe("the shell", () => {
     expect(read("styles/globals.css")).toContain(':root:not([data-ribbon="folded"])');
   });
 
-  it("keeps the module's section row under the title, marked for the Ribbon", () => {
-    expect(read("components/modules/module-tabs.tsx")).toMatch(/<ContextTabsFrame[^>]*\bmoduleRow\b/);
-    expect(read("styles/globals.css")).not.toContain("[data-module-row] {");
-  });
 });

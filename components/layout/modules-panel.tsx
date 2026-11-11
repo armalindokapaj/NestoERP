@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 
-import { Search, X } from "@/components/icons";
+import { Home, Search, X } from "@/components/icons";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
 import { OrganizationMark } from "@/components/layout/organization-mark";
@@ -72,10 +72,10 @@ export function ModulesPanel({ navigation, account }: { navigation: NavigationGr
         aria-expanded={open}
         title={t("modulesPanel.open")}
         data-testid="modules-panel-trigger"
-        className="relative shrink-0 rounded-[12px] p-1 transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative grid size-10 shrink-0 place-items-center rounded-[12px] transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
       >
         <OrganizationMark name={activeWorkspace.label} logoUrl={organization.logoUrl} size="sm" className="size-9! rounded-[9px]! text-[0.8125rem]! border border-accent bg-surface text-accent-strong" />
-        <span aria-hidden="true" className="absolute bottom-0 right-0 grid grid-cols-3 gap-[1.5px] rounded-[4px] bg-fg p-[2.5px]">
+        <span aria-hidden="true" className="absolute -bottom-px -right-px grid grid-cols-3 gap-[1.5px] rounded-[4px] bg-fg p-[2.5px]">
           {Array.from({ length: 9 }, (_, index) => (
             <i key={index} className="block size-[3px] bg-canvas" />
           ))}
@@ -180,13 +180,13 @@ function ModuleLink({ item, active, onDone }: { item: NavigationItem; active: bo
 
 /**
  * Home: the workspace's name in the top bar — the company, or the group in
- * the Group workspace — which goes straight to its Dashboard, with a small
- * Home under it so it reads as the way home. It switches nothing: the switch
- * is the logo's panel.
+ * the Group workspace — which goes straight to its Dashboard, after a small
+ * house so it reads as the way home. Drawn like every other control in the
+ * bar: 40px, a 16px icon and a 14px medium label. It switches nothing: the
+ * switch is the logo's panel.
  */
 export function HomeLink() {
   const t = useTranslations("workspace");
-  const shell = useTranslations("shell");
   const { activeWorkspace } = useShellCore();
   const inGroup = activeWorkspace.scopeType === "GROUP";
   const current = inGroup ? `${activeWorkspace.groupLabel} — ${t("groupWorkspaceName")}` : activeWorkspace.label;
@@ -197,13 +197,11 @@ export function HomeLink() {
       aria-label={t("homeLabel", { name: current })}
       data-testid="topbar-home"
       data-scope={activeWorkspace.scopeType}
-      className="flex min-w-0 shrink flex-col items-start gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex h-10 min-w-0 shrink items-center gap-2 rounded-full px-3 text-body font-medium text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:h-11"
     >
-      <span data-testid="workspace-label" className="max-w-full truncate font-mono text-[0.75rem] font-medium uppercase leading-none tracking-[0.2em] text-fg">
+      <Home aria-hidden="true" data-home-icon="" className="size-4 shrink-0 text-fg-subtle" />
+      <span data-testid="workspace-label" className="min-w-0 truncate">
         {activeWorkspace.label}
-      </span>
-      <span aria-hidden="true" className="font-mono text-[0.5625rem] uppercase leading-none tracking-[0.16em] text-fg-subtle">
-        {shell("ribbon.home")}
       </span>
     </Link>
   );

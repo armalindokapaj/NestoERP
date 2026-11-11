@@ -1,7 +1,7 @@
 > **Chat:** Nesto UI/UX — navigation study
 > **File:** docs/ui/UI-04-navigation-layouts.md
 > **About:** How a person moves around Nesto — one top bar with the Ribbon's four tabs (Work, Sales, Procurement, Finance) on a desktop, the logo's panel of every module, and the Pocket Ribbon or the Action Ribbon on a phone; what each draws, where the code lives, and what comes next.
-> **Last updated:** 2026-11-11
+> **Last updated:** 2026-11-11 (the bar in three equal columns; sections left to the page)
 
 # UI-04 — Navigation layouts
 
@@ -41,7 +41,19 @@ Moving a module is one line in `NAVIGATION_LAYOUT`. The public site's zones
 
 `components/layout/topbar.tsx`, sticky at the top of every page:
 
-    logo · company name (Home) ·     Work  Sales  Procurement  Finance     · Create · Search · bell · account
+    [ logo · ⌂ Alba Construction ·      + Create ]   ( Work | Sales | Procurement | Finance )   [ Search…           ⌘K · bell · account ]
+
+- **Three columns, the two sides equal.** From `lg` the row is a grid,
+  `minmax(0,1fr) auto minmax(0,1fr)`, and each side is the same width
+  (`--nesto-bar-side`, 22rem, narrower when the window is). Each side's content
+  runs from the outer edge to the inner one — + Create on the left, the search
+  field on the right — so the tabs in the middle have the same space on either
+  side: 164px each at 1440px wide, 32px at 1024px.
+- **One line, one size, one type.** Every control is 40px tall (44px on touch)
+  and sits on the row's centre line, and every label is 14px medium with a 16px
+  icon: Home, + Create, the tabs, the search field's text.
+- **The left is where you are and what you make; the right is the universal
+  cluster** in its order: Search, Notifications, Account (UI-01 §1).
 
 - **The logo** (`ModulesPanel`, `components/layout/modules-panel.tsx`): the
   workspace's mark with a small grid. It opens a panel on the left third of the
@@ -50,23 +62,27 @@ Moving a module is one line in `NAVIGATION_LAYOUT`. The public site's zones
   work (`OrganizationWorkspaceHeader`). Then a field that finds a module, and
   every module this person may open, by group. On a phone the panel ends with
   you: the profile, Settings, Refresh, the theme and Logout.
-- **Home** (`HomeLink`): the workspace's name in mono capitals over a small
-  "Home". It goes to the Dashboard and switches nothing.
-- **The four tabs** sit centred in the bar's row. The open tab has the
-  ribbon's surface and a gold rule; with the ribbon folded, the gold rule stays
-  on the tab you are in.
-- **The right side**: + Create (its menu opens under it, right-aligned), then
-  the universal cluster in its order — Search (an icon, and from `xl` a
-  field-shaped button with its shortcut), the bell, the account.
+- **Home** (`HomeLink`): a small house and the workspace's name. It goes to
+  the Dashboard and switches nothing.
+- **+ Create** stands at the inner edge of the left side; between `lg` and
+  `xl` it is the + alone. Its menu opens under it.
+- **The four tabs** are one segmented control in the middle column: the open
+  tab raised on the track. The tab holding the page you are on carries the
+  homepage's small gold square under its name, whichever tab is open, and with
+  the ribbon folded.
+- **Search** is a field-shaped button that takes what the right side leaves,
+  with its shortcut from `xl`; below `lg`, an icon.
 
 ## 3. Desktop — the ribbon
 
-`components/layout/ribbon.tsx`, inside the same sticky header:
+`components/layout/ribbon.tsx`, inside the same sticky header. Three parts
+share one state: `RibbonProvider` (around the bar's row and the panel),
+`RibbonTabs` (the middle column) and `RibbonPanel` (under the bar).
 
 - The open tab's sets, centred, each a group of large buttons with its caption
-  under it, the module you are in marked. While you are in one of the tab's
-  modules, its sections come first, as pills. The page keeps its own row of
-  section tabs under its title as well.
+  under it, the module you are in marked.
+- A module's sections are not repeated in the ribbon: they are the tabs under
+  the page's title.
 - **Which tab is open:** Work on the Dashboard and anywhere outside the four
   tabs; on a module page, the module's own tab. A tab picked by hand lasts
   until the next navigation.

@@ -29,8 +29,6 @@ export type SectionLevel = {
   id: string;
   label: string;
   items: readonly SectionItem[];
-  /** The module's own row (ModuleTabs), which the desktop Ribbon carries as the tab of the page you are on. */
-  module?: boolean;
 };
 
 /** Where an anchor sits in the document; a DOM Node in the browser, anything with the method in a test. */
@@ -74,9 +72,9 @@ export class SectionStore {
   getServerSnapshot = () => EMPTY;
 
   /** Registers a level, or replaces what it holds; it keeps its place among the levels. */
-  set(id: string, level: { label: string; items: readonly SectionItem[]; module?: boolean }, anchor: SectionAnchor | null = null) {
+  set(id: string, level: { label: string; items: readonly SectionItem[] }, anchor: SectionAnchor | null = null) {
     const seq = this.entries.get(id)?.seq ?? ++this.seq;
-    this.entries.set(id, { id, label: level.label, items: level.items, module: level.module, anchor, seq });
+    this.entries.set(id, { id, label: level.label, items: level.items, anchor, seq });
     this.publish();
   }
 
@@ -85,7 +83,7 @@ export class SectionStore {
   }
 
   private publish() {
-    this.snapshot = this.entries.size === 0 ? EMPTY : orderLevels([...this.entries.values()]).map(({ id, label, items, module }) => (module ? { id, label, items, module } : { id, label, items }));
+    this.snapshot = this.entries.size === 0 ? EMPTY : orderLevels([...this.entries.values()]).map(({ id, label, items }) => ({ id, label, items }));
     for (const listener of this.listeners) listener();
   }
 }

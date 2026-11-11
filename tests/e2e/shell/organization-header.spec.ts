@@ -20,7 +20,8 @@ const GROUP = "NESTO Demo Group";
 
 /** No arrow, chevron, caret or dropdown sign, in any state (§4, §74, §92): the top bar's workspace header draws no icon at all. */
 async function expectNoArrow(header: Locator) {
-  await expect(header.locator("svg")).toHaveCount(0);
+  // Home's small house is the only drawing it may carry.
+  await expect(header.locator("svg:not([data-home-icon])")).toHaveCount(0);
   await expect(header.locator('[class*="chevron"], [class*="caret"], [class*="arrow"]')).toHaveCount(0);
   const text = await header.innerText();
   expect(text).not.toMatch(/[⌄∨▾▼›>]/);

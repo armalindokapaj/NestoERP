@@ -6,8 +6,7 @@ import { SectionStore, type SectionItem, type SectionLevel } from "@/components/
 
 /**
  * Where a page's tab rows hand their sections to the phone Ribbon's This page
- * below `lg` (components/layout/phone-ribbon.tsx), and the module's own row to
- * the desktop Ribbon. The store lives in the app
+ * below `lg` (components/layout/phone-ribbon.tsx). The store lives in the app
  * shell, keyed by the workspace with everything else, so nothing outlives a
  * workspace switch. Outside the shell (no provider) a row registers nothing.
  */
@@ -37,16 +36,16 @@ export function useSectionLevels(): readonly SectionLevel[] {
  * Registered in a layout effect, so after a client navigation the pill is
  * right in the same frame the new page is first painted.
  */
-export function RegisterSections({ label, items, module = false }: { label: string; items: readonly SectionItem[]; module?: boolean }) {
+export function RegisterSections({ label, items }: { label: string; items: readonly SectionItem[] }) {
   const store = React.useContext(SectionStoreContext);
   const anchor = React.useRef<HTMLSpanElement>(null);
   const id = React.useId();
   // Serialised, so a parent re-rendering with equal sections publishes nothing new.
-  const key = JSON.stringify([label, items, module]);
+  const key = JSON.stringify([label, items]);
   React.useLayoutEffect(() => {
     if (!store) return;
-    const [levelLabel, levelItems, levelModule] = JSON.parse(key) as [string, SectionItem[], boolean];
-    store.set(id, { label: levelLabel, items: levelItems, module: levelModule }, anchor.current);
+    const [levelLabel, levelItems] = JSON.parse(key) as [string, SectionItem[]];
+    store.set(id, { label: levelLabel, items: levelItems }, anchor.current);
   }, [store, id, key]);
   React.useLayoutEffect(() => () => store?.remove(id), [store, id]);
   return <span ref={anchor} hidden data-section-level={items.length > 1 ? "" : undefined} />;

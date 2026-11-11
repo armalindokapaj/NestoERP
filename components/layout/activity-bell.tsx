@@ -129,7 +129,7 @@ function BellControl({ contextKey, canManageAnnouncements }: { contextKey: strin
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
-        className="relative grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-expanded:bg-hover touch:size-11"
+        className="relative grid size-10 shrink-0 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg aria-expanded:bg-hover touch:size-11"
         data-testid="notification-bell"
         data-count-state={counts === null ? "unknown" : snapshot.count.stale ? "stale" : "fresh"}
         {...warm}

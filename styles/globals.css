@@ -1660,6 +1660,8 @@ html[data-unsaved-masked] [data-experience-editor] {
  */
 :root {
   --nesto-ribbon-body-h: 6.5rem;
+  /* Each side of the top bar from lg, the same width, so the tabs between them have the same space either side. */
+  --nesto-bar-side: 22rem;
 }
 
 @media (min-width: 1024px) {
