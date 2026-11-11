@@ -328,6 +328,37 @@
     border-color: var(--nesto-border);
   }
 
+  /*
+   * The cursor. Always the system's own, so nobody has to learn it: the arrow
+   * by default, the hand on anything that can be pressed, and not-allowed on a
+   * control that is switched off. Text fields keep the browser's I-beam.
+   * Tailwind 4 leaves buttons with the arrow; this puts the hand back in one
+   * place. `:where()` keeps the specificity at zero, so a `cursor-*` utility
+   * on a component (grab handles, resize edges, `cursor-default`) still wins.
+   */
+  :where(
+    button,
+    summary,
+    select,
+    input:is([type="checkbox"], [type="radio"], [type="submit"], [type="button"], [type="reset"], [type="file"]),
+    [role="button"],
+    [role="link"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="option"],
+    [role="switch"],
+    [role="checkbox"],
+    [role="radio"]
+  ) {
+    cursor: pointer;
+  }
+
+  :where(:disabled, [aria-disabled="true"]) {
+    cursor: not-allowed;
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     /*
