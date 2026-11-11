@@ -133,7 +133,7 @@ export const en = {
       groups: { GENERAL: "General", PROJECTS: "Projects", SALES: "Sales", FINANCE: "Finance", PROCUREMENT: "Procurement", DOCUMENTS: "Documents", QAQC: "QA/QC", HSE: "HSE" },
       actions: { tasks_task_create: "Task", meetings_meeting_create: "Meeting", documents_document_create: "Document", projects_project_create: "Project", projects_daily_log_create: "Daily log", clients_client_create: "Client", sales_opportunity_create: "Opportunity", finance_invoice_create: "Invoice", finance_expense_create: "Expense", procurement_purchase_request_create: "Purchase request", qaqc_ncr_create: "NCR", hse_incident_create: "HSE incident", hse_hazard_create: "HSE hazard" },
     },
-    /** The navigation's groups (config/navigation.ts): Home, the four Ribbon tabs, Company. */
+    /** The navigation's groups (config/navigation.ts): Home, then the five Ribbon tabs. */
     groups: {
       primary: "Home",
       work: "Work",
@@ -153,26 +153,38 @@ export const en = {
       fold: "Fold the ribbon",
       /** The captions under the Ribbon's sets of modules. */
       sets: {
-        home: "Home",
-        projects: "Projects",
+        menu: "Modules",
+        plan: "Plan",
         site: "Site",
+        design: "Design",
         quality: "Quality and safety",
-        files: "Files",
-        sell: "Sell",
-        legal: "Legal",
+        people: "People",
+        organization: "Organization",
+        records: "Records",
+        admin: "Admin",
+        units: "Units",
+        pipeline: "Pipeline",
+        buyers: "Buyers",
         buy: "Buy",
+        supply: "Supply chain",
         stock: "Stock",
         money: "Money",
-        people: "People",
-        company: "Company",
+        control: "Control",
       },
+    },
+    /** Navigation labels that are neither a module's nor a section's (config/navigation.ts). */
+    nav: {
+      units: "Units",
+      forSale: "For sale",
+      reserved: "Reserved",
+      sold: "Sold",
     },
     /** The logo's panel: every module, by group (components/layout/modules-panel.tsx). */
     modulesPanel: {
       open: "All modules",
       title: "All modules",
       close: "Close",
-      find: "Find a module",
+      find: "Find a module or section",
       noMatch: "No module matches.",
     },
     /** The phone navigation: the Pocket Ribbon and the Action Ribbon (components/layout/phone-ribbon.tsx). */
@@ -183,7 +195,7 @@ export const en = {
       units: "Units",
       create: "Create",
       close: "Close",
-      find: "Find a module",
+      find: "Find a module or section",
       noMatch: "No module matches.",
       /** Under the Company tab: the profile, Settings, Refresh, the theme and Logout. */
       you: "You",

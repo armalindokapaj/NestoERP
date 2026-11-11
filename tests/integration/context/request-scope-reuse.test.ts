@@ -113,7 +113,7 @@ describe("one request reads access once (C01-C05)", () => {
         resolvePersonalContexts(context),
         resolveGroupContexts(context),
       ]);
-      expect(navigation.length).toBeGreaterThan(0);
+      expect(navigation.menu.length).toBeGreaterThan(0);
       expect(workspaces.companies.map((company) => company.id).sort()).toEqual(group.map((company) => company.companyId).sort());
       expect(personal.every((company) => group.includes(company))).toBe(true);
       expect(canOpenQuickCreate("GROUP", group)).toBe(true);

@@ -19,7 +19,7 @@ import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
  */
 export async function helpAccess(context: UserContext): Promise<{ modules: ModuleKey[]; holds: (permission: Permission) => boolean }> {
   const navigation = await resolveWorkspaceNavigation(context);
-  const visible = new Set<ModuleKey>(navigation.flatMap((group) => group.items.map((item) => item.module)));
+  const visible = new Set<ModuleKey>(navigation.menu.flatMap((group) => group.items.map((item) => item.module)));
 
   if (context.workspace.scopeType === "COMPANY") {
     if (canAccessModule(context, "announcements")) visible.add("announcements");

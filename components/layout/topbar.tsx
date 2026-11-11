@@ -2,9 +2,9 @@ import { GlobalSearch } from "@/components/layout/global-search";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { HomeLink, ModulesPanel } from "@/components/layout/modules-panel";
 import { QuickCreate } from "@/components/layout/quick-create";
-import { RibbonPanel, RibbonProvider, RibbonTabs } from "@/components/layout/ribbon";
+import { RibbonPanel, RibbonProvider, RibbonTabs, RibbonUnits } from "@/components/layout/ribbon";
 import { AccountPanel } from "@/components/shell/account-panel";
-import type { NavigationGroup } from "@/config/navigation";
+import type { Navigation } from "@/config/navigation";
 import { can, canAccessModule } from "@/lib/access/can";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
@@ -14,15 +14,16 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * The one top bar (PRD #3 §16, §76; UI-01 §5; docs/ui/UI-04-navigation-layouts.md).
  * Identical for every role, and it stays at the top as the page scrolls.
  *
- *   [ logo · Home ·          + Create ]   ( Work | Sales | Procurement | Finance )   [ Search…          ⌘K · bell · account ]
+ *   [ logo · Home ·     Units · + Create ]   ( Work | Company | Sales | Procurement | Finance )   [ Search…     ⌘K · bell · account ]
  *
  * Three columns, the two sides equal: from `lg` each side is the same width
  * (`--nesto-bar-side`), its content running from the outer edge to the inner
  * one, so the Ribbon's tabs sit in the middle with the same space either side.
  * The left is where you are and what you make — the logo, which opens every
  * module in a panel on the left third of the screen; the company name, Home;
- * + Create. The right is the universal cluster in its order, Search,
- * Notifications, Account (UI-01 §1), the search field taking what is left.
+ * Units, pinned for every role that may see units; + Create. The right is the
+ * universal cluster in its order, Search, Notifications, Account (UI-01 §1),
+ * the search field taking what is left.
  * Every control is 40px and every label 14px medium, on one centre line.
  * Under the bar, the open tab's ribbon, which folds away to leave the bar alone.
  *
@@ -43,7 +44,7 @@ export async function Topbar({
 }: {
   context: UserContext;
   core: ShellCoreDTO;
-  navigation: NavigationGroup[];
+  navigation: Navigation;
   /** The desktop ribbon folded away, from its cookie (lib/layout/nav-layout.ts). */
   ribbonFolded: boolean;
 }) {
@@ -62,7 +63,7 @@ export async function Topbar({
       <RibbonProvider navigation={navigation} folded={ribbonFolded}>
       <div
         data-topbar-row
-        className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-8 xl:px-8"
+        className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-4 xl:gap-x-8 xl:px-8"
       >
         {/* Where you are and what you make. */}
         <div className="col-start-1 flex min-w-0 items-center gap-1.5 lg:w-full lg:max-w-(--nesto-bar-side)">
@@ -78,13 +79,14 @@ export async function Topbar({
               <span className="sr-only">{shell("demoDisclaimer")}</span>
             </span>
           ) : null}
-          {/* From lg, + Create stands at the side's inner edge, as the search field does on the right. */}
+          {/* From lg, Units and + Create stand at the side's inner edge, as the search field does on the right. */}
           <span aria-hidden="true" className="hidden flex-1 lg:block" />
+          <RibbonUnits navigation={navigation} />
           {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150). The menu loads only when opened (NAV-01 QC-01). */}
           <QuickCreate userKey={context.userId} summary={core.quickCreate} />
         </div>
 
-        {/* From lg: the Ribbon's four tabs, in the middle. */}
+        {/* From lg: the Ribbon's five tabs, in the middle. */}
         <RibbonTabs className="col-start-2" />
 
         {/* The universal cluster in its order on every surface: Search, Notifications, Account (UI-01 §1). */}

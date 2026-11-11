@@ -20,7 +20,7 @@ import {
 } from "@/components/layout/phone-ribbon";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { MobileActionBarHost } from "@/components/ui/mobile-action-bar";
-import { groupOfPath, type NavigationGroup, type NavigationGroupKey } from "@/config/navigation";
+import { findInNavigation, groupOfPath, type Navigation, type NavigationGroupKey } from "@/config/navigation";
 import { phoneTabs } from "@/lib/navigation/phone";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { cn } from "@/lib/utils/cn";
@@ -35,17 +35,16 @@ import { cn } from "@/lib/utils/cn";
  * next step is always under the thumb (`MainAction`, components/ui/mobile-action-bar.tsx).
  * On a page without one, that place is This page: the section you are on,
  * which opens the page's sections. Ribbon opens the whole Ribbon as a sheet —
- * the same tabs as the desktop (Work, Sales, Procurement, Finance) and This
- * page, modules as large tiles, and a field to find any module by name. Home
- * is the company name in the top bar; Home, Company and you are in the logo's
- * panel.
+ * the same tabs as the desktop (Work, Company, Sales, Procurement, Finance)
+ * and This page, buttons as large tiles, and a field to find any module or
+ * section by name. Home is the company name in the top bar; Home and you are
+ * in the logo's panel.
  *
  * Renders what the one navigation resolver produced for this person, so a
  * module they cannot open is not here.
  */
-export function ActionRibbon({ navigation, canCreate }: { navigation: NavigationGroup[]; canCreate: boolean }) {
+export function ActionRibbon({ navigation, canCreate }: { navigation: Navigation; canCreate: boolean }) {
   const t = useTranslations("shell");
-  const modules = useTranslations("modules");
   const pathname = usePathname();
   const groupLabel = useGroupLabel();
   const { levels, label } = usePageSections();
@@ -63,13 +62,8 @@ export function ActionRibbon({ navigation, canCreate }: { navigation: Navigation
   const current: PhoneTab | null = tabs.some((tab) => tab.id === picked) ? picked : (tabs[0]?.id ?? null);
   const group = groups.find((candidate) => candidate.group === current) ?? null;
 
-  const needle = query.trim().toLocaleLowerCase();
-  // The field finds any module, Home's and Company's too.
-  const found = needle
-    ? navigation
-        .map((candidate) => ({ ...candidate, items: candidate.items.filter((item) => modules(`${item.key}.label`).toLocaleLowerCase().includes(needle)) }))
-        .filter((candidate) => candidate.items.length > 0)
-    : null;
+  // The field finds any module or section, Home's too.
+  const found = query.trim() ? findInNavigation(navigation, query) : null;
 
   const show = (tab: PhoneTab) => {
     navigated.current = false;

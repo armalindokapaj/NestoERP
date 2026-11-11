@@ -14,7 +14,7 @@ import { useSectionLevels } from "@/components/navigation/section-registry";
 import { hasCurrentSection, menuLevels, pageNameFrom, pillFor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
 import { Avatar } from "@/components/ui/avatar";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
-import { isNavigationItemActive, type NavigationGroup, type NavigationGroupKey, type NavigationItem } from "@/config/navigation";
+import { isNavigationItemActive, type Navigation, type NavigationGroupKey, type NavigationItem } from "@/config/navigation";
 import { projectIdFrom } from "@/lib/navigation/phone";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { requestPageRefresh } from "@/lib/navigation/refresh-event";
@@ -24,10 +24,10 @@ import { cn } from "@/lib/utils/cn";
  * What the two phone navigations share (docs/ui/UI-04-navigation-layouts.md):
  * the Pocket Ribbon (pocket-ribbon.tsx, the default) and the Action Ribbon
  * (action-ribbon.tsx). Both are the desktop Ribbon brought to the phone — the
- * same four tabs (Work, Sales, Procurement, Finance) and This page, their
- * modules as large tiles — with Units and Create one tap away from anywhere.
- * Home is the company name in the top bar, and Home, Company and you are in the
- * logo's panel (components/layout/modules-panel.tsx).
+ * same five tabs (Work, Company, Sales, Procurement, Finance) and This page,
+ * their buttons as large tiles in the same captioned sets — with Units and
+ * Create one tap away from anywhere. Home is the company name in the top bar,
+ * and Home and you are in the logo's panel (components/layout/modules-panel.tsx).
  */
 
 /**
@@ -191,21 +191,39 @@ function tileClass(active: boolean) {
   );
 }
 
+/**
+ * A tab's buttons as tiles, in the Ribbon's captioned sets (Plan, Site…) when
+ * there are several; a search's finds, which have no sets, in one grid.
+ */
 export function ModuleTiles({ items, onDone }: { items: readonly NavigationItem[]; onDone: () => void }) {
+  const t = useTranslations("shell");
   const pathname = usePathname();
+  const sets: { key: NavigationItem["set"]; items: NavigationItem[] }[] = [];
+  for (const item of items) {
+    const last = sets[sets.length - 1];
+    if (last && last.key === item.set) last.items.push(item);
+    else sets.push({ key: item.set, items: [item] });
+  }
+  const captioned = sets.length > 1;
   return (
-    <ul className="grid grid-cols-3 gap-2">
-      {items.map((item) => (
-        <li key={item.key}>
-          <ModuleTile item={item} active={isNavigationItemActive(item, pathname)} onDone={onDone} />
-        </li>
+    <div className="space-y-4">
+      {sets.map((set) => (
+        <div key={set.key} role={captioned ? "group" : undefined} aria-label={captioned ? t(`ribbon.sets.${set.key}`) : undefined} className="space-y-2">
+          {captioned ? <h3 aria-hidden="true" className="nesto-eyebrow text-fg-subtle">{t(`ribbon.sets.${set.key}`)}</h3> : null}
+          <ul className="grid grid-cols-3 gap-2">
+            {set.items.map((item) => (
+              <li key={item.key}>
+                <ModuleTile item={item} active={isNavigationItemActive(item, pathname, items)} onDone={onDone} />
+              </li>
+            ))}
+          </ul>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 
 function ModuleTile({ item, active, onDone }: { item: NavigationItem; active: boolean; onDone: () => void }) {
-  const t = useTranslations("modules");
   const Icon = getIcon(item.icon);
   const pending = usePendingDestination(item.href);
   return (
@@ -223,7 +241,7 @@ function ModuleTile({ item, active, onDone }: { item: NavigationItem; active: bo
       className={cn(tileClass(active), "min-h-[5.25rem] flex-col justify-between")}
     >
       <Icon aria-hidden="true" className={cn("size-[22px] shrink-0", active ? "text-current" : "text-fg-subtle")} />
-      <span className="line-clamp-2 leading-tight">{t(`${item.key}.label`)}</span>
+      <span className="line-clamp-2 leading-tight">{item.label}</span>
       {pending ? <PendingDot className="absolute right-2.5 top-2.5 text-accent" /> : null}
     </Link>
   );
@@ -282,29 +300,17 @@ export function AccountBlock({ account, onDone }: { account: PhoneAccount; onDon
 /* Units and Create                                                            */
 /* -------------------------------------------------------------------------- */
 
-const LAST_PROJECT_KEY = "nesto.last-project";
-
 /**
- * Where Units goes: the units of the project you are in, else of the last
- * project you were in on this device, else the projects list to pick one.
- * Null when Projects is not in this person's navigation.
+ * Where Units goes: the units of the project you are in, else every unit
+ * across the projects (/projects/units). Null when Units is not in this
+ * person's navigation.
  */
-export function useUnitsHref(navigation: readonly NavigationGroup[]): { href: string; current: boolean } | null {
+export function useUnitsHref(navigation: Navigation): { href: string; current: boolean } | null {
   const pathname = usePathname();
-  const hasProjects = navigation.some((group) => group.items.some((item) => item.module === "projects"));
-  const here = projectIdFrom(pathname);
-  const [last, setLast] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    try {
-      if (here) window.localStorage.setItem(LAST_PROJECT_KEY, here);
-      else setLast(window.localStorage.getItem(LAST_PROJECT_KEY));
-    } catch {
-      // Storage can be unavailable (a private window); Units then goes to the projects list.
-    }
-  }, [here]);
-  if (!hasProjects) return null;
-  const project = here ?? last;
-  const href = project ? `/projects/${project}/units` : "/projects";
+  const units = navigation.menu.flatMap((group) => group.items).find((item) => item.key === "units");
+  if (!units) return null;
+  const project = projectIdFrom(pathname);
+  const href = project ? `/projects/${project}/units` : units.href;
   return { href, current: pathname === href || pathname.startsWith(`${href}/`) };
 }
 
@@ -312,7 +318,7 @@ export function useUnitsHref(navigation: readonly NavigationGroup[]): { href: st
 export const cellClass =
   "relative flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-[16px] px-1 font-mono text-[0.625rem] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted transition-colors hover:bg-hover hover:text-fg";
 
-export function UnitsLink({ navigation, className }: { navigation: readonly NavigationGroup[]; className?: string }) {
+export function UnitsLink({ navigation, className }: { navigation: Navigation; className?: string }) {
   const t = useTranslations("shell");
   const units = useUnitsHref(navigation);
   const pending = usePendingDestination(units?.href ?? null);

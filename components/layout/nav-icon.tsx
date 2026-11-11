@@ -88,6 +88,7 @@ import {
   CircleDot,
   Wrench,
   Hammer,
+  Layers3,
   type IconComponent,
 } from "@/components/icons";
 
@@ -119,6 +120,7 @@ const registry: Record<string, IconComponent> = {
   NestoProcurement,
   NestoProjects,
   Hammer,
+  Layers3,
   Network,
   Presentation,
   Wrench,

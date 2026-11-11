@@ -2,12 +2,13 @@
  * How a person moves around Nesto (docs/ui/UI-04-navigation-layouts.md).
  *
  * - Desktop (from `lg`, 1024px): one top bar — the logo, which opens every
- *   module in a panel on the left; the company name, Home; the four Ribbon
- *   tabs, Work, Sales, Procurement and Finance, centred; then Create, Search,
- *   the bell and the account. Under it, the open tab's ribbon, which folds
- *   away to leave the bar alone. Whether it is folded is kept per browser.
+ *   module in a panel on the left; the company name, Home; Units and Create;
+ *   the five Ribbon tabs, Work, Company, Sales, Procurement and Finance,
+ *   centred; then Search, the bell and the account. Under it, the open tab's
+ *   ribbon, which folds away to leave the bar alone. Whether it is folded is
+ *   kept per browser.
  * - Phone (below `lg`): the Ribbon brought to the phone, chosen in Settings ›
- *   Appearance. The Pocket Ribbon (the default): the four tabs as the bottom
+ *   Appearance. The Pocket Ribbon (the default): the five tabs as the bottom
  *   bar, with This page, Units and Create floating above it. Or the Action
  *   Ribbon: Ribbon, the page's main actions, Units and Create, with the whole
  *   Ribbon as a sheet.

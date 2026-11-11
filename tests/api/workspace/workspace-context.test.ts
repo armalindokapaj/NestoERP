@@ -334,7 +334,7 @@ describe("what the group reads (§57-§62, §92)", () => {
 describe("what a workspace shows: navigation and context (§24-§27, §79)", () => {
   it("offers the group sidebar only modules the group workspace supports, and company workspaces theirs", async () => {
     const owner = await signIn("owner");
-    const group = (await resolveWorkspaceNavigation(owner)).flatMap((section) => section.items.map((item) => item.module));
+    const group = (await resolveWorkspaceNavigation(owner)).menu.flatMap((section) => section.items.map((item) => item.module));
     expect(group).toContain("dashboard");
     expect(group).toContain("projects");
     expect(group).not.toContain("hr");
@@ -344,7 +344,7 @@ describe("what a workspace shows: navigation and context (§24-§27, §79)", () 
     await switchWorkspace(owner, { scopeType: "COMPANY", companyId: COMPANY.a });
     const inCompany = await resolveContextForSession(owner.sessionId, { expectedUserId: owner.userId });
     if (!inCompany.ok) throw new Error(inCompany.reason);
-    const company = (await resolveWorkspaceNavigation(inCompany.context)).flatMap((section) => section.items.map((item) => item.module));
+    const company = (await resolveWorkspaceNavigation(inCompany.context)).menu.flatMap((section) => section.items.map((item) => item.module));
     expect(company).toContain("hr");
     expect(company).toContain("settings");
   });

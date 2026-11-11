@@ -17,7 +17,7 @@ import {
   usePageSections,
   type PhoneTab,
 } from "@/components/layout/phone-ribbon";
-import { groupOfPath, type NavigationGroup } from "@/config/navigation";
+import { groupOfPath, type Navigation } from "@/config/navigation";
 import { phoneTabs } from "@/lib/navigation/phone";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { cn } from "@/lib/utils/cn";
@@ -26,11 +26,11 @@ import { cn } from "@/lib/utils/cn";
  * The Pocket Ribbon, the default phone navigation (docs/ui/UI-04-navigation-layouts.md):
  * the desktop Ribbon folded into the bottom of the phone, below `lg`.
  *
- * The bar is the Ribbon's four tabs — Work, Sales, Procurement, Finance — in
- * the thumb's reach. A tab opens its modules as large tiles just above it, the
- * module you are in marked gold; the tab holding it is marked too, so you
- * always know where you are. Home is the company name in the top bar; Home,
- * Company and you are in the logo's panel.
+ * The bar is the Ribbon's five tabs — Work, Company, Sales, Procurement,
+ * Finance — in the thumb's reach. A tab opens its buttons as large tiles just
+ * above it, in the Ribbon's sets, the one you are in marked gold; the tab
+ * holding it is marked too, so you always know where you are. Home is the
+ * company name in the top bar; Home and you are in the logo's panel.
  *
  * Above the bar floats the strip: This page — the section you are on, which
  * opens the page's sections — then Units and Create, one tap from anywhere.
@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils/cn";
  * module they cannot open is not here. Content keeps clear of it by
  * `--nesto-bottom-nav-space` (styles/globals.css), so no page pads itself.
  */
-export function PocketRibbon({ navigation, canCreate }: { navigation: NavigationGroup[]; canCreate: boolean }) {
+export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation; canCreate: boolean }) {
   const t = useTranslations("shell");
   const pathname = usePathname();
   const groupLabel = useGroupLabel();
@@ -150,7 +150,7 @@ export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation
 
       {/* The bar: the Ribbon's tabs. */}
       <div className="relative border-t border-line bg-surface pb-(--nesto-safe-bottom)">
-        <ul className="mx-auto flex h-[4.75rem] max-w-xl items-center gap-1 px-2">
+        <ul className="mx-auto flex h-[4.75rem] max-w-xl items-center gap-0.5 px-1.5">
           {tabs.map((group) => {
             const Icon = GROUP_ICONS[group.group];
             const expanded = open === group.group;
@@ -165,7 +165,7 @@ export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation
                   data-here={here === group.group || undefined}
                   onClick={toggle(group.group)}
                   className={cn(
-                    "relative flex h-16 w-full flex-col items-center justify-center gap-1.5 rounded-[16px] font-mono text-[0.625rem] font-medium uppercase leading-none tracking-[0.07em] transition-colors",
+                    "relative flex h-16 w-full flex-col items-center justify-center gap-1.5 rounded-[16px] font-mono text-[0.5625rem] font-medium uppercase leading-none tracking-[0.04em] transition-colors",
                     expanded
                       ? "bg-primary text-primary-fg"
                       : here === group.group

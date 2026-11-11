@@ -148,9 +148,10 @@ function PhonePreview({ value }: { value: PhoneNav }) {
             <span className="h-full w-1.5 rounded-[2px] bg-fg-subtle/40" />
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
           </span>
-          {/* The bar: four tabs. */}
+          {/* The bar: five tabs. */}
           <span className="absolute inset-x-0 bottom-0 flex h-3 items-center justify-around border-t border-line bg-surface">
             <span className="h-1 w-1 rounded-full bg-accent" />
+            <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
             <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
             <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />
             <span className="h-1 w-1 rounded-full bg-fg-subtle/60" />

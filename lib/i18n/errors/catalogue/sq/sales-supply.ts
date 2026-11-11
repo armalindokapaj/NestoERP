@@ -249,6 +249,7 @@ export const rows = {
   "You cannot see this unit's sales.": "Nuk mund t’i shihni shitjet e kësaj njësie.",
   "That reservation could not be found.": "Ai rezervim nuk u gjet.",
   "You cannot see this project's sales.": "Nuk mund t’i shihni shitjet e këtij projekti.",
+  "You cannot see the units' sales.": "Nuk mund t’i shihni shitjet e njësive.",
   "This unit is inactive.": "Kjo njësi është joaktive.",
   "This Unit is not published for Sales use.": "Kjo njësi nuk është publikuar për përdorim në Shitje.",
   "A reserved unit": "Një njësi e rezervuar",

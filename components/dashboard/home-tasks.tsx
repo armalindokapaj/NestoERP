@@ -27,7 +27,7 @@ type Counted = "mine" | "dueToday" | "overdue";
  */
 export async function HomeTasks({ context }: { context: UserContext }) {
   const navigation = await resolveWorkspaceNavigation(context);
-  const item = navigation.flatMap((group) => group.items).find((candidate) => candidate.key === "tasks");
+  const item = navigation.menu.flatMap((group) => group.items).find((candidate) => candidate.key === "tasks");
   if (!item) return null;
 
   const t = await getTranslations("shell");

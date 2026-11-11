@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { fallbackParent, returnHref } from "@/config/breadcrumb-routes";
 import { dashboards } from "@/config/dashboards";
 import { MODULE_KEYS, modules, sectionRoute } from "@/config/modules";
-import { activeNavigationKey, navigationItems, resolveNavigation } from "@/config/navigation";
+import { activeNavigationKey, navigationItems, navigationLayout, resolveNavigation } from "@/config/navigation";
 import { quickActions } from "@/config/quick-actions";
 import { QUICK_CREATE_ACTIONS } from "@/config/quick-create";
 import { permissionsForRole } from "@/config/role-defaults";
@@ -63,7 +63,8 @@ describe("one resolver, no empty groups (UX-02)", () => {
   it("never renders a group without items, for any role, with any module off", () => {
     for (const role of ROLE_KEYS) {
       for (const off of MODULE_KEYS) {
-        const groups = resolveNavigation({ permissions: permissionsForRole(role), enabledModules: MODULE_KEYS.filter((key) => key !== off) });
+        const navigation = resolveNavigation({ permissions: permissionsForRole(role), enabledModules: MODULE_KEYS.filter((key) => key !== off) });
+        const groups = [...navigation.menu, ...navigation.ribbon];
         for (const group of groups) expect(group.items.length, `${role} without ${off}: ${group.group}`).toBeGreaterThan(0);
         expect(groups.flatMap((group) => group.items).some((item) => item.module === off)).toBe(false);
       }
@@ -77,6 +78,11 @@ describe("one resolver, no empty groups (UX-02)", () => {
 
   it("gives every sidebar module its own page", () => {
     for (const key of MODULE_KEYS) expect(pageExists(modules[key].route), key).toBe(true);
+  });
+
+  it("gives every button of the Ribbon and the logo's panel its own page, Units's views too", () => {
+    const { menu, ribbon } = navigationLayout();
+    for (const item of [...menu, ...ribbon]) expect(pageExists(item.href), item.key).toBe(true);
   });
 
   it("gives every section tab its own page, directly or through the module's [section] route", () => {

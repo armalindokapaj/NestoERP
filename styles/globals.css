@@ -1652,7 +1652,7 @@ html[data-unsaved-masked] [data-experience-editor] {
 
 /*
  * The Ribbon (docs/ui/UI-04-navigation-layouts.md, components/layout/ribbon.tsx).
- * From lg its four tabs sit in the top bar's row and the open tab's ribbon
+ * From lg its five tabs sit in the top bar's row and the open tab's ribbon
  * under it, inside the same sticky header: `--nesto-shell-header-h` then covers
  * both, so every tab row and panel stays pinned beneath it. Folded, the bar is
  * alone. Whether it is folded sits on <html data-ribbon> from the server, so
@@ -1661,7 +1661,7 @@ html[data-unsaved-masked] [data-experience-editor] {
 :root {
   --nesto-ribbon-body-h: 6.5rem;
   /* Each side of the top bar from lg, the same width, so the tabs between them have the same space either side. */
-  --nesto-bar-side: 22rem;
+  --nesto-bar-side: 26rem;
 }
 
 @media (min-width: 1024px) {

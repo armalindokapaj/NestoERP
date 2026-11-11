@@ -85,7 +85,8 @@ type RecordPattern = {
 };
 
 const RECORD_PATTERNS: readonly RecordPattern[] = [
-  { pattern: /^\/projects\/([^/]+)(?:\/.*)?$/, label: "/projects/[projectId]", moduleKey: "projects", parentRoute: "/projects", validator: "PROJECT", idIndex: 1 },
+  // /projects/units is every unit across the projects, a collection, not a project.
+  { pattern: /^\/projects\/(?!units(?:\/|$))([^/]+)(?:\/.*)?$/, label: "/projects/[projectId]", moduleKey: "projects", parentRoute: "/projects", validator: "PROJECT", idIndex: 1 },
   { pattern: /^\/tasks\/([^/]+)(?:\/.*)?$/, label: "/tasks/[taskId]", moduleKey: "tasks", parentRoute: "/tasks", validator: "TASK", idIndex: 1 },
   { pattern: /^\/documents\/([^/]+)(?:\/.*)?$/, label: "/documents/[documentId]", moduleKey: "documents", parentRoute: "/documents", validator: "DOCUMENT", idIndex: 1 },
   { pattern: /^\/finance\/invoices\/([^/]+)(?:\/.*)?$/, label: "/finance/invoices/[invoiceId]", moduleKey: "finance", parentRoute: "/finance/invoices", validator: "INVOICE", idIndex: 2 },

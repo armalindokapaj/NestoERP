@@ -13,26 +13,26 @@ import { useShellCore } from "@/components/layout/shell-slots";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
+import { findInNavigation, isNavigationItemActive, type Navigation, type NavigationItem } from "@/config/navigation";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { cn } from "@/lib/utils/cn";
 
 /**
  * The company logo at the start of the top bar, and what it opens: every
- * module this person may open, by group — Home, Work, Sales, Procurement,
- * Finance, Company — in a panel on the left third of the screen, the way
+ * module this person may open, by group — Home, Work, Company, Sales,
+ * Procurement, Finance — in a panel on the left third of the screen, the way
  * Office's app launcher opens (docs/ui/UI-04-navigation-layouts.md). The
  * panel's header is the workspace, and switches it where there is somewhere
- * else to work; a field finds a module by name. On a phone, where the top bar
+ * else to work; a field finds a module, or one of the Ribbon's sections, by
+ * name. On a phone, where the top bar
  * has no account button, the panel ends with you: the profile, Settings,
  * Refresh, the theme and Logout.
  *
  * Renders what the one navigation resolver produced, so a module this person
  * cannot open is not here.
  */
-export function ModulesPanel({ navigation, account }: { navigation: NavigationGroup[]; account: PhoneAccount }) {
+export function ModulesPanel({ navigation, account }: { navigation: Navigation; account: PhoneAccount }) {
   const t = useTranslations("shell");
-  const moduleNames = useTranslations("modules");
   const { activeWorkspace, organization } = useShellCore();
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
@@ -40,12 +40,8 @@ export function ModulesPanel({ navigation, account }: { navigation: NavigationGr
   const navigated = React.useRef(false);
   React.useEffect(() => setOpen(false), [pathname]);
 
-  const needle = query.trim().toLocaleLowerCase();
-  const groups = needle
-    ? navigation
-        .map((group) => ({ ...group, items: group.items.filter((item) => moduleNames(`${item.key}.label`).toLocaleLowerCase().includes(needle)) }))
-        .filter((group) => group.items.length > 0)
-    : navigation;
+  const groups = query.trim() ? findInNavigation(navigation, query) : navigation.menu;
+  const all = groups.flatMap((group) => group.items);
 
   const done = () => {
     navigated.current = true;
@@ -132,7 +128,7 @@ export function ModulesPanel({ navigation, account }: { navigation: NavigationGr
                 <ul className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                   {group.items.map((item) => (
                     <li key={item.key} className="min-w-0">
-                      <ModuleLink item={item} active={isNavigationItemActive(item, pathname)} onDone={done} />
+                      <ModuleLink item={item} active={isNavigationItemActive(item, pathname, all)} onDone={done} />
                     </li>
                   ))}
                 </ul>
@@ -151,7 +147,6 @@ export function ModulesPanel({ navigation, account }: { navigation: NavigationGr
 }
 
 function ModuleLink({ item, active, onDone }: { item: NavigationItem; active: boolean; onDone: () => void }) {
-  const t = useTranslations("modules");
   const Icon = getIcon(item.icon);
   const pending = usePendingDestination(item.href);
   return (
@@ -172,7 +167,7 @@ function ModuleLink({ item, active, onDone }: { item: NavigationItem; active: bo
       )}
     >
       <Icon aria-hidden="true" className={cn("size-[18px] shrink-0", active ? "text-current" : "text-fg-subtle")} />
-      <span className="min-w-0 flex-1 truncate">{t(`${item.key}.label`)}</span>
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {pending ? <PendingDot className="text-accent" /> : null}
     </Link>
   );
