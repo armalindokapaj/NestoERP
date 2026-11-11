@@ -74,7 +74,7 @@ export function SectionCut({
               [1, copy.figures.foundation],
             ].map(([figure, label]) => (
               <div key={label} className="flex flex-col-reverse gap-1.5 border-t border-line pt-3.5">
-                <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted">{label}</dt>
+                <dt className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.14em] text-fg-muted">{label}</dt>
                 <dd className="text-[48px] leading-[0.85] tabular-nums text-fg font-display">{figure}</dd>
               </div>
             ))}
@@ -83,8 +83,8 @@ export function SectionCut({
 
         <div className="site-paper relative flex flex-col overflow-hidden border-[1.5px] border-fg px-4 pt-5 sm:px-7 sm:pt-7">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-muted">{copy.drawing}</span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">{copy.pick}</span>
+            <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-fg-muted">{copy.drawing}</span>
+            <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-fg-subtle">{copy.pick}</span>
           </div>
 
           <div className="mt-2 flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-5">
@@ -119,7 +119,7 @@ export function SectionCut({
                     >
                       <span className={cn("flex flex-col items-end justify-center gap-px pr-2.5 text-table font-medium whitespace-nowrap", on && "text-accent-strong")}>
                         <span className="max-w-full truncate">{copy.floors[item.key].name}</span>
-                        <span className="font-mono text-[9px] tracking-[0.1em] text-fg-subtle">{item.level}</span>
+                        <span className="font-mono text-[9px] max-md:text-meta tracking-[0.1em] text-fg-subtle">{item.level}</span>
                       </span>
                       <span aria-hidden="true" className={cn("mb-[22px] border-b", on ? "border-accent" : "border-control")} />
                       <span aria-hidden="true" className="site-slab" />
@@ -140,7 +140,7 @@ export function SectionCut({
                 </span>
               </div>
               <div className={cn(columns, "pb-5 pt-1")}>
-                <span className="pr-2.5 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-accent-strong">{copy.foundation}</span>
+                <span className="pr-2.5 text-right font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">{copy.foundation}</span>
                 <span />
                 <span className="text-table font-medium text-accent-strong">{copy.foundationLine}</span>
               </div>
@@ -149,7 +149,7 @@ export function SectionCut({
             {/* The floor's sheet. */}
             <article aria-live="polite" className="mb-6 flex flex-col gap-3 rounded-xl border border-line-strong bg-surface p-5 shadow-[0_18px_40px_-24px_rgb(15_20_26/0.45)] xl:mt-24 xl:w-[232px] xl:shrink-0" data-testid="floor-sheet">
               <span className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent-strong">
+                <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">
                   {floor.level} · {copy.sheet}
                 </span>
                 <Icon aria-hidden="true" className="size-6 text-accent-strong" />

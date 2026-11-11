@@ -118,7 +118,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     />
                   ))}
                 </span>
-                <span className="font-mono text-[10px] tracking-[0.12em] text-fg-subtle">{String(index + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-[10px] max-md:text-meta tracking-[0.12em] text-fg-subtle">{String(index + 1).padStart(2, "0")}</span>
                 <h3 className="text-[28px] leading-none text-fg font-display">{site.lifecycle[stage.key].title}</h3>
                 <p className="text-table leading-relaxed text-fg-muted">{site.lifecycle[stage.key].copy}</p>
                 <ul className="flex flex-wrap gap-1">
@@ -154,12 +154,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       ))}
                     </span>
                     <span className="flex flex-1 flex-col gap-2.5 p-5">
-                      <span className="font-mono text-[10px] tracking-[0.12em] text-fg-subtle">{String(index + 1).padStart(2, "0")}</span>
+                      <span className="font-mono text-[10px] max-md:text-meta tracking-[0.12em] text-fg-subtle">{String(index + 1).padStart(2, "0")}</span>
                       <span className="text-[32px] leading-none text-fg font-display">{words.name}</span>
                       <span className="text-body leading-relaxed text-fg-muted">{words.copy}</span>
                       <span className="mt-auto flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-line pt-2.5">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-subtle">{words.meta}</span>
-                        <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-accent-strong">
+                        <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.1em] text-fg-subtle">{words.meta}</span>
+                        <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] max-md:text-meta uppercase tracking-[0.1em] text-accent-strong">
                           {home.kinds.follow}
                           <ArrowRight aria-hidden="true" className="size-3 transition-transform group-hover:translate-x-0.5" />
                         </span>

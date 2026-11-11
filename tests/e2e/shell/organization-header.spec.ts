@@ -1,20 +1,18 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { chooseWorkspace, DEMO_PASSWORD, dropOrphanedStreamSegments, mainRegion, signIn, workspaceHeader, workspacePanel, workspaceSwitcher } from "../fixtures";
+import { chooseWorkspace, DEMO_PASSWORD, dropOrphanedStreamSegments, mainRegion, signIn, workspaceHeader, workspacePanel, openWorkspaceSwitcher } from "../fixtures";
 
 /**
- * The workspace header, the company switcher and their popup (Sidebar
- * Organization Workspace Header PRD, "OW", §72-§90, §107).
+ * Home, the workspace switch and its popup (Sidebar Organization Workspace
+ * Header PRD, "OW", §72-§90, §107; docs/ui/UI-04-navigation-layouts.md).
  *
- * The sidebar's header names the workspace being worked in — the company, or
- * the group in the Group workspace — and is the way to its dashboard; it
- * switches nothing. The switch is the top bar's company switcher, before
- * + Create and built like it: the organization over "Choose Company", opening
- * "Switch Workspace" below itself, on the breadcrumb bar's top line. On a
- * phone, and in the tablet's navigation drawer, the header is still the
- * switch, and its popup hangs under it with a pointer. A switch keeps the page
- * where it can, is made in place without a document load, and the names change
- * only once the new workspace has committed.
+ * The top bar's Home names the workspace being worked in — the company, or the
+ * group in the Group workspace — and is the way to its dashboard; it switches
+ * nothing. The switch is the header of the logo's panel, at every width: the
+ * workspace's mark and name with a small chevron, its popup hanging under it
+ * with a pointer. A switch keeps the page where it can, is made in place
+ * without a document load, and the names change only once the new workspace
+ * has committed.
  */
 
 const AURELIA = "company_demo_a";
@@ -25,14 +23,6 @@ async function expectNoArrow(header: Locator) {
   await expect(header.locator("svg")).toHaveCount(0);
   await expect(header.locator('[class*="chevron"], [class*="caret"], [class*="arrow"]')).toHaveCount(0);
   const text = await header.innerText();
-  expect(text).not.toMatch(/[⌄∨▾▼›>]/);
-}
-
-/** The switcher is built like + Create (§14): its one icon is the building, and nothing on it is an arrow, chevron or caret (§4, §74). */
-async function expectNoArrowOnSwitcher(switcher: Locator) {
-  await expect(switcher.locator("svg")).toHaveCount(1);
-  await expect(switcher.locator('[class*="chevron"], [class*="caret"], [class*="arrow"]')).toHaveCount(0);
-  const text = await switcher.innerText();
   expect(text).not.toMatch(/[⌄∨▾▼›>]/);
 }
 
@@ -69,9 +59,10 @@ test.describe("identity (§72, §73, §86, §91, §96)", () => {
     // One line: the organization is not written above the workspace, here or anywhere in the header (§7, §8).
     await expect(header.getByTestId("organization-name")).toHaveCount(0);
     await expect(page.getByTestId("topbar-home")).not.toContainText("Solo Studio Holding");
-    // Nothing to switch: no switcher in the top bar, and nothing in the header to press (§46).
-    await expect(workspaceSwitcher(page)).toHaveCount(0);
+    // Nothing to switch: Home presses nothing but home, and the panel's header is identity only (§46).
     await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);
+    await expect(await openWorkspaceSwitcher(page)).toHaveCount(0);
+    await page.keyboard.press("Escape");
     expect((await page.request.post("/api/workspace", { data: { scopeType: "GROUP" } })).status()).toBe(403);
     await expectNoArrow(header);
   });
@@ -83,7 +74,8 @@ test.describe("identity (§72, §73, §86, §91, §96)", () => {
     // Not drawn and disabled: not rendered at all, once the chooser has streamed in too (§46).
     await expect(mainRegion(page).locator("h1").first()).toBeVisible();
     await page.waitForLoadState("load");
-    await expect(workspaceSwitcher(page)).toHaveCount(0);
+    await expect(await openWorkspaceSwitcher(page)).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await header.click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(workspacePanel(page)).toHaveCount(0);
@@ -99,15 +91,13 @@ test.describe("identity (§72, §73, §86, §91, §96)", () => {
     await expect(header).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
     await expect(header).toHaveAttribute("data-scope", "COMPANY");
     for (const attribute of ["data-options", "aria-haspopup", "aria-expanded"]) await expect(header).not.toHaveAttribute(attribute);
-    // The mark and one line — the company's own name. The organization is the switcher's to name (§5, §7).
-    await expect(header.getByTestId("organization-mark")).toBeVisible();
+    // One line — the company's own name — over a small Home; the mark is the logo's, beside it (§5, §7).
     await expect(header.getByTestId("workspace-label")).toHaveText("Aurelia Construction");
     await expect(header.getByTestId("organization-name")).toHaveCount(0);
     await expect(header).not.toContainText(GROUP);
 
     const box = (await header.boundingBox())!;
     const parts: Array<() => Promise<void>> = [
-      () => header.getByTestId("organization-mark").click(),
       () => header.getByTestId("workspace-label").click(),
       // The padding: the far right edge, inside the header.
       () => header.click({ position: { x: box.width - 3, y: box.height / 2 } }),
@@ -120,95 +110,35 @@ test.describe("identity (§72, §73, §86, §91, §96)", () => {
     }
   });
 
-  test("in the Group workspace the header names the group, and the switcher still the organization (§7, §73)", async ({ page }) => {
+  test("in the Group workspace Home names the group, and so does the switch (§7, §73)", async ({ page }) => {
     await signIn(page, "OWNER", { workspace: "GROUP", to: "/dashboard" });
     const header = workspaceHeader(page);
     await expect(header.getByTestId("workspace-label")).toHaveText(GROUP);
     await expect(header).toHaveAccessibleName(`Dashboard. Current workspace: ${GROUP} — Group Workspace.`);
     await expect(header).toHaveAttribute("data-scope", "GROUP");
-    const switcher = workspaceSwitcher(page);
-    await expect(switcher.getByTestId("organization-name")).toHaveText(GROUP);
+    const switcher = await openWorkspaceSwitcher(page);
+    await expect(switcher.getByTestId("workspace-label")).toHaveText(GROUP);
     await expect(switcher).toHaveAccessibleName(`Switch workspace. Current workspace: ${GROUP} — Group Workspace.`);
     await expect(switcher).toHaveAttribute("data-scope", "GROUP");
   });
 });
 
-test.describe("the company switcher as a control (§14-§17, §74, §75, §90)", () => {
-  test("it sits in the top bar before + Create and is built like it: the organization over \"Choose Company\" (§3, §5, §14)", async ({ page }) => {
+test.describe("the switch, in the logo's panel (§14-§17, §74, §75, §90; docs/ui/UI-04-navigation-layouts.md)", () => {
+  test("the panel's header is the switch: the workspace's mark and name and a small chevron, and nothing in the top bar (§3, §5, §14)", async ({ page }) => {
     await signIn(page, "OWNER", { company: AURELIA, to: "/dashboard" });
-    const switcher = workspaceSwitcher(page);
-    const create = page.getByTestId("quick-create-button");
-    await expect(page.locator("header[data-shell-region]").getByTestId("workspace-switcher")).toHaveCount(1);
+    await expect(page.locator("header[data-shell-region]").getByTestId("workspace-switcher")).toHaveCount(0);
+    const switcher = await openWorkspaceSwitcher(page);
+    await expect(switcher).toHaveRole("button");
     await expect(switcher).toHaveAccessibleName("Switch workspace. Current workspace: Aurelia Construction.");
     await expect(switcher).toHaveAttribute("data-scope", "COMPANY");
-    // Line one is the organization; the company being worked in is the sidebar header's to name, not said twice.
-    await expect(switcher.getByTestId("organization-name")).toHaveText(GROUP);
-    await expect(switcher.getByText("Choose Company", { exact: true })).toBeVisible();
-    await expect(switcher).not.toContainText("Aurelia Construction");
-
-    // Immediately before + Create, on its line and of its height.
-    const [first, second] = [(await switcher.boundingBox())!, (await create.boundingBox())!];
-    expect(first.x + first.width).toBeLessThanOrEqual(second.x);
-    expect(second.x - (first.x + first.width)).toBeLessThanOrEqual(12);
-    expect(Math.abs(first.y - second.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(first.height - second.height)).toBeLessThanOrEqual(1);
-    // The same accent button.
-    const paint = (control: Locator) =>
-      control.evaluate((element) => {
-        const style = getComputedStyle(element);
-        return { ground: style.backgroundColor, ink: style.color, radius: style.borderTopLeftRadius };
-      });
-    expect(await paint(switcher)).toEqual(await paint(create));
-  });
-
-  test("no arrow in any state: the header draws no icon, the switcher only its building — resting, hovered, focused, open (§4, §74)", async ({ page }) => {
-    await signIn(page, "OWNER", { company: AURELIA, to: "/dashboard" });
-    const header = workspaceHeader(page);
-    await expectNoArrow(header);
-    await header.hover();
-    await expectNoArrow(header);
-    await header.focus();
-    await expectNoArrow(header);
-
-    const switcher = workspaceSwitcher(page);
-    await expectNoArrowOnSwitcher(switcher);
-    await switcher.hover();
-    await expectNoArrowOnSwitcher(switcher);
-    await switcher.focus();
-    await expectNoArrowOnSwitcher(switcher);
-    await switcher.click();
-    await expect(workspacePanel(page)).toBeVisible();
-    await expect(switcher).toHaveAttribute("aria-expanded", "true");
-    await expectNoArrowOnSwitcher(switcher);
-  });
-
-  test("every part of it opens the same popup: the icon, both lines and the padding (§14, §75)", async ({ page }) => {
-    await signIn(page, "OWNER", { company: AURELIA, to: "/dashboard" });
-    const switcher = workspaceSwitcher(page);
-    const box = (await switcher.boundingBox())!;
-    const targets = [
-      switcher.locator("svg"),
-      switcher.getByTestId("organization-name"),
-      switcher.getByText("Choose Company", { exact: true }),
-    ];
-    for (const target of targets) {
-      await target.click();
-      await expect(workspacePanel(page)).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(workspacePanel(page)).toHaveCount(0);
-    }
-    // The padding: the far right edge and the bottom edge, inside the button.
-    for (const [x, y] of [[box.width - 3, box.height / 2], [box.width / 2, box.height - 2]] as const) {
-      await switcher.click({ position: { x, y } });
-      await expect(workspacePanel(page)).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(workspacePanel(page)).toHaveCount(0);
-    }
+    await expect(switcher).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(switcher.getByTestId("organization-mark")).toBeVisible();
+    await expect(switcher.getByTestId("workspace-label")).toHaveText("Aurelia Construction");
   });
 
   test("the popup: its name, the Group first, then only this person's companies, alphabetically, the current one selected (§20-§27, §76)", async ({ page }) => {
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     const panel = workspacePanel(page);
     await expect(panel).toHaveAccessibleName("Switch Workspace");
     const options = panel.getByTestId("workspace-option");
@@ -225,30 +155,9 @@ test.describe("the company switcher as a control (§14-§17, §74, §75, §90)",
     await expect(panel.getByTestId("workspace-search")).toHaveCount(0);
   });
 
-  test("the popup opens below the switcher, their left edges aligned, its top edge on the breadcrumb bar's top line (§21; lib/layout/topbar-line.ts)", async ({ page }) => {
+  test("keyboard: Enter opens it, the current workspace is active, arrows move, Escape closes back to the switch (§52-§56, §90)", async ({ page }) => {
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-    const switcher = workspaceSwitcher(page);
-    await switcher.click();
-    const panel = workspacePanel(page);
-    await expect(panel.getByTestId("workspace-option").first()).toBeVisible();
-    // The line every panel opened from the top bar starts on: the top bar is 64px from 768px up.
-    const line = (await page.locator("[data-shell-breadcrumb]").boundingBox())!.y;
-    expect(line).toBe(64);
-    // Placed a frame after it mounts, so the place is asked for until it holds.
-    await expect(async () => {
-      const [control, popup] = [(await switcher.boundingBox())!, (await panel.boundingBox())!];
-      expect(popup.y).toBeGreaterThanOrEqual(control.y + control.height);
-      expect(Math.abs(popup.y - line)).toBeLessThanOrEqual(0.5);
-      expect(Math.abs(popup.x - control.x)).toBeLessThanOrEqual(0.5);
-    }).toPass({ timeout: 5_000 });
-    // With a mouse it is the plain panel: the pointer is a touch layout's.
-    await expect(panel.locator(".nesto-popup-pointer")).toBeHidden();
-  });
-
-  test("keyboard: Enter and Space open it, the current workspace is active, arrows move, Escape closes back to the switcher (§52-§56, §90)", async ({ page }) => {
-    await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-    const switcher = workspaceSwitcher(page);
-    await expect(switcher).toHaveAttribute("aria-haspopup", "dialog");
+    const switcher = await openWorkspaceSwitcher(page);
     await expect(switcher).toHaveAttribute("aria-expanded", "false");
     await switcher.focus();
     await page.keyboard.press("Enter");
@@ -261,40 +170,6 @@ test.describe("the company switcher as a control (§14-§17, §74, §75, §90)",
     await page.keyboard.press("Escape");
     await expect(workspacePanel(page)).toHaveCount(0);
     await expect(switcher).toBeFocused();
-
-    await page.keyboard.press(" ");
-    await expect(workspacePanel(page)).toBeVisible();
-    // A click outside closes it too (§56): the far corner of the page, clear of the popup.
-    const viewport = page.viewportSize()!;
-    await page.mouse.click(viewport.width - 20, viewport.height - 20);
-    await expect(workspacePanel(page)).toHaveCount(0);
-  });
-
-  test("it opens at once with the chooser already streamed (§58)", async ({ page }) => {
-    await signIn(page, "OWNER", { company: AURELIA, to: "/dashboard" });
-    const switcher = workspaceSwitcher(page);
-    await expect(switcher).toHaveAttribute("data-options", "ready");
-    // Warm the popup's code as a pointer resting on the switcher does, then time the click in the page.
-    await switcher.hover();
-    await switcher.click();
-    await expect(workspacePanel(page).getByTestId("workspace-option").first()).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(workspacePanel(page)).toHaveCount(0);
-    const elapsed = await switcher.evaluate(
-      (element) =>
-        new Promise<number>((resolve) => {
-          const started = performance.now();
-          const observer = new MutationObserver(() => {
-            if (document.querySelector('[data-testid="workspace-panel"]')) {
-              observer.disconnect();
-              resolve(performance.now() - started);
-            }
-          });
-          observer.observe(document.body, { childList: true, subtree: true });
-          (element as HTMLElement).click();
-        }),
-    );
-    expect(elapsed).toBeLessThan(100);
   });
 });
 
@@ -308,8 +183,6 @@ test.describe("switching (§28-§37, §78-§83)", () => {
     await expect(page).toHaveURL(/\/projects$/);
     expect(await sameDocument(page)).toBe(true);
     await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Forma Engineering");
-    // The switcher still names the organization: only the workspace changed (§5).
-    await expect(workspaceSwitcher(page).getByTestId("organization-name")).toHaveText(GROUP);
     for (const label of await mainRegion(page).getByTestId("project-company").allInnerTexts()) expect(label).toBe("Forma Engineering");
     // No success toast for a switch that kept the page (§36).
     await expect(page.getByRole("status").filter({ hasText: /Switched to/ })).toHaveCount(0);
@@ -330,12 +203,12 @@ test.describe("switching (§28-§37, §78-§83)", () => {
     await signIn(page, "MULTI_COMPANY", { to: "/projects" });
     await page.route("**/api/workspace", (route) => (route.request().method() === "POST" ? route.fulfill({ status: 500, body: "{}" }) : route.continue()));
     await markDocument(page);
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
 
     await expect(page.getByText("That workspace could not be opened. You are still in Aurelia Construction.", { exact: true })).toBeVisible();
     await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Aurelia Construction");
-    await expect(workspaceSwitcher(page)).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
+    await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0);
     expect(await sameDocument(page)).toBe(true);
@@ -344,7 +217,7 @@ test.describe("switching (§28-§37, §78-§83)", () => {
     expect((body.data ?? body).workspace?.companyId).toBe(AURELIA);
   });
 
-  test("the names change only once the switch has committed; meanwhile the shell stays, the switcher is busy and the content waits (§33, §34, §83)", async ({ page }) => {
+  test("the names change only once the switch has committed; meanwhile the shell stays and the content waits (§33, §34, §83)", async ({ page }) => {
     await signIn(page, "MULTI_COMPANY", { to: "/tasks" });
     let release!: () => void;
     const released = new Promise<void>((resolve) => (release = resolve));
@@ -352,28 +225,24 @@ test.describe("switching (§28-§37, §78-§83)", () => {
       if (route.request().method() === "POST") await released;
       await route.continue();
     });
-    const switcher = workspaceSwitcher(page);
-    await switcher.click();
+    await (await openWorkspaceSwitcher(page)).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
 
     await expect(page.getByTestId("workspace-switching")).toBeVisible();
     await expect(page.getByTestId("workspace-switching")).toContainText("Switching to Forma Engineering");
-    // Still the old identity, the sidebar and the top bar in view.
+    // Still the old identity, and the top bar in view; the panel closed as the switch began.
+    await expect(page.getByTestId("modules-panel")).toHaveCount(0);
     await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Aurelia Construction");
-    await expect(switcher).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
-    await expect(switcher).toHaveAttribute("aria-busy", "true");
-    await expect(page.getByRole("navigation", { name: "Main navigation" }).first()).toBeVisible();
+    await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
     const topBar = page.locator("header[data-shell-region]");
     await expect(topBar).toBeVisible();
-    // In view, and taking no input: one switch at a time, so the switcher cannot be pressed again (§34).
+    // In view, and taking no input: one switch at a time (§34).
     await expect(topBar).toHaveJSProperty("inert", true);
-    await expect(switcher).toHaveAttribute("aria-expanded", "false");
 
     release();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
     await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Forma Engineering");
-    await expect(switcher).toHaveAccessibleName(/Current workspace: Forma Engineering/);
-    await expect(switcher).not.toHaveAttribute("aria-busy");
+    await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Forma Engineering/);
     await expect(topBar).toHaveJSProperty("inert", false);
   });
 
@@ -382,7 +251,7 @@ test.describe("switching (§28-§37, §78-§83)", () => {
     const title = mainRegion(page).getByLabel("Title");
     await title.fill("Half-written task");
 
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     // The one shared question (AUD-03 §7): the popup closes, the prompt asks.
     const question = page.getByTestId("unsaved-prompt");
@@ -393,7 +262,7 @@ test.describe("switching (§28-§37, §78-§83)", () => {
     await expect(title).toHaveValue("Half-written task");
     await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Aurelia Construction");
 
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await page.getByTestId("unsaved-discard").click();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
@@ -409,18 +278,16 @@ test.describe("switching (§28-§37, §78-§83)", () => {
 
     await chooseWorkspace(page, "Forma Engineering");
     await expect(workspaceHeader(other).getByTestId("workspace-label")).toHaveText("Forma Engineering", { timeout: 20_000 });
-    await expect(workspaceSwitcher(other)).toHaveAccessibleName(/Current workspace: Forma Engineering/);
+    await expect(workspaceHeader(other)).toHaveAccessibleName(/Current workspace: Forma Engineering/);
     await other.close();
   });
 });
 
 test.describe("widths (§47-§49, §84, §85)", () => {
-  test("a phone: the top bar's header is the switch — the workspace's name and a small chevron — and its popup hangs under it, a pointer on the header (§48, §85; MOB-02 §23)", async ({ page }) => {
+  test("a phone: the logo's panel's header is the switch — the workspace's name and a small chevron — and its popup hangs under it, a pointer on the header (§48, §85; MOB-02 §23)", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-    // A phone's top bar has no room for a second control beside the header: the switcher is drawn from 768px.
-    await expect(workspaceSwitcher(page)).toBeHidden();
-    const header = page.getByTestId("mobile-context").getByTestId("organization-header");
+    const header = await openWorkspaceSwitcher(page);
     await expect(header).toHaveRole("button");
     await expect(header).toHaveAccessibleName("Switch workspace. Current workspace: Aurelia Construction.");
     await expect(header).toHaveAttribute("aria-haspopup", "dialog");
@@ -463,38 +330,35 @@ test.describe("widths (§47-§49, §84, §85)", () => {
 
     await popup.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
-    await expect(page.getByTestId("mobile-context").getByTestId("workspace-label")).toHaveText("Forma Engineering");
-    await expect(header).toHaveAccessibleName("Switch workspace. Current workspace: Forma Engineering.");
+    await expect(workspaceHeader(page).getByTestId("workspace-label")).toHaveText("Forma Engineering");
+    await expect(await openWorkspaceSwitcher(page)).toHaveAccessibleName("Switch workspace. Current workspace: Forma Engineering.");
   });
 
   test("a phone with one workspace: the header is identity only — a group, no chevron, nothing to press (§46, §48)", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    const header = page.getByTestId("mobile-context").getByTestId("organization-header");
+    await openWorkspaceSwitcher(page);
+    const header = page.getByTestId("modules-panel").getByTestId("organization-header");
     await expect(header).toHaveRole("group");
     await expect(header).toHaveAccessibleName("Current workspace: Aurelia Construction");
     await expect(header).toHaveAttribute("data-options", "single");
     await expect(header.getByTestId("workspace-label")).toHaveText("Aurelia Construction");
     await expect(header.getByTestId("organization-name")).toHaveCount(0);
     await expectNoArrow(header);
-    await expect(page.getByTestId("mobile-context").getByRole("button")).toHaveCount(0);
     await header.click();
     await expect(workspacePanel(page)).toHaveCount(0);
-    await expect(workspaceSwitcher(page)).toHaveCount(0);
   });
 
-  test("a tablet: no navigation drawer; the top bar's company switcher switches, and the phone Ribbon is the navigation", async ({ page }) => {
+  test("a tablet: no navigation drawer; the logo's panel switches, and the phone Ribbon is the navigation", async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 1180 });
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-    // From 768px the top bar carries the switcher, beside + Create; below 1024px there is no drawer trigger.
     await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(0);
     await expect(page.getByTestId("phone-tab-work")).toBeVisible();
-    await expect(workspaceSwitcher(page)).toBeVisible();
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     const popup = workspacePanel(page);
     await expect(popup.getByTestId("workspace-option").first()).toBeVisible();
     await popup.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
-    await expect(workspaceSwitcher(page)).toHaveAccessibleName("Switch workspace. Current workspace: Forma Engineering.");
+    await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Forma Engineering.");
   });
 });

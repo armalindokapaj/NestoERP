@@ -295,7 +295,7 @@ function RibbonPanel({ panel, ribbon, onGo }: { panel: Panel; ribbon: SiteCopy["
               ))}
             </ul>
           )}
-          <p className="text-center font-mono text-[9.5px] uppercase tracking-[0.14em] text-fg-subtle">{group.caption}</p>
+          <p className="text-center font-mono text-[9.5px] max-md:text-meta uppercase tracking-[0.14em] text-fg-subtle">{group.caption}</p>
         </div>
       ))}
 
@@ -313,7 +313,7 @@ function RibbonPanel({ panel, ribbon, onGo }: { panel: Panel; ribbon: SiteCopy["
             ))}
           </ul>
           <p className="px-2.5 text-meta text-fg-subtle">{ribbon.replyNote}</p>
-          <p className="text-center font-mono text-[9.5px] uppercase tracking-[0.14em] text-fg-subtle">{ribbon.groups.write}</p>
+          <p className="text-center font-mono text-[9.5px] max-md:text-meta uppercase tracking-[0.14em] text-fg-subtle">{ribbon.groups.write}</p>
         </div>
       ) : null}
 

@@ -8,7 +8,7 @@ import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { brand } from "@/config/brand";
 import { archivo, newsreader, plexMono, plexSans } from "@/lib/fonts";
 import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
-import { DESKTOP_NAV_COOKIE, PHONE_NAV_COOKIE, readDesktopNav, readPhoneNav } from "@/lib/layout/nav-layout";
+import { PHONE_NAV_COOKIE, readPhoneNav, readRibbonFolded, RIBBON_COOKIE } from "@/lib/layout/nav-layout";
 import { getLocale, getSiteCopy } from "@/lib/i18n/server";
 import { messages } from "@/lib/i18n/messages";
 import { siteUrl } from "@/lib/marketing/site-url";
@@ -75,12 +75,13 @@ export default async function RootLayout({
      and the right language. */
   const cookieStore = await cookies();
   const theme = readThemeChoice(cookieStore.get(THEME_COOKIE)?.value);
-  const desktopNav = readDesktopNav(cookieStore.get(DESKTOP_NAV_COOKIE)?.value);
+  // The desktop ribbon open or folded, so the shell's height is right on the first paint (docs/ui/UI-04-navigation-layouts.md).
+  const ribbon = readRibbonFolded(cookieStore.get(RIBBON_COOKIE)?.value) ? "folded" : "open";
   const phoneNav = readPhoneNav(cookieStore.get(PHONE_NAV_COOKIE)?.value);
   const locale = await getLocale();
 
   return (
-    <html lang={locale} data-theme={theme} data-desktop-nav={desktopNav} data-phone-nav={phoneNav}>
+    <html lang={locale} data-theme={theme} data-ribbon={ribbon} data-phone-nav={phoneNav}>
       <body className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} ${archivo.variable} antialiased`}>
         <I18nProvider locale={locale} messages={messages[locale]}>
           <SessionLifecycle />

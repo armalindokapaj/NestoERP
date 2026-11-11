@@ -32,7 +32,7 @@ export async function FocusedFormPage({ homeLabel, children }: { /** The logo li
           <Link href="/" aria-label={homeLabel} className="lg:hidden">
             <NestoLogo />
           </Link>
-          <Link href="/" className="hidden items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-fg-muted transition-colors hover:text-fg lg:inline-flex">
+          <Link href="/" className="hidden items-center gap-1.5 font-mono text-[11px] max-md:text-meta uppercase tracking-[0.12em] text-fg-muted transition-colors hover:text-fg lg:inline-flex">
             <ArrowLeft aria-hidden="true" className="size-3.5" />
             {homeLabel}
           </Link>
@@ -47,7 +47,7 @@ export async function FocusedFormPage({ homeLabel, children }: { /** The logo li
           <div className="w-full max-w-lg">{children}</div>
         </main>
         <footer className="shrink-0 px-4 py-6 sm:px-8">
-          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
+          <p className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-fg-subtle">
             © {new Date().getFullYear()} {brand.name} · {brand.version}
           </p>
         </footer>

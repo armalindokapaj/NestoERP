@@ -38,7 +38,7 @@ type Draft = Omit<ApplicationInput, "kind" | "size" | "role" | "start" | "consen
 const STEPS = Object.keys(APPLICATION_STEPS) as ApplicationStep[];
 const EMPTY: Draft = { company: "", country: "", city: "", name: "", email: "", phone: "", departments: [], projects: 1, users: 15, consent: false, website: "" };
 
-const labelClass = "font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted";
+const labelClass = "font-mono text-[10.5px] max-md:text-meta uppercase tracking-[0.12em] text-fg-muted";
 const pill = "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-line-strong px-4 text-table text-fg-muted transition-colors hover:text-fg peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-fg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring";
 
 /**
@@ -126,7 +126,7 @@ export function ApplyForm({
                     aria-current={state === "current" ? "step" : undefined}
                     className={cn("flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left", state === "done" && !received && "hover:bg-hover")}
                   >
-                    <span className={cn("grid size-7 shrink-0 place-items-center rounded-full border font-mono text-[11px]", state === "todo" ? "border-line-strong text-fg-subtle" : "border-accent text-accent-strong", state === "current" && "bg-accent-soft")}>
+                    <span className={cn("grid size-7 shrink-0 place-items-center rounded-full border font-mono text-[11px] max-md:text-meta", state === "todo" ? "border-line-strong text-fg-subtle" : "border-accent text-accent-strong", state === "current" && "bg-accent-soft")}>
                       {state === "done" ? <Check aria-hidden="true" className="size-3.5" /> : String(i + 1).padStart(2, "0")}
                     </span>
                     <span className={cn("text-table", state === "current" ? "font-semibold text-fg" : "text-fg-muted")}>{copy.steps[key]}</span>
@@ -141,7 +141,7 @@ export function ApplyForm({
           <p className="text-meta leading-relaxed text-fg-muted">
             <span className="flex items-center gap-2 font-semibold text-fg">
               {copy.notes.contractor.title}
-              <span className="rounded-full border border-accent px-1.5 font-mono text-[9px] uppercase tracking-[0.1em] text-accent-strong">{copy.notes.contractor.soon}</span>
+              <span className="rounded-full border border-accent px-1.5 font-mono text-[9px] max-md:text-meta uppercase tracking-[0.1em] text-accent-strong">{copy.notes.contractor.soon}</span>
             </span>
             {copy.notes.contractor.copy}
           </p>
@@ -169,7 +169,7 @@ export function ApplyForm({
           <section aria-labelledby="apply-done" className="flex flex-col items-start gap-6" data-testid="apply-received">
             <span className="site-stamp">
               <span className="text-[13px] font-semibold">{copy.done.stamp}</span>
-              <span className="text-[11px]">{received}</span>
+              <span className="text-[11px] max-md:text-meta">{received}</span>
             </span>
             <h1 id="apply-done" ref={headingRef} tabIndex={-1} className="text-[44px] leading-[0.95] text-fg outline-none sm:text-[64px] font-display">
               {fill(copy.done.title, { name: firstName })}
@@ -440,7 +440,7 @@ function Permit({ copy, draft, reference, estimate }: { copy: Copy; draft: Draft
         <span className="site-tb-k">{copy.permit.title}</span>
         <span className="flex items-baseline justify-between gap-3">
           <span className="font-mono text-[13px] text-fg">{copy.permit.number} {reference ?? "NST-····"}</span>
-          <span className={cn("rounded-full border px-2 font-mono text-[10px] uppercase tracking-[0.12em]", reference ? "border-accent text-accent-strong" : "border-line-strong text-fg-subtle")}>
+          <span className={cn("rounded-full border px-2 font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em]", reference ? "border-accent text-accent-strong" : "border-line-strong text-fg-subtle")}>
             {reference ? copy.permit.received : copy.permit.draft}
           </span>
         </span>

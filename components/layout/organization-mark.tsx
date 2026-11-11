@@ -40,7 +40,7 @@ export function OrganizationMark({
     <span
       aria-hidden="true"
       data-testid="organization-mark"
-      data-mark={showLogo ? "logo" : "initials"}
+      data-mark-kind={showLogo ? "logo" : "initials"}
       className={cn(
         "grid shrink-0 place-items-center overflow-hidden leading-none",
         showLogo ? "bg-surface font-semibold ring-1 ring-line" : "border border-accent bg-transparent text-accent-strong font-display",

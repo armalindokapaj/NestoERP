@@ -211,24 +211,24 @@ export async function openSection(page: Page, name: string, row?: string | RegEx
   await rows.getByRole("link", { name, exact: true }).first().click();
 }
 
-/**
- * The workspace header at the start of the desktop top bar (OW §2, §18): the
- * workspace being worked in, by its own name, and the way to its dashboard. It
- * switches nothing — that is `workspaceSwitcher`, beside it. Scoped to the
- * desktop top bar, because a phone's top bar and the tablet's navigation drawer
- * carry a header of their own, and there the header is still the switch (§48, §49).
- */
+/** Home: the company's name at the start of the top bar, the way to its Dashboard; it switches nothing. */
 export function workspaceHeader(page: Page) {
-  return page.getByTestId("topbar-home").getByTestId("organization-header");
+  return page.getByTestId("topbar-home");
 }
 
 /**
- * The company switcher in the top bar, before + Create (OW §3, §14): the
- * workspace switch from 768px up. Not rendered at all for somebody with one
- * workspace (§46); below 768px the top bar's own header switches instead.
+ * The workspace switch: the header of the logo's panel (components/layout/modules-panel.tsx),
+ * at every width. The panel must be open for it to be in view (`openWorkspaceSwitcher`).
+ * A header with nothing to switch is a plain group, not a button (OW §46).
  */
 export function workspaceSwitcher(page: Page) {
-  return page.getByTestId("workspace-switcher");
+  return page.getByTestId("modules-panel").locator('button[data-testid="organization-header"]');
+}
+
+/** Opens the logo's panel and returns its header, the workspace switch. */
+export async function openWorkspaceSwitcher(page: Page) {
+  await modulesPanel(page);
+  return workspaceSwitcher(page);
 }
 
 /** The workspace popup, however it was opened (OW §20). */
@@ -237,20 +237,17 @@ export function workspacePanel(page: Page) {
 }
 
 /**
- * Switches the workspace the way a person does: the top bar's switcher, then
- * the option (OW §3, §20). Resolves once the switcher names the new workspace:
- * it is the control in view wherever it can be pressed (the top bar's
- * workspace header is drawn from 1024px only), and its name changes only when
- * the switch has committed (§33).
+ * Switches the workspace the way a person does: the logo's panel, its header,
+ * then the option (OW §3, §20). Resolves once Home names the new workspace:
+ * the names change only when the switch has committed (§33).
  */
 export async function chooseWorkspace(page: Page, name: string | RegExp) {
-  const switcher = workspaceSwitcher(page);
-  await switcher.click();
+  await (await openWorkspaceSwitcher(page)).click();
   const panel = workspacePanel(page);
   await expect(panel.getByTestId("workspace-option").first()).toBeVisible();
   await panel.getByTestId("workspace-option").filter({ hasText: name }).first().click();
   await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
-  await expect(switcher).toHaveAccessibleName(typeof name === "string" ? new RegExp(`Current workspace: ${escapeRegExp(name)}`) : name);
+  await expect(workspaceHeader(page)).toHaveAccessibleName(typeof name === "string" ? new RegExp(`Current workspace: ${escapeRegExp(name)}`) : name);
 }
 
 function escapeRegExp(text: string) {
@@ -258,51 +255,48 @@ function escapeRegExp(text: string) {
 }
 
 /**
- * The desktop navigation: the Ribbon, the default (components/layout/ribbon.tsx;
- * docs/ui/UI-04-navigation-layouts.md). One tab per navigation group shows that
- * group's modules, and a module page adds a tab of its own sections, so a
- * module is found by pressing its group's tab first (`navigationLink`).
+ * The desktop navigation: the Ribbon in the top bar (components/layout/ribbon.tsx;
+ * docs/ui/UI-04-navigation-layouts.md). Its four tabs — Work, Sales,
+ * Procurement, Finance — show their modules; every module, Home's and
+ * Company's too, is in the logo's panel (components/layout/modules-panel.tsx),
+ * which the helpers below read.
  */
 export function mainNavigation(page: Page) {
   return page.locator("[data-ribbon]");
 }
 
-function groupTabs(page: Page) {
-  return mainNavigation(page).locator('[role="tab"]:not([data-testid="ribbon-tab-page"])');
+/** The logo's panel of every module, opened if it is not. */
+async function modulesPanel(page: Page) {
+  const panel = page.getByTestId("modules-panel");
+  if (!(await panel.isVisible())) await page.getByTestId("modules-panel-trigger").click();
+  await expect(panel).toBeVisible();
+  return panel;
 }
 
-/** Every module the Ribbon offers this person, by href, across its group tabs. */
+const PANEL_LINK = 'a[data-testid^="modules-panel-module-"]';
+
+/** Every module this person may open, by href, from the logo's panel, which is closed again. */
 export async function navigationHrefs(page: Page): Promise<string[]> {
-  const hrefs: string[] = [];
-  for (const tab of await groupTabs(page).all()) {
-    await tab.click();
-    hrefs.push(...(await mainNavigation(page).locator('a[data-testid^="ribbon-module-"]').evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""))));
-  }
+  const panel = await modulesPanel(page);
+  const hrefs = await panel.locator(PANEL_LINK).evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
+  await page.keyboard.press("Escape");
   return hrefs;
 }
 
-/** Every module the Ribbon offers this person, by name. */
+/** Every module this person may open, by name. */
 export async function navigationNames(page: Page): Promise<string[]> {
-  const names: string[] = [];
-  for (const tab of await groupTabs(page).all()) {
-    await tab.click();
-    names.push(...(await mainNavigation(page).locator('a[data-testid^="ribbon-module-"]').allInnerTexts()).map((name) => name.trim()));
-  }
+  const panel = await modulesPanel(page);
+  const names = (await panel.locator(PANEL_LINK).allInnerTexts()).map((name) => name.trim());
+  await page.keyboard.press("Escape");
   return names;
 }
 
-/** A module's button in the Ribbon, by name or href, with its group's tab pressed so it is in view. */
+/** A module's link in the logo's panel, by name or href, with the panel open so it is in view. */
 export async function navigationLink(page: Page, target: string | { href: string }) {
-  const find = () =>
-    typeof target === "string"
-      ? mainNavigation(page).locator('a[data-testid^="ribbon-module-"]').getByText(target, { exact: true }).locator("xpath=ancestor-or-self::a")
-      : mainNavigation(page).locator(`a[data-testid^="ribbon-module-"][href="${target.href}"]`);
-  if ((await find().count()) > 0) return find().first();
-  for (const tab of await groupTabs(page).all()) {
-    await tab.click();
-    if ((await find().count()) > 0) return find().first();
-  }
-  return find().first();
+  const panel = await modulesPanel(page);
+  return typeof target === "string"
+    ? panel.locator(PANEL_LINK).getByText(target, { exact: true }).locator("xpath=ancestor-or-self::a").first()
+    : panel.locator(`${PANEL_LINK}[href="${target.href}"]`).first();
 }
 
 export async function expectAccessDenied(page: Page, path: string) {

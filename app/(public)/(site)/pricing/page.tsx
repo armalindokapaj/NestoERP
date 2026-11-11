@@ -34,7 +34,7 @@ export default async function PricingPage() {
             <h1 className="mt-3 text-[40px] leading-[0.92] text-fg sm:text-[64px] font-display"><Dotted>{t.title}</Dotted></h1>
             <p className="nesto-standfirst mt-3 max-w-2xl text-[19px] leading-snug">{t.subtitle}</p>
           </div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">{t.notes}</p>
+          <p className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-fg-subtle">{t.notes}</p>
         </header>
         {pricing ? (
           <PricingWizard initialConfig={pricing} copy={t} locale={locale} />

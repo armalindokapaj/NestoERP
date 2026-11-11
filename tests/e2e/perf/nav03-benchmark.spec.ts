@@ -54,8 +54,16 @@ const PANELS = [
   { name: "search", open: (page: Page) => page.keyboard.press("Control+k"), ready: '[data-testid^="palette-"], [data-testid="search-home-empty-hints"]' },
   { name: "quick_create", open: (page: Page) => page.getByTestId("quick-create-button").click(), ready: '[data-quick-create-action], [data-testid="quick-create-empty"]' },
   { name: "activity", open: (page: Page) => page.getByTestId("notification-bell").filter({ visible: true }).click(), ready: '[data-testid="activity-item"], [data-testid="activity-empty"]' },
-  // The top bar's company switcher, drawn from 768px: a phone switches from its own header instead.
-  { name: "workspace", open: (page: Page) => page.getByTestId("workspace-switcher").click(), ready: '[data-testid="workspace-option"]', mobileSkip: true },
+  // The workspace switch: the header of the logo's panel, at every width.
+  {
+    name: "workspace",
+    open: async (page: Page) => {
+      await page.getByTestId("modules-panel-trigger").click();
+      await page.getByTestId("modules-panel").getByTestId("organization-header").click();
+    },
+    ready: '[data-testid="workspace-option"]',
+    mobileSkip: false,
+  },
 ] as const;
 
 type Stages = { core: number | null; primary: number | null; settled: number | null };

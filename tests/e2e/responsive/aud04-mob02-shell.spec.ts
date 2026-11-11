@@ -332,18 +332,19 @@ test.describe("Action Ribbon", () => {
 });
 
 test.describe("header", () => {
-  test("phone: workspace context, search and the bell; no hamburger, no account menu, no company switcher", async ({ page }) => {
+  test("phone: the logo, Home, search and the bell; no hamburger, no account menu, no company switcher", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     const header = page.locator("header[data-shell-region]");
-    await expect(header.getByTestId("mobile-context")).toBeVisible();
+    await expect(header.getByTestId("modules-panel-trigger")).toBeVisible();
+    await expect(header.getByTestId("topbar-home")).toBeVisible();
     await expect(header.getByTestId("search-trigger")).toBeVisible();
     await expect(header.getByTestId("notification-bell")).toBeVisible();
     await expect(header.getByTestId("section-menu-trigger")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
     await expect(page.getByTestId("account-trigger")).toBeHidden();
-    // The company switcher is the top bar's from 768px; a phone switches from the header itself.
-    await expect(page.getByTestId("workspace-switcher")).toBeHidden();
+    // The switch and the account are in the logo's panel (components/layout/modules-panel.tsx).
+    await expect(header.getByTestId("organization-header")).toHaveCount(0);
     expect((await header.boundingBox())!.height).toBeLessThanOrEqual(57);
     await expectTouchTargets(page, header);
     await expectNoPageOverflow(page, "header");

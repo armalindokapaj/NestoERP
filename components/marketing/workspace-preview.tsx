@@ -152,7 +152,7 @@ export async function WorkspacePreview() {
           })}
 
           <p className="nesto-eyebrow mt-4 px-2.5 pb-1 text-fg-subtle">
-            {shell("groups.department")}
+            {shell("ribbon.modules")}
           </p>
           {previewDepartmentNav.map((item) => {
             const ItemIcon = getIcon(item.icon);

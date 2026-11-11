@@ -9,7 +9,7 @@ import { Divider } from "@/components/ui/divider";
 import { requireSettingsSection } from "../settings-access";
 import { getTranslations } from "@/lib/i18n/server";
 import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
-import { DESKTOP_NAV_COOKIE, PHONE_NAV_COOKIE, readDesktopNav, readPhoneNav } from "@/lib/layout/nav-layout";
+import { PHONE_NAV_COOKIE, readPhoneNav } from "@/lib/layout/nav-layout";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("settings");
@@ -21,7 +21,6 @@ export default async function AppearanceSettingsPage() {
 
   const cookieStore = await cookies();
   const theme = readThemeChoice(cookieStore.get(THEME_COOKIE)?.value);
-  const desktopNav = readDesktopNav(cookieStore.get(DESKTOP_NAV_COOKIE)?.value);
   const phoneNav = readPhoneNav(cookieStore.get(PHONE_NAV_COOKIE)?.value);
   const t = await getTranslations("settings");
 
@@ -43,7 +42,7 @@ export default async function AppearanceSettingsPage() {
 
         <Divider className="my-5" />
 
-        <NavigationPreference desktop={desktopNav} phone={phoneNav} />
+        <NavigationPreference phone={phoneNav} />
 
         <Divider className="my-5" />
 

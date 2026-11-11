@@ -1,10 +1,9 @@
 /**
  * The NESTO module registry (PRD #7 §9, PRD #3 §44–§45, PRD #5 §51).
  *
- * Every sidebar entry, route guard, module header and set of module tabs is
+ * Every navigation entry, route guard, module header and set of module tabs is
  * derived from this file. There is one registry, consumed identically by the
- * desktop sidebar, the mobile drawer, middleware and the module shell
- * (PRD #3 §99).
+ * Ribbon, the phone navigation, middleware and the module shell (PRD #3 §99).
  *
  * Icons are stored as *names* (components/layout/nav-icon.tsx) rather than components so the file
  * stays edge-safe and serialisable across the server/client boundary.
@@ -52,7 +51,11 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
  */
 export const CORE_MODULE_KEYS = ["dashboard", "calendar", "approvals", "announcements", "people", "team", "organization", "company", "settings", "support"] as const satisfies readonly ModuleKey[];
 
-/** Sidebar groups, in render order (PRD #3 §8). */
+/**
+ * The public site's zones (app/(public)/(site)/layout.tsx), in order. The
+ * platform's own navigation — Home, Work, Sales, Procurement, Finance and
+ * Company — is config/navigation.ts.
+ */
 export const MODULE_GROUPS = ["primary", "work", "department", "company"] as const;
 export type ModuleGroup = (typeof MODULE_GROUPS)[number];
 
@@ -95,6 +98,7 @@ export type ModuleDefinition = {
   route: string;
   /** Icon name, resolved by components/layout/nav-icon.tsx. */
   icon: string;
+  /** The public site's zone. Where the module sits in the platform is config/navigation.ts. */
   group: ModuleGroup;
   /** Permission required to open any route under this module. */
   permission: Permission;

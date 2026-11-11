@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page, type Request } from "../pw";
 
 import { db, removeTestClients, removeTestTasks } from "../db";
-import { mainRegion, navigationLink, signIn, workspaceHeader, workspacePanel, workspaceSwitcher } from "../fixtures";
+import { mainRegion, navigationLink, signIn, workspaceHeader, workspacePanel, openWorkspaceSwitcher } from "../fixtures";
 
 /**
  * Unsaved work protection in the browser (AUD-03 §9).
@@ -440,7 +440,7 @@ test.describe("workspace and identity", () => {
       if (request.method() === "POST" && new URL(request.url()).pathname === "/api/workspace") switches.push(request.url());
     });
 
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(prompt(page)).toContainText("You're switching to Forma Engineering.");
     await prompt(page).getByTestId("unsaved-stay").click();
@@ -448,7 +448,7 @@ test.describe("workspace and identity", () => {
     await expect(clientName(page)).toHaveValue(name);
     expect(switches).toHaveLength(0);
 
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await prompt(page).getByTestId("unsaved-save").click();
     await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Forma Engineering/, { timeout: 20_000 });
@@ -468,7 +468,7 @@ test.describe("workspace and identity", () => {
       await route.fetch(); // the server switches…
       await route.abort("connectionreset"); // …and the answer is lost
     });
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     await workspacePanel(page).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await prompt(page).getByTestId("unsaved-discard").click();
     await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Forma Engineering/, { timeout: 20_000 });
@@ -485,7 +485,7 @@ test.describe("workspace and identity", () => {
 
     const other = await secondTab(page);
     await other.goto("/tasks");
-    await workspaceSwitcher(other).click();
+    await (await openWorkspaceSwitcher(other)).click();
     await workspacePanel(other).getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(workspaceHeader(other)).toHaveAccessibleName(/Current workspace: Forma Engineering/, { timeout: 20_000 });
 

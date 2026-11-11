@@ -305,8 +305,9 @@ function Shell({ user, permissions, devActions, children }: { user: User; permis
             <button type="button" onClick={() => setMobile(true)} aria-label={t("shell.openNavigation")} aria-expanded={mobile} data-testid="admin-menu" className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-hover active:bg-hover md:hidden"><Menu aria-hidden="true" className="size-[22px]" /></button>
           </div>
         </header>
-        <BreadcrumbBar root={{ label: t("shell.breadcrumbRoot"), href: "/admin" }} />
         <PageContainer as="main" id="nesto-main" tabIndex={-1} className="outline-none">
+          {/* Where the page is: the page head's mono line, scrolling with it, as in the company shell. */}
+          <BreadcrumbBar root={{ label: t("shell.breadcrumbRoot"), href: "/admin" }} />
           <SectionTabs permissions={permissions} />
           {children}
         </PageContainer>

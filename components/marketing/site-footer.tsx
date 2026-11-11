@@ -48,7 +48,7 @@ export async function SiteFooter() {
         <ul className="site-tb mt-14 grid-cols-2 border-r-0 border-b-0 sm:grid-cols-4">
           {block.map((cell) => (
             <li key={cell} className="site-tb-cell">
-              <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">{cell}</span>
+              <span className="font-mono text-[10.5px] max-md:text-meta uppercase tracking-[0.12em] text-fg-muted">{cell}</span>
             </li>
           ))}
         </ul>

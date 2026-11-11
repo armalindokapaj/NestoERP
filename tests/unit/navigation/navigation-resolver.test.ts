@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MODULE_KEYS, modules, type ModuleKey } from "@/config/modules";
-import { activeNavigationKey, navigationItems, resolveNavigation } from "@/config/navigation";
+import { activeNavigationKey, groupOfPath, navigationItems, navigationLayoutItems, resolveNavigation, RIBBON_TABS } from "@/config/navigation";
 import { accessibleModules, permissionsForRole } from "@/config/role-defaults";
 import { ROLE_KEYS } from "@/config/roles";
 
@@ -43,16 +43,15 @@ describe("resolveNavigation", () => {
   });
 
   it("drops a group once it has no visible modules (PRD #3 §91)", () => {
-    // Group IT has no Work-group modules beyond Tasks, Meetings, Timesheets
-    // and Documents; with those switched off the group must disappear entirely
-    // rather than render an empty heading.
-    const enabled = MODULE_KEYS.filter((key) => key !== "tasks" && key !== "meetings" && key !== "timesheets" && key !== "documents");
+    // With Sales, Clients and Contracts switched off the Sales tab must
+    // disappear entirely rather than render an empty ribbon.
+    const enabled = MODULE_KEYS.filter((key) => key !== "sales" && key !== "clients" && key !== "contracts");
     const groups = resolveNavigation({
-      permissions: permissionsForRole("GROUP_IT"),
+      permissions: permissionsForRole("OWNER"),
       enabledModules: enabled,
     });
 
-    expect(groups.map((group) => group.group)).not.toContain("work");
+    expect(groups.map((group) => group.group)).not.toContain("sales");
     for (const group of groups) {
       expect(group.items.length).toBeGreaterThan(0);
     }
@@ -68,6 +67,32 @@ describe("resolveNavigation", () => {
     for (const item of navigationFor("OWNER")) {
       expect(item.href).toBe(modules[item.module].route);
     }
+  });
+});
+
+describe("where every module lives (docs/ui/UI-04-navigation-layouts.md)", () => {
+  it("places every navigation module exactly once", () => {
+    const placed = navigationLayoutItems().map((item) => item.module);
+    const expected = MODULE_KEYS.filter((key) => modules[key].inNavigation !== false);
+    expect([...placed].sort()).toEqual([...expected].sort());
+    expect(new Set(placed).size).toBe(placed.length);
+  });
+
+  it("has four Ribbon tabs, Work first, with Home before them and Company after", () => {
+    expect(RIBBON_TABS).toEqual(["work", "sales", "procurement", "finance"]);
+    const groups = resolveNavigation({ permissions: permissionsForRole("OWNER"), enabledModules: [...MODULE_KEYS] }).map((group) => group.group);
+    expect(groups).toEqual(["primary", "work", "sales", "procurement", "finance", "company"]);
+  });
+
+  it("puts each module in its tab", () => {
+    const navigation = resolveNavigation({ permissions: permissionsForRole("OWNER"), enabledModules: [...MODULE_KEYS] });
+    expect(groupOfPath(navigation, "/dashboard")).toBe("primary");
+    expect(groupOfPath(navigation, "/projects/p1/units")).toBe("work");
+    expect(groupOfPath(navigation, "/contracts/review")).toBe("sales");
+    expect(groupOfPath(navigation, "/inventory/items")).toBe("procurement");
+    expect(groupOfPath(navigation, "/hr/leave")).toBe("finance");
+    expect(groupOfPath(navigation, "/settings/profile")).toBe("company");
+    expect(groupOfPath(navigation, "/access-denied")).toBeNull();
   });
 });
 

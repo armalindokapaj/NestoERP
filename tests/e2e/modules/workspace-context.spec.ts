@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { mainRegion, signIn, switchCompany, workspaceHeader, workspacePanel, workspaceSwitcher } from "../fixtures";
+import { mainRegion, signIn, switchCompany, workspaceHeader, workspacePanel, openWorkspaceSwitcher } from "../fixtures";
 
 /**
  * The workspace switcher and what the workspace decides (Workspace Context
@@ -25,7 +25,7 @@ test("switching to a company changes the header, the list and nothing about who 
   await expect(mainRegion(page).getByTestId("project-card").first()).toBeVisible();
   const inGroup = await mainRegion(page).getByTestId("project-card").count();
 
-  await workspaceSwitcher(page).click();
+  await (await openWorkspaceSwitcher(page)).click();
   await expect(workspacePanel(page)).toBeVisible();
   await page.getByTestId("workspace-search").fill("Aurelia");
   await page.getByTestId("workspace-option").filter({ hasText: "Aurelia Construction" }).click();
@@ -51,7 +51,7 @@ test("a company-only employee is offered no switcher (§7, §91)", async ({ page
   await expect(page.getByRole("heading", { level: 1, name: "Company overview" })).toBeVisible();
   // The top bar draws no switcher for them, then or once the chooser has streamed in (OW §46).
   await page.waitForLoadState("load");
-  await expect(workspaceSwitcher(page)).toHaveCount(0);
+  await expect(await openWorkspaceSwitcher(page)).toHaveCount(0);
   // The sidebar's header names their company and leads to its dashboard; it opens nothing.
   await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
   await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);

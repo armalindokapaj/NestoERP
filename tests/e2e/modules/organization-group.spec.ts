@@ -1,7 +1,7 @@
 import { expect, test } from "../pw";
 
 import { db } from "../db";
-import { mainRegion, signIn, workspaceHeader, workspaceSwitcher } from "../fixtures";
+import { mainRegion, signIn, workspaceHeader, openWorkspaceSwitcher } from "../fixtures";
 
 /**
  * The group, from inside it (E-06 §3.4, §65-§68, §96, §108).
@@ -23,14 +23,13 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-test("somebody in two companies switches between them from the top bar's company switcher (§3.4, §96; OW §3)", async ({ page }) => {
+test("somebody in two companies switches between them from the logo's panel (§3.4, §96; OW §3)", async ({ page }) => {
   await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
-  const switcher = workspaceSwitcher(page);
+  const switcher = await openWorkspaceSwitcher(page);
   await expect(switcher).toHaveAttribute("aria-label", /Aurelia Construction/);
   await switcher.click();
   await page.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
-  await expect(switcher).toHaveAttribute("aria-label", /Forma Engineering/);
-  // The sidebar's header names the company now worked in.
+  // Home names the company now worked in.
   await expect(workspaceHeader(page)).toHaveAttribute("aria-label", /Forma Engineering/);
   await expect(page).toHaveURL(/\/dashboard$/);
 
@@ -41,10 +40,11 @@ test("somebody in two companies switches between them from the top bar's company
 test("somebody with one company and no group standing is offered no switch", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
   await expect(page.getByRole("heading", { level: 1, name: "Company overview" })).toBeVisible();
-  // Not a switcher drawn and disabled: none at all, once the chooser has streamed in too (OW §46).
+  // Not a switch drawn and disabled: the logo's panel's header is identity only, once the chooser has streamed in too (OW §46).
   await page.waitForLoadState("load");
-  await expect(workspaceSwitcher(page)).toHaveCount(0);
-  // The sidebar's header names the company and leads to its dashboard; nothing in it is pressed to switch.
+  await expect(await openWorkspaceSwitcher(page)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  // Home names the company and leads to its dashboard; nothing in it is pressed to switch.
   await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
   await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);
 });

@@ -64,7 +64,7 @@ export function PriceBook({ config, copy, locale }: { config: PublicPricingConfi
           <td colSpan={4} className="border border-fg bg-accent-soft px-3.5 py-3">
             <div id="offer" className="flex scroll-mt-32 flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
               {offer ? <span className="text-body font-medium text-fg">{offerSentence(offer, copy)}</span> : <span />}
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">{fill(copy.footnote, { version: config.pricingVersion })}</span>
+              <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-fg-subtle">{fill(copy.footnote, { version: config.pricingVersion })}</span>
             </div>
           </td>
         </tr>

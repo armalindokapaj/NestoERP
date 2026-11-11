@@ -43,9 +43,9 @@ export function ContextTabsFrame({
   /** Below lg only: the context's own compact header, at the start of the row. Its own classes say where it shows (it carries `lg:hidden` or narrower). */
   lead?: React.ReactNode;
   /**
-   * The module's own sections (ModuleTabs). With the desktop Ribbon they are
-   * the Ribbon's tab for the page you are on, so from `lg` the row steps aside
-   * (`data-module-row`, styles/globals.css; docs/ui/UI-04-navigation-layouts.md).
+   * The module's own sections (ModuleTabs). The row stays under the page's
+   * title, and from `lg` the Ribbon also draws them first in the module's tab
+   * (`data-module-row`; docs/ui/UI-04-navigation-layouts.md).
    */
   moduleRow?: boolean;
 }) {

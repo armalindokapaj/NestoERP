@@ -37,14 +37,15 @@ type HeaderDrawing = { root: string; row: string; text: string; title: string; s
  * The drawing of each kind: a plain page, a module, a record, a record's
  * sub-page and the settings heading (docs/ui/UI-03-nesto-theme.md §5): every
  * title in the display face, and the line under a page's or a module's title
- * as an italic standfirst.
+ * as an italic standfirst. A page's or a module's title is 48px from md and
+ * ends in the homepage's gold square (styles/globals.css, `data-page-title`).
  */
 const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
   page: {
     root: "nesto-rule pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0 flex-1 max-md:basis-full",
-    title: "text-page text-fg md:text-display [overflow-wrap:anywhere] font-display",
+    title: "text-page text-fg md:text-[3rem] md:leading-none md:tracking-(--nesto-tracking-display) [overflow-wrap:anywhere] font-display",
     subtitle: "mt-1.5 text-fg-muted nesto-standfirst text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: FACTS,
@@ -53,7 +54,7 @@ const DRAWING: Record<PageHeaderKind, HeaderDrawing> = {
     root: "nesto-rule pb-5",
     row: "flex flex-wrap items-start justify-between gap-3",
     text: "min-w-0 flex-1 max-md:basis-full",
-    title: "text-page text-fg [overflow-wrap:anywhere] font-display md:text-display md:tracking-(--nesto-tracking-display)",
+    title: "text-page text-fg [overflow-wrap:anywhere] font-display md:text-[3rem] md:leading-none md:tracking-(--nesto-tracking-display)",
     subtitle: "mt-1.5 text-fg-muted nesto-standfirst text-card",
     status: "mt-2.5 flex flex-wrap items-center gap-2",
     meta: FACTS,

@@ -4,59 +4,39 @@ import * as React from "react";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useRouter } from "@/components/navigation/guarded-router";
-import {
-  DESKTOP_NAV_CHOICES,
-  DESKTOP_NAV_COOKIE,
-  PHONE_NAV_CHOICES,
-  PHONE_NAV_COOKIE,
-  type DesktopNav,
-  type PhoneNav,
-} from "@/lib/layout/nav-layout";
+import { PHONE_NAV_CHOICES, PHONE_NAV_COOKIE, type PhoneNav } from "@/lib/layout/nav-layout";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * Settings › Appearance: the navigation layout for a desktop and for a phone
- * (docs/ui/UI-04-navigation-layouts.md). Each choice is written to its cookie
- * and to `<html>`, and the shell is drawn again by the server, so the new
- * layout replaces the old one at once and is already right on the next page.
+ * Settings › Appearance: the navigation layout for a phone
+ * (docs/ui/UI-04-navigation-layouts.md). A desktop has one, the top bar's
+ * Ribbon. The choice is written to its cookie and to `<html>`, and the shell
+ * is drawn again by the server, so the new layout replaces the old one at
+ * once and is already right on the next page.
  */
-export function NavigationPreference({ desktop, phone }: { desktop: DesktopNav; phone: PhoneNav }) {
+export function NavigationPreference({ phone }: { phone: PhoneNav }) {
   const t = useTranslations("settings");
   const router = useRouter();
 
-  function save(cookie: string, attribute: "desktopNav" | "phoneNav", value: string) {
-    document.cookie = `${cookie}=${value}; path=/; max-age=31536000; samesite=lax`;
-    document.documentElement.dataset[attribute] = value;
+  function save(value: PhoneNav) {
+    document.cookie = `${PHONE_NAV_COOKIE}=${value}; path=/; max-age=31536000; samesite=lax`;
+    document.documentElement.dataset.phoneNav = value;
     router.refresh();
   }
 
   return (
-    <div className="space-y-6">
-      <LayoutChoice
-        title={t("appearance.desktopNav")}
-        hint={t("appearance.desktopNavHint")}
-        choices={DESKTOP_NAV_CHOICES}
-        initial={desktop}
-        testId="desktop-nav"
-        labelOf={(value) => t(`appearance.desktopNavs.${value}.label`)}
-        hintOf={(value) => t(`appearance.desktopNavs.${value}.hint`)}
-        defaultLabel={t("appearance.defaultChoice")}
-        preview={(value) => <DesktopPreview value={value} />}
-        onSelect={(value) => save(DESKTOP_NAV_COOKIE, "desktopNav", value)}
-      />
-      <LayoutChoice
-        title={t("appearance.phoneNav")}
-        hint={t("appearance.phoneNavHint")}
-        choices={PHONE_NAV_CHOICES}
-        initial={phone}
-        testId="phone-nav"
-        labelOf={(value) => t(`appearance.phoneNavs.${value}.label`)}
-        hintOf={(value) => t(`appearance.phoneNavs.${value}.hint`)}
-        defaultLabel={t("appearance.defaultChoice")}
-        preview={(value) => <PhonePreview value={value} />}
-        onSelect={(value) => save(PHONE_NAV_COOKIE, "phoneNav", value)}
-      />
-    </div>
+    <LayoutChoice
+      title={t("appearance.phoneNav")}
+      hint={t("appearance.phoneNavHint")}
+      choices={PHONE_NAV_CHOICES}
+      initial={phone}
+      testId="phone-nav"
+      labelOf={(value) => t(`appearance.phoneNavs.${value}.label`)}
+      hintOf={(value) => t(`appearance.phoneNavs.${value}.hint`)}
+      defaultLabel={t("appearance.defaultChoice")}
+      preview={(value) => <PhonePreview value={value} />}
+      onSelect={save}
+    />
   );
 }
 
@@ -151,36 +131,7 @@ function LayoutChoice<T extends string>({
   );
 }
 
-/* Small drawings of each layout: the shape of the screen, not a screenshot. */
-
-function DesktopPreview({ value }: { value: DesktopNav }) {
-  return (
-    <span className="relative block h-16 w-24 overflow-hidden rounded-md border border-line-strong bg-canvas">
-      <span className="absolute inset-x-0 top-0 h-2 border-b border-line bg-surface" />
-      {value === "ribbon" ? (
-        <span className="absolute inset-x-0 top-2 flex h-4 items-center gap-1 border-b border-line bg-surface px-1.5">
-          <span className="h-2 w-2 rounded-[2px] bg-accent" />
-          <span className="h-2 w-2 rounded-[2px] bg-fg-subtle/50" />
-          <span className="h-2 w-2 rounded-[2px] bg-fg-subtle/50" />
-          <span className="h-2 w-2 rounded-[2px] bg-fg-subtle/50" />
-          <span className="h-2 w-2 rounded-[2px] bg-fg-subtle/50" />
-        </span>
-      ) : (
-        <span className="absolute bottom-1.5 left-1/2 flex h-3 -translate-x-1/2 items-center gap-1 rounded-full border border-line bg-surface px-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          <span className="h-1.5 w-1.5 rounded-full bg-fg-subtle/50" />
-          <span className="h-1.5 w-1.5 rounded-full bg-fg-subtle/50" />
-          <span className="h-1.5 w-1.5 rounded-full bg-fg-subtle/50" />
-        </span>
-      )}
-      <span className={cn("absolute left-2 right-2 space-y-1", value === "ribbon" ? "top-8" : "top-4")}>
-        <span className="block h-1 w-1/2 rounded-full bg-fg-subtle/40" />
-        <span className="block h-1 w-3/4 rounded-full bg-fg-subtle/25" />
-        <span className="block h-1 w-2/3 rounded-full bg-fg-subtle/25" />
-      </span>
-    </span>
-  );
-}
+/* A small drawing of each layout: the shape of the screen, not a screenshot. */
 
 function PhonePreview({ value }: { value: PhoneNav }) {
   return (

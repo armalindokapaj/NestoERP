@@ -154,12 +154,14 @@ async function slotStates(page: Page, prefix: string) {
   await page.goto("/tasks", { waitUntil: "commit" });
   await expect(mainRegion(page).locator("h1").first()).toBeVisible();
   // The workspace switch is drawn from the verified core at once; only its options are pending (OW §57).
-  // It is the top bar's company switcher from 768px, and the top bar's own header on a phone.
-  const switcher = page.viewportSize()!.width < 768 ? page.getByTestId("mobile-context").getByTestId("organization-header") : page.getByTestId("workspace-switcher");
+  // It is the header of the logo's panel, at every width.
+  const switcher = page.getByTestId("modules-panel").getByTestId("organization-header");
+  await page.getByTestId("modules-panel-trigger").click();
   await expect(switcher).toHaveAttribute("data-options", "pending");
   await shot(page, `${prefix}-01-slots-pending`);
   await rules("workspaces=0:fail,banner=0:fail");
   await page.goto("/tasks");
+  await page.getByTestId("modules-panel-trigger").click();
   await expect(switcher).toHaveAttribute("data-options", "failed");
   await expect(page.getByTestId("critical-banner-failed")).toBeVisible();
   await switcher.click();

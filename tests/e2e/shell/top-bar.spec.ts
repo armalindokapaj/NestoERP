@@ -8,8 +8,8 @@ import { mainRegion, signIn } from "../fixtures";
  * The top bar's three personal surfaces, desktop: search home and My Work
  * (Fast Re-entry §200-§205, §218, §222), `+ Create` (Quick Create §166, §171,
  * §182, §183) and the Activity Center bell (Activity Center §195-§200, §212-§215).
- * And where their panels open: every one starts on the breadcrumb bar's top
- * line (lib/layout/topbar-line.ts).
+ * And where their panels open: every one starts on the lower edge of the top
+ * bar's row (lib/layout/topbar-line.ts).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -120,17 +120,17 @@ test("Announcements is no longer a sidebar item; its reader page lands in the Ac
   await expect(page).toHaveURL(/\/activity\?type=announcements/);
 });
 
-test("every panel opened from the top bar starts on the breadcrumb bar's top line; search is a centred third of the page", async ({ page }) => {
+test("every panel opened from the top bar starts on its row's lower edge; search is a centred third of the page", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/tasks" });
   await expect(mainRegion(page).locator("h1").first()).toBeVisible();
-  const bar = page.locator("[data-shell-breadcrumb]");
-  // The line, and the content box panels line up with: the breadcrumb bar's, inside its gutters.
+  const bar = page.locator("[data-topbar-row]");
+  // The line, and the content box panels line up with: the bar's row, inside its gutters.
   const { line, left, right } = await bar.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
-    return { line: rect.top, left: rect.left + parseFloat(style.paddingLeft), right: rect.right - parseFloat(style.paddingRight) };
+    return { line: rect.bottom, left: rect.left + parseFloat(style.paddingLeft), right: rect.right - parseFloat(style.paddingRight) };
   });
-  expect(line).toBe(64);
+  expect(Math.round(line)).toBe(63);
   /** Where a panel rests: placed a frame after it mounts, and search travels out of its icon first. */
   const placed = async (panel: Locator) => {
     await expect(panel).toBeVisible();
@@ -139,11 +139,12 @@ test("every panel opened from the top bar starts on the breadcrumb bar's top lin
     return (await panel.boundingBox())!;
   };
 
-  // + Create opens below its button and to the right of it, never back under the sidebar.
+  // + Create opens below its button, its right edge on the button's: Create sits at the bar's right.
   const create = page.getByTestId("quick-create-button");
   await create.click();
   const menu = await placed(page.getByTestId("quick-create-panel"));
-  expect(Math.abs(menu.x - (await create.boundingBox())!.x)).toBeLessThanOrEqual(1);
+  const button = (await create.boundingBox())!;
+  expect(Math.abs(menu.x + menu.width - (button.x + button.width))).toBeLessThanOrEqual(1);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("quick-create-panel")).toHaveCount(0);
 

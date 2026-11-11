@@ -129,12 +129,15 @@ describe("one theme", () => {
 });
 
 describe("the shell's geometry", () => {
-  it("the sidebar, header, breadcrumb bar and context tabs are the sizes the shell is built on", () => {
+  it("the top bar, the Ribbon and context tabs are the sizes the shell is built on; the breadcrumb is in the page", () => {
     expect(px(cssVar(tokensCss, "nesto-sidebar-width"))).toBe(240);
     expect(px(cssVar(tokensCss, "nesto-sidebar-width-collapsed"))).toBe(72);
-    expect(px(cssVar(globalsCss, "nesto-shell-header-h"))).toBe(56);
-    expect(globalsCss).toMatch(/@media \(min-width: 768px\) \{\s*:root \{\s*--nesto-shell-header-h: 4rem;/);
-    expect(px(cssVar(globalsCss, "nesto-shell-breadcrumb-h"))).toBe(40);
+    expect(px(cssVar(globalsCss, "nesto-topbar-row-h"))).toBe(56);
+    expect(globalsCss).toMatch(/@media \(min-width: 768px\) \{\s*:root \{\s*--nesto-topbar-row-h: 4rem;/);
+    expect(cssVar(globalsCss, "nesto-shell-header-h")).toBe("var(--nesto-topbar-row-h)");
+    // From lg the open ribbon adds its 104px under the bar (docs/ui/UI-04-navigation-layouts.md).
+    expect(px(cssVar(globalsCss, "nesto-ribbon-body-h"))).toBe(104);
+    expect(px(cssVar(globalsCss, "nesto-shell-breadcrumb-h"))).toBe(0);
     expect(px(cssVar(tokensCss, "nesto-shell-tab-row-h"))).toBe(46);
   });
 

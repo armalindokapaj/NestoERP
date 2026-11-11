@@ -28,13 +28,20 @@ function belowLg(page: Page) {
   return page.viewportSize()!.width < 1024;
 }
 
-/** A phone (below md): the workspace header is the top bar's context line; a tablet switches from the top bar's company switcher. */
+/** A phone (below md). */
 function phone(page: Page) {
   return page.viewportSize()!.width < 768;
 }
 
+/** The workspace switch: the header of the logo's panel, which is opened first. */
+async function workspaceSwitch(page: Page) {
+  if (!(await page.getByTestId("modules-panel").isVisible())) await page.getByTestId("modules-panel-trigger").click();
+  return page.getByTestId("modules-panel").getByTestId("organization-header");
+}
+
+/** Home, the workspace's name in the top bar. */
 function workspaceHeader(page: Page) {
-  return page.getByTestId("mobile-context").getByTestId("organization-header");
+  return page.getByTestId("topbar-home");
 }
 
 /**
@@ -100,7 +107,7 @@ test.describe("AUD-04 top bar below 1024px (MW-02)", () => {
 
 test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!phone(page), "the header is the workspace switch on a phone only; a tablet switches from the top bar's company switcher (shell/organization-header.spec.ts)");
+    test.skip(!phone(page), "a phone's switch; the logo's panel switches at every width (shell/organization-header.spec.ts)");
   });
 
   test("the header's workspace popup switches with AUD-03 Stay and Discard, and the full name stays accessible", async ({ page }) => {
@@ -115,7 +122,7 @@ test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
     });
 
     const choose = async () => {
-      const header = workspaceHeader(page);
+      const header = await workspaceSwitch(page);
       // Truncated on screen, whole in the accessible name and the title (§4).
       await expect(header).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
       await expect(header).toHaveAttribute("title", /Aurelia Construction/);

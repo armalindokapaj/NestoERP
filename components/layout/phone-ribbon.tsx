@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Building2, ExternalLink, Home, Landmark, Layers3, LogOut, NestoProjects, Plus, RefreshCw, Settings, type IconComponent } from "@/components/icons";
+import { Building2, ExternalLink, Handshake, Home, Layers3, LogOut, NestoFinance, NestoProcurement, NestoProjects, Plus, RefreshCw, Settings, type IconComponent } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
@@ -14,7 +14,7 @@ import { useSectionLevels } from "@/components/navigation/section-registry";
 import { hasCurrentSection, menuLevels, pageNameFrom, pillFor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
 import { Avatar } from "@/components/ui/avatar";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
-import { isNavigationItemActive, type NavigationGroup, type NavigationItem } from "@/config/navigation";
+import { isNavigationItemActive, type NavigationGroup, type NavigationGroupKey, type NavigationItem } from "@/config/navigation";
 import { projectIdFrom } from "@/lib/navigation/phone";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { requestPageRefresh } from "@/lib/navigation/refresh-event";
@@ -24,8 +24,10 @@ import { cn } from "@/lib/utils/cn";
  * What the two phone navigations share (docs/ui/UI-04-navigation-layouts.md):
  * the Pocket Ribbon (pocket-ribbon.tsx, the default) and the Action Ribbon
  * (action-ribbon.tsx). Both are the desktop Ribbon brought to the phone — the
- * same tabs (Home, Work, Department, Company, and This page), their modules as
- * large tiles — with Units and Create one tap away from anywhere.
+ * same four tabs (Work, Sales, Procurement, Finance) and This page, their
+ * modules as large tiles — with Units and Create one tap away from anywhere.
+ * Home is the company name in the top bar, and Home, Company and you are in the
+ * logo's panel (components/layout/modules-panel.tsx).
  */
 
 /**
@@ -43,19 +45,21 @@ export type PhoneAccount = {
   workspaceName: string;
 };
 
-export type PhoneTab = NavigationGroup["group"] | "page";
+export type PhoneTab = NavigationGroupKey | "page";
 
-export const GROUP_ICONS: Record<NavigationGroup["group"], IconComponent> = {
+export const GROUP_ICONS: Record<NavigationGroupKey, IconComponent> = {
   primary: Home,
   work: NestoProjects,
-  department: Landmark,
+  sales: Handshake,
+  procurement: NestoProcurement,
+  finance: NestoFinance,
   company: Building2,
 };
 
 /** The tab's name, as the desktop Ribbon names it. */
 export function useGroupLabel() {
   const t = useTranslations("shell");
-  return (group: NavigationGroup["group"]) => (group === "primary" ? t("ribbon.home") : t(`groups.${group}`));
+  return (group: NavigationGroupKey) => t(`groups.${group}`);
 }
 
 /** Closes whatever is open after a navigation, and when a tablet turns to landscape (from lg the phone bar is gone). */
@@ -229,7 +233,7 @@ function ModuleTile({ item, active, onDone }: { item: NavigationItem; active: bo
 /* Account                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** You, under the Company tab: the profile, Settings, Refresh, the theme and Logout. */
+/** You, at the foot of the logo's panel on a phone: the profile, Settings, Refresh, the theme and Logout. */
 export function AccountBlock({ account, onDone }: { account: PhoneAccount; onDone: () => void }) {
   const t = useTranslations("shell");
   const { signOut, signingOut } = useSignOut(onDone);

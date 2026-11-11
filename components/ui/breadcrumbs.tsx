@@ -218,8 +218,9 @@ function Separator() {
 
 /**
  * A page names where it is (Sticky Navigation §23-§25). It draws nothing itself:
- * the trail is handed to the shell's one sticky bar under the top bar, so every
- * page has the same breadcrumb, in the same place, whatever its layout.
+ * the trail is handed to the shell's one breadcrumb line, at the top of the
+ * page, so every page has the same breadcrumb, in the same place, whatever its
+ * layout.
  * `className` and `maxVisible` are kept for existing callers and ignored.
  */
 export function Breadcrumbs({ items, level = "page" }: { items: Crumb[]; className?: string; maxVisible?: number; level?: "layout" | "page" }) {
@@ -228,10 +229,12 @@ export function Breadcrumbs({ items, level = "page" }: { items: Crumb[]; classNa
 }
 
 /**
- * The sticky breadcrumb bar (Sticky Navigation §3-§8, §19-§22): directly under
- * the top bar, smaller than it, on every signed-in page. Group and company come
- * from the session's workspace, the module from the route; the rest is the trail
- * the page registered. A page that names none still says where it is.
+ * The breadcrumb line (Sticky Navigation §3-§8, §19-§22): the page head's mono
+ * line, at the top of every signed-in page, above its title, scrolling with it,
+ * with Back and Forward before it. Group and company come from the session's
+ * workspace, the module from the route; the rest is the trail the page
+ * registered. A page that names none still says where it is. Not on a phone,
+ * where Back is the system's and the phone Ribbon names the page.
  */
 export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
   const registered = useRegisteredBreadcrumbs();
@@ -319,7 +322,7 @@ export function BreadcrumbBar({ root }: { root?: Crumb } = {}) {
     <div
       data-testid="record-navigation-header"
       data-shell-breadcrumb
-      className="max-sm:hidden sticky top-[var(--nesto-shell-header-h)] z-[var(--nesto-z-shell-breadcrumb)] flex h-[var(--nesto-shell-breadcrumb-h)] items-center gap-2 border-b border-line bg-canvas pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] xl:px-8"
+      className="-ml-1.5 -mt-2 mb-3 flex min-h-8 items-center gap-1.5 max-sm:hidden"
     >
       <div role="group" className="flex shrink-0 items-center" aria-label={t("historyNavigation")}>
         <HistoryButton

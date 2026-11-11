@@ -133,25 +133,47 @@ export const en = {
       groups: { GENERAL: "General", PROJECTS: "Projects", SALES: "Sales", FINANCE: "Finance", PROCUREMENT: "Procurement", DOCUMENTS: "Documents", QAQC: "QA/QC", HSE: "HSE" },
       actions: { tasks_task_create: "Task", meetings_meeting_create: "Meeting", documents_document_create: "Document", projects_project_create: "Project", projects_daily_log_create: "Daily log", clients_client_create: "Client", sales_opportunity_create: "Opportunity", finance_invoice_create: "Invoice", finance_expense_create: "Expense", procurement_purchase_request_create: "Purchase request", qaqc_ncr_create: "NCR", hse_incident_create: "HSE incident", hse_hazard_create: "HSE hazard" },
     },
+    /** The navigation's groups (config/navigation.ts): Home, the four Ribbon tabs, Company. */
     groups: {
+      primary: "Home",
       work: "Work",
-      department: "Department",
+      sales: "Sales",
+      procurement: "Procurement",
+      finance: "Finance",
       company: "Company",
     },
-    /** The desktop Ribbon (components/layout/ribbon.tsx). */
+    /** The top bar's Ribbon (components/layout/ribbon.tsx). */
     ribbon: {
       label: "Ribbon",
       home: "Home",
-      /** Above the tab the page you are on adds, as Office marks its contextual tabs. */
+      /** On the phone, the section you are on, which opens the page's sections. */
       thisPage: "This page",
       sections: "Sections",
       modules: "Modules",
+      fold: "Fold the ribbon",
+      /** The captions under the Ribbon's sets of modules. */
+      sets: {
+        home: "Home",
+        projects: "Projects",
+        site: "Site",
+        quality: "Quality and safety",
+        files: "Files",
+        sell: "Sell",
+        legal: "Legal",
+        buy: "Buy",
+        stock: "Stock",
+        money: "Money",
+        people: "People",
+        company: "Company",
+      },
     },
-    /** The desktop Dock (components/layout/desktop-dock.tsx). */
-    dock: {
-      label: "Main navigation",
-      home: "Home",
-      departments: "Departments",
+    /** The logo's panel: every module, by group (components/layout/modules-panel.tsx). */
+    modulesPanel: {
+      open: "All modules",
+      title: "All modules",
+      close: "Close",
+      find: "Find a module",
+      noMatch: "No module matches.",
     },
     /** The phone navigation: the Pocket Ribbon and the Action Ribbon (components/layout/phone-ribbon.tsx). */
     phone: {
@@ -298,6 +320,7 @@ export const en = {
     recent: "Recent",
     placeholder: "Search projects, tasks, people or documents…",
     dialogTitle: "Search NESTO",
+    trigger: "Search…",
     hint: "Type at least two characters to search records you can open.",
     searching: "Searching…",
     noResults: "Nothing you can open matches “{query}”.",
@@ -481,12 +504,6 @@ export const en = {
     },
 
     appearance: {
-      desktopNav: "Desktop navigation",
-      desktopNavHint: "How you move around Nesto on a computer. This browser keeps your choice.",
-      desktopNavs: {
-        ribbon: { label: "Ribbon", hint: "Tabs under the top bar, like Office. The page you are on adds its own tab." },
-        dock: { label: "Dock", hint: "Tabs along the bottom. Each one opens its own menu." },
-      },
       phoneNav: "Phone navigation",
       phoneNavHint: "How you move around Nesto on a phone or a tablet held upright.",
       phoneNavs: {

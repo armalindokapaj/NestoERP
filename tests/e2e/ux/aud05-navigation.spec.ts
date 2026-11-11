@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "../pw";
 
-import { chooseWorkspace, mainRegion, mainNavigation, navigationHrefs, navigationLink, signIn, type DemoRole, workspaceHeader, workspaceSwitcher } from "../fixtures";
+import { chooseWorkspace, mainRegion, mainNavigation, navigationHrefs, navigationLink, signIn, type DemoRole, workspaceHeader, openWorkspaceSwitcher } from "../fixtures";
 
 /**
  * AUD-05 §3, §4, §7, §8 — navigation and first-time orientation, per
@@ -126,9 +126,9 @@ test.describe("Daily Logs is marked current (UX-03)", () => {
   test("on /daily-logs and below, where the key never matched the route", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/daily-logs" });
     await expect(mainNavigation(page)).toHaveAttribute("data-current-label", "Daily Logs");
-    // The module's sections are the Ribbon's tab for this page (docs/ui/UI-04-navigation-layouts.md).
-    await expect(mainNavigation(page).getByTestId("ribbon-tab-page")).toHaveText("Daily Logs");
-    await expect(mainNavigation(page).getByTestId("ribbon-panel").locator('[aria-current="page"]')).toHaveCount(1);
+    // Daily Logs is in Work: that tab is open, the module marked in it, its sections first (docs/ui/UI-04-navigation-layouts.md).
+    await expect(mainNavigation(page).getByTestId("ribbon-tab-work")).toHaveAttribute("aria-selected", "true");
+    await expect(mainNavigation(page).getByTestId("ribbon-panel").locator('[data-testid="ribbon-module-dailyLogs"][aria-current="page"]')).toHaveCount(1);
   });
 });
 
@@ -189,7 +189,7 @@ test.describe("workspace fallback (UX-05)", () => {
     const before = (await workspaceHeader(page).getByTestId("workspace-label").innerText()).trim();
     expect(before).not.toBe("");
 
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     const option = page.getByTestId("workspace-panel").getByTestId("workspace-option").filter({ hasNotText: before });
     const target = (await option.first().innerText()).split("\n")[0].trim();
     await page.keyboard.press("Escape");
@@ -205,7 +205,7 @@ test.describe("workspace fallback (UX-05)", () => {
     // No stale workspace name anywhere in the shell: the sidebar's header, the top bar's switcher, the breadcrumb.
     await expect(workspaceHeader(page)).toHaveAccessibleName(new RegExp(target));
     await expect(workspaceHeader(page)).not.toContainText(before);
-    expect(await workspaceSwitcher(page).getAttribute("aria-label")).not.toContain(before);
+    expect(await (await openWorkspaceSwitcher(page)).getAttribute("aria-label")).not.toContain(before);
     const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
     if (await breadcrumb.count()) await expect(breadcrumb).not.toContainText(before);
   });

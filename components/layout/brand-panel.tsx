@@ -25,7 +25,7 @@ export async function BrandPanel({ tagline }: { tagline?: string }) {
           {tAuth("brandHeadline")}
           <span className="block text-[#c9a961]">{tAuth("brandHeadlineAccent")}</span>
         </p>
-        <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.16em] text-[#e8e4da]/60">
+        <p className="mt-5 font-mono text-[11px] max-md:text-meta uppercase tracking-[0.16em] text-[#e8e4da]/60">
           {tagline ?? brand.signoff.join(" · ")}
         </p>
       </div>

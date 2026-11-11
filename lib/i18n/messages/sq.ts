@@ -123,8 +123,11 @@ export const sq: Messages = {
       actions: { tasks_task_create: "Detyrë", meetings_meeting_create: "Takim", documents_document_create: "Dokument", projects_project_create: "Projekt", projects_daily_log_create: "Ditar ditor", clients_client_create: "Klient", sales_opportunity_create: "Mundësi", finance_invoice_create: "Faturë", finance_expense_create: "Shpenzim", procurement_purchase_request_create: "Kërkesë blerjeje", qaqc_ncr_create: "NCR", hse_incident_create: "Incident HSE", hse_hazard_create: "Rrezik HSE" },
     },
     groups: {
+      primary: "Kreu",
       work: "Puna",
-      department: "Departamenti",
+      sales: "Shitjet",
+      procurement: "Prokurimi",
+      finance: "Financa",
       company: "Kompania",
     },
     ribbon: {
@@ -133,11 +136,28 @@ export const sq: Messages = {
       thisPage: "Kjo faqe",
       sections: "Seksionet",
       modules: "Modulet",
+      fold: "Palos shiritin",
+      sets: {
+        home: "Kreu",
+        projects: "Projektet",
+        site: "Kantieri",
+        quality: "Cilësia dhe siguria",
+        files: "Dosjet",
+        sell: "Shitja",
+        legal: "Ligjore",
+        buy: "Blerja",
+        stock: "Magazina",
+        money: "Paratë",
+        people: "Njerëzit",
+        company: "Kompania",
+      },
     },
-    dock: {
-      label: "Navigimi kryesor",
-      home: "Kreu",
-      departments: "Departamentet",
+    modulesPanel: {
+      open: "Të gjitha modulet",
+      title: "Të gjitha modulet",
+      close: "Mbyll",
+      find: "Gjej një modul",
+      noMatch: "Asnjë modul nuk përputhet.",
     },
     phone: {
       label: "Shiriti",
@@ -277,6 +297,7 @@ export const sq: Messages = {
     recent: "Së fundmi",
     placeholder: "Kërkoni projekte, detyra, persona ose dokumente…",
     dialogTitle: "Kërko në NESTO",
+    trigger: "Kërko…",
     hint: "Shkruani të paktën dy shkronja për të kërkuar regjistrat që mund të hapni.",
     searching: "Duke kërkuar…",
     noResults: "Asgjë që mund të hapni nuk përputhet me “{query}”.",
@@ -461,12 +482,6 @@ export const sq: Messages = {
     },
 
     appearance: {
-      desktopNav: "Navigimi në kompjuter",
-      desktopNavHint: "Si lëvizni nëpër Nesto në kompjuter. Ky shfletues e mban zgjedhjen tuaj.",
-      desktopNavs: {
-        ribbon: { label: "Shiriti", hint: "Skeda nën shiritin e sipërm, si në Office. Faqja ku ndodheni shton skedën e vet." },
-        dock: { label: "Doku", hint: "Skeda përgjatë fundit të ekranit. Secila hap menunë e vet." },
-      },
       phoneNav: "Navigimi në telefon",
       phoneNavHint: "Si lëvizni nëpër Nesto në telefon ose në tablet të mbajtur drejt.",
       phoneNavs: {

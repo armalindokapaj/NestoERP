@@ -546,10 +546,10 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         <span className="hidden md:inline">{t("quickCreate.create")}</span>
       </button>
 
-      {/* From md up the panel opens to the right of the button — never back under the sidebar — and starts on
-          the breadcrumb bar's top line, like every panel opened from the top bar (lib/layout/topbar-line.ts).
-          The wrapper is centred in the bar above its 1px rule, so half its height plus half the bar's, and
-          half that rule, is the bar's lower edge.
+      {/* From md up the panel opens under the button, its right edge on the button's — Create sits at the bar's
+          right — and starts on the bar's lower edge, like every panel opened from the top bar
+          (lib/layout/topbar-line.ts). The wrapper is centred in the bar's row, so half its height plus half
+          the row's is the row's lower edge.
           Below md the button is the bottom bar's Create: the panel is a bubble of glass floating above the
           bar, its pointer on that button. On a touch tablet it hangs under the top bar's button the same way. */}
       {open ? (
@@ -559,7 +559,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
-          className="nesto-popup-glass fixed inset-x-3 bottom-[max(calc(var(--nesto-safe-bottom)+0.75rem),calc(var(--nesto-bottom-nav-space)-0.875rem))] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-var(--nesto-bottom-nav-space)-4.5rem))] max-w-md flex-col border border-line bg-surface shadow-xl outline-none md:absolute md:inset-auto md:left-0 md:top-[calc(50%+var(--nesto-shell-header-h)/2+0.5px)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3 rounded-[14px] shadow-menu"
+          className="nesto-popup-glass fixed inset-x-3 bottom-[max(calc(var(--nesto-safe-bottom)+0.75rem),calc(var(--nesto-bottom-nav-space)-0.875rem))] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-var(--nesto-bottom-nav-space)-4.5rem))] max-w-md flex-col border border-line bg-surface shadow-xl outline-none md:absolute md:inset-auto md:right-0 md:top-[calc(50%+var(--nesto-topbar-row-h)/2)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-topbar-row-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3 rounded-[14px] shadow-menu"
           data-testid="quick-create-panel"
           data-state={step.kind === "menu" ? menuState.status : step.kind}
         >

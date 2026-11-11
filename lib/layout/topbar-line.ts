@@ -1,27 +1,19 @@
 /**
- * The line every panel opened from the top bar starts on: the breadcrumb bar's
- * top edge, which is also the top bar's lower edge. Search, Create,
- * notifications, the account panel and the workspace switcher all begin there,
- * so they read as one family and never float at different heights.
- *
- * A surface with no breadcrumb bar (the group area, a phone) uses the lower
- * edge of the top bar's own row, marked `data-topbar-row`. So does a window too
- * low to keep the breadcrumb bar pinned (UI-02 §7.3, styles/tokens-v2.css):
- * there the bar scrolls with the page, and its top edge is no longer the line.
+ * The line every panel opened from the top bar starts on: the lower edge of
+ * the bar's own row, marked `data-topbar-row`. Search, Create, notifications
+ * and the account panel all begin there, so they read as one family and never
+ * float at different heights; from lg they open over the Ribbon, as Office's
+ * menus open over its ribbon.
  */
 export function topbarLine(from?: Element | null): number | null {
   if (typeof document === "undefined") return null;
-  const bar = pinnedBreadcrumbBar();
-  if (bar) return bar.getBoundingClientRect().top;
-  const row = from?.closest<HTMLElement>("[data-topbar-row]") ?? document.querySelector<HTMLElement>("[data-topbar-row]");
-  return row && row.getClientRects().length > 0 ? row.getBoundingClientRect().bottom : null;
+  const row = topbarRow(from);
+  return row ? row.getBoundingClientRect().bottom : null;
 }
 
-/** The breadcrumb bar, while it is drawn and held under the top bar. */
-function pinnedBreadcrumbBar(): HTMLElement | null {
-  const bar = document.querySelector<HTMLElement>("[data-shell-breadcrumb]");
-  if (!bar || bar.getClientRects().length === 0) return null;
-  return getComputedStyle(bar).position === "sticky" ? bar : null;
+function topbarRow(from?: Element | null): HTMLElement | null {
+  const row = from?.closest<HTMLElement>("[data-topbar-row]") ?? document.querySelector<HTMLElement>("[data-topbar-row]");
+  return row && row.getClientRects().length > 0 ? row : null;
 }
 
 /**
@@ -35,15 +27,11 @@ export function topbarOffset(trigger: Element | null, fallback = 8): number {
   return Math.max(0, line - trigger.getBoundingClientRect().bottom);
 }
 
-/**
- * The content box panels line up with horizontally: the breadcrumb bar's, or
- * the top bar row's where there is no breadcrumb bar.
- */
+/** The content box panels line up with horizontally: the top bar row's, inside its gutters. */
 export function topbarContentBox(from?: Element | null): { left: number; right: number } | null {
   if (typeof document === "undefined") return null;
-  const bar = pinnedBreadcrumbBar();
-  const box = bar ? bar : (from?.closest<HTMLElement>("[data-topbar-row]") ?? document.querySelector<HTMLElement>("[data-topbar-row]"));
-  if (!box || box.getClientRects().length === 0) return null;
+  const box = topbarRow(from);
+  if (!box) return null;
   const rect = box.getBoundingClientRect();
   const style = getComputedStyle(box);
   return { left: rect.left + parseFloat(style.paddingLeft), right: rect.right - parseFloat(style.paddingRight) };

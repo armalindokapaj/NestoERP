@@ -195,10 +195,10 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
               <i className="size-2.5 rounded-full border border-line-strong" />
               <i className="size-2.5 rounded-full border border-line-strong" />
             </span>
-            <span className="min-w-0 flex-1 truncate rounded-full bg-canvas px-3 py-1 font-mono text-[11px] text-fg-muted">
+            <span className="min-w-0 flex-1 truncate rounded-full bg-canvas px-3 py-1 font-mono text-[11px] max-md:text-meta text-fg-muted">
               {company}.nesto.build/{slide?.id ?? "dashboard"}
             </span>
-            <span className="shrink-0 rounded-full border border-accent px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-accent-strong">
+            <span className="shrink-0 rounded-full border border-accent px-2 py-0.5 font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">
               {copy.window.illustrative}
             </span>
           </div>

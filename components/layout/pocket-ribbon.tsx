@@ -6,7 +6,6 @@ import { ChevronUp, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import {
-  AccountBlock,
   CreateButton,
   GROUP_ICONS,
   ModuleTiles,
@@ -16,11 +15,10 @@ import {
   useCloseOnLeave,
   useGroupLabel,
   usePageSections,
-  type PhoneAccount,
   type PhoneTab,
 } from "@/components/layout/phone-ribbon";
-import type { NavigationGroup } from "@/config/navigation";
-import { groupOf, phoneTabs } from "@/lib/navigation/phone";
+import { groupOfPath, type NavigationGroup } from "@/config/navigation";
+import { phoneTabs } from "@/lib/navigation/phone";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { cn } from "@/lib/utils/cn";
 
@@ -28,11 +26,11 @@ import { cn } from "@/lib/utils/cn";
  * The Pocket Ribbon, the default phone navigation (docs/ui/UI-04-navigation-layouts.md):
  * the desktop Ribbon folded into the bottom of the phone, below `lg`.
  *
- * The bar is the Ribbon's tabs — Home, Work, Department, Company — in the
- * thumb's reach. A tab opens its modules as large tiles just above it, the
+ * The bar is the Ribbon's four tabs — Work, Sales, Procurement, Finance — in
+ * the thumb's reach. A tab opens its modules as large tiles just above it, the
  * module you are in marked gold; the tab holding it is marked too, so you
- * always know where you are. Company also holds you: the profile, Settings,
- * Refresh, the theme and Logout.
+ * always know where you are. Home is the company name in the top bar; Home,
+ * Company and you are in the logo's panel.
  *
  * Above the bar floats the strip: This page — the section you are on, which
  * opens the page's sections — then Units and Create, one tap from anywhere.
@@ -42,7 +40,7 @@ import { cn } from "@/lib/utils/cn";
  * module they cannot open is not here. Content keeps clear of it by
  * `--nesto-bottom-nav-space` (styles/globals.css), so no page pads itself.
  */
-export function PocketRibbon({ navigation, canCreate, account }: { navigation: NavigationGroup[]; canCreate: boolean; account: PhoneAccount }) {
+export function PocketRibbon({ navigation, canCreate }: { navigation: NavigationGroup[]; canCreate: boolean }) {
   const t = useTranslations("shell");
   const pathname = usePathname();
   const groupLabel = useGroupLabel();
@@ -53,7 +51,7 @@ export function PocketRibbon({ navigation, canCreate, account }: { navigation: N
   const panelId = React.useId();
 
   const tabs = React.useMemo(() => phoneTabs(navigation), [navigation]);
-  const here = groupOf(navigation, pathname);
+  const here = groupOfPath(navigation, pathname);
   const shown = open === "page" ? null : tabs.find((group) => group.group === open) ?? null;
 
   // Closed by Escape or its Close button, focus goes back to what opened it — once it is drawn again.
@@ -120,7 +118,6 @@ export function PocketRibbon({ navigation, canCreate, account }: { navigation: N
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-5">
               {open === "page" ? <SectionTiles levels={levels} onDone={done} /> : null}
               {shown && shown.items.length > 0 ? <ModuleTiles items={shown.items} onDone={done} /> : null}
-              {shown?.group === "company" ? <AccountBlock account={account} onDone={done} /> : null}
             </div>
           </div>
         </>

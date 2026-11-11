@@ -6,7 +6,6 @@ import { LayoutGrid, Search, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import {
-  AccountBlock,
   CreateButton,
   GROUP_ICONS,
   ModuleTiles,
@@ -17,13 +16,12 @@ import {
   useCloseOnLeave,
   useGroupLabel,
   usePageSections,
-  type PhoneAccount,
   type PhoneTab,
 } from "@/components/layout/phone-ribbon";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { MobileActionBarHost } from "@/components/ui/mobile-action-bar";
-import type { NavigationGroup } from "@/config/navigation";
-import { groupOf, phoneTabs } from "@/lib/navigation/phone";
+import { groupOfPath, type NavigationGroup, type NavigationGroupKey } from "@/config/navigation";
+import { phoneTabs } from "@/lib/navigation/phone";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
 import { cn } from "@/lib/utils/cn";
 
@@ -37,36 +35,38 @@ import { cn } from "@/lib/utils/cn";
  * next step is always under the thumb (`MainAction`, components/ui/mobile-action-bar.tsx).
  * On a page without one, that place is This page: the section you are on,
  * which opens the page's sections. Ribbon opens the whole Ribbon as a sheet —
- * the same tabs as the desktop (Home, Work, Department, Company, This page),
- * modules as large tiles, and a field to find a module by name. Company also
- * holds you: the profile, Settings, Refresh, the theme and Logout.
+ * the same tabs as the desktop (Work, Sales, Procurement, Finance) and This
+ * page, modules as large tiles, and a field to find any module by name. Home
+ * is the company name in the top bar; Home, Company and you are in the logo's
+ * panel.
  *
  * Renders what the one navigation resolver produced for this person, so a
  * module they cannot open is not here.
  */
-export function ActionRibbon({ navigation, canCreate, account }: { navigation: NavigationGroup[]; canCreate: boolean; account: PhoneAccount }) {
+export function ActionRibbon({ navigation, canCreate }: { navigation: NavigationGroup[]; canCreate: boolean }) {
   const t = useTranslations("shell");
   const modules = useTranslations("modules");
   const pathname = usePathname();
   const groupLabel = useGroupLabel();
   const { levels, label } = usePageSections();
   const [open, setOpen] = React.useState(false);
-  const [picked, setPicked] = React.useState<PhoneTab>("primary");
+  const [picked, setPicked] = React.useState<PhoneTab>("work");
   const [query, setQuery] = React.useState("");
   const navigated = React.useRef(false);
   useCloseOnLeave(() => setOpen(false));
 
   const groups = React.useMemo(() => phoneTabs(navigation), [navigation]);
   // The group holding the module you are in: the Ribbon opens on it, and its tab is gold.
-  const here = groupOf(navigation, pathname);
+  const here = groupOfPath(navigation, pathname);
   const tabs: { id: PhoneTab; label: string }[] = groups.map((group) => ({ id: group.group, label: groupLabel(group.group) }));
   if (levels.length > 0) tabs.push({ id: "page", label: t("ribbon.thisPage") });
-  const current = tabs.some((tab) => tab.id === picked) ? picked : tabs[0]!.id;
+  const current: PhoneTab | null = tabs.some((tab) => tab.id === picked) ? picked : (tabs[0]?.id ?? null);
   const group = groups.find((candidate) => candidate.group === current) ?? null;
 
   const needle = query.trim().toLocaleLowerCase();
+  // The field finds any module, Home's and Company's too.
   const found = needle
-    ? groups
+    ? navigation
         .map((candidate) => ({ ...candidate, items: candidate.items.filter((item) => modules(`${item.key}.label`).toLocaleLowerCase().includes(needle)) }))
         .filter((candidate) => candidate.items.length > 0)
     : null;
@@ -109,7 +109,7 @@ export function ActionRibbon({ navigation, canCreate, account }: { navigation: N
           aria-haspopup="dialog"
           aria-expanded={open}
           data-testid="phone-ribbon"
-          onClick={() => show(here ?? groups[0]!.group)}
+          onClick={() => show(here ?? groups[0]?.group ?? "page")}
           className={cn(cellClass, "w-14 shrink-0", open && "bg-primary text-primary-fg hover:bg-primary hover:text-primary-fg")}
         >
           <LayoutGrid aria-hidden="true" className="size-[22px] shrink-0" />
@@ -166,7 +166,7 @@ export function ActionRibbon({ navigation, canCreate, account }: { navigation: N
             {tabs.map((tab) => {
               const selected = !found && tab.id === current;
               const page = tab.id === "page";
-              const Icon = page ? null : GROUP_ICONS[tab.id as NavigationGroup["group"]];
+              const Icon = page ? null : GROUP_ICONS[tab.id as NavigationGroupKey];
               return (
                 <button
                   key={tab.id}
@@ -233,10 +233,7 @@ export function ActionRibbon({ navigation, canCreate, account }: { navigation: N
             ) : current === "page" ? (
               <SectionTiles levels={levels} onDone={done} />
             ) : (
-              <>
-                {group && group.items.length > 0 ? <ModuleTiles items={group.items} onDone={done} /> : null}
-                {current === "company" ? <AccountBlock account={account} onDone={done} /> : null}
-              </>
+              group && group.items.length > 0 ? <ModuleTiles items={group.items} onDone={done} /> : null
             )}
           </div>
         </DrawerContent>

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { memberIdFor, resetAnnouncements } from "../announcements-fixtures";
 import { db } from "../db";
-import { mainRegion, signIn, workspaceHeader, workspaceSwitcher } from "../fixtures";
+import { mainRegion, signIn, workspaceHeader, openWorkspaceSwitcher } from "../fixtures";
 
 /**
  * The shell's optional slots (NAV-02 §7, §8, §17.2: S01, S02, S04, S05, S06,
@@ -37,7 +37,7 @@ test.describe("slots never hold up the page", () => {
     await expect(mainRegion(page).locator("h1").first()).toBeVisible();
     const usable = Date.now() - started;
     // Both are drawn from the verified core; only the switcher's options are still on their way.
-    const switcher = workspaceSwitcher(page);
+    const switcher = await openWorkspaceSwitcher(page);
     await expect(switcher).toHaveAttribute("data-options", "pending");
     await expect(switcher).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
     await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
@@ -56,7 +56,7 @@ test.describe("slots never hold up the page", () => {
     await delay(page, "workspaces=0:fail");
     await page.goto("/tasks");
     // A chooser that failed still promises a choice: the switcher stays, and says so in its popup.
-    const switcher = workspaceSwitcher(page);
+    const switcher = await openWorkspaceSwitcher(page);
     await expect(switcher).toHaveAttribute("data-options", "failed");
     await expect(switcher).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
     await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
@@ -79,7 +79,7 @@ test.describe("slots never hold up the page", () => {
     await delay(page, "workspaces=9000:fail,workspaces-retry=0");
     const started = Date.now();
     await page.goto("/tasks", { waitUntil: "commit" });
-    await workspaceSwitcher(page).click();
+    await (await openWorkspaceSwitcher(page)).click();
     const retry = page.getByTestId("workspace-options-retry");
     // Offered only once the slot has waited five seconds.
     await expect(retry).toBeVisible({ timeout: 8_000 });
@@ -90,7 +90,7 @@ test.describe("slots never hold up the page", () => {
     await page.waitForTimeout(Math.max(0, 10_500 - (Date.now() - started)));
     await expect(page.getByTestId("workspace-option").first()).toBeVisible();
     await expect(page.getByTestId("workspace-options-failed")).toHaveCount(0);
-    await expect(workspaceSwitcher(page)).toHaveAttribute("data-options", "ready");
+    await expect(await openWorkspaceSwitcher(page)).toHaveAttribute("data-options", "ready");
   });
 
   test("while the chooser loads, the Group crumb is not named; it comes as a link; the record page is not held (S07)", async ({ page }) => {
@@ -115,8 +115,8 @@ test.describe("slots never hold up the page", () => {
     await page.goto("/tasks", { waitUntil: "commit" });
     await expect(workspaceHeader(page)).toHaveAccessibleName(new RegExp(`Current workspace: ${GROUP_NAME} — Group Workspace`));
     await expect(workspaceHeader(page)).toHaveAttribute("data-scope", "GROUP");
-    await expect(workspaceSwitcher(page)).toHaveAttribute("data-scope", "GROUP");
-    await expect(workspaceSwitcher(page)).toHaveAttribute("data-options", "ready", { timeout: 10_000 });
+    await expect(await openWorkspaceSwitcher(page)).toHaveAttribute("data-scope", "GROUP");
+    await expect(await openWorkspaceSwitcher(page)).toHaveAttribute("data-options", "ready", { timeout: 10_000 });
   });
 });
 
@@ -198,7 +198,7 @@ test.describe("slots stay quiet", () => {
     await page.waitForLoadState("load");
     // Identity only: the header names the workspace and leads home, the top bar draws no switcher, and nothing is there to press (OW §46).
     await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Aurelia Construction.");
-    await expect(workspaceSwitcher(page)).toHaveCount(0);
+    await expect(await openWorkspaceSwitcher(page)).toHaveCount(0);
     await expect(page.getByTestId("topbar-home").getByRole("button")).toHaveCount(0);
     await expect(page.getByTestId("workspace-panel")).toHaveCount(0);
   });
@@ -231,7 +231,7 @@ test.describe("slot states on a phone and with reduced motion (S17)", () => {
     await delay(page, "workspaces=3000");
     await page.goto("/tasks", { waitUntil: "commit" });
     const header = workspaceHeader(page);
-    const switcher = workspaceSwitcher(page);
+    const switcher = await openWorkspaceSwitcher(page);
     await expect(switcher).toHaveAttribute("data-options", "pending");
     const pending = { header: await header.boundingBox(), switcher: await switcher.boundingBox() };
     for (const control of [header, switcher]) {

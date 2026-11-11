@@ -6,18 +6,11 @@
  * decides which tabs there are. It never adds a module and never checks a
  * permission. Edge-safe, so it is unit-tested on its own.
  */
-import { isNavigationItemActive, type NavigationGroup } from "@/config/navigation";
+import { isRibbonTab, type NavigationGroup } from "@/config/navigation";
 
-/** The Ribbon's group tabs for this person: each group they have modules in, and Company always — it holds the account. */
+/** The phone's tabs: the Ribbon's four — Work, Sales, Procurement, Finance — that this person has modules in. Home and Company are in the logo's panel. */
 export function phoneTabs(navigation: readonly NavigationGroup[]): NavigationGroup[] {
-  const tabs = navigation.filter((group) => group.items.length > 0 && group.group !== "company");
-  tabs.push(navigation.find((group) => group.group === "company") ?? { group: "company", label: null, items: [] });
-  return tabs;
-}
-
-/** The group holding the module the page is in, if any. */
-export function groupOf(navigation: readonly NavigationGroup[], pathname: string): NavigationGroup["group"] | null {
-  return navigation.find((group) => group.items.some((item) => isNavigationItemActive(item, pathname)))?.group ?? null;
+  return navigation.filter((group) => isRibbonTab(group.group) && group.items.length > 0);
 }
 
 /** Paths under /projects that are pages of the module, not a project. */
