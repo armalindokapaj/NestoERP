@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowRight,
   Building2,
+  ChevronDown,
   ChevronUp,
   CircleHelp,
   Eye,
@@ -41,12 +42,18 @@ import { fill, type SiteCopy } from "@/lib/i18n/site";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The public site's masthead: the Ribbon (UI-05 §2).
+ * The public site's masthead: the Ribbon (UI-05 §2, §9).
  *
  * The same idea as the application's Ribbon, so a visitor learns the product's
  * navigation before signing in: five tabs, and each opens a panel of groups —
  * big buttons above, a caption below — with one dark callout that says where
- * to go next. On a phone the tabs become pills in a full-screen sheet.
+ * to go next. On a phone the tabs become square tabs in a full-screen sheet.
+ *
+ * One row of cells divided by lines, in glass (95% of the page and an 8px
+ * blur): the logo, the tabs in mono capitals — the open one, or the one the
+ * page is in, in ink — then the language, the theme, Sign in, and Apply as the
+ * ink block at the end. A tab's panel drops over the page as glass (72% and a
+ * 16px blur), the page showing through it.
  *
  * Every word arrives from the server layout; the structure is
  * config/marketing.ts → siteRibbon, and the Modules tab is the module registry.
@@ -131,14 +138,12 @@ function buildPanels(ribbon: SiteCopy["ribbon"], zones: MastheadModuleZone[], ro
 export function SiteMasthead({
   copy,
   ribbon,
-  category,
   moduleZones,
   roles,
   roleCount,
 }: {
   copy: SiteCopy["header"];
   ribbon: SiteCopy["ribbon"];
-  category: string;
   moduleZones: MastheadModuleZone[];
   roles: MastheadRole[];
   roleCount: number;
@@ -167,92 +172,94 @@ export function SiteMasthead({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  const cell = "flex items-center border-l border-line-strong";
+  const mono = "whitespace-nowrap font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em]";
+
   return (
     <header className="sticky top-0 z-30" data-testid="site-masthead">
-      <div className="relative bg-canvas">
-        <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-3.5 px-[clamp(16px,4vw,48px)]">
-          <Link href="/" aria-label={copy.home} className="shrink-0 rounded-md">
-            <NestoLogo />
-          </Link>
-          <span aria-hidden="true" className="hidden h-5 w-px bg-line-strong xl:block" />
-          <p className="nesto-eyebrow hidden whitespace-nowrap text-fg-subtle xl:block">{category}</p>
-
-          <div className="ml-auto flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm" className="max-lg:hidden">
-              <Link href="/login">{copy.signIn}</Link>
-            </Button>
-            <Button asChild size="sm" className="max-sm:px-3">
-              <Link href="/apply">
-                <span className="lg:hidden">{copy.applyShort}</span>
-                <span className="max-lg:hidden">{copy.apply}</span>
-                <ArrowRight className="max-sm:hidden" />
-              </Link>
-            </Button>
-            <ThemeToggle className="max-lg:hidden" />
-            <LocaleSwitch label={copy.language} className="max-lg:hidden" />
-            <button
-              type="button"
-              onClick={() => setMenu(true)}
-              aria-label={copy.openMenu}
-              className="grid size-12 shrink-0 place-items-center rounded-full text-fg transition-colors hover:bg-hover lg:hidden"
-            >
-              <Menu aria-hidden="true" className="size-[22px]" />
-            </button>
-          </div>
-        </div>
+      {/* The glass sits on a layer behind the masthead, not on it: a backdrop filter makes its
+          element the box `position: fixed` children are placed in, which would trap the scrim. */}
+      <div aria-hidden="true" className="absolute inset-0 -z-10 border-b border-line-strong bg-canvas/95 backdrop-blur-[8px]" />
+      <div className="flex h-16 items-stretch">
+        <Link href="/" aria-label={copy.home} className="flex shrink-0 items-center border-r border-line-strong px-4 sm:px-5">
+          <NestoLogo />
+        </Link>
 
         {/* The tabs: a disclosure each, so a click opens the panel and a second one closes it. */}
-        <div className="mx-auto hidden w-full max-w-[1280px] px-[clamp(16px,4vw,48px)] lg:block">
-          <nav aria-label={copy.siteNavigation} className="flex h-11 items-end gap-0.5 border-b-2 border-fg">
-            {RIBBON_TABS.map((tab) => {
-              const on = open ? open === tab : here === tab;
-              return (
-                <button
-                  key={tab}
-                  ref={(node) => { tabRefs.current[tab] = node; }}
-                  type="button"
-                  aria-expanded={open === tab}
-                  aria-controls={open === tab ? panelId : undefined}
-                  aria-current={!open && here === tab ? "page" : undefined}
-                  onClick={() => setOpen(open === tab ? null : tab)}
-                  className={cn(
-                    "relative inline-flex h-10 items-center rounded-t-[10px] px-4 text-body transition-colors hover:bg-hover hover:text-fg",
-                    on ? "bg-surface font-semibold text-fg" : "text-fg-muted",
-                    on && "after:absolute after:inset-x-3.5 after:bottom-0 after:h-[3px] after:rounded-t-[3px] after:bg-accent",
-                  )}
-                >
-                  {ribbon.tabs[tab]}
-                </button>
-              );
-            })}
-            <Link
-              href={siteRibbon.platform.callout}
-              className="mb-2.5 ml-auto inline-flex items-center gap-1.5 text-table text-fg-muted transition-colors hover:text-fg"
-            >
-              <PlayCircle aria-hidden="true" className="size-4 text-accent-strong" />
-              {copy.followUnit}
-            </Link>
-          </nav>
+        <nav aria-label={copy.siteNavigation} className="hidden items-center gap-1 px-3 lg:flex">
+          {RIBBON_TABS.map((tab) => {
+            const on = open ? open === tab : here === tab;
+            return (
+              <button
+                key={tab}
+                ref={(node) => { tabRefs.current[tab] = node; }}
+                type="button"
+                aria-expanded={open === tab}
+                aria-controls={open === tab ? panelId : undefined}
+                aria-current={!open && here === tab ? "page" : undefined}
+                onClick={() => setOpen(open === tab ? null : tab)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 px-2.5 transition-colors",
+                  mono,
+                  on ? "bg-fg text-canvas" : "text-fg-muted hover:text-fg",
+                )}
+              >
+                {ribbon.tabs[tab]}
+                <ChevronDown aria-hidden="true" className={cn("size-3 transition-transform", open === tab && "rotate-180")} />
+              </button>
+            );
+          })}
+        </nav>
+        <Link
+          href={siteRibbon.platform.callout}
+          className={cn("hidden items-center gap-2 border-l border-line-strong px-5 text-accent-strong transition-colors hover:text-fg min-[100rem]:flex", mono)}
+        >
+          <PlayCircle aria-hidden="true" className="size-4" />
+          {copy.followUnit}
+        </Link>
+
+        <span className="flex-1" />
+        <div className={cn(cell, "px-2 max-lg:hidden")}>
+          <LocaleSwitch label={copy.language} />
         </div>
+        <div className={cn(cell, "px-1.5 max-lg:hidden")}>
+          <ThemeToggle />
+        </div>
+        <Link href="/login" className={cn(cell, mono, "px-5 text-fg transition-colors hover:bg-hover max-lg:hidden")}>
+          {copy.signIn}
+        </Link>
+        <Link href="/apply" className={cn("flex items-center gap-2.5 bg-fg px-4 text-canvas transition-[filter] hover:brightness-125 sm:px-6", mono)}>
+          <span className="xl:hidden">{copy.applyShort}</span>
+          <span className="max-xl:hidden">{copy.apply}</span>
+          <ArrowRight aria-hidden="true" className="size-3.5 max-sm:hidden" />
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenu(true)}
+          aria-label={copy.openMenu}
+          className={cn(cell, "w-14 justify-center text-fg transition-colors hover:bg-hover lg:hidden")}
+        >
+          <Menu aria-hidden="true" className="size-[22px]" />
+        </button>
       </div>
 
       {open ? (
         <>
-          <button type="button" tabIndex={-1} aria-hidden="true" onClick={() => setOpen(null)} className="fixed inset-0 -z-10 hidden cursor-default bg-black/25 lg:block" />
+          <button type="button" tabIndex={-1} aria-hidden="true" onClick={() => setOpen(null)} className="fixed inset-0 -z-20 hidden cursor-default lg:block" />
           <div
             id={panelId}
             role="region"
             aria-label={ribbon.tabs[open]}
-            className="absolute inset-x-0 top-full hidden border-b border-line bg-surface shadow-[0_26px_40px_-30px_rgb(15_20_26/0.45)] lg:block"
+            className="absolute inset-x-0 top-full hidden border-b border-line-strong bg-canvas/72 backdrop-blur-[16px] backdrop-saturate-[1.3] lg:block"
             data-testid="ribbon-panel"
           >
-            <div className="mx-auto flex w-full max-w-[1280px] items-stretch px-[clamp(16px,4vw,48px)]">
+            <div className="flex w-full items-stretch">
               <RibbonPanel panel={panels[open]} ribbon={ribbon} onGo={() => setOpen(null)} />
               <button
                 type="button"
                 onClick={() => { tabRefs.current[open]?.focus(); setOpen(null); }}
                 aria-label={copy.closePanel}
-                className="mt-3 grid size-9 shrink-0 place-items-center self-start rounded-full text-fg-subtle transition-colors hover:bg-hover hover:text-fg"
+                className="grid w-14 shrink-0 place-items-center border-l border-line-strong text-fg-subtle transition-colors hover:bg-hover hover:text-fg"
               >
                 <ChevronUp aria-hidden="true" className="size-4" />
               </button>
@@ -268,14 +275,14 @@ export function SiteMasthead({
 
 function RibbonPanel({ panel, ribbon, onGo }: { panel: Panel; ribbon: SiteCopy["ribbon"]; onGo: () => void }) {
   return (
-    <div className="flex min-h-[132px] flex-1 items-stretch gap-0 overflow-x-auto py-3">
+    <div className="flex min-h-[132px] flex-1 items-stretch gap-0 overflow-x-auto">
       {panel.groups.map((group) => (
-        <div key={group.key} className="flex flex-col justify-between gap-2 border-r border-line px-4 first:pl-0">
+        <div key={group.key} className="flex flex-col justify-between gap-2 border-r border-line-strong px-4 py-3">
           {group.compact ? (
             <ul className={cn("grid grid-flow-col gap-x-1 gap-y-0.5", group.rows === 4 ? "grid-rows-[repeat(4,28px)]" : "grid-rows-[repeat(3,30px)]")}>
               {group.items.map((item) => (
                 <li key={item.key}>
-                  <Link href={item.href} onClick={onGo} className="flex h-full items-center gap-2 whitespace-nowrap rounded-lg px-2 text-table text-fg transition-colors hover:bg-hover">
+                  <Link href={item.href} onClick={onGo} className="flex h-full items-center gap-2 whitespace-nowrap px-2 text-table text-fg transition-colors hover:bg-hover">
                     <item.Icon aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
                     {item.label}
                     {item.note ? <span className="text-fg-subtle">· {item.note}</span> : null}
@@ -287,7 +294,7 @@ function RibbonPanel({ panel, ribbon, onGo }: { panel: Panel; ribbon: SiteCopy["
             <ul className="flex items-start gap-1">
               {group.items.map((item) => (
                 <li key={item.key}>
-                  <Link href={item.href} onClick={onGo} className="flex min-h-[84px] w-[92px] flex-col items-center gap-2 rounded-xl px-1.5 pb-2 pt-3 text-center text-meta leading-tight text-fg transition-colors hover:bg-hover">
+                  <Link href={item.href} onClick={onGo} className="flex min-h-[84px] w-[92px] flex-col items-center gap-2 px-1.5 pb-2 pt-3 text-center text-meta leading-tight text-fg transition-colors hover:bg-hover">
                     <item.Icon aria-hidden="true" className="size-6 text-fg-subtle" />
                     {item.label}
                   </Link>
@@ -300,11 +307,11 @@ function RibbonPanel({ panel, ribbon, onGo }: { panel: Panel; ribbon: SiteCopy["
       ))}
 
       {panel.write ? (
-        <div className="flex flex-col justify-between gap-2 px-[18px]">
+        <div className="flex flex-col justify-between gap-2 px-[18px] py-3">
           <ul className="grid gap-0.5">
             {(["general", "sales", "support"] as const).map((channel) => (
               <li key={channel}>
-                <a href={`mailto:${siteContact[channel]}`} className="flex h-[30px] items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-table text-fg transition-colors hover:bg-hover">
+                <a href={`mailto:${siteContact[channel]}`} className="flex h-[30px] items-center gap-2 whitespace-nowrap px-2.5 text-table text-fg transition-colors hover:bg-hover">
                   <Mail aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
                   <span className="text-fg-muted">{ribbon.channels[channel]}</span>
                   {siteContact[channel]}
@@ -321,11 +328,11 @@ function RibbonPanel({ panel, ribbon, onGo }: { panel: Panel; ribbon: SiteCopy["
         <Link
           href={panel.callout.href}
           onClick={onGo}
-          className="group ml-auto flex w-[300px] shrink-0 flex-col justify-between gap-2.5 rounded-xl bg-fg px-4 py-3.5 text-canvas"
+          className="group ml-auto flex w-[300px] shrink-0 flex-col justify-between gap-2.5 bg-fg px-5 py-4 text-canvas"
         >
           <span className="nesto-eyebrow text-accent">{panel.callout.eyebrow}</span>
           <span className="text-section leading-tight font-display">{panel.callout.title}</span>
-          <span className="inline-flex items-center gap-1.5 text-table font-medium">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em]">
             {panel.callout.cta}
             <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
           </span>
@@ -357,16 +364,16 @@ function PhoneMenu({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent side="right" className="inset-0 w-full max-w-none rounded-none border-0 bg-canvas sm:max-w-none">
+      <DrawerContent side="right" className="nesto-site inset-0 w-full max-w-none rounded-none border-0 bg-canvas sm:max-w-none">
         <DrawerTitle className="sr-only">{copy.drawerTitle}</DrawerTitle>
-        <div className="flex h-16 shrink-0 items-center justify-between px-4">
-          <NestoLogo />
-          <button type="button" onClick={close} aria-label={copy.closeMenu} className="grid size-12 place-items-center rounded-full text-fg transition-colors hover:bg-hover">
+        <div className="flex h-16 shrink-0 items-stretch justify-between border-b border-line-strong">
+          <span className="flex items-center px-4"><NestoLogo /></span>
+          <button type="button" onClick={close} aria-label={copy.closeMenu} className="grid w-14 place-items-center border-l border-line-strong text-fg transition-colors hover:bg-hover">
             <X aria-hidden="true" className="size-5" />
           </button>
         </div>
 
-        <div role="group" aria-label={copy.siteNavigation} className="flex shrink-0 gap-1.5 overflow-x-auto border-b-2 border-fg px-4 pb-3">
+        <div role="group" aria-label={copy.siteNavigation} className="flex shrink-0 gap-1.5 overflow-x-auto border-b-2 border-fg px-4 py-3">
           {RIBBON_TABS.map((key) => (
             <button
               key={key}
@@ -374,7 +381,7 @@ function PhoneMenu({
               aria-pressed={tab === key}
               onClick={() => setTab(key)}
               className={cn(
-                "h-11 flex-none rounded-full border px-4 text-body transition-colors",
+                "h-11 flex-none border px-4 font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em] transition-colors",
                 tab === key ? "border-primary bg-primary text-primary-fg" : "border-line-strong text-fg-muted",
               )}
             >
@@ -393,7 +400,7 @@ function PhoneMenu({
                     <Link
                       href={item.href}
                       onClick={close}
-                      className="flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-2 text-center text-meta leading-tight text-fg active:bg-accent-soft"
+                      className="flex min-h-[84px] flex-col items-center justify-center gap-2 border border-line-strong bg-surface p-2 text-center text-meta leading-tight text-fg active:bg-accent-soft"
                     >
                       <item.Icon aria-hidden="true" className="size-5 text-fg-subtle" />
                       {item.label}
@@ -406,7 +413,7 @@ function PhoneMenu({
           {panel.write ? (
             <section>
               <h2 className="nesto-eyebrow mb-2 text-fg-subtle">{ribbon.groups.write}</h2>
-              <ul className="overflow-hidden rounded-xl border border-line bg-surface">
+              <ul className="border border-line-strong bg-surface">
                 {(["general", "sales", "support"] as const).map((channel) => (
                   <li key={channel} className="border-b border-line last:border-b-0">
                     <a href={`mailto:${siteContact[channel]}`} className="flex min-h-12 items-center justify-between gap-3 px-4 text-body">
@@ -420,7 +427,7 @@ function PhoneMenu({
             </section>
           ) : null}
           {panel.callout ? (
-            <Link href={panel.callout.href} onClick={close} className="mt-1 flex flex-col gap-2 rounded-xl bg-fg p-4 text-canvas">
+            <Link href={panel.callout.href} onClick={close} className="mt-1 flex flex-col gap-2 bg-fg p-4 text-canvas">
               <span className="nesto-eyebrow text-accent">{panel.callout.eyebrow}</span>
               <span className="text-section leading-tight font-display">{panel.callout.title}</span>
               <span className="inline-flex items-center gap-1.5 text-table font-medium">

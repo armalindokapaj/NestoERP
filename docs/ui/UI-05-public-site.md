@@ -1,7 +1,7 @@
 > **Chat:** Nesto UI/UX — navigation study
 > **File:** docs/ui/UI-05-public-site.md
-> **About:** Nesto's public site as built from the canvas: the Ribbon masthead, the section-cut homepage with "Try it here", sign in, Apply for a workspace, pricing in public and the restyled interior pages — what each draws, where the code lives, and what is still to do.
-> **Last updated:** 2026-11-10
+> **About:** Nesto's public site as built from the canvas: the Ribbon masthead, the section-cut homepage with "Try it here", sign in, Apply for a workspace, pricing in public and the restyled interior pages; every page a sheet of numbered sections with the index rail and the 0–100 ruler (§9) — what each draws, where the code lives, and what is still to do.
+> **Last updated:** 2026-11-12 (lines, glass and the ruler, after getartcraft.com)
 
 # UI-05 — The public site
 
@@ -29,18 +29,25 @@ cut's slabs, outline lettering, the received stamp — are a handful of classes
 in `styles/globals.css` under "The public site's drawn pieces"; everything else
 is Tailwind on the product's own tokens.
 
+Since 2026-11-12 (§9): lines instead of cards — square cells sharing 1px
+lines, no gaps, shadows or rounded corners; glass where the page passes under
+something; square buttons in mono capitals; every section numbered in a bar
+that pins under the masthead; the index rail and the 0–100 ruler at the right.
+
 ## 2. The Ribbon masthead
 
 `components/marketing/site-masthead.tsx`, mounted by
 `app/(public)/(site)/layout.tsx`.
 
-- **Top row:** logo, "The Construction OS", Sign in, **Apply for a workspace**,
-  Day/Night, language.
-- **Tabs:** Platform, Solutions, Modules, Pricing, Company. Each is a
-  disclosure button; its panel opens full width under the ink rule with
-  groups (big buttons above, a mono caption below) and, on three tabs, a dark
-  callout. Escape, the scrim, a link or a new page closes it. The tab for the
-  current page is marked.
+- **One row of cells divided by lines, in glass** (95% of the page and an 8px
+  blur, on a layer behind the masthead): the logo; the tabs; from 1600px
+  "Follow one Unit through NESTO"; the language; Day/Night; Sign in; and
+  **Apply for a workspace** as the ink block at the end ("Apply" below xl).
+- **Tabs:** Platform, Solutions, Modules, Pricing, Company, in mono capitals.
+  Each is a disclosure button; the open one, or the one the page is in, is in
+  ink. Its panel drops over the page as glass (72% and a 16px blur), groups in
+  lines (big buttons above, a mono caption below) and, on three tabs, an ink
+  callout. Escape, a click outside, a link or a new page closes it.
 - **Structure** lives in `config/marketing.ts → siteRibbon`; words in the site
   copy under `ribbon`. The **Modules** tab is the module registry
   (`config/modules.ts`), named through the `modules` dictionary, so it can
@@ -52,9 +59,9 @@ is Tailwind on the product's own tokens.
 
 ### 2.3 On a phone
 
-Logo, a short "Apply", and a menu button that opens a full-screen sheet — the
-tabs as scrolling pills, each panel as 3-across tiles, theme and language, and
-Sign in / Apply pinned at the foot.
+Logo, a short "Apply" as the ink block, and a menu cell that opens a
+full-screen sheet — the tabs as square mono tabs, each panel as 3-across square
+tiles, theme and language, and Sign in / Apply pinned at the foot.
 
 ### 2.4 Footer
 
@@ -123,17 +130,20 @@ The shared primitives carry the new look to every page at once:
 
 - `PageIntro` — mono sheet name, a large title ending on the gold square, the
   serif standfirst, an ink rule.
-- `SectionHeader` — with a step number it is a sheet head: the number in
-  outline, the title, a full ink rule.
-- `CtaBand` — the ink band; its primary is Apply for a workspace.
-- `LegalDocument` (Terms, Privacy) — a dashed "not the contract" note,
-  outline section numbers.
+- `Section` with `bar` — one of the page's numbered sections (§9); its eyebrow
+  is the bar's name. `SectionHeader` is the title and lead under it; the bar
+  carries the number.
+- `CtaBand` — the ink band, the page's last section, its bar in ink; its
+  primary is Apply for a workspace.
+- `LegalDocument` (Terms, Privacy) — a dashed "not the contract" note, then
+  each part a numbered section of its own. The FAQ's groups are too.
 - Pricing and Security get more than the primitives — §7.
 - `Container` is 1280px wide with the masthead's gutter, so every page lines
   up with the masthead.
 
 The Full View keeps its own opening; its words moved from `home` to `tour` in
-the site copy.
+the site copy. Its own section navigator is gone: the index rail does that
+job, with the short names it had (`fullViewCopy.nav`, through `Section index`).
 
 ## 5. Sign in
 
@@ -195,7 +205,43 @@ invitation.
 ![Phone: menu in Day and Night, and the hero](evidence/UI-05-phone.png)
 ![Home in Albanian](evidence/UI-05-home-albanian.png)
 
-## 9. Tests
+## 9. Lines, glass and the ruler
+
+After getartcraft.com, in Nesto's own type and gold (canvas: "Lines, glass and
+the ruler"). Every page of the site is a sheet:
+
+- **Numbered sections.** A section marked with `sectionMark` (or `Section bar`)
+  opens with `SectionBar`: "02 / End to end" in mono, pinned under the masthead
+  while the section is on screen (`.site-bar`, 60% of the section's ground and
+  a 12px blur). The number is a CSS counter on `.site-sheet`, so it is always
+  the page's own order. Sections are clipped sideways only (`overflow-x-clip`):
+  `overflow: hidden` would keep the bar from pinning.
+- **The index rail and the ruler** (`components/marketing/site-index.tsx`),
+  from xl, fixed at the right with the page and footer kept clear of them
+  (`xl:pr-[224px]`): the rail lists where you are large, the way back above it,
+  "Sheet 02 / 06", and what is next; the ruler has a tick every point, a
+  number every 5 and the gold line where you are. Both go somewhere on a click.
+  They read the page's sections after each navigation; nothing lists them.
+- **Below xl** a 2px gold line under the masthead says how far through the
+  page you are, and each bar says which of how many it is (02 / 06).
+- **Buttons are square everywhere** (`--nesto-radius-button: 0`). On the site
+  their labels are 11px mono capitals and a large one is 48px with 24px sides;
+  the secondary is a 40% ink line. The rule is outside the CSS layers so it
+  wins over the size utilities, and never applies inside a drawing of the
+  application (`site-app`: the story's window, the workspace preview). Tags
+  and badges are square too.
+- **Lines, not cards.** Grids are square cells sharing one line
+  (`hairlineGrid`); the homepage's stages, kinds and access, and the pricing
+  grids, are drawn that way, numbers in ink squares, tags as square mono tags.
+- Reduced motion jumps instead of scrolling; a phone reads nothing under 12px.
+
+![The homepage at the top: the rail lists every section](evidence/UI-05-sheet-home.png)
+![In a section: its bar pinned, the rail and ruler](evidence/UI-05-sheet-section.png)
+![A tab's panel dropped as glass](evidence/UI-05-sheet-ribbon-glass.png)
+![The Full View: eleven sections, short names in the rail](evidence/UI-05-sheet-full-view.png)
+![Phone: the gold line and the bar's count](evidence/UI-05-sheet-phone.png)
+
+## 10. Tests
 
 - `tests/unit/marketing/price-book.test.ts` — rows come from the price book,
   ROZARIS "from" its smallest class, the offer, the estimate, the format.
@@ -203,12 +249,13 @@ invitation.
   every field once, the reference.
 - `tests/unit/i18n/site-copy.test.ts` — every new string exists in Albanian
   with the same placeholders.
-- `tests/e2e/public/landing.spec.ts` — the story, now in the window.
+- `tests/e2e/public/landing.spec.ts` — the story, now in the window; the
+  Full View's index rail goes to ROZARIS.
 - `tests/e2e/public/site.spec.ts` — the masthead panels and Escape, a
   Solutions link opening a story, the section cut, the price book, sign in →
   apply → received, and the phone menu.
 
-## 10. What is left
+## 11. What is left
 
 - **Deliver applications.** Replace the log line in `lib/actions/apply.ts`
   with an email to `siteContact.sales`, a table, or the CRM — `parsed.data` is

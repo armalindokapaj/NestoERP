@@ -2,13 +2,7 @@ import type { Metadata } from "next";
 
 import { BlueprintElevation } from "@/components/marketing/blueprint";
 import { CtaBand } from "@/components/marketing/cta-band";
-import {
-  Container,
-  PageIntro,
-  Section,
-  hairlineCell,
-  hairlineGrid,
-} from "@/components/marketing/section";
+import { Container, PageIntro, Section, hairlineCell, hairlineGrid, SectionBar, sectionMark } from "@/components/marketing/section";
 import { brand } from "@/config/brand";
 import { getSiteCopy } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils/cn";
@@ -29,13 +23,13 @@ export async function generateMetadata(): Promise<Metadata> {
  * dashboards carry, and the note beside it says so in the reader's language.
  */
 export default async function AboutPage() {
-  const { about, category } = await getSiteCopy();
+  const { about, category, sheet } = await getSiteCopy();
 
   return (
     <>
       <PageIntro eyebrow={about.eyebrow} title={about.title} lead={about.lead} />
 
-      <Section tone="canvas">
+      <Section tone="canvas" bar={sheet.principles}>
         <dl className={cn(hairlineGrid, "sm:grid-cols-3")}>
           {about.principles.map((principle) => (
             <div key={principle.term} className={cn(hairlineCell, "p-6")}>
@@ -46,7 +40,8 @@ export default async function AboutPage() {
         </dl>
       </Section>
 
-      <section className="border-b border-line bg-surface">
+      <section {...sectionMark(sheet.argument)} className="relative border-b border-line bg-surface [--site-ground:var(--nesto-surface)]">
+        <SectionBar label={sheet.argument} />
         <Container className="py-16 sm:py-20 lg:py-28">
           <div className="space-y-16">
             {about.sections.map((section, index) => (
@@ -75,7 +70,8 @@ export default async function AboutPage() {
         </Container>
       </section>
 
-      <section className="relative overflow-hidden border-b border-line bg-canvas">
+      <section {...sectionMark(sheet.motto)} className="relative overflow-x-clip border-b border-line bg-canvas">
+        <SectionBar label={sheet.motto} />
         <BlueprintElevation className="absolute -right-20 bottom-0 hidden h-full w-[460px] text-line-strong opacity-60 lg:block" />
         <Container className="relative py-16 sm:py-20">
           <div className="max-w-xl">

@@ -46,7 +46,7 @@ function ModuleCard({
           {definition.sections.map((section) => (
             <li
               key={section.key}
-              className="rounded-full border border-line bg-canvas px-2 py-0.5 text-micro text-fg-subtle"
+              className="border border-line-strong bg-canvas px-1.5 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-fg-subtle"
             >
               {configLabel(copy, "sections", section.label)}
             </li>

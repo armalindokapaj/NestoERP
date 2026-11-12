@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ContactForm } from "@/components/marketing/contact-form";
-import { Container, PageIntro } from "@/components/marketing/section";
+import { Container, PageIntro, SectionBar, sectionMark } from "@/components/marketing/section";
 import { contactChannels } from "@/config/marketing";
 import { getSiteCopy } from "@/lib/i18n/server";
 
@@ -25,7 +25,8 @@ export default async function ContactPage() {
     <>
       <PageIntro eyebrow={contact.eyebrow} title={contact.title} lead={contact.lead} />
 
-      <section className="bg-canvas">
+      <section {...sectionMark(copy.sheet.write)} className="relative bg-canvas">
+        <SectionBar label={copy.sheet.write} />
         <Container className="py-16 sm:py-20 lg:py-24">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-16">
             <ContactForm copy={contact.form} replyTime={copy.replyTime} />
@@ -53,7 +54,7 @@ export default async function ContactPage() {
                 </ul>
               </div>
 
-              <div className="rounded-xl border border-line bg-surface p-5">
+              <div className="border border-line-strong bg-surface p-5">
                 <h2 className="text-card font-semibold text-fg">{contact.account.title}</h2>
                 <p className="mt-2 text-table leading-relaxed text-fg-muted">
                   {contact.account.copy}

@@ -121,7 +121,7 @@ export function ActionRibbon({ navigation, canCreate }: { navigation: Navigation
               aria-expanded={open && current === "page"}
               data-testid="section-menu-trigger"
               onClick={() => show("page")}
-              className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[16px] bg-accent-soft px-3 text-left [[data-action-slot]:not(:empty)+&]:hidden"
+              className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-none bg-accent-soft px-3 text-left [[data-action-slot]:not(:empty)+&]:hidden"
             >
               <ThisPageLabel label={label} />
             </button>
@@ -151,7 +151,7 @@ export function ActionRibbon({ navigation, canCreate }: { navigation: Navigation
         >
           <div className="flex shrink-0 items-center justify-between gap-2 pb-1.5 pl-5 pr-3 pt-3.5">
             <DrawerTitle className="font-display text-[1.75rem] text-fg">{t("phone.ribbon")}</DrawerTitle>
-            <DrawerClose aria-label={t("phone.close")} className="grid size-12 shrink-0 place-items-center rounded-full text-fg-muted hover:bg-hover hover:text-fg">
+            <DrawerClose aria-label={t("phone.close")} className="grid size-12 shrink-0 place-items-center rounded-none text-fg-muted hover:bg-hover hover:text-fg">
               <X aria-hidden="true" className="size-5" />
             </DrawerClose>
           </div>
@@ -178,7 +178,7 @@ export function ActionRibbon({ navigation, canCreate }: { navigation: Navigation
                     setPicked(tab.id);
                   }}
                   className={cn(
-                    "flex h-[3.75rem] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[14px] font-mono text-[0.5625rem] font-medium uppercase leading-none tracking-[0.05em] transition-colors",
+                    "flex h-[3.75rem] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-none font-mono text-[0.5625rem] font-medium uppercase leading-none tracking-[0.05em] transition-colors",
                     page
                       ? selected
                         ? "bg-accent text-accent-fg"
@@ -197,7 +197,7 @@ export function ActionRibbon({ navigation, canCreate }: { navigation: Navigation
             })}
           </div>
 
-          <label className="mx-4 mb-3 flex h-12 shrink-0 items-center gap-2 rounded-full border border-line bg-surface px-4 focus-within:ring-2 focus-within:ring-ring">
+          <label className="mx-4 mb-3 flex h-12 shrink-0 items-center gap-2 rounded-none border border-line bg-surface px-4 focus-within:ring-2 focus-within:ring-ring">
             <Search aria-hidden="true" className="size-[18px] shrink-0 text-fg-subtle" />
             <span className="sr-only">{t("phone.find")}</span>
             <input

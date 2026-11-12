@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, RotateCcw } from "@/components/icons";
 
+import { SectionBar, sectionMark } from "@/components/marketing/section";
 import { Button } from "@/components/ui/button";
 import { fill } from "@/lib/i18n/site";
 import type { LandingCopy } from "@/lib/i18n/site/landing";
@@ -151,23 +152,24 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
     <section
       id="try"
       aria-labelledby="try-heading"
-      className="scroll-mt-28 border-t-2 border-fg bg-surface"
+      {...sectionMark(copy.hero.eyebrow)}
+      className="relative scroll-mt-28 border-y border-line-strong bg-surface [--site-ground:var(--nesto-surface)]"
       data-testid={position ? "landing-story" : "landing-personas"}
       data-persona={position?.persona}
       data-step={slide?.id}
     >
+      <SectionBar label={copy.hero.eyebrow} />
       <div className="mx-auto w-full max-w-[1280px] px-[clamp(16px,4vw,48px)] py-16 sm:py-20">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-2xl">
-            <p className="nesto-eyebrow text-accent-strong">{copy.hero.eyebrow}</p>
-            <h2 id="try-heading" className="mt-3 text-balance text-[36px] leading-[0.95] text-fg sm:text-[52px] font-display">
+            <h2 id="try-heading" className="text-balance text-[36px] leading-[0.95] text-fg sm:text-[52px] font-display">
               {first}
               {rest.map((line) => <em key={line} className="block italic text-accent-strong">{line}</em>)}
             </h2>
             <p className="nesto-standfirst mt-3 text-[19px] leading-snug">{copy.hero.lead}</p>
           </div>
           {position ? (
-            <div role="group" aria-label={copy.hero.choose} className="inline-flex gap-0.5 rounded-full border border-line-strong bg-canvas p-[3px]">
+            <div role="group" aria-label={copy.hero.choose} className="inline-flex border border-line-strong bg-canvas">
               {LANDING_PERSONAS.filter((persona) => persona !== "GENERIC").map((persona) => (
                 <a
                   key={persona}
@@ -176,7 +178,7 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
                   aria-current={position.persona === persona ? "true" : undefined}
                   data-testid={`story-persona-${persona.toLowerCase()}`}
                   className={cn(
-                    "inline-flex h-9 items-center whitespace-nowrap rounded-full px-4 text-table transition-colors",
+                    "inline-flex h-10 items-center whitespace-nowrap border-r border-line-strong px-4 font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em] transition-colors last:border-r-0",
                     position.persona === persona ? "bg-primary text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
                   )}
                 >
@@ -188,7 +190,7 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
         </div>
 
         {/* The window: an illustrative NESTO, its address and its Ribbon. */}
-        <div className="mt-8 overflow-hidden rounded-2xl border-[1.5px] border-fg bg-canvas shadow-[0_30px_60px_-40px_rgb(15_20_26/0.55)]">
+        <div className="site-app mt-8 overflow-hidden border-[1.5px] border-fg bg-canvas">
           <div className="flex h-11 items-center gap-3 border-b border-line bg-surface px-4">
             <span aria-hidden="true" className="flex gap-1.5">
               <i className="size-2.5 rounded-full border border-line-strong" />
@@ -222,18 +224,18 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
           ) : (
             <div className="p-5 sm:p-8">
               <h3 className="text-section text-fg font-display">{copy.hero.choose}</h3>
-              <ul className="mt-5 grid gap-3 md:grid-cols-3">
+              <ul className="mt-5 grid border-l border-t border-line-strong md:grid-cols-3">
                 {LANDING_PERSONAS.filter((persona) => persona !== "GENERIC").map((persona) => (
                   <li key={persona}>
                     <a
                       href={storyHref({ persona, index: 0 })}
                       onClick={(event) => start(persona, event)}
                       data-testid={`persona-${persona.toLowerCase()}`}
-                      className="group flex h-full flex-col rounded-xl border border-line-strong bg-surface p-5 transition-colors hover:border-accent hover:bg-row-hover"
+                      className="group flex h-full flex-col border-b border-r border-line-strong bg-surface p-6 transition-colors hover:bg-row-hover"
                     >
                       <span className="text-section text-fg font-display">{copy.personas[persona].title}</span>
                       <span className="mt-2 text-table leading-relaxed text-fg-muted">{copy.personas[persona].copy}</span>
-                      <span className="mt-4 inline-flex items-center gap-1.5 text-table font-medium text-fg">
+                      <span className="mt-4 inline-flex items-center gap-1.5 font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em] text-fg">
                         {copy.controls.start}
                         <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
                       </span>

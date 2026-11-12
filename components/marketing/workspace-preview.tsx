@@ -113,7 +113,7 @@ export async function WorkspacePreview() {
     <div
       role="img"
       aria-label={copy.description}
-      className="nesto-card overflow-hidden"
+      className="site-app nesto-card overflow-hidden"
     >
       {/* Top bar */}
       <div className="flex h-12 items-center gap-3 border-b border-line bg-surface px-4">

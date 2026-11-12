@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * of NESTO rather than a description of it.
  */
 export default async function PlatformPage() {
-  const { platform, rolesSection, pillars } = await getSiteCopy();
+  const { platform, rolesSection, pillars, sheet } = await getSiteCopy();
 
   return (
     <>
@@ -49,25 +49,21 @@ export default async function PlatformPage() {
         </div>
       </PageIntro>
 
-      <Section tone="canvas">
+      <Section tone="canvas" bar={sheet.workspace}>
         <WorkspacePreview />
         <StatStrip className="mt-6" />
       </Section>
 
-      <Section id="modules" tone="surface">
+      <Section id="modules" tone="surface" bar={platform.modules.eyebrow}>
         <SectionHeader
-          step="01"
-          eyebrow={platform.modules.eyebrow}
           title={platform.modules.title}
           lead={platform.modules.lead}
         />
         <ModuleGrid zones={["primary", "work", "department", "company"]} showTabs className="mt-14" />
       </Section>
 
-      <Section id="roles" tone="canvas">
+      <Section id="roles" tone="canvas" bar={rolesSection.eyebrow}>
         <SectionHeader
-          step="02"
-          eyebrow={rolesSection.eyebrow}
           title={rolesSection.title}
           lead={rolesSection.lead}
         />
@@ -77,20 +73,16 @@ export default async function PlatformPage() {
         </p>
       </Section>
 
-      <Section id="lifecycle" tone="surface">
+      <Section id="lifecycle" tone="surface" bar={platform.build.eyebrow}>
         <SectionHeader
-          step="03"
-          eyebrow={platform.build.eyebrow}
           title={platform.build.title}
           lead={platform.build.lead}
         />
         <Lifecycle className="mt-12" />
       </Section>
 
-      <Section tone="canvas" bordered={false}>
+      <Section tone="canvas" bordered={false} bar={platform.howItIsBuilt.eyebrow}>
         <SectionHeader
-          step="04"
-          eyebrow={platform.howItIsBuilt.eyebrow}
           title={platform.howItIsBuilt.title}
         />
         <div className={cn(hairlineGrid, "mt-12 lg:grid-cols-3")}>

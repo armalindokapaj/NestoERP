@@ -104,14 +104,14 @@ export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation
             role="dialog"
             aria-label={open === "page" ? t("ribbon.thisPage") : groupLabel(open)}
             data-testid="phone-panel"
-            className="absolute inset-x-0 bottom-full mx-auto flex max-h-[min(72dvh,42rem)] max-w-xl flex-col rounded-t-[20px] border border-b-0 border-line bg-canvas shadow-menu"
+            className="absolute inset-x-0 bottom-full mx-auto flex max-h-[min(72dvh,42rem)] max-w-xl flex-col rounded-none border border-b-0 border-line bg-canvas shadow-menu"
           >
             <div className="flex shrink-0 items-start justify-between gap-2 pb-2.5 pl-5 pr-3 pt-4">
               <div className="min-w-0">
                 <p className={cn("nesto-eyebrow", open === "page" ? "text-accent-strong" : "text-fg-subtle")}>{open === "page" ? t("ribbon.thisPage") : t("ribbon.modules")}</p>
                 <h2 className="truncate font-display text-[1.75rem] leading-tight text-fg">{open === "page" ? label : groupLabel(open)}</h2>
               </div>
-              <button type="button" aria-label={t("phone.close")} onClick={() => close(true)} className="grid size-12 shrink-0 place-items-center rounded-full text-fg-muted hover:bg-hover hover:text-fg">
+              <button type="button" aria-label={t("phone.close")} onClick={() => close(true)} className="grid size-12 shrink-0 place-items-center rounded-none text-fg-muted hover:bg-hover hover:text-fg">
                 <X aria-hidden="true" className="size-5" />
               </button>
             </div>
@@ -124,7 +124,7 @@ export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation
       ) : null}
       {/* The strip: This page, Units, Create. Hidden while a panel is open, which covers its place. */}
       <div hidden={open !== null} className="pointer-events-none absolute inset-x-0 bottom-full px-2.5 pb-2">
-        <div data-testid="phone-strip" className="pointer-events-auto mx-auto flex max-w-xl items-center gap-1.5 rounded-[18px] border border-line bg-surface/90 p-1 shadow-menu backdrop-blur-xl">
+        <div data-testid="phone-strip" className="pointer-events-auto mx-auto flex max-w-xl items-center gap-1.5 rounded-none border border-line bg-surface/90 p-1 shadow-menu backdrop-blur-xl">
           {levels.length > 0 ? (
             <button
               type="button"
@@ -133,7 +133,7 @@ export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation
               aria-expanded={open === "page"}
               data-testid="section-menu-trigger"
               onClick={toggle("page")}
-              className="flex min-h-[52px] min-w-0 flex-1 items-center gap-2.5 rounded-[13px] bg-accent-soft px-3 text-left"
+              className="flex min-h-[52px] min-w-0 flex-1 items-center gap-2.5 rounded-none bg-accent-soft px-3 text-left"
             >
               <ThisPageLabel label={label} />
               <ChevronUp aria-hidden="true" className="size-5 shrink-0 text-accent-strong" />
@@ -143,7 +143,7 @@ export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation
               <ThisPageLabel label={label} />
             </div>
           )}
-          <UnitsLink navigation={navigation} className="h-[52px] w-[3.75rem] shrink-0 rounded-[13px] border border-line bg-surface aria-[current=page]:border-accent" />
+          <UnitsLink navigation={navigation} className="h-[52px] w-[3.75rem] shrink-0 rounded-none border border-line bg-surface aria-[current=page]:border-accent" />
           <CreateButton canCreate={canCreate} variant="round" />
         </div>
       </div>
@@ -165,7 +165,7 @@ export function PocketRibbon({ navigation, canCreate }: { navigation: Navigation
                   data-here={here === group.group || undefined}
                   onClick={toggle(group.group)}
                   className={cn(
-                    "relative flex h-16 w-full flex-col items-center justify-center gap-1.5 rounded-[16px] font-mono text-[0.5625rem] font-medium uppercase leading-none tracking-[0.04em] transition-colors",
+                    "relative flex h-16 w-full flex-col items-center justify-center gap-1.5 rounded-none font-mono text-[0.5625rem] font-medium uppercase leading-none tracking-[0.04em] transition-colors",
                     expanded
                       ? "bg-primary text-primary-fg"
                       : here === group.group

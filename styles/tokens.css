@@ -304,8 +304,8 @@
   --nesto-touch-target-min: 2.75rem;
 
   --nesto-radius-control: 8px;
-  /* A button is a pill today and 8px in version 2 (UI-02 §6.3). */
-  --nesto-radius-button: 9999px;
+  /* A button is square, on the site and in the platform (UI-05 §9, getartcraft.com's buttons). */
+  --nesto-radius-button: 0px;
   --nesto-radius-card: 10px;
   --nesto-radius-sheet: 16px;
   /*

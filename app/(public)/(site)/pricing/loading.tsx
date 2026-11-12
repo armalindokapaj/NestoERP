@@ -10,8 +10,8 @@ export default async function PricingLoading() {
         <div className="mt-5 h-12 max-w-2xl animate-pulse rounded bg-line" />
         <div className="mt-4 h-5 max-w-xl animate-pulse rounded bg-line" />
         <div className="mt-12 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="h-[620px] animate-pulse rounded-2xl border border-line bg-surface" />
-          <div className="h-[520px] animate-pulse rounded-2xl border border-line bg-surface" />
+          <div className="h-[620px] animate-pulse border border-line bg-surface" />
+          <div className="h-[520px] animate-pulse border border-line bg-surface" />
         </div>
       </section>
     </main>

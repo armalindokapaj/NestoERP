@@ -91,7 +91,9 @@ export function Button({ className, variant, size, asChild = false, loading = fa
   const busy = loading && !asChild;
   return (
     <Comp
-      data-variant={variant === "danger" ? "danger" : undefined}
+      data-button=""
+      data-variant={variant ?? "primary"}
+      data-size={size ?? "md"}
       data-busy={busy ? "" : undefined}
       className={cn(buttonVariants({ variant, size }), className)}
       disabled={asChild ? undefined : disabled}

@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils/cn";
 
 /**
  * The third sticky layer (Sticky Navigation §3, §9, §11): a page's context tabs,
- * pinned under the breadcrumb bar. Full width of the content column, opaque, with
+ * pinned under the breadcrumb bar. Full width of the content column, glass (60% of
+ * the page and a 12px blur, styles/globals.css; UI-05 §9), with
  * a hairline under it. Put it as a direct child of the page's own container so
  * it stays pinned for the whole page. Pages without tabs render nothing (§12).
  *
@@ -84,7 +85,7 @@ export function contextTabClass(active: boolean) {
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
     active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
     // The reference's segmented pills, the tab the page is on in ink.
-    "my-auto h-9 rounded-full border-b-0 px-3.5",
+    "my-auto h-9 rounded-none border-b-0 px-3.5",
     active ? "bg-primary text-primary-fg" : "hover:bg-hover",
   );
 }

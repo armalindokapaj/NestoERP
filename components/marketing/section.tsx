@@ -22,9 +22,26 @@ export function Container({ className, ...props }: React.ComponentProps<"div">) 
   return <div className={cn("mx-auto w-full max-w-[1280px] px-[clamp(16px,4vw,48px)]", className)} {...props} />;
 }
 
+const grounds = {
+  canvas: "[--site-ground:var(--nesto-canvas)]",
+  surface: "[--site-ground:var(--nesto-surface)]",
+  muted: "[--site-ground:var(--nesto-surface-muted)]",
+  graphite: "[--site-ground:var(--nesto-graphite)]",
+} as const;
+
+/**
+ * A band of the page. With `bar`, it is one of the page's numbered sections:
+ * it opens with its bar ("02 / Modules"), which pins under the masthead while
+ * the section is on screen, and the index rail lists it (site-index.tsx).
+ * Clipped sideways only, never `overflow: hidden`, which would keep the bar
+ * from pinning.
+ */
 export function Section({
   tone = "canvas",
   bordered = true,
+  bar,
+  index,
+  note,
   className,
   containerClassName,
   children,
@@ -32,26 +49,56 @@ export function Section({
 }: React.ComponentProps<"section"> & {
   tone?: keyof typeof tones;
   bordered?: boolean;
+  /** The section's name in its bar and in the index; usually its eyebrow. */
+  bar?: string;
+  /** A shorter name for the index rail, where the bar's is long. */
+  index?: string;
+  /** A short line at the bar's other end. */
+  note?: string;
   containerClassName?: string;
 }) {
   return (
     <section
+      {...(bar ? sectionMark(bar, index) : {})}
       className={cn(
-        "relative overflow-hidden",
+        "relative overflow-x-clip",
         tones[tone],
+        grounds[tone],
         bordered && "border-b border-line",
         tone === "graphite" && "border-graphite",
         className,
       )}
       {...props}
     >
+      {bar ? <SectionBar label={bar} note={note} tone={tone === "graphite" ? "ink" : undefined} /> : null}
       <Container className={cn("py-16 sm:py-20 lg:py-28", containerClassName)}>{children}</Container>
     </section>
   );
 }
 
+/** What makes an element one of the page's numbered sections: its name, for the bar's number and the index (or a shorter one for the index). */
+export function sectionMark(label: string, index?: string) {
+  return { "data-site-section": label, "data-site-index": index } as const;
+}
+
+/**
+ * A section's bar: its number and name in mono on the left, a short line on
+ * the right; below xl, where there is no index rail, how far through the page
+ * it is (02 / 05). Goes first inside an element carrying `sectionMark`.
+ */
+export function SectionBar({ label, note, tone }: { label: string; note?: string; tone?: "ink" }) {
+  return (
+    <div className="site-bar" data-tone={tone}>
+      <Container className="flex h-11 items-center justify-between gap-6">
+        <span className="site-bar-n min-w-0 truncate">{label}</span>
+        {note ? <span className="site-bar-k max-md:hidden">{note}</span> : null}
+        <span aria-hidden="true" className="site-bar-count" />
+      </Container>
+    </div>
+  );
+}
+
 export function SectionHeader({
-  step,
   eyebrow,
   title,
   lead,
@@ -59,7 +106,7 @@ export function SectionHeader({
   tone = "default",
   className,
 }: {
-  step?: string;
+  /** Only for a heading outside a barred section: a barred section's bar names it. */
   eyebrow?: string;
   title: React.ReactNode;
   lead?: React.ReactNode;
@@ -69,28 +116,16 @@ export function SectionHeader({
   className?: string;
 }) {
   const inverse = tone === "inverse";
-  // A numbered head is a sheet: the number in outline, the title, then a full ink rule (UI-05 §4).
   return (
-    <div
-      className={cn(
-        "grid gap-x-6 gap-y-4 lg:items-end",
-        step ? "border-b-2 pb-5 sm:grid-cols-[96px_minmax(0,1fr)] lg:grid-cols-[120px_minmax(0,1fr)_auto]" : "lg:grid-cols-[minmax(0,1fr)_auto]",
-        inverse ? "border-graphite-fg" : "border-fg",
-        className,
-      )}
-    >
-      {step ? (
-        <span aria-hidden="true" className="nesto-numeral text-[72px] lg:text-[96px]">
-          {step}
-        </span>
-      ) : null}
+    <div className={cn("grid gap-x-6 gap-y-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end", className)}>
       <div className="max-w-3xl">
         {eyebrow ? (
           <p className={cn("nesto-eyebrow", inverse ? "text-graphite-fg/55" : "text-accent-strong")}>{eyebrow}</p>
         ) : null}
         <h2
           className={cn(
-            "mt-3 text-balance text-[32px] leading-[0.98] sm:text-[44px] lg:text-[52px] font-display",
+            "text-balance text-[32px] leading-[0.98] sm:text-[44px] lg:text-[56px] font-display",
+            eyebrow && "mt-3",
             inverse ? "text-graphite-fg" : "text-fg",
           )}
         >
@@ -107,7 +142,7 @@ export function SectionHeader({
           </p>
         ) : null}
       </div>
-      {aside ? <div className="shrink-0 sm:col-start-2 lg:col-start-auto">{aside}</div> : null}
+      {aside ? <div className="shrink-0">{aside}</div> : null}
     </div>
   );
 }
@@ -169,14 +204,14 @@ export function PageIntro({
 }
 
 /**
- * The hairline grid (design spec §20, §81).
+ * The hairline grid (design spec §20, §81; UI-05 §9).
  *
- * Cards separated by a single line, used for modules, roles, stages and
+ * Square cards separated by a single line, no gaps, no shadows, used for modules, roles, stages and
  * figures. The lines are drawn by each cell rather than by a coloured gap in
  * the container: a gap shows through wherever a row is not full, which turns a
  * missing card into a grey block. Drawn this way, a short last row simply ends.
  */
-export const hairlineGrid = "grid overflow-hidden rounded-xl border-l border-t border-line";
+export const hairlineGrid = "grid border-l border-t border-line";
 export const hairlineCell = "border-b border-r border-line bg-surface";
 
 /**

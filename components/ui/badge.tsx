@@ -16,13 +16,13 @@ import { cn } from "@/lib/utils/cn";
  * something is a button that contains one.
  */
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro font-medium max-w-full font-mono uppercase tracking-[0.06em] max-md:tracking-[0.02em]",
+  "inline-flex items-center gap-1 rounded-none border px-2 py-0.5 text-micro font-medium max-w-full font-mono uppercase tracking-[0.06em] max-md:tracking-[0.02em]",
   {
     variants: {
       /* nowrap keeps a short status on one line; `wrap` lets a long label break instead of overflowing (MOB-01 §35). */
       wrap: {
         false: "whitespace-nowrap",
-        true: "rounded-xl whitespace-normal [overflow-wrap:anywhere]",
+        true: "whitespace-normal [overflow-wrap:anywhere]",
       },
       tone: {
         default: "border-line bg-surface-muted text-fg-muted",

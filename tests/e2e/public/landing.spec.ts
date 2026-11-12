@@ -124,8 +124,9 @@ test("Full View keeps the detailed platform, corrected (§104)", async ({ page }
   for (const id of ["overview", "problem", "modules", "roles", "lifecycle", "group", "experience", "security", "rozaris", "pricing", "faq"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
   }
-  await page.getByTestId("full-view-nav").getByRole("link", { name: "ROZARIS" }).click();
-  await expect(page).toHaveURL(/#rozaris$/);
+  // The index rail beside the ruler lists the page's sections and goes to one (UI-05 §9).
+  await page.getByTestId("site-index").getByRole("button", { name: "ROZARIS" }).click();
+  await expect(page.locator("#rozaris")).toBeInViewport();
   await expect(page.locator("body")).not.toContainText(/every module included|on every plan|seventeen modules/i);
   await page.locator("#pricing").getByRole("link", { name: "Build your price" }).click();
   await expect(page).toHaveURL(/\/pricing(\?.*)?$/);

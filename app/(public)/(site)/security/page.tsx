@@ -20,13 +20,13 @@ export async function generateMetadata(): Promise<Metadata> {
  * fastest way to lose the audience it was written for.
  */
 export default async function SecurityPage() {
-  const { security, faq } = await getSiteCopy();
+  const { security, faq, sheet } = await getSiteCopy();
 
   return (
     <>
       <PageIntro eyebrow={security.eyebrow} title={security.title} lead={security.lead} />
 
-      <Section tone="canvas">
+      <Section tone="canvas" bar={sheet.measures}>
         {/* A drawing's legend: each measure keeps its own fill (UI-05 §7). */}
         <dl className="grid sm:grid-cols-2 sm:gap-x-10">
           {security.measures.map((measure, index) => (
@@ -41,20 +41,17 @@ export default async function SecurityPage() {
         </dl>
       </Section>
 
-      <Section tone="canvas">
+      <Section tone="canvas" bar={security.honesty.eyebrow}>
         <div className="max-w-3xl border-[1.5px] border-dashed border-fg p-6 sm:p-10">
-          <p className="nesto-eyebrow text-accent-strong">{security.honesty.eyebrow}</p>
-          <h2 className="mt-4 text-[32px] leading-[0.98] text-fg sm:text-[44px] font-display">
+          <h2 className="text-[32px] leading-[0.98] text-fg sm:text-[44px] font-display">
             <Dotted>{security.honesty.title}</Dotted>
           </h2>
           <p className="mt-4 text-body leading-relaxed text-fg-muted sm:text-card">{security.honesty.copy}</p>
         </div>
       </Section>
 
-      <Section tone="surface" bordered={false}>
+      <Section tone="surface" bordered={false} bar={security.questions.eyebrow}>
         <SectionHeader
-          step="01"
-          eyebrow={security.questions.eyebrow}
           title={security.questions.title}
         />
         <FaqList items={faq.groups.security.items} className="mt-12" />

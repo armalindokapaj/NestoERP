@@ -4,7 +4,7 @@ import { ArrowRight } from "@/components/icons";
 
 import { CtaBand } from "@/components/marketing/cta-band";
 import { FaqList } from "@/components/marketing/faq-list";
-import { Container, PageIntro } from "@/components/marketing/section";
+import { Container, PageIntro, SectionBar, sectionMark } from "@/components/marketing/section";
 import { Button } from "@/components/ui/button";
 import { FAQ_GROUPS, siteContact } from "@/config/marketing";
 import { getSiteCopy } from "@/lib/i18n/server";
@@ -26,25 +26,20 @@ export default async function FaqPage() {
     <>
       <PageIntro eyebrow={faq.eyebrow} title={faq.title} lead={faq.lead} />
 
-      <section className="border-b border-line bg-canvas">
-        <Container className="py-16 sm:py-20 lg:py-24">
-          <div className="space-y-16">
-            {FAQ_GROUPS.map((key, index) => (
-              <section key={key}>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-micro tabular-nums text-fg-subtle">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <h2 className="text-section text-fg lg:text-page font-display">
-                    {faq.groups[key].title}
-                  </h2>
-                </div>
-                <FaqList items={faq.groups[key].items} className="mt-6" />
-              </section>
-            ))}
-          </div>
+      {/* Each group is one of the page's numbered sections: its bar names it. */}
+      {FAQ_GROUPS.map((key) => (
+        <section key={key} {...sectionMark(faq.groups[key].title)} className="relative border-b border-line bg-canvas">
+          <SectionBar label={faq.groups[key].title} />
+          <Container className="py-12 sm:py-14 lg:py-16">
+            <h2 className="sr-only">{faq.groups[key].title}</h2>
+            <FaqList items={faq.groups[key].items} />
+          </Container>
+        </section>
+      ))}
 
-          <div className="mt-16 flex flex-wrap items-center gap-x-6 gap-y-4 rounded-xl border border-line bg-surface p-6 sm:p-8">
+      <section className="border-b border-line bg-canvas">
+        <Container className="py-12 sm:py-14">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-4 border border-line-strong bg-surface p-6 sm:p-8">
             <div className="min-w-0 flex-1">
               <h2 className="text-card font-semibold text-fg">{faq.stillUnanswered}</h2>
               <p className="mt-1.5 text-table text-fg-muted">

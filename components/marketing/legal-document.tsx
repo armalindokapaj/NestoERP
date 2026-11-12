@@ -1,4 +1,4 @@
-import { Container, PageIntro } from "@/components/marketing/section";
+import { Container, PageIntro, SectionBar, sectionMark } from "@/components/marketing/section";
 import { getSiteCopy } from "@/lib/i18n/server";
 import type { LegalDocument } from "@/lib/i18n/site";
 
@@ -18,36 +18,32 @@ export async function LegalDocumentPage({ document }: { document: LegalDocument 
         <p className="nesto-eyebrow text-fg-subtle">{copy.legal.lastUpdated} · {document.updated}</p>
       </PageIntro>
 
-      <section className="bg-canvas">
-        <Container className="py-12 sm:py-16 lg:py-20">
+      <section className="border-b border-line bg-canvas">
+        <Container className="py-10 sm:py-12">
           <p className="max-w-2xl border-[1.5px] border-dashed border-fg p-5 text-table leading-relaxed text-fg-muted">
             {document.note}
           </p>
-
-          <div className="mt-14 space-y-12">
-            {document.sections.map((section, index) => (
-              <article
-                key={section.title}
-                className="grid gap-5 border-t border-fg pt-8 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)] lg:gap-12"
-              >
-                <div>
-                  <p aria-hidden="true" className="nesto-numeral text-[56px]">
-                    {String(index + 1).padStart(2, "0")}
-                  </p>
-                  <h2 className="mt-3 text-[24px] leading-tight text-fg font-display">{section.title}</h2>
-                </div>
-                <div className="max-w-2xl space-y-4">
-                  {section.body.map((paragraph) => (
-                    <p key={paragraph} className="text-body leading-relaxed text-fg-muted">
-                      {paragraph}
-                    </p>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
         </Container>
       </section>
+
+      {/* Each part is one of the page's numbered sections: its bar names it (UI-05 §9). */}
+      {document.sections.map((section) => (
+        <section key={section.title} {...sectionMark(section.title)} className="relative border-b border-line bg-canvas">
+          <SectionBar label={section.title} />
+          <Container className="py-10 sm:py-12 lg:py-14">
+            <article className="grid gap-5 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)] lg:gap-12">
+              <h2 className="text-[24px] leading-tight text-fg font-display">{section.title}</h2>
+              <div className="max-w-2xl space-y-4">
+                {section.body.map((paragraph) => (
+                  <p key={paragraph} className="text-body leading-relaxed text-fg-muted">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            </article>
+          </Container>
+        </section>
+      ))}
     </>
   );
 }

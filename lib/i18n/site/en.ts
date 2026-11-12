@@ -104,6 +104,25 @@ export const siteEn = {
     followUnit: "Follow one Unit through NESTO",
   },
 
+  /** The page's sheet: its numbered sections, the index rail and the 0–100 ruler (UI-05 §9). */
+  sheet: {
+    sections: "Sections on this page",
+    sheet: "Sheet",
+    top: "NESTO",
+    ruler: "Page position {n}%. Click to go to that point of the page.",
+    progress: "How far through the page",
+    getStarted: "Get started",
+    tryIt: "Try it here",
+    principles: "Principles",
+    argument: "Why NESTO",
+    motto: "The motto",
+    workspace: "The workspace",
+    measures: "Measures",
+    write: "Write to us",
+    figures: "In figures",
+    note: "Before you read",
+  },
+
   /** The Ribbon masthead (config/marketing.ts → siteRibbon). */
   ribbon: {
     tabs: {

@@ -111,7 +111,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
           aria-label={t("account.menuFor", { name })}
           aria-haspopup="dialog"
           data-testid="account-trigger"
-          className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full transition-colors hover:bg-hover data-[state=open]:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
+          className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-none transition-colors hover:bg-hover data-[state=open]:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
         >
           <Avatar firstName={model.user.firstName} lastName={model.user.lastName} src={model.user.avatarUrl} size="md" className="size-8 border-transparent bg-accent font-medium text-accent-fg font-display" />
         </button>

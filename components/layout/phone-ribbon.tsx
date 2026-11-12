@@ -185,7 +185,7 @@ function SectionTile({ item, onDone }: { item: SectionItem; onDone: () => void }
 /** A tile: large, bordered, the whole of it the target (84px, for gloves on site). The place you are is gold. */
 function tileClass(active: boolean) {
   return cn(
-    "relative flex w-full gap-2.5 rounded-[12px] border p-3 text-left text-table font-medium transition-colors",
+    "relative flex w-full gap-2.5 rounded-none border p-3 text-left text-table font-medium transition-colors",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     active ? "border-accent bg-accent-soft text-accent-strong" : "border-line bg-surface text-fg hover:bg-hover active:bg-hover",
   );
@@ -260,7 +260,7 @@ export function AccountBlock({ account, onDone }: { account: PhoneAccount; onDon
   return (
     <section aria-label={t("phone.you")} className="space-y-2" data-testid="phone-account">
       <h3 className="nesto-eyebrow text-fg-subtle">{t("phone.you")}</h3>
-      <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-[12px] border border-line bg-surface px-3 py-2 transition-colors hover:bg-hover">
+      <Link href="/settings/profile" navSource="mobile" onNavigate={onDone} className="flex min-h-14 items-center gap-3 rounded-none border border-line bg-surface px-3 py-2 transition-colors hover:bg-hover">
         <Avatar firstName={account.firstName} lastName={account.lastName} src={account.avatarUrl} size="md" className="border-transparent bg-accent font-display font-medium text-accent-fg" />
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-body font-semibold text-fg">{name}</span>
@@ -316,7 +316,7 @@ export function useUnitsHref(navigation: Navigation): { href: string; current: b
 
 /** A cell of the bar: icon over a small mono label, at least 56px tall. */
 export const cellClass =
-  "relative flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-[16px] px-1 font-mono text-[0.625rem] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted transition-colors hover:bg-hover hover:text-fg";
+  "relative flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-none px-1 font-mono text-[0.625rem] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted transition-colors hover:bg-hover hover:text-fg";
 
 export function UnitsLink({ navigation, className }: { navigation: Navigation; className?: string }) {
   const t = useTranslations("shell");
@@ -367,7 +367,7 @@ export function CreateButton({ canCreate, variant }: { canCreate: boolean; varia
       className={cn(
         "shrink-0 md:hidden",
         variant === "round"
-          ? "grid size-[52px] place-items-center rounded-full bg-primary text-primary-fg shadow-menu transition-transform active:scale-95"
+          ? "grid size-[52px] place-items-center rounded-none bg-primary text-primary-fg shadow-menu transition-transform active:scale-95"
           : cn(cellClass, "w-[3.5rem]"),
       )}
     >
@@ -375,7 +375,7 @@ export function CreateButton({ canCreate, variant }: { canCreate: boolean; varia
         plus
       ) : (
         <>
-          <span className="grid size-[22px] place-items-center rounded-full border-[1.5px] border-current">{plus}</span>
+          <span className="grid size-[22px] place-items-center rounded-none border-[1.5px] border-current">{plus}</span>
           <span aria-hidden="true">{t("phone.create")}</span>
         </>
       )}

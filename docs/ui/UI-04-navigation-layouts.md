@@ -1,7 +1,7 @@
 > **Chat:** Nesto UI/UX — navigation study
 > **File:** docs/ui/UI-04-navigation-layouts.md
 > **About:** How a person moves around Nesto — one top bar with the Ribbon's five tabs (Work, Company, Sales, Procurement, Finance) and Units pinned beside + Create on a desktop, the logo's panel of every module, and the Pocket Ribbon or the Action Ribbon on a phone; what each draws, where the code lives, and what comes next.
-> **Last updated:** 2026-11-12 (five tabs; buttons for sections; Units across the projects)
+> **Last updated:** 2026-11-12 (five tabs; buttons for sections; Units across the projects; glass and square controls)
 
 # UI-04 — Navigation layouts
 
@@ -86,6 +86,14 @@ separate and unchanged.
   icon: Home, Units, + Create, the tabs, the search field's text.
 - **The left is where you are and what you make; the right is the universal
   cluster** in its order: Search, Notifications, Account (UI-01 §1).
+- **Glass and square** (UI-05 §9). The bar and the open ribbon are glass: 82%
+  of the page and a 14px blur, on a layer behind the header (a backdrop
+  filter on the header itself would trap the phone's + Create sheet), so the
+  page blurs as it scrolls under them. Every control is square with a line:
+  Home, Units, + Create, the search field, the bell, the five tabs (the open
+  one in ink), the ribbon's buttons (the one you are in outlined in ink), the
+  tab rows under page titles and the phone's tiles and bar. Labels stay 14px
+  in sentence case — mono capitals are the site's.
 
 - **The logo** (`ModulesPanel`, `components/layout/modules-panel.tsx`): the
   workspace's mark with a small grid. It opens a panel on the left third of the
@@ -141,6 +149,7 @@ share one state: `RibbonProvider` (around the bar's row and the panel),
 ![Units for sale: the Sales tab, Units gold in the bar](evidence/UI-04-ribbon-units.png)
 ![The Company tab at 1024px](evidence/UI-04-ribbon-1024.png)
 ![The ribbon folded](evidence/UI-04-ribbon-folded.png)
+![Scrolled: the list blurs under the glass bar, ribbon and tab row](evidence/UI-04-glass-scrolled.png)
 ![The logo's panel, Units under Sales](evidence/UI-04-modules-panel.png)
 
 ## 4. Units

@@ -2,7 +2,7 @@ import type { Locale } from "@/lib/i18n/config";
 
 /**
  * Words for the Full View page (Landing + Full View PRD §51-§66) that the old
- * home page did not already carry: the section navigator, Group architecture,
+ * home page did not already carry: Group architecture,
  * ROZARIS, the pricing overview and the questions of §64. Everything else on
  * the page is the former home page's copy in lib/i18n/site/{en,sq}.ts, with
  * its legacy "every module on every plan" claims corrected (§56).
@@ -14,10 +14,8 @@ const en = {
   },
   eyebrow: "Full View",
   lead: "Everything NESTO can do, in detail.",
+  /** Short names for the index rail beside the ruler (UI-05 §9). */
   nav: {
-    label: "On this page",
-    jump: "Jump to section",
-    overview: "Overview",
     problem: "Problem",
     modules: "Modules",
     roles: "Roles",
@@ -94,10 +92,8 @@ const sq: FullViewCopy = {
   },
   eyebrow: "Pamja e plotë",
   lead: "Gjithçka që NESTO mund të bëjë, në detaje.",
+  /** Short names for the index rail beside the ruler (UI-05 §9). */
   nav: {
-    label: "Në këtë faqe",
-    jump: "Kalo te seksioni",
-    overview: "Përmbledhje",
     problem: "Problemi",
     modules: "Modulet",
     roles: "Rolet",

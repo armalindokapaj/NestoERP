@@ -19,7 +19,6 @@ import {
 import { StatStrip } from "@/components/marketing/stat-strip";
 import { WorkspacePreview } from "@/components/marketing/workspace-preview";
 import { Button } from "@/components/ui/button";
-import { FullViewSectionNav, FULL_VIEW_SECTIONS } from "@/components/marketing/full-view-nav";
 import { featuredRoles } from "@/config/marketing";
 import { getLocale, getSiteCopy } from "@/lib/i18n/server";
 import { fullViewCopy } from "@/lib/i18n/site/full-view";
@@ -99,8 +98,6 @@ export default async function FullViewPage() {
         </Container>
       </section>
 
-      <FullViewSectionNav labels={fv.nav} sections={FULL_VIEW_SECTIONS} />
-
       {/* Figures */}
       <section className="border-b border-line bg-canvas">
         <Container className="py-12 sm:py-14">
@@ -109,10 +106,8 @@ export default async function FullViewPage() {
       </section>
 
       {/* 02 — The problem */}
-      <Section id="problem" tone="surface" className="scroll-mt-28">
+      <Section id="problem" tone="surface" className="scroll-mt-28" bar={problem.eyebrow} index={fv.nav.problem}>
         <SectionHeader
-          step="02"
-          eyebrow={problem.eyebrow}
           title={problem.title}
           lead={problem.lead}
         />
@@ -120,11 +115,9 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 03 — The platform */}
-      <Section id="modules" tone="canvas" className="scroll-mt-28">
+      <Section id="modules" tone="canvas" bar={platform.eyebrow} className="scroll-mt-28" index={fv.nav.modules}>
         <span id="platform" aria-hidden="true" />
         <SectionHeader
-          step="03"
-          eyebrow={platform.eyebrow}
           title={platform.title}
           lead={`${platform.lead} ${fv.modulesNote}`}
           aside={
@@ -140,10 +133,8 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 04 — Roles */}
-      <Section id="roles" tone="surface" className="scroll-mt-28">
+      <Section id="roles" tone="surface" className="scroll-mt-28" bar={copy.rolesSection.eyebrow} index={fv.nav.roles}>
         <SectionHeader
-          step="04"
-          eyebrow={copy.rolesSection.eyebrow}
           title={copy.rolesSection.title}
           lead={copy.rolesSection.lead}
           aside={
@@ -159,10 +150,8 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 05 — The build */}
-      <Section id="lifecycle" tone="canvas" className="scroll-mt-28">
+      <Section id="lifecycle" tone="canvas" className="scroll-mt-28" bar={build.eyebrow} index={fv.nav.lifecycle}>
         <SectionHeader
-          step="05"
-          eyebrow={build.eyebrow}
           title={build.title}
           lead={build.lead}
         />
@@ -170,8 +159,8 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 06 — Company & Group architecture (§59) */}
-      <Section id="group" tone="surface" className="scroll-mt-28">
-        <SectionHeader step="06" eyebrow={fv.group.eyebrow} title={fv.group.title} lead={fv.group.lead} />
+      <Section id="group" tone="surface" className="scroll-mt-28" bar={fv.group.eyebrow} index={fv.nav.group}>
+        <SectionHeader title={fv.group.title} lead={fv.group.lead} />
         <ol className={cn(hairlineGrid, "mt-12 sm:grid-cols-2 lg:grid-cols-5")}>
           {fv.group.layers.map((layer, index) => (
             <li key={layer.title} className={cn(hairlineCell, "p-6")}>
@@ -188,10 +177,8 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 07 — Product experience */}
-      <Section id="experience" tone="canvas" className="scroll-mt-28">
+      <Section id="experience" tone="canvas" className="scroll-mt-28" bar={principles.eyebrow} index={fv.nav.experience}>
         <SectionHeader
-          step="07"
-          eyebrow={principles.eyebrow}
           title={principles.title}
           lead={principles.lead}
         />
@@ -214,11 +201,9 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 08 — Security */}
-      <Section id="security" tone="surface" className="scroll-mt-28">
+      <Section id="security" tone="surface" bar={access.eyebrow} className="scroll-mt-28" index={fv.nav.security}>
         <span id="access" aria-hidden="true" />
         <SectionHeader
-          step="08"
-          eyebrow={access.eyebrow}
           title={copy.security.title}
           lead={copy.security.lead}
           aside={
@@ -242,10 +227,8 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 09 — ROZARIS (§62) */}
-      <Section id="rozaris" tone="canvas" className="scroll-mt-28">
+      <Section id="rozaris" tone="canvas" className="scroll-mt-28" bar={fv.rozaris.eyebrow} index={fv.nav.rozaris}>
         <SectionHeader
-          step="09"
-          eyebrow={fv.rozaris.eyebrow}
           title={fv.rozaris.title}
           lead={fv.rozaris.lead}
           aside={
@@ -274,10 +257,8 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 10 — Pricing model (§63): the philosophy, never figures (§88) */}
-      <Section id="pricing" tone="surface" className="scroll-mt-28">
+      <Section id="pricing" tone="surface" className="scroll-mt-28" bar={fv.pricing.eyebrow} index={fv.nav.pricing}>
         <SectionHeader
-          step="10"
-          eyebrow={fv.pricing.eyebrow}
           title={fv.pricing.title}
           lead={fv.pricing.lead}
           aside={
@@ -300,10 +281,8 @@ export default async function FullViewPage() {
       </Section>
 
       {/* 11 — Questions (§64) */}
-      <Section id="faq" tone="canvas" bordered={false} className="scroll-mt-28">
+      <Section id="faq" tone="canvas" bordered={false} className="scroll-mt-28" bar={fv.faq.eyebrow} index={fv.nav.faq}>
         <SectionHeader
-          step="11"
-          eyebrow={fv.faq.eyebrow}
           title={fv.faq.title}
           aside={
             <Button asChild variant="secondary" size="md">

@@ -139,7 +139,7 @@ export function RibbonTabs({ className }: { className?: string }) {
       role="tablist"
       aria-label={t("ribbon.label")}
       onKeyDown={onKeyDown}
-      className={cn("flex h-10 items-center gap-0.5 rounded-full bg-surface-muted p-1 ring-1 ring-inset ring-line max-lg:hidden", className)}
+      className={cn("flex h-10 items-stretch border border-line-strong bg-surface max-lg:hidden", className)}
     >
       {tabs.map((tab) => {
         const selected = tab.group === current;
@@ -163,9 +163,9 @@ export function RibbonTabs({ className }: { className?: string }) {
             data-testid={`ribbon-tab-${tab.group}`}
             data-here={home === tab.group || undefined}
             className={cn(
-              "relative inline-flex h-8 items-center whitespace-nowrap rounded-full px-3 text-body font-medium transition-[color,background-color,box-shadow]",
+              "relative inline-flex items-center whitespace-nowrap border-r border-line-strong px-3 text-body font-medium transition-colors last:border-r-0",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              raised ? "bg-surface text-fg shadow-[0_1px_2px_rgb(15_20_26/0.12)] ring-1 ring-line" : "text-fg-muted hover:text-fg",
+              raised ? "bg-fg text-canvas" : "text-fg-muted hover:bg-hover hover:text-fg",
               // The page you are on is in this tab: the gold square, centred under the name.
               "data-here:after:absolute data-here:after:bottom-[3px] data-here:after:left-1/2 data-here:after:size-[3px] data-here:after:-translate-x-1/2 data-here:after:bg-accent",
             )}
@@ -201,7 +201,7 @@ export function RibbonPanel() {
       aria-labelledby={`${baseId}-${current}`}
       data-shell-region
       data-testid="ribbon-panel"
-      className="flex h-(--nesto-ribbon-body-h) border-t border-line bg-surface max-lg:hidden"
+      className="flex h-(--nesto-ribbon-body-h) border-t border-line max-lg:hidden"
     >
       {/* As wide as the fold's column, so the sets are centred on the window. Below 1440px both give their room to the sets; the open tab still folds it. */}
       <span aria-hidden="true" className="hidden w-12 shrink-0 min-[90rem]:block" />
@@ -224,7 +224,7 @@ export function RibbonPanel() {
           aria-label={t("ribbon.fold")}
           title={t("ribbon.fold")}
           data-testid="ribbon-fold"
-          className="grid size-8 place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg"
+          className="grid size-8 place-items-center rounded-none text-fg-muted transition-colors hover:bg-hover hover:text-fg"
         >
           <ChevronUp aria-hidden="true" className="size-4" />
         </button>
@@ -256,8 +256,8 @@ function RibbonButton({ item, active }: { item: NavigationItem; active: boolean 
       data-pending={pending || undefined}
       data-testid={`ribbon-module-${item.key}`}
       className={cn(
-        "relative flex min-h-[4.25rem] min-w-[4rem] max-w-[7rem] flex-col items-center gap-1.5 rounded-lg px-1.5 pb-1.5 pt-2.5 text-center text-meta leading-tight text-fg transition-colors min-[90rem]:min-w-[4.75rem] min-[90rem]:px-2",
-        active ? "bg-hover font-semibold ring-1 ring-inset ring-line-strong" : "hover:bg-hover",
+        "relative flex min-h-[4.25rem] min-w-[4rem] max-w-[7rem] flex-col items-center gap-1.5 rounded-none px-1.5 pb-1.5 pt-2.5 text-center text-meta leading-tight text-fg transition-colors min-[90rem]:min-w-[4.75rem] min-[90rem]:px-2",
+        active ? "bg-surface font-semibold ring-1 ring-inset ring-fg" : "hover:bg-hover",
       )}
     >
       <Icon aria-hidden="true" className={cn("size-[22px] shrink-0", active ? "text-fg" : "text-fg-subtle")} />
@@ -290,7 +290,7 @@ export function RibbonUnits({ navigation }: { navigation: Navigation }) {
       data-pending={pending || undefined}
       data-testid="topbar-units"
       className={cn(
-        "relative inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full text-body font-medium ring-1 ring-inset transition-colors max-lg:hidden min-[90rem]:w-auto min-[90rem]:px-4 touch:h-11 touch:min-w-11",
+        "relative inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-none text-body font-medium ring-1 ring-inset transition-colors max-lg:hidden min-[90rem]:w-auto min-[90rem]:px-4 touch:h-11 touch:min-w-11",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         units.current ? "bg-accent-soft text-accent-strong ring-accent" : "text-fg ring-line hover:bg-hover",
       )}

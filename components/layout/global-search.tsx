@@ -176,13 +176,13 @@ export function GlobalSearch({ contextKey }: { contextKey: string }) {
         aria-label={t("dialogTitle")}
         aria-keyshortcuts="Meta+K Control+K"
         title={`${t("dialogTitle")} (${shortcut.replace(" ", "")})`}
-        className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11 lg:flex lg:h-10 lg:w-auto lg:min-w-0 lg:flex-1 lg:justify-start lg:gap-2 lg:border lg:border-line lg:bg-surface lg:pl-3.5 lg:pr-2 lg:hover:border-line-strong lg:hover:bg-surface"
+        className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-none text-fg-muted transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11 lg:flex lg:h-10 lg:w-auto lg:min-w-0 lg:flex-1 lg:justify-start lg:gap-2 lg:border lg:border-line lg:bg-surface lg:pl-3.5 lg:pr-2 lg:hover:border-line-strong lg:hover:bg-surface"
         data-testid="search-trigger"
         {...warm}
       >
         <Search aria-hidden="true" className="size-[18px] shrink-0 lg:size-4" />
         <span aria-hidden="true" className="hidden min-w-0 flex-1 truncate text-left text-body text-fg-subtle lg:inline">{t("trigger")}</span>
-        <kbd aria-hidden="true" className="hidden shrink-0 rounded-md border border-line px-1.5 py-px font-mono text-[0.625rem] tracking-[0.06em] text-fg-subtle xl:inline">{shortcut.replace("Ctrl ", "Ctrl+")}</kbd>
+        <kbd aria-hidden="true" className="hidden shrink-0 rounded-none border border-line px-1.5 py-px font-mono text-[0.625rem] tracking-[0.06em] text-fg-subtle xl:inline">{shortcut.replace("Ctrl ", "Ctrl+")}</kbd>
       </button>
 
       <GlassPanel

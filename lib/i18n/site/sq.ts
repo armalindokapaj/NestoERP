@@ -59,6 +59,24 @@ export const siteSq: SiteCopy = {
     followUnit: "Ndiq një Njësi nëpër NESTO",
   },
 
+  sheet: {
+    sections: "Seksionet e kësaj faqeje",
+    sheet: "Fleta",
+    top: "NESTO",
+    ruler: "Pozicioni në faqe {n}%. Klikoni për të shkuar në atë pikë të faqes.",
+    progress: "Sa keni lexuar nga faqja",
+    getStarted: "Fillo",
+    tryIt: "Provojeni këtu",
+    principles: "Parimet",
+    argument: "Pse NESTO",
+    motto: "Motoja",
+    workspace: "Hapësira e punës",
+    measures: "Masat",
+    write: "Na shkruani",
+    figures: "Në shifra",
+    note: "Para se të lexoni",
+  },
+
   ribbon: {
     tabs: {
       platform: "Platforma",

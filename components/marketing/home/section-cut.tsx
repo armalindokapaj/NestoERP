@@ -147,7 +147,7 @@ export function SectionCut({
             </div>
 
             {/* The floor's sheet. */}
-            <article aria-live="polite" className="mb-6 flex flex-col gap-3 rounded-xl border border-line-strong bg-surface p-5 shadow-[0_18px_40px_-24px_rgb(15_20_26/0.45)] xl:mt-24 xl:w-[232px] xl:shrink-0" data-testid="floor-sheet">
+            <article aria-live="polite" className="mb-6 flex flex-col gap-3 border border-line-strong bg-surface/90 p-5 backdrop-blur-md xl:mt-24 xl:w-[232px] xl:shrink-0" data-testid="floor-sheet">
               <span className="flex items-center justify-between">
                 <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">
                   {floor.level} · {copy.sheet}
@@ -166,7 +166,7 @@ export function SectionCut({
               </ul>
               <ul className="flex flex-wrap gap-1">
                 {floor.modules.map((label) => (
-                  <li key={label} className="rounded-full border border-line-strong px-2 py-0.5 text-micro text-fg-muted">
+                  <li key={label} className="border border-line-strong px-1.5 py-0.5 font-mono text-[9.5px] max-md:text-meta font-medium uppercase tracking-[0.12em] text-fg-muted">
                     {label}
                   </li>
                 ))}

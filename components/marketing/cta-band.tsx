@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "@/components/icons";
 
-import { Container, Dotted } from "@/components/marketing/section";
+import { Container, Dotted, SectionBar, sectionMark } from "@/components/marketing/section";
 import { Button } from "@/components/ui/button";
 import { getSiteCopy } from "@/lib/i18n/server";
 
@@ -10,18 +10,18 @@ import { getSiteCopy } from "@/lib/i18n/server";
  *
  * One inverted surface per page, always in the same place, always saying the
  * same thing. A visitor who has scrolled a whole page should not have to hunt
- * for the way in.
+ * for the way in. The page's last numbered section, its bar in ink (UI-05 §9).
  */
 export async function CtaBand() {
   const { closingCta } = await getSiteCopy();
   const last = closingCta.headline.length - 1;
 
   return (
-    <section className="bg-fg text-canvas">
+    <section {...sectionMark(closingCta.eyebrow)} className="relative bg-fg text-canvas">
+      <SectionBar label={closingCta.eyebrow} tone="ink" />
       <Container className="flex flex-wrap items-end justify-between gap-8 py-16 sm:py-20 lg:py-24">
         <div className="max-w-3xl">
-          <p className="nesto-eyebrow text-accent">{closingCta.eyebrow}</p>
-          <h2 className="mt-5 text-balance text-[40px] leading-[0.92] sm:text-[56px] lg:text-[72px] font-display">
+          <h2 className="text-balance text-[40px] leading-[0.92] sm:text-[56px] lg:text-[72px] font-display">
             {closingCta.headline.map((line, index) => (
               <span key={line} className="block">
                 {index === last ? <Dotted>{line}</Dotted> : line}
@@ -37,7 +37,7 @@ export async function CtaBand() {
               <ArrowRight />
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="lg" className="border border-canvas/30 text-canvas hover:bg-canvas/10 hover:text-canvas">
+          <Button asChild variant="ghost" size="lg" className="border border-canvas/40 text-canvas hover:bg-canvas/10 hover:text-canvas">
             <Link href="/platform">{closingCta.secondary}</Link>
           </Button>
         </div>

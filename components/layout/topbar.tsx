@@ -59,7 +59,9 @@ export async function Topbar({
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
     // element the box that `position: fixed` children are placed in, which pinned the phone's
     // + Create bottom sheet to the bar's lower edge, above the screen (NAV-01 Q24).
-    <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) flex-col border-b border-fg bg-canvas">
+    <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) flex-col border-b border-fg">
+      {/* Glass (UI-05 §9): 82% of the page and a 14px blur under the bar and the ribbon, so the page blurs as it scrolls under them. */}
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-canvas/82 backdrop-blur-[14px] backdrop-saturate-[1.3]" />
       <RibbonProvider navigation={navigation} folded={ribbonFolded}>
       <div
         data-topbar-row
@@ -74,7 +76,7 @@ export async function Topbar({
           <HomeLink />
           {/* A demonstration tenant says so on every page (D-01 §68). */}
           {context.parentGroup.isDemo ? (
-            <span title={shell("demoDisclaimer")} data-testid="demo-notice" className="inline-flex shrink-0 rounded-full border border-line px-2 py-px text-micro font-medium text-fg-muted max-xl:hidden">
+            <span title={shell("demoDisclaimer")} data-testid="demo-notice" className="inline-flex shrink-0 rounded-none border border-line px-2 py-px text-micro font-medium text-fg-muted max-xl:hidden">
               <span aria-hidden="true">{shell("demoData")}</span>
               <span className="sr-only">{shell("demoDisclaimer")}</span>
             </span>

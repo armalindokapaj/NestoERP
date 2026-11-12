@@ -68,7 +68,7 @@ export function ModulesPanel({ navigation, account }: { navigation: Navigation; 
         aria-expanded={open}
         title={t("modulesPanel.open")}
         data-testid="modules-panel-trigger"
-        className="relative grid size-10 shrink-0 place-items-center rounded-[12px] transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
+        className="relative grid size-10 shrink-0 place-items-center rounded-none transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
       >
         <OrganizationMark name={activeWorkspace.label} logoUrl={organization.logoUrl} size="sm" className="size-9! rounded-[9px]! text-[0.8125rem]! border border-accent bg-surface text-accent-strong" />
         <span aria-hidden="true" className="absolute -bottom-px -right-px grid grid-cols-3 gap-[1.5px] rounded-[4px] bg-fg p-[2.5px]">
@@ -96,13 +96,13 @@ export function ModulesPanel({ navigation, account }: { navigation: Navigation; 
           <div className="min-w-0 flex-1">
             <OrganizationWorkspaceHeader onSwitchStart={() => setOpen(false)} />
           </div>
-          <DrawerClose aria-label={t("modulesPanel.close")} className="grid size-10 shrink-0 place-items-center rounded-full text-fg-muted hover:bg-hover hover:text-fg touch:size-11">
+          <DrawerClose aria-label={t("modulesPanel.close")} className="grid size-10 shrink-0 place-items-center rounded-none text-fg-muted hover:bg-hover hover:text-fg touch:size-11">
             <X aria-hidden="true" className="size-5" />
           </DrawerClose>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-4">
-          <label className="flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 focus-within:ring-2 focus-within:ring-ring">
+          <label className="flex h-11 items-center gap-2 rounded-none border border-line-strong bg-surface px-4 focus-within:ring-2 focus-within:ring-ring">
             <Search aria-hidden="true" className="size-[18px] shrink-0 text-fg-subtle" />
             <span className="sr-only">{t("modulesPanel.find")}</span>
             <input
@@ -162,7 +162,7 @@ function ModuleLink({ item, active, onDone }: { item: NavigationItem; active: bo
         onDone();
       }}
       className={cn(
-        "relative flex min-h-10 items-center gap-2.5 rounded-lg px-2.5 text-table transition-colors touch:min-h-12",
+        "relative flex min-h-10 items-center gap-2.5 rounded-none px-2.5 text-table transition-colors touch:min-h-12",
         active ? "bg-accent-soft font-semibold text-accent-strong" : "text-fg hover:bg-hover",
       )}
     >
@@ -192,7 +192,7 @@ export function HomeLink() {
       aria-label={t("homeLabel", { name: current })}
       data-testid="topbar-home"
       data-scope={activeWorkspace.scopeType}
-      className="inline-flex h-10 min-w-0 shrink items-center gap-2 rounded-full px-3 text-body font-medium text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:h-11"
+      className="inline-flex h-10 min-w-0 shrink items-center gap-2 rounded-none px-3 text-body font-medium text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:h-11"
     >
       <Home aria-hidden="true" data-home-icon="" className="size-4 shrink-0 text-fg-subtle" />
       <span data-testid="workspace-label" className="min-w-0 truncate">
