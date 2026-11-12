@@ -1,6 +1,7 @@
 import { GlobalSearch } from "@/components/layout/global-search";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { HomeLink, ModulesPanel } from "@/components/layout/modules-panel";
+import { PhoneInbox } from "@/components/layout/phone-inbox";
 import { PhoneTitle } from "@/components/layout/phone-title";
 import { QuickCreate } from "@/components/layout/quick-create";
 import { RibbonPanel, RibbonProvider, RibbonTabs, RibbonUnits } from "@/components/layout/ribbon";
@@ -32,12 +33,13 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * every layer pinned under the header lines up (styles/globals.css). Every
  * panel opened from the bar starts on the row's lower edge (lib/layout/topbar-line.ts).
  *
- * Below `lg` the bar is where you are and search, nothing else: Back when
- * there is somewhere to go back to, the page's (or the project's) name, then
- * search in a cell of its own (components/layout/phone-title.tsx). The bell,
- * Create, the account and every module are the phone's bar of five places at
- * the bottom (components/layout/phone-bar.tsx): Inbox, New and Menu. The
- * gutters include the safe-area insets.
+ * Below `lg` the bar is where you are, search and Inbox: Back when there is
+ * somewhere to go back to, the page's (or the project's) name
+ * (components/layout/phone-title.tsx), then search and Inbox in cells of their
+ * own at the end (components/layout/phone-inbox.tsx), Inbox where the bell
+ * stands on a desktop and carrying its count. Create, the account and every
+ * module are the phone's bar at the bottom (components/layout/phone-bar.tsx):
+ * New and Menu. The gutters include the safe-area insets.
  */
 export async function Topbar({
   context,
@@ -95,11 +97,13 @@ export async function Topbar({
         {/* From lg: the Ribbon's five tabs, in the middle. */}
         <RibbonTabs className="col-start-2" />
 
-        {/* The universal cluster in its order on every surface: Search, Notifications, Account (UI-01 §1). Below lg, Search alone, in a cell. */}
-        <div className="col-start-3 flex min-w-0 items-center justify-end justify-self-end max-lg:w-14 max-lg:justify-center max-lg:border-l max-lg:border-line-strong lg:w-full lg:max-w-(--nesto-bar-side) lg:gap-1.5" data-testid="global-actions">
-          <GlobalSearch contextKey={core.contextKey} />
+        {/* The universal cluster in its order on every surface: Search, Notifications, Account (UI-01 §1). Below lg, Search and Inbox, each in a cell. */}
+        <div className="col-start-3 flex min-w-0 items-center justify-end justify-self-end max-lg:items-stretch lg:w-full lg:max-w-(--nesto-bar-side) lg:gap-1.5" data-testid="global-actions">
+          <div className="flex w-14 items-center justify-center border-l border-line-strong lg:contents">
+            <GlobalSearch contextKey={core.contextKey} />
+          </div>
           {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31).
-              Below lg it is mounted but not drawn: Inbox in the phone's bar carries its count. */}
+              Below lg it is mounted but not drawn: Inbox, beside search, carries its count. */}
           <div className="contents max-lg:hidden">
             <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
           </div>
@@ -120,6 +124,8 @@ export async function Topbar({
               }}
             />
           </div>
+          {/* Below lg: Inbox, where the bell stands from lg. */}
+          <PhoneInbox />
         </div>
       </div>
       {/* From lg: the open tab's ribbon. */}

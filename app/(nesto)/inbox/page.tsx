@@ -18,8 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
 const LIMIT = 20;
 
 /**
- * /inbox — Inbox, the fourth place in the phone's bar (docs/ui/UI-04-navigation-layouts.md
- * §Phone): the approvals waiting for this person, then their notifications and
+ * /inbox — Inbox, beside search in the phone's top bar (docs/ui/UI-04-navigation-layouts.md
+ * §6): the approvals waiting for this person, then their notifications and
  * announcements. Both are read through the same services the Approvals Center
  * and the Activity Center use, in the person's own scope; a source that could
  * not be read says so instead of reading as "nothing".

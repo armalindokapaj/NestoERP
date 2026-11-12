@@ -23,7 +23,7 @@ import { readableUnitWhere, structureOpen } from "./structure.permissions";
  * units are left out.
  */
 
-/** The status views, by their path: /projects/units/for-sale and so on. */
+/** The status views, by their path: /sales/units/for-sale and so on. */
 export const UNIT_STATUS_VIEWS = { "for-sale": "FOR_SALE", reserved: "RESERVED", sold: "SOLD" } as const satisfies Record<string, UnitCommercialStatus>;
 export type UnitStatusView = keyof typeof UNIT_STATUS_VIEWS;
 

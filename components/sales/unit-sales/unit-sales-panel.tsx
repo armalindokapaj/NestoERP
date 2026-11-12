@@ -32,7 +32,8 @@ import { salesExpectedVersion, saleStatusOffers } from "@/lib/modules/sales/unit
 /**
  * A unit's Sales section (E-05E §15, §19-§31, §55): where the sale stands, the
  * actions the reader may take on it now, and every price, reservation and status
- * it has had. The same page every module opens — there is no Sales unit page.
+ * it has had. The same panel on the unit's work page in its project and on its
+ * sales page (/sales/units, components/sales/sales-unit.tsx).
  * `?action=reserve` or `?action=release` (from the inventory's phone cards)
  * opens that dialog, when the reader may take it.
  */

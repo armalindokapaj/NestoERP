@@ -50,9 +50,9 @@ import { listWorkspaces } from "@/lib/workspace/workspace.service";
  * Navigation is resolved once, here, and handed to the top bar's Ribbon
  * (PRD #3 §99). Whether the desktop ribbon is folded is read from its cookie,
  * so the server draws the right shell on the first paint. Below lg the phone
- * has one layout for everyone: the top bar's title and search, the page's
- * sections in a row under it, and the bar of five places at the bottom
- * (docs/ui/UI-04-navigation-layouts.md §Phone).
+ * has one layout for everyone: the top bar's title, search and Inbox, the
+ * page's sections in a row under it, and Home, Projects, New, Sales units and
+ * Menu in the bar at the bottom (docs/ui/UI-04-navigation-layouts.md §6).
  *
  * Content is capped at 1600px (PRD #3 §87) and padded across mobile, tablet and
  * desktop (PRD #7 §83).
@@ -169,8 +169,8 @@ export async function AppShell({
                 </PageContainer>
                 {/* Pull down at the top of a phone screen to read the page again (mobile audit 5c). */}
                 <PullToRefresh />
-                {/* The phone and tablet-portrait navigation, below lg: Home, Projects, New, Inbox, Menu (docs/ui/UI-04-navigation-layouts.md §Phone). */}
-                <PhoneBar canCreate={core.quickCreate.canOpen} />
+                {/* The phone and tablet-portrait navigation, below lg: Home, Projects, New, Sales units, Menu (docs/ui/UI-04-navigation-layouts.md §6). */}
+                <PhoneBar canCreate={core.quickCreate.canOpen} canSeeUnits={navigation.menu.some((group) => group.items.some((item) => item.key === "units"))} />
               </div>
               </PageMenuProvider>
               </SectionStoreProvider>

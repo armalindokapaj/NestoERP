@@ -26,10 +26,13 @@ import { saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
 import { loadProject } from "../../project-context";
 
 /**
- * The one page of a unit (E-05B §29; E-05D §5-§9, §90-§93, §104).
+ * The unit's work page (E-05B §29; E-05D §5-§9, §90-§93, §104): where the
+ * architect's part of it is made and changed.
  *
- * Sales, Finance, Documents and the 3D explorer all open this page for this
- * unit; none of them gets a page of its own. Its sections are routes under the
+ * Finance, Documents and the 3D explorer open this page for this unit. Sales
+ * has a page of its own for the part after the architect's — price, buyer,
+ * contract, payments — at /sales/units (components/sales/sales-unit.tsx),
+ * built from the same panels. Its sections are routes under the
  * unit — Overview, Documents, Media, Publishing, Activity — so each is a real
  * URL, and a section the reader may not open is absent (§104). Sales is one of
  * them (E-05E §15), for readers who may see the unit's sales; Legal and Finance

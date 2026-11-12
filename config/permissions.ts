@@ -279,6 +279,14 @@ export const PERMISSIONS = [
   "project.unit.reopen_sale",
   "project.unit.sales_correct",
   /**
+   * The buyer's signed contract, attached to the unit by whoever sells it
+   * (/sales/units, 2026-11-12): a unit document of category Contract, and only
+   * that category — the plans and every other document stay the architect's
+   * (`project.unit.documents.manage`). Legal reads it with the unit's
+   * documents; its own drafting, review and signature flow is unchanged.
+   */
+  "project.unit.sale_contract.manage",
+  /**
    * Approving a unit's sale, where the company's Sold rule asks for it
    * (E-05F §42). Deciding only unlocks Mark Sold; Sales still makes the sale.
    */

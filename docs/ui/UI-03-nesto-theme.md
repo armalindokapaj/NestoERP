@@ -211,7 +211,7 @@ Everything below is a class on the component or a rule in `styles/globals.css`.
 | Reference | Nesto | Where |
 | --- | --- | --- |
 | Masthead and its ink rule | Top bar on an ink rule. + Create is an ink pill and the company switcher a white pill | `components/layout/topbar.tsx` |
-| Navigation | The Ribbon on a desktop; on a phone the bar of five places, the one you are in under a gold line, and the page's sections in a row under the top bar (UI-04) | `ribbon.tsx`, `phone-bar.tsx`, `phone-sections.tsx` |
+| Navigation | The Ribbon on a desktop; on a phone the bar of Home, Projects, New and Menu, the one you are in under a gold line, Inbox beside search, and the page's sections in a row under the top bar (UI-04) | `ribbon.tsx`, `phone-bar.tsx`, `phone-inbox.tsx`, `phone-sections.tsx` |
 | Hero, outlined second word, square full stop | The dashboard's `Company overview.`: Archivo at width 62, from 4rem to 7.5rem. "overview" is outlined and indented with a gold square for the full stop, and the block rises from focus | `welcome-header.tsx`, admin `sections.tsx` |
 | Hero figures | KPI cards lead with the figure (2.75rem, width 70) under the gold tick, over a mono label. The icon tile is gone | `kpi-card.tsx` |
 | Facts under hairlines | A record header's facts (contract value, floors, completion, manager) form a grid of figures, each under its own hairline. On a phone they take the full width, two columns | `page-header.tsx` (`FACTS`) |
@@ -342,9 +342,9 @@ icon package directly, or if the generated module loses its glyphs.
 - **The reference's 10% field ring.** Field borders keep the control-border
   colour, which reaches 3:1 against the ground; the reference's ring does
   not.
-- **The single floating button on a phone.** The phone keeps its five-button
-  bar rather than the reference's one round button, so Create and Alerts stay
-  one tap away.
+- **The single floating button on a phone.** The phone keeps its bar rather
+  than the reference's one round button, so New stays one tap away, and Inbox
+  beside search.
 
 ## 8. What was removed
 

@@ -1,5 +1,10 @@
 # Selling units: price, reservation and sale (E-05E)
 
+> **Chat:** Nesto — mobile for the site team
+> **File:** docs/unit-sales.md
+> **About:** How units are sold — the commercial status, prices, reservations, the sale, Sales units (/sales/units) and a unit's sales page — for whoever changes unit sales next.
+> **Last updated:** 2026-11-12 (Sales units and the unit's sales page; Sales files the buyer's contract)
+
 Sales works on the same units E-05B created and E-05D publishes. There is no
 Sales copy of a unit, of a client or of a deal: a unit's commercial side is a
 profile beside the unit, a reservation points at the canonical Client and the
@@ -195,6 +200,29 @@ reopened, added to and removed from a deal.
 
 ## Screens
 
+- **Sales units** `/sales/units` (2026-11-12) — every unit across the projects,
+  as Sales sees them: status, price, buyer, areas, place; the views All, For
+  sale, Reserved and Sold. The phone's bar has it right after New (*Sales
+  units*); the top bar's Units and the Sales tab's Units set open it on a
+  desktop. Everyone who may see units opens it; status, price and buyer need
+  `project.unit.sales.view`. Details in `docs/ui/UI-04-navigation-layouts.md` §4.
+- **A unit's sales page** `/sales/units/:unitId` (2026-11-12,
+  `components/sales/sales-unit.tsx`) — the part of a unit that comes after the
+  architect's, for the agent who sells it. Sections as `?tab=` on one route:
+  **Sale** (the unit's Sales section below: price as a total or per m², hold,
+  reserve for a buyer, extend, release, Mark Sold with its approval);
+  **Contract** (the buyer's signed contract, uploaded here and filed on the unit
+  as a Contract document — `project.unit.sale_contract.manage`, held by the
+  Owner, the CEO and Sales; Legal reads it with the unit's documents and keeps
+  its own drafting flow); **Payments** (the unit's collection: the buyer's
+  schedule, which Sales may now set — `project.unit.finance.manage_schedule` —
+  and the payments; *recording* a payment stays Finance's, because
+  `finance.payment.create` would also let Sales pay suppliers' expenses);
+  **Unit** (what the architect made: data, areas, primary image, Sales Plan);
+  **Plans & photos** (the unit's documents and images, to read and download —
+  read-only here even for their keepers, who change them on the work page).
+  A section the reader may not open is absent. The unit's work page in its
+  project keeps every section it had.
 - **Project → Sales** `/projects/:projectId/sales` — quick filters with counts
   (All, For Sale, On Hold, Reserved, Sold, Not For Sale), search (unit code or
   name, and client or deal name when visible), filters (building, floor, type,

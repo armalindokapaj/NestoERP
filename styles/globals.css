@@ -450,7 +450,7 @@
    * displace it: it sits above it.
    */
   html:has([data-mobile-bottom-nav]) {
-    /* The bar of five places is 64px (components/layout/phone-bar.tsx); folded while scrolling it is 48px, and the page keeps its full height clear. */
+    /* The phone's bar is 64px (components/layout/phone-bar.tsx), whatever the page does. */
     --nesto-bottom-nav-space: calc(4rem + var(--nesto-safe-bottom));
     --nesto-bottom-reserve: var(--nesto-bottom-nav-space);
     /* Back 0.3s after a text field lets go (the @property above); gone at once when one takes focus (below). */

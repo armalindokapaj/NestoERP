@@ -12,6 +12,7 @@ import { recordActivity } from "@/lib/modules/shared/activity";
 import { assertSameSet, uniqueTarget } from "./structure.buildings";
 import { MODULE, UNIT_ENTITY } from "./structure.permissions";
 import { fail, findReadableUnit } from "./structure.service";
+import { mayManageUnitDocument } from "./unit-documents.rules";
 import { isPdf, isUnitImage } from "./unit-publishing.rules";
 import { lockUnit, publishLiveUnits } from "./unit-publishing.state";
 import {
@@ -100,7 +101,8 @@ export async function listUnitFiles(context: UserContext, unitId: string): Promi
   const unit = await findReadableUnit(context, unitId);
   const canManageDocuments = can(context, "project.unit.documents.manage");
   const canManageMedia = can(context, "project.unit.media.manage");
-  const empty: UnitFilesDTO = { visible: false, salesPlan: null, salesPlanHidden: false, documents: [], media: [], unfiled: [], capabilities: { canManageDocuments: false, canManageMedia: false, canUpload: false, canUploadVersion: false } };
+  const canManageContract = mayManageUnitDocument(context, "CONTRACT");
+  const empty: UnitFilesDTO = { visible: false, salesPlan: null, salesPlanHidden: false, documents: [], media: [], unfiled: [], capabilities: { canManageDocuments: false, canManageMedia: false, canManageContract: false, canUpload: false, canUploadVersion: false } };
   if (!filesOpen(context)) return empty;
 
   const access = await buildDocumentAccessWhere(context);
@@ -146,7 +148,8 @@ export async function listUnitFiles(context: UserContext, unitId: string): Promi
     capabilities: {
       canManageDocuments,
       canManageMedia,
-      canUpload: canUpload && (canManageDocuments || canManageMedia),
+      canManageContract,
+      canUpload: canUpload && (canManageDocuments || canManageMedia || canManageContract),
       canUploadVersion: canUpload && canManageDocuments && can(context, "document.update"),
     },
   };
@@ -205,7 +208,7 @@ async function eligibleDocument(context: UserContext, unit: Unit, documentId: st
 
 export async function attachUnitDocument(context: UserContext, unitId: string, input: { documentId: string; category: UnitDocumentCategory }): Promise<{ id: string }> {
   const unit = await findReadableUnit(context, unitId);
-  assertPermission(context, "project.unit.documents.manage");
+  if (!mayManageUnitDocument(context, input.category)) throw new AccessError("FORBIDDEN", "You cannot attach this kind of document to the unit.");
   const document = await eligibleDocument(context, unit, input.documentId);
 
   return runInTransaction("structure.unit.document.attach", async (tx) => {
@@ -226,9 +229,10 @@ export async function attachUnitDocument(context: UserContext, unitId: string, i
 
 export async function detachUnitDocument(context: UserContext, unitId: string, linkId: string): Promise<void> {
   const unit = await findReadableUnit(context, unitId);
-  assertPermission(context, "project.unit.documents.manage");
+  if (!mayManageUnitDocument(context, "CONTRACT")) assertPermission(context, "project.unit.documents.manage");
   const link = await prisma.unitDocumentLink.findFirst({ where: { companyId: context.companyId, unitId: unit.id, id: linkId }, select: { id: true, category: true, document: { select: { id: true, name: true } } } });
   if (!link) throw fail("UNIT_DOCUMENT_NOT_FOUND", "That document is not attached to this unit.", "NOT_FOUND");
+  if (!mayManageUnitDocument(context, link.category)) throw new AccessError("FORBIDDEN", "You cannot remove this kind of document from the unit.");
 
   await prisma.$transaction(async (tx) => {
     // The file stays where it is; only this unit stops pointing at it (§39, §100).

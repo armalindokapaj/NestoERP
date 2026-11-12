@@ -44,7 +44,7 @@ import { FormSelect } from "@/components/ui/form-select";
 
 const PROCESSING: readonly string[] = UPLOAD_IN_FLIGHT;
 
-function FileLine({ file, children }: { file: UnitFileDTO; children?: React.ReactNode }) {
+export function FileLine({ file, children }: { file: UnitFileDTO; children?: React.ReactNode }) {
   const locale = useLocale();
   const t = useTranslations("projects");
   return (
@@ -161,7 +161,7 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
             </h2>
             <p className="mt-1 text-meta text-fg-muted">{t("unitFiles.planBody")}</p>
           </div>
-          {can.canUpload && (files.salesPlan ? can.canUploadVersion : true) && !files.salesPlanHidden ? (
+          {can.canManageDocuments && can.canUpload && (files.salesPlan ? can.canUploadVersion : true) && !files.salesPlanHidden ? (
             <>
               <input ref={planInput} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label={files.salesPlan ? t("unitFiles.uploadNewVersionLabel") : t("unitFiles.uploadPlanLabel")} data-testid="sales-plan-input" onChange={(event) => void choosePlan(event.target.files?.[0]).finally(() => (event.target.value = ""))} />
               <Button size="sm" variant="secondary" onClick={() => planInput.current?.click()} disabled={planUploading}>

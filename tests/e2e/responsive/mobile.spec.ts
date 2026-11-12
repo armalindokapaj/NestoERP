@@ -9,8 +9,8 @@ import { mainRegion, signIn } from "../fixtures";
  * Mobile browser behaviour (PRD #9 §182, §184; PRD #3 §6, §21–§28).
  *
  * NESTO on a phone is a website inside a browser. Below 1024px the bar at the
- * bottom of the screen holds five places — Home, Projects, New, Inbox, Menu —
- * and Menu holds every module (docs/ui/UI-04-navigation-layouts.md §Phone).
+ * bottom of the screen holds Home, Projects, New and Menu — Inbox is beside
+ * search at the top — and Menu holds every module (docs/ui/UI-04-navigation-layouts.md §6).
  */
 test.describe("mobile navigation", () => {
   test.beforeEach(async ({ page }) => {
@@ -52,9 +52,10 @@ test.describe("mobile navigation", () => {
     expect(before.y + before.height).toBeGreaterThan(viewport.height - 40);
     expect(before.y + before.height).toBeLessThanOrEqual(viewport.height);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    // Scrolled down it folds to its icons, still on the bottom edge.
+    // Scrolled down it is the same bar, the same height, on the same edge.
     const after = (await bar(page).boundingBox())!;
-    expect(Math.round(after.y + after.height)).toBe(Math.round(before.y + before.height));
+    expect(Math.round(after.y)).toBe(Math.round(before.y));
+    expect(Math.round(after.height)).toBe(Math.round(before.height));
   });
 });
 

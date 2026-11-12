@@ -136,12 +136,13 @@ function sectionItem(key: ModuleKey, sectionKey: string, icon: string, place: Pl
 }
 
 /**
- * Units: every unit across the projects this person can open, at
- * /projects/units. It rides on the Projects module's switch and its structure
- * permission, so everyone who may see a project's units may see them all here;
- * its status views also need the units' sales view.
+ * Units: every unit across the projects this person can open, at /sales/units
+ * — the units as Sales sees them (docs/unit-sales.md). Sales' address, but it
+ * rides on the Projects module's switch and its structure permission, so
+ * everyone who may see a project's units may see them all here; its status
+ * views also need the units' sales view.
  */
-const UNITS_ROUTE = "/projects/units";
+export const UNITS_ROUTE = "/sales/units";
 const UNITS_LABELS: Record<NavigationLabelKey, string> = { units: "Units", forSale: "For sale", reserved: "Reserved", sold: "Sold" };
 export const UNITS_STATUS_PATHS = { forSale: "for-sale", reserved: "reserved", sold: "sold" } as const;
 

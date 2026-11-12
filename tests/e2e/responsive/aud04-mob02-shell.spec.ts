@@ -11,12 +11,13 @@ import { expectNoPageOverflow, expectTouchTargets } from "./geometry";
  * Phone is below 768, tablet portrait 768–1023 (the same shell), desktop 1024
  * and up (the Ribbon; no phone bar).
  *
- * The bar holds five places — Home, Projects, New, Inbox, Menu — the one you
- * are in marked. The top bar is where you are and search: the page's name, or
- * inside a project the project's, which switches project; Back when you are
- * deeper than a place's first page. A page's sections are the row under the
- * top bar. New opens Quick Create on the bar, the field's first; Inbox holds
- * approvals and alerts; Menu the departments, search and you.
+ * The bar holds Home, Projects, New, Sales units and Menu, the place you are
+ * in marked; it keeps one height whatever the page does. The top bar is where you are,
+ * search and Inbox: the page's name, or inside a project the project's, which
+ * switches project; Back when you are deeper than a place's first page. A
+ * page's sections are the row under the top bar. New opens Quick Create on
+ * the bar, the field's first; Inbox holds approvals and alerts; Menu the
+ * departments, search and you.
  *
  * Read-only against the seeded demo except the form checks, which type into a
  * form and leave it.
@@ -28,8 +29,9 @@ const isTablet = (page: Page) => width(page) >= 768 && width(page) < 1024;
 const isDesktop = (page: Page) => width(page) >= 1024;
 
 const bar = (page: Page) => page.getByTestId("phone-navigation");
-const place = (page: Page, name: "home" | "projects" | "inbox" | "menu") => bar(page).getByTestId(`phone-place-${name}`);
+const place = (page: Page, name: "home" | "projects" | "units" | "menu") => bar(page).getByTestId(`phone-place-${name}`);
 const header = (page: Page) => page.locator("header[data-shell-region]");
+const inbox = (page: Page) => header(page).getByTestId("phone-inbox");
 
 /** A sheet drops or rises into place: it is measured once it has landed. */
 async function landed(popup: Locator) {
@@ -37,15 +39,19 @@ async function landed(popup: Locator) {
 }
 
 test.describe("the bar", () => {
-  test("phone and tablet: five places, the one you are in marked", async ({ page }) => {
+  test("phone and tablet: Home, Projects, New, Sales units and Menu, the one you are in marked", async ({ page }) => {
     test.skip(isDesktop(page), "the bar exists below 1024");
     await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
     await expect(bar(page)).toBeVisible();
     await expect(bar(page)).toHaveAttribute("data-mobile-bottom-nav", "bar");
-    for (const [name, label] of [["home", "Home"], ["projects", "Projects"], ["inbox", /^Inbox/], ["menu", "Menu"]] as const) {
+    for (const [name, label] of [["home", "Home"], ["projects", "Projects"], ["units", "Sales units"], ["menu", "Menu"]] as const) {
       await expect(place(page, name)).toHaveAccessibleName(label);
     }
     await expect(bar(page).getByTestId("phone-create")).toHaveAccessibleName("New");
+    // Sales units right after New.
+    await expect(bar(page).locator("li").nth(3)).toContainText("Sales units");
+    await expect(bar(page).locator("li")).toHaveCount(5);
+    await expect(bar(page).getByTestId("phone-inbox")).toHaveCount(0);
     await expect(place(page, "home")).toHaveAttribute("aria-current", "page");
     await expect(bar(page).locator('[aria-current="page"]')).toHaveCount(1);
     await expectTouchTargets(page, bar(page));
@@ -56,20 +62,26 @@ test.describe("the bar", () => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a/tasks" });
     await expect(place(page, "projects")).toHaveAttribute("aria-current", "page");
+    // Inbox's pages mark Inbox, in the top bar; no place in the bar.
     await page.goto("/approvals");
-    await expect(place(page, "inbox")).toHaveAttribute("aria-current", "page");
+    await expect(inbox(page)).toHaveAttribute("aria-current", "page");
+    await expect(bar(page).locator('[aria-current="page"]')).toHaveCount(0);
     await page.goto("/calendar");
     await expect(place(page, "menu")).toHaveAttribute("aria-current", "page");
     await page.goto("/dashboard");
     await expect(place(page, "home")).toHaveAttribute("aria-current", "page");
   });
 
-  test("a person without create rights sees four places and no New", async ({ page }) => {
+  test("a person without create rights sees no New; the cells share the bar equally", async ({ page }) => {
     test.skip(isDesktop(page), "the bar exists below 1024");
     await signIn(page, "VIEWER", { to: "/my-day" });
     await expect(place(page, "menu")).toBeVisible();
     await expect(page.getByTestId("phone-create")).toHaveCount(0);
-    await expect(bar(page).locator("li")).toHaveCount(4);
+    // Sales units is there for whoever may see units.
+    const cells = await bar(page).locator("li").count();
+    expect(cells).toBe((await place(page, "units").count()) ? 4 : 3);
+    const widths = await bar(page).locator("li").evaluateAll((items) => items.map((item) => Math.round(item.getBoundingClientRect().width)));
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
   });
 
   test("phone: content is never hidden behind the bar", async ({ page }) => {
@@ -83,20 +95,20 @@ test.describe("the bar", () => {
     expect(Math.round(last)).toBeLessThanOrEqual(Math.round(top) + 1);
   });
 
-  test("phone: the bar folds to its icons while you scroll down and opens on the way up", async ({ page }) => {
+  test("phone: the bar keeps one height and its labels while the page scrolls, either way", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
     await expect(mainRegion(page).getByRole("heading", { level: 1 }).first()).toBeVisible();
     // A page long enough to scroll, whatever the seed holds.
     await mainRegion(page).evaluate((main) => (main.style.minHeight = "400vh"));
-    await page.evaluate(() => window.scrollTo(0, 600));
-    await expect(bar(page)).toHaveAttribute("data-folded", "true");
-    expect(Math.round((await bar(page).locator("ul").boundingBox())!.height)).toBe(48);
-    // Folded, a cell keeps its name.
-    await expect(place(page, "projects")).toHaveAccessibleName("Projects");
-    await page.evaluate(() => window.scrollTo(0, 400));
-    await expect(bar(page)).not.toHaveAttribute("data-folded");
-    expect(Math.round((await bar(page).locator("ul").boundingBox())!.height)).toBe(64);
+    const cells = bar(page).locator("ul");
+    expect(Math.round((await cells.boundingBox())!.height)).toBe(64);
+    for (const y of [600, 1200, 400]) {
+      await page.evaluate((to) => window.scrollTo(0, to), y);
+      await page.waitForTimeout(250);
+      expect(Math.round((await cells.boundingBox())!.height)).toBe(64);
+      await expect(place(page, "projects")).toHaveText("Projects");
+    }
   });
 
   test("tablet portrait: the same bar; no Create in the top bar", async ({ page }) => {
@@ -240,20 +252,54 @@ test.describe("New", () => {
   });
 });
 
+test.describe("Sales units", () => {
+  test("phone and tablet: Sales units lists every unit; a unit opens its sales page, not its work page", async ({ page }) => {
+    test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
+    await place(page, "units").click();
+    await expect(page).toHaveURL(/\/sales\/units$/);
+    await expect(mainRegion(page).getByTestId("units-overview")).toBeVisible();
+    await expect(place(page, "units")).toHaveAttribute("aria-current", "page");
+    await expect(header(page).getByTestId("phone-back")).toHaveCount(0);
+    const first = mainRegion(page).locator('a[href^="/sales/units/"]').first();
+    test.skip((await first.count()) === 0, "no unit in the seed this person can see");
+    await first.click();
+    await expect(page).toHaveURL(/\/sales\/units\/[^/?]+/);
+    await expect(mainRegion(page).getByTestId("sales-unit")).toBeVisible();
+    await expect(place(page, "units")).toHaveAttribute("aria-current", "page");
+    // The architect's part is read here, never changed: no upload or attach anywhere on the page.
+    await expect(mainRegion(page).getByRole("button", { name: /attach|upload sales plan|add document/i })).toHaveCount(0);
+    await header(page).getByTestId("phone-back").click();
+    await expect(page).toHaveURL(/\/sales\/units$/);
+  });
+
+  test("the seller files the buyer's signed contract on the unit's Contract tab", async ({ page }) => {
+    test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "SALES", { to: "/sales/units" });
+    const first = mainRegion(page).locator('a[href^="/sales/units/"]').first();
+    test.skip((await first.count()) === 0, "no unit in the seed this person can see");
+    await first.click();
+    await (await openSectionMenu(page)).getByRole("link", { name: "Contract", exact: true }).click();
+    await expect(page).toHaveURL(/\?tab=contract$/);
+    await expect(mainRegion(page).getByTestId("sale-contract")).toBeVisible();
+    await expect(mainRegion(page).getByTestId("sale-contract-upload")).toBeVisible();
+  });
+});
+
 test.describe("Inbox", () => {
   test("phone and tablet: Inbox holds what waits for your answer and what is new for you", async ({ page }) => {
     test.skip(isDesktop(page), "the bar exists below 1024");
     await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
-    await place(page, "inbox").click();
+    await inbox(page).click();
     await expect(page).toHaveURL(/\/inbox$/);
-    const inbox = mainRegion(page).getByTestId("inbox");
-    await expect(inbox).toBeVisible();
-    await expect(place(page, "inbox")).toHaveAttribute("aria-current", "page");
+    const view = mainRegion(page).getByTestId("inbox");
+    await expect(view).toBeVisible();
+    await expect(inbox(page)).toHaveAttribute("aria-current", "page");
     // Two filters, visible: what needs you, and everything.
-    await expect(inbox.getByTestId("inbox-needs-you")).toHaveAttribute("aria-pressed", "true");
-    await inbox.getByTestId("inbox-everything").click();
-    await expect(inbox.getByTestId("inbox-everything")).toHaveAttribute("aria-pressed", "true");
-    await expect(inbox.getByRole("link", { name: /all approvals/i })).toHaveAttribute("href", "/approvals");
+    await expect(view.getByTestId("inbox-needs-you")).toHaveAttribute("aria-pressed", "true");
+    await view.getByTestId("inbox-everything").click();
+    await expect(view.getByTestId("inbox-everything")).toHaveAttribute("aria-pressed", "true");
+    await expect(view.getByRole("link", { name: /all approvals/i })).toHaveAttribute("href", "/approvals");
     // The bell is not drawn below 1024: Inbox carries its count.
     await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeHidden();
     await expectNoPageOverflow(page, "Inbox");
@@ -326,12 +372,17 @@ test.describe("Tasks on the Dashboard", () => {
 });
 
 test.describe("header", () => {
-  test("phone: where you are and search; no logo, bell or account", async ({ page }) => {
+  test("phone: where you are, search and Inbox; no logo, bell or account", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
     await expect(header(page).getByTestId("phone-page-title")).toBeVisible();
     await expect(header(page).getByTestId("phone-back")).toHaveCount(0);
     await expect(header(page).getByTestId("search-trigger")).toBeVisible();
+    // Inbox is the bar's last cell, right of search and against the screen's edge.
+    await expect(inbox(page)).toHaveAccessibleName(/^Inbox/);
+    const [search, cell, viewport] = [(await header(page).getByTestId("search-trigger").boundingBox())!, (await inbox(page).boundingBox())!, page.viewportSize()!];
+    expect(cell.x).toBeGreaterThan(search.x + search.width - 1);
+    expect(Math.round(cell.x + cell.width)).toBe(viewport.width);
     await expect(header(page).getByTestId("modules-panel-trigger")).toBeHidden();
     await expect(header(page).getByTestId("notification-bell")).toBeHidden();
     await expect(page.getByTestId("account-trigger")).toBeHidden();

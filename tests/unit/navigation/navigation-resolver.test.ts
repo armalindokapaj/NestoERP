@@ -104,7 +104,7 @@ describe("where every module lives (docs/ui/UI-04-navigation-layouts.md)", () =>
     const orders = ribbon.find((item) => item.key === "procurement.orders")!;
     expect(orders.href).toBe("/procurement/orders");
     const sold = ribbon.find((item) => item.key === "units.sold")!;
-    expect(sold.href).toBe("/projects/units/sold");
+    expect(sold.href).toBe("/sales/units/sold");
     expect(sold.permissions).toContain("project.unit.sales.view");
   });
 
@@ -112,8 +112,9 @@ describe("where every module lives (docs/ui/UI-04-navigation-layouts.md)", () =>
     const navigation = owner();
     expect(groupOfPath(navigation, "/dashboard")).toBe("primary");
     expect(groupOfPath(navigation, "/projects/p1/units")).toBe("work");
-    expect(groupOfPath(navigation, "/projects/units")).toBe("sales");
-    expect(groupOfPath(navigation, "/projects/units/sold")).toBe("sales");
+    expect(groupOfPath(navigation, "/sales/units")).toBe("sales");
+    expect(groupOfPath(navigation, "/sales/units/sold")).toBe("sales");
+    expect(groupOfPath(navigation, "/sales/units/unit_1")).toBe("sales");
     expect(groupOfPath(navigation, "/contracts/review")).toBe("company");
     expect(groupOfPath(navigation, "/hr/leave")).toBe("company");
     expect(groupOfPath(navigation, "/settings/profile")).toBe("company");

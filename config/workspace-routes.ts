@@ -1,4 +1,5 @@
 import { moduleList, type ModuleKey } from "./modules";
+import { UNITS_STATUS_PATHS } from "./navigation";
 import type { Permission } from "./permissions";
 import { GROUP_ROUTES } from "./workspace";
 
@@ -27,7 +28,8 @@ export type WorkspaceRecordValidatorKey =
   | "LEAD"
   | "OPPORTUNITY"
   | "PROPOSAL"
-  | "CONTRACT";
+  | "CONTRACT"
+  | "UNIT";
 
 export type WorkspaceRoutePolicy = {
   pattern: string;
@@ -85,8 +87,7 @@ type RecordPattern = {
 };
 
 const RECORD_PATTERNS: readonly RecordPattern[] = [
-  // /projects/units is every unit across the projects, a collection, not a project.
-  { pattern: /^\/projects\/(?!units(?:\/|$))([^/]+)(?:\/.*)?$/, label: "/projects/[projectId]", moduleKey: "projects", parentRoute: "/projects", validator: "PROJECT", idIndex: 1 },
+  { pattern: /^\/projects\/([^/]+)(?:\/.*)?$/, label: "/projects/[projectId]", moduleKey: "projects", parentRoute: "/projects", validator: "PROJECT", idIndex: 1 },
   { pattern: /^\/tasks\/([^/]+)(?:\/.*)?$/, label: "/tasks/[taskId]", moduleKey: "tasks", parentRoute: "/tasks", validator: "TASK", idIndex: 1 },
   { pattern: /^\/documents\/([^/]+)(?:\/.*)?$/, label: "/documents/[documentId]", moduleKey: "documents", parentRoute: "/documents", validator: "DOCUMENT", idIndex: 1 },
   { pattern: /^\/finance\/invoices\/([^/]+)(?:\/.*)?$/, label: "/finance/invoices/[invoiceId]", moduleKey: "finance", parentRoute: "/finance/invoices", validator: "INVOICE", idIndex: 2 },
@@ -175,6 +176,9 @@ export function workspaceRoutePolicy(pathnameInput: string): WorkspaceRoutePolic
     return { pattern: pathname, routeType: "GLOBAL" };
   }
 
+  const units = salesUnitsPolicy(pathname);
+  if (units) return units;
+
   const moduleKey = moduleForPath(pathname);
   const moduleDefinition = moduleKey ? moduleList.find((module) => module.key === moduleKey)! : undefined;
   const moduleHome = moduleDefinition?.route ?? "/dashboard";
@@ -228,6 +232,30 @@ export function workspaceRoutePolicy(pathnameInput: string): WorkspaceRoutePolic
     workspaceBoundQueryKeys: WORKSPACE_BOUND_QUERY_KEYS,
     requiredPermission: permissionForPath(moduleKey, pathname),
   };
+}
+
+/**
+ * Sales units (/sales/units): Sales' address, Projects' door (config/navigation.ts).
+ * The list and its status views are a collection of the Projects module; any
+ * other key under it is a unit, checked in the new workspace on a switch and
+ * else left for the list.
+ */
+const SALES_UNITS = "/sales/units";
+const SALES_UNIT_VIEWS: readonly string[] = Object.values(UNITS_STATUS_PATHS);
+
+function salesUnitsPolicy(pathname: string): WorkspaceRoutePolicy | null {
+  if (pathname !== SALES_UNITS && !pathname.startsWith(`${SALES_UNITS}/`)) return null;
+  const key = pathname.split("/")[3];
+  const common = {
+    moduleKey: "projects" as const,
+    moduleHome: SALES_UNITS,
+    supportsCompanyContext: true,
+    preserveQueryKeys: PORTABLE_WORKSPACE_QUERY_KEYS,
+    workspaceBoundQueryKeys: WORKSPACE_BOUND_QUERY_KEYS,
+    requiredPermission: "project.structure.view" as const,
+  };
+  if (key === undefined || SALES_UNIT_VIEWS.includes(key)) return { ...common, pattern: pathname, routeType: "WORKSPACE_COLLECTION", supportsGroupContext: true };
+  return { ...common, pattern: "/sales/units/[unitId]", routeType: "WORKSPACE_RECORD", supportsGroupContext: false, parentRoute: SALES_UNITS, recordValidatorKey: "UNIT", recordId: key };
 }
 
 export function normalizeWorkspaceSearch(search: string): string {

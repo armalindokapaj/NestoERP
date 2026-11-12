@@ -177,6 +177,8 @@ export const sq: Messages = {
       closeNew: "Mbyll të renë",
       inbox: "Kutia",
       inboxCount: "{count} të reja",
+      // "Njësi shitjeje" is cut off in a 72px cell at 360px; the page itself is titled so.
+      units: "Njësitë",
       menu: "Menuja",
       close: "Mbyll",
       back: "Prapa",

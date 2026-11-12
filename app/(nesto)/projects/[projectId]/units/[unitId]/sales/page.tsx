@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("projects"))("unitPage.salesTitle") };
 }
 
-/** The unit's commercial side, on the unit's own page (E-05E §15): no separate Sales unit page. */
+/** The unit's commercial side, on the unit's own page (E-05E §15); the same panel leads its sales page (/sales/units). */
 export default async function UnitSalesPage({ params, searchParams }: Params) {
   const { projectId, unitId } = await params;
   const action = (await searchParams).action;

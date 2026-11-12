@@ -269,7 +269,7 @@ function RibbonButton({ item, active }: { item: NavigationItem; active: boolean 
 
 /**
  * Where Units goes: the units of the project you are in, else every unit
- * across the projects (/projects/units). Null when Units is not in this
+ * across the projects, as Sales sees them (/sales/units). Null when Units is not in this
  * person's navigation.
  */
 function useUnitsHref(navigation: Navigation): { href: string; current: boolean } | null {

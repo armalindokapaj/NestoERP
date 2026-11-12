@@ -320,6 +320,8 @@ export const rows = {
   "That document is already this unit's Sales Plan.": "Ai dokument është tashmë plani i shitjes i kësaj njësie.",
   "That document is already attached to this unit.": "Ai dokument është tashmë i bashkëngjitur te kjo njësi.",
   "That document is not attached to this unit.": "Ai dokument nuk është i bashkëngjitur te kjo njësi.",
+  "You cannot attach this kind of document to the unit.": "Nuk mund ta bashkëngjitni këtë lloj dokumenti te njësia.",
+  "You cannot remove this kind of document from the unit.": "Nuk mund ta hiqni këtë lloj dokumenti nga njësia.",
   "Upload the Sales Plan to this unit.": "Ngarkoni planin e shitjes te kjo njësi.",
   "The Sales Plan must be a PDF.": "Plani i shitjes duhet të jetë PDF.",
   "This unit already has a Sales Plan. Upload the new file as a new version of it.": "Kjo njësi ka tashmë një plan shitjeje. Ngarkoni skedarin e ri si version të ri të tij.",

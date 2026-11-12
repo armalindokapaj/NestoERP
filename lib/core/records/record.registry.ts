@@ -1558,8 +1558,9 @@ const DEFINITIONS: RecordDefinition[] = [
       const rows = await prisma.projectUnit.findMany({ where: { AND: [readableUnitWhere(context), { id: { in: ids } }] }, select: { id: true } });
       return rows.map((row) => row.id);
     },
-    // A Sales Plan, a drawing or a render is added by whoever keeps the unit's documents (E-05D §18).
-    documents: { view: [], upload: ["project.unit.documents.manage"], tabHref: (summary) => `${summary.href}/documents`, reviewable: false },
+    // A Sales Plan, a drawing or a render is added by whoever keeps the unit's documents (E-05D §18);
+    // the buyer's signed contract by whoever sells the unit, filed as Contract and nothing else (unit-documents.rules.ts).
+    documents: { view: [], upload: ["project.unit.documents.manage"], uploadAlternative: ["project.unit.sale_contract.manage"], tabHref: (summary) => `${summary.href}/documents`, reviewable: false },
     collaboration: null,
   },
 

@@ -185,7 +185,7 @@ export const en = {
       find: "Find a module or section",
       noMatch: "No module matches.",
     },
-    /** The phone, below lg: the bar of five places, the top bar's title, Menu and New (components/layout/phone-bar.tsx). */
+    /** The phone, below lg: the bar at the bottom, the top bar's title and Inbox, Menu and New (components/layout/phone-bar.tsx). */
     phone: {
       label: "Main",
       home: "Home",
@@ -194,6 +194,7 @@ export const en = {
       closeNew: "Close New",
       inbox: "Inbox",
       inboxCount: "{count} new",
+      units: "Sales units",
       menu: "Menu",
       close: "Close",
       back: "Back",

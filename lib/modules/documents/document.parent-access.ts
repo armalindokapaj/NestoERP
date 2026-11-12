@@ -301,7 +301,9 @@ export async function canAttachToDocumentParent(
       // which of their files they may then file, and as what, is the record's
       // own rule, applied when the file is filed.
       if (await selfUploadOpen(context, parent.definition, parent.id)) return true;
-      if (!upload.every((permission) => can(context, permission))) return false;
+      const alternative = parent.definition.documents?.uploadAlternative;
+      const granted = (permissions: readonly Permission[]) => permissions.every((permission) => can(context, permission));
+      if (!granted(upload) && !(alternative && granted(alternative))) return false;
       if (!recordDocumentReadHeld(context, parent.definition)) return false;
       const record = await parent.definition.find(context, parent.id);
       return record !== null && !record.archived && !record.filesClosed;

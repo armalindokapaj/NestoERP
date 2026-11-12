@@ -1218,6 +1218,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.reservation.extend",
         "project.unit.reservation.release",
         "project.unit.mark_sold",
+        // The buyer's signed contract, on the unit (/sales/units, 2026-11-12).
+        "project.unit.sale_contract.manage",
         "project.unit.reopen_sale",
         "project.unit.sales_correct",
         // The unit's contract and its collection, and approving a sale where the Sold rule asks (E-05F §56).
@@ -1319,6 +1321,8 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.reservation.extend",
         "project.unit.reservation.release",
         "project.unit.mark_sold",
+        // The buyer's signed contract, on the unit (/sales/units, 2026-11-12).
+        "project.unit.sale_contract.manage",
         "project.unit.reopen_sale",
         "project.unit.sales_correct",
         "project.unit.sale.approve",
@@ -1774,10 +1778,14 @@ const OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Override>>>> 
         "project.unit.reservation.extend",
         "project.unit.reservation.release",
         "project.unit.mark_sold",
+        // The buyer's signed contract, on the unit (/sales/units, 2026-11-12).
+        "project.unit.sale_contract.manage",
         // Asking Legal for the contract, and following it and its collection (E-05F §12, §56).
         "project.unit.legal.view",
         "project.unit.contract.request",
         "project.unit.finance.view",
+        // The buyer's payment schedule, from the unit's sales page (/sales/units, 2026-11-12). Recording a payment stays Finance's.
+        "project.unit.finance.manage_schedule",
       ],
     },
     /**
@@ -2104,12 +2112,16 @@ const MANAGER_OVERRIDES: Partial<Record<RoleKey, Partial<Record<ModuleKey, Overr
         "project.unit.reservation.extend",
         "project.unit.reservation.release",
         "project.unit.mark_sold",
+        // The buyer's signed contract, on the unit (/sales/units, 2026-11-12).
+        "project.unit.sale_contract.manage",
         "project.unit.reopen_sale",
         "project.unit.sales_correct",
         // Sales' contract request and reading, and approving a sale where the Sold rule asks (E-05F §42, §56).
         "project.unit.legal.view",
         "project.unit.contract.request",
         "project.unit.finance.view",
+        // The buyer's payment schedule, from the unit's sales page (/sales/units, 2026-11-12). Recording a payment stays Finance's.
+        "project.unit.finance.manage_schedule",
         "project.unit.sale.approve",
       ],
     },

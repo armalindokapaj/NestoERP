@@ -25,7 +25,7 @@ export type InboxData = {
 };
 
 /**
- * Inbox, the phone's fourth place (docs/ui/UI-04-navigation-layouts.md §Phone):
+ * Inbox, beside search in the phone's top bar (docs/ui/UI-04-navigation-layouts.md §6):
  * the bell's place, with the approvals that wait for you at the top. An
  * approval is answered in its row — the Approvals Center's own decision bar,
  * so Reject and Return still ask for a reason and a high-risk record still

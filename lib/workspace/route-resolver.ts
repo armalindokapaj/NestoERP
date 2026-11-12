@@ -14,6 +14,7 @@ import { prisma } from "@/lib/database/prisma";
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { buildContractScopeWhere } from "@/lib/modules/contracts/contract.scope";
 import { buildDocumentAccessWhere } from "@/lib/modules/documents/document.parent-access";
+import { readableUnitWhere } from "@/lib/modules/project-structure/structure.permissions";
 import {
   buildBudgetScopeWhere,
   buildCommitmentScopeWhere,
@@ -100,6 +101,8 @@ async function recordIsAvailable(context: UserContext, validator: WorkspaceRecor
       return Boolean(await prisma.proposal.findFirst({ where: { AND: [buildProposalScopeWhere(context), { id }] }, select: { id: true } }));
     case "CONTRACT":
       return Boolean(await prisma.contract.findFirst({ where: { AND: [buildContractScopeWhere(context), { id }] }, select: { id: true } }));
+    case "UNIT":
+      return Boolean(await prisma.projectUnit.findFirst({ where: { AND: [readableUnitWhere(context), { id }] }, select: { id: true } }));
   }
 }
 

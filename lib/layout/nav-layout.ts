@@ -8,9 +8,9 @@
  *   ribbon, which folds away to leave the bar alone. Whether it is folded is
  *   kept per browser, in a cookie, so the server draws the right shell on the
  *   first paint and nothing swaps after hydration.
- * - Phone (below `lg`): one layout for everyone — the page's name and search
- *   at the top, the page's sections in a row under them, and the bar of five
- *   places at the bottom: Home, Projects, New, Inbox, Menu.
+ * - Phone (below `lg`): one layout for everyone — the page's name, search and
+ *   Inbox at the top, the page's sections in a row under them, and the bar at
+ *   the bottom: Home, Projects, New, Menu.
  */
 export const RIBBON_COOKIE = "nesto.ribbon";
 

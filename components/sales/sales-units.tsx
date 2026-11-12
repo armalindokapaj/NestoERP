@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { Layers3 } from "@/components/icons";
 import { DataTable, type TableColumn } from "@/components/data/data-table";
@@ -18,29 +18,30 @@ import { listUnitsOverview, UNIT_STATUS_VIEWS, UNITS_PAGE_SIZE, type UnitStatusV
 import { listPageRedirect, paginationMeta } from "@/lib/modules/shared/list-query";
 
 /**
- * Units, across the projects (/projects/units; docs/ui/UI-04-navigation-layouts.md):
- * the page the top bar's Units opens, and the Sales tab's Units set. Every unit
+ * Sales units (/sales/units; docs/unit-sales.md): the page the phone's Sales
+ * units, the top bar's Units and the Sales tab's Units set open. Every unit
  * this person may see, by project, building and floor; for a reader who may
  * see the units' sales, its status, price and buyer, and the views All, For
- * sale, Reserved and Sold as tabs. A row opens the unit in its project.
+ * sale, Reserved and Sold as tabs. A row opens the unit's sales page
+ * (`SalesUnitPage`), never the unit's work page in its project.
  *
  * What it lists and shows is decided by `listUnitsOverview`, through the
  * projects' own door; this page only draws it.
  */
 
-const BASE = "/projects/units";
+export const SALES_UNITS = "/sales/units";
+const BASE = SALES_UNITS;
 const VIEW_LABELS = { "for-sale": "forSale", reserved: "reserved", sold: "sold" } as const satisfies Record<UnitStatusView, string>;
 
 type Search = Record<string, string | string[] | undefined>;
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined;
 
-export function unitStatusView(path: string | undefined): UnitStatusView | null {
-  if (path === undefined) return null;
-  if (!(path in UNIT_STATUS_VIEWS)) notFound();
-  return path as UnitStatusView;
+/** Whether `/sales/units/<key>` is a status view (For sale, Reserved, Sold) rather than a unit. */
+export function isUnitStatusView(key: string): key is UnitStatusView {
+  return Object.hasOwn(UNIT_STATUS_VIEWS, key);
 }
 
-export async function UnitsOverviewPage({ view, search }: { view: UnitStatusView | null; search: Search }) {
+export async function SalesUnitsPage({ view, search }: { view: UnitStatusView | null; search: Search }) {
   const context = await requireModule("projects");
   const [t, locale] = await Promise.all([getTranslations("projects"), getLocale()]);
   const q = one(search.search);
@@ -123,7 +124,7 @@ export async function UnitsOverviewPage({ view, search }: { view: UnitStatusView
             columns={columns}
             records={units.rows}
             rowKey={(row) => row.id}
-            rowHref={(row) => `/projects/${row.projectId}/units/${row.id}`}
+            rowHref={(row) => `${BASE}/${row.id}`}
           />
           <Pagination meta={paginationMeta(units.total, units.page, UNITS_PAGE_SIZE)} basePath={path} searchParams={search} />
         </>

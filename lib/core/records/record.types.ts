@@ -47,6 +47,13 @@ export type DocumentCapability = {
    * offer "Add document" for it (PRD #38 §54, §55).
    */
   upload: Permission[] | null;
+  /**
+   * Another set of grants that also lets a person add a file, all of them held
+   * — for a record where a second role files one kind of document (a unit's
+   * buyer contract, which Sales files; the record's own attach step keeps them
+   * to that kind).
+   */
+  uploadAlternative?: Permission[];
   /** Where the record's files are listed — the return route after an upload. */
   tabHref(summary: RecordSummary): string;
   /**

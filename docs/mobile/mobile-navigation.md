@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/mobile/mobile-navigation.md
 > **About:** The rules behind the phone's navigation below 1024px — who decides what a person sees, which place a page belongs to, where Projects goes, and how to add a module — for whoever changes it next.
-> **Last updated:** 2026-11-12
+> **Last updated:** 2026-11-12 (Inbox beside search; Sales units after New)
 
 # Mobile navigation rules
 
@@ -14,7 +14,7 @@ is in `docs/ui/UI-04-navigation-layouts.md` §6. This page is the rules.
 user -> memberships -> role/permissions -> module activation
    -> resolveNavigation (config/navigation.ts)        what this person may open
    -> lib/navigation/phone.ts                           placement only
-   -> the bar's five places | Menu
+   -> the bar's places, Inbox in the top bar | Menu
 ```
 
 `lib/navigation/phone.ts` never checks a permission and never adds a
@@ -22,11 +22,13 @@ destination. It says which place a path belongs to, which pages are a place's
 first, and where Projects goes. Menu lists exactly what `resolveNavigation`
 returned for this person, in the Ribbon's departments and sets.
 
-## The five places
+## The places
 
-Home (`/my-day`), Projects, New, Inbox (`/inbox`), Menu (`/menu`). Fixed: they
-are places in the work, not modules, so they do not move with permissions. A
-person who may create nothing gets no New; nobody gets a dead cell.
+Home (`/my-day`), Projects, New, Sales units (`/sales/units`) and Menu
+(`/menu`) in the bar at the bottom; Inbox (`/inbox`) beside search in the top
+bar. Fixed: they are places in the work, not modules, so they do not move with
+permissions — except that a person who may create nothing gets no New, and one
+who may see no units no Sales units. Nobody gets a dead cell.
 
 ## Which place a page belongs to
 
@@ -36,7 +38,8 @@ person who may create nothing gets no New; nobody gets a dead cell.
 | --- | --- |
 | Home | `/my-day`, `/dashboard` |
 | Projects | everything under `/projects` |
-| Inbox | `/inbox`, `/approvals`, `/activity`, `/notifications` |
+| Sales units | everything under `/sales/units` (the list, its status views — the list's first page — and each unit's sales page) |
+| Inbox (marked in the top bar; no cell of the bar) | `/inbox`, `/approvals`, `/activity`, `/notifications` |
 | Menu | everything else — it was reached through Menu |
 
 A place's first page (`isPlaceRoot`) has no Back in the top bar: the bar is

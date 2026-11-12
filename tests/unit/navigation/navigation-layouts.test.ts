@@ -8,8 +8,9 @@ import { isPlaceRoot, placeOf, projectIdFrom, projectsHref } from "@/lib/navigat
 /**
  * Navigation layouts (docs/ui/UI-04-navigation-layouts.md): one top bar with
  * the Ribbon's five tabs on a desktop, its ribbon open or folded (a cookie);
- * on a phone one layout for everyone — the page's name and search at the top,
- * its sections in a row under them, and the bar of five places at the bottom.
+ * on a phone one layout for everyone — the page's name, search and Inbox at
+ * the top, its sections in a row under them, and Home, Projects, New and Menu
+ * in the bar at the bottom.
  */
 describe("the layout choices", () => {
   it("opens the ribbon unless it was folded", () => {
@@ -19,13 +20,17 @@ describe("the layout choices", () => {
   });
 });
 
-describe("the phone's five places", () => {
-  it("marks the place a page belongs to: your day, a project, your inbox, or Menu for everything else", () => {
+describe("the phone's places", () => {
+  it("marks the place a page belongs to: your day, a project, a unit's sale, your inbox, or Menu for everything else", () => {
     expect(placeOf("/my-day")).toBe("home");
     expect(placeOf("/dashboard")).toBe("home");
     expect(placeOf("/projects")).toBe("projects");
     expect(placeOf("/projects/project_a/tasks")).toBe("projects");
-    expect(placeOf("/projects/units/sold")).toBe("projects");
+    expect(placeOf("/sales/units")).toBe("units");
+    expect(placeOf("/sales/units/sold")).toBe("units");
+    expect(placeOf("/sales/units/unit_1")).toBe("units");
+    expect(placeOf("/sales")).toBe("menu");
+    expect(placeOf("/sales/leads")).toBe("menu");
     expect(placeOf("/inbox")).toBe("inbox");
     expect(placeOf("/approvals")).toBe("inbox");
     expect(placeOf("/activity")).toBe("inbox");
@@ -35,8 +40,8 @@ describe("the phone's five places", () => {
   });
 
   it("offers Back everywhere but a place's own first page", () => {
-    for (const root of ["/my-day", "/inbox", "/menu", "/projects", "/dashboard", "/projects/project_a"]) expect(isPlaceRoot(root)).toBe(true);
-    for (const deeper of ["/projects/project_a/tasks", "/tasks/task_1", "/procurement/orders", "/projects/new"]) expect(isPlaceRoot(deeper)).toBe(false);
+    for (const root of ["/my-day", "/inbox", "/menu", "/projects", "/dashboard", "/projects/project_a", "/sales/units", "/sales/units/for-sale"]) expect(isPlaceRoot(root)).toBe(true);
+    for (const deeper of ["/projects/project_a/tasks", "/tasks/task_1", "/procurement/orders", "/projects/new", "/sales/units/unit_1"]) expect(isPlaceRoot(deeper)).toBe(false);
   });
 
   it("opens Projects on the project you were last in, else the list", () => {
@@ -49,8 +54,6 @@ describe("the phone's five places", () => {
     expect(projectIdFrom("/projects/project_a")).toBe("project_a");
     expect(projectIdFrom("/projects/new")).toBeNull();
     expect(projectIdFrom("/projects/my-projects")).toBeNull();
-    expect(projectIdFrom("/projects/units")).toBeNull();
-    expect(projectIdFrom("/projects/units/sold")).toBeNull();
     expect(projectIdFrom("/projects")).toBeNull();
     expect(projectIdFrom("/sales/units")).toBeNull();
   });
@@ -59,7 +62,7 @@ describe("the phone's five places", () => {
 describe("the shell", () => {
   const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
-  it("draws one top bar with the Ribbon in it, the phone's section row and bar of five places, and no Dock or sidebar", () => {
+  it("draws one top bar with the Ribbon in it, the phone's section row and bar, and no Dock or sidebar", () => {
     const shell = read("components/layout/app-shell.tsx");
     expect(shell).toContain("<Topbar");
     expect(shell).toContain("<PhoneSections");
@@ -69,7 +72,11 @@ describe("the shell", () => {
     expect(shell).not.toContain("Dock");
     expect(shell).not.toMatch(/<Sidebar\b/);
     const topbar = read("components/layout/topbar.tsx");
-    for (const part of ["<RibbonProvider", "<RibbonTabs", "<RibbonPanel", "<RibbonUnits", "<ModulesPanel", "<HomeLink", "<PhoneTitle"]) expect(topbar).toContain(part);
+    for (const part of ["<RibbonProvider", "<RibbonTabs", "<RibbonPanel", "<RibbonUnits", "<ModulesPanel", "<HomeLink", "<PhoneTitle", "<PhoneInbox"]) expect(topbar).toContain(part);
+    // Inbox is in the top bar, beside search; the bar at the bottom keeps one height and no Inbox.
+    const bar = read("components/layout/phone-bar.tsx");
+    expect(bar).not.toContain("PHONE_INBOX");
+    expect(bar).not.toContain('addEventListener("scroll"');
   });
 
   it("gives the bar three columns from lg, the two sides the same width, so the tabs have the same space either side", () => {

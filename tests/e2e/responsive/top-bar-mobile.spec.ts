@@ -6,8 +6,8 @@ import { signIn } from "../fixtures";
  * The top bar on a phone (Fast Re-entry §148, Quick Create §48, §181,
  * Activity Center §102-§105, §214): search opens full screen; New, in the
  * phone's bar at the bottom, opens Quick Create as a sheet of glass standing
- * on the bar; the bell is not drawn — Inbox in the bar is its place — with
- * the same content as on a desktop.
+ * on the bar; the bell is not drawn — Inbox, beside search, is its place —
+ * with the same content as on a desktop.
  */
 
 /** Standing on the bar, across the screen and whole on it. */
@@ -55,10 +55,10 @@ test("New opens a sheet of the actions the person may create, and closes from th
   await expect(panel).toHaveCount(0);
 });
 
-test("the bell's place is Inbox: its count is on the bar, and Inbox opens the alerts with the way to all activity", async ({ page }) => {
+test("the bell's place is Inbox, beside search: it opens the alerts with the way to all activity", async ({ page }) => {
   await signIn(page, "ENGINEER", { to: "/dashboard" });
   await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeHidden();
-  await page.getByTestId("phone-place-inbox").click();
+  await page.locator("header[data-shell-region]").getByTestId("phone-inbox").click();
   const inbox = page.getByTestId("inbox");
   await expect(inbox).toBeVisible();
   await inbox.getByTestId("inbox-everything").click();

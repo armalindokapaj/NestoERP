@@ -1,7 +1,7 @@
 > **Chat:** Nesto UI/UX — navigation study
 > **File:** docs/ui/UI-04-navigation-layouts.md
-> **About:** How a person moves around Nesto — one top bar with the Ribbon's five tabs (Work, Company, Sales, Procurement, Finance) and Units pinned beside + Create on a desktop, the logo's panel of every module, and on a phone a bar of five places (Home, Projects, New, Inbox, Menu) with the page's sections in a row under the top bar; what each draws, where the code lives, and what comes next.
-> **Last updated:** 2026-11-12 (the phone rebuilt for the site team: five places, the section row, Inbox and Menu)
+> **About:** How a person moves around Nesto — one top bar with the Ribbon's five tabs (Work, Company, Sales, Procurement, Finance) and Units pinned beside + Create on a desktop, the logo's panel of every module, and on a phone a bar of Home, Projects, New and Menu, Inbox beside search at the top, and the page's sections in a row under the top bar; what each draws, where the code lives, and what comes next.
+> **Last updated:** 2026-11-12 (phone: Inbox beside search; the bar keeps one height; Sales units after New, and Units moved to /sales/units)
 
 # UI-04 — Navigation layouts
 
@@ -15,7 +15,7 @@ Units" on the canvas then spread the modules over five tabs and added Units.
 | Screen | Navigation |
 | --- | --- |
 | Desktop, from `lg` (1024px) | **One top bar** with the Ribbon's five tabs, and the open tab's ribbon under it |
-| Phone and tablet held upright, below `lg` | **The bar of five places** — Home · Projects · New · Inbox · Menu — one layout for everyone |
+| Phone and tablet held upright, below `lg` | **The bar** — Home · Projects · New · Sales units · Menu — with Inbox beside search in the top bar; one layout for everyone |
 
 The Dock is retired, with its setting: one desktop layout. The breadcrumb bar
 is gone too; its trail is now the page head's mono line.
@@ -126,10 +126,10 @@ share one state: `RibbonProvider` (around the bar's row and the panel),
 
 - The open tab's sets, centred, each a group of large buttons with its caption
   under it. The button the page is under is marked: the longest route wins, so
-  `/procurement/orders/12` marks Orders, and `/projects/units/sold` marks Sold.
+  `/procurement/orders/12` marks Orders, and `/sales/units/sold` marks Sold.
 - **Which tab is open:** Work on the Dashboard and anywhere outside the five
-  tabs; on a page, the tab holding its button (Units is Sales, though it lives
-  under Projects). A tab picked by hand lasts until the next navigation.
+  tabs; on a page, the tab holding its button (Units is Sales, though it rides
+  on Projects). A tab picked by hand lasts until the next navigation.
 - **Folding:** click the open tab, or (from 1440px) the arrow at the ribbon's
   end, and the bar is alone; click any tab to open it again. Folded or open is
   kept in the `nesto.ribbon` cookie and on `<html data-ribbon>`, so the shell's
@@ -154,23 +154,31 @@ share one state: `RibbonProvider` (around the bar's row and the panel),
 
 ## 4. Units
 
-`/projects/units` (`components/projects/units-overview.tsx`,
+**Sales units**, `/sales/units` (`components/sales/sales-units.tsx`,
 `lib/modules/project-structure/units-overview.service.ts`): every unit this
 person may see, across the projects, by project, building and floor, 50 to a
-page, with a search by unit, project or type. A row opens the unit in its
-project.
+page, with a search by unit, project or type. A row opens the unit's sales
+page, `/sales/units/<unitId>` (`components/sales/sales-unit.tsx`; the rules are
+in `docs/unit-sales.md`), never its work page in the project. The top bar's
+Units, the Sales tab's Units set and the phone's Sales units all open it.
 
 - **No new module.** Units rides on Projects: the Projects switch, and
-  `project.view` with `project.structure.view`. The units are read through the
+  `project.view` with `project.structure.view` — Sales' address, Projects'
+  door. Its routes sit in their own group, `app/(nesto)/(sales-units)/`, outside
+  the Sales module's guard, so a reader without Sales opens it too. The units are read through the
   projects' own door (`readableUnitWhere`), so an architect sees the units of
   the projects they are on, and no others. Archived units are left out.
 - **Sales only to sales.** Status, price and buyer show only to a reader with
   `project.unit.sales.view`, and only they get the views — All, For sale,
   Reserved, Sold, each with its count — as the page's tabs
-  (`/projects/units/for-sale` and so on). The buyer is named only to a reader
+  (`/sales/units/for-sale` and so on). The buyer is named only to a reader
   who may open clients.
-- On a workspace switch `/projects/units` is a list, not a project
-  (`config/workspace-routes.ts`).
+- **One dynamic segment.** `/sales/units/<key>` is a status view when the key is
+  `for-sale`, `reserved` or `sold`, and a unit otherwise: two routes in all, as
+  `/projects/units` had, under Vercel's 2048-route limit.
+- On a workspace switch the list and its views stay where they are; a unit is
+  checked in the new workspace and else left for the list
+  (`config/workspace-routes.ts`, validator `UNIT`).
 
 ## 5. The page head
 
@@ -203,28 +211,35 @@ glass like the top bar, the place you are in marked by a 2px gold line on top:
 | **Home** | `/my-day` — your day: what is next, what is late, what waits for you | My Day and the Dashboard |
 | **Projects** | the project you were last in, in this workspace, on this device; the list before any | every page under `/projects` |
 | **New** | Quick Create as a sheet standing on the bar, the field's four first — Photo, Site diary, Task, Hazard — then everything else; it reads Close while open | — (an action, drawn in ink) |
-| **Inbox** | `/inbox` — approvals answered in their row, then alerts; two filters, visible. Carries the bell's count | Inbox, Approvals, Activity, Notifications |
+| **Sales units** | `/sales/units` — every unit with its status, price and buyer; a unit opens its sales page (§4). For everyone who may see units | every page under `/sales/units` |
 | **Menu** | `/menu` — the workspace switch, you, a field that finds any module, Home's modules and the five departments, then Settings, Refresh, Day or Night, Help and Sign out | every other page |
 
 - `lib/navigation/phone.ts` holds the pure parts — which place a path belongs
   to, which pages are a place's first, where Projects goes — unit-tested.
-- The bar folds to its icons, 48px, while the page scrolls down and opens again
-  as soon as it scrolls up. Folded, each cell keeps its name for a screen
-  reader.
+- One height, 64px, whatever the page does: it does not shrink while you
+  scroll. (A folding bar was tried and looked unsteady in Chrome on Android,
+  where the browser's own toolbar also moves as you scroll.)
 - Content keeps clear of it by `--nesto-bottom-nav-space`
   (`styles/globals.css`), so no page pads itself. It steps aside for the
   keyboard and for a page's own bottom bar.
-- A person who may create nothing gets four cells and no New.
+- A person who may create nothing gets no New, and one who may see no units
+  no Sales units; the cells left share the bar equally.
 
-### The top bar: where you are, and search
+### The top bar: where you are, search and Inbox
 
 `components/layout/phone-title.tsx`. 56px: the page's own name — inside a
 project the project's, which drops your other projects from the bar (the
-project layout's own switcher, so only projects this person may open) — and
-search in a cell of its own. **Back** stands at the start on any page deeper
+project layout's own switcher, so only projects this person may open) — then
+search and **Inbox**, each in a cell of its own at the end, Inbox last, where
+the bell stands on a desktop. **Back** stands at the start on any page deeper
 than a place's first page; on those, the bar is the way out. No logo, no
-bell (Inbox carries it), no account (it is in Menu), no Units (Units is a
-module in Menu, and a section of each project).
+bell, no account (it is in Menu), no Units (Units is a module in Menu, and a
+section of each project).
+
+**Inbox** (`components/layout/phone-inbox.tsx`) opens `/inbox` — approvals
+answered in their row, then alerts; two filters, visible — and carries the
+bell's unread count. It is marked by a gold line under it on Inbox, Approvals,
+Activity and Notifications.
 
 ### The page's sections: a row under the title
 
@@ -258,9 +273,9 @@ database this environment does not have.
   their routes and behind their permissions, the tab each page opens, and the
   search.
 - `tests/unit/navigation/navigation-layouts.test.ts`: the cookie reader, the
-  phone's places and where Projects goes, that `/projects/units` is not a
-  project, and that the shell draws one top bar with the Ribbon, Units, the
-  logo's panel and Home, and no Dock.
+  phone's places (Sales units among them) and where Projects goes, and that
+  the shell draws one top bar with the Ribbon, Units, the logo's panel and
+  Home, and no Dock.
 - `tests/unit/ux/aud05-navigation.test.ts`: every button of the Ribbon and the
   panel has a page, and no group is ever empty.
 - `tests/unit/a11y/theme-drift.test.ts`: the bar, ribbon and breadcrumb
@@ -271,9 +286,10 @@ database this environment does not have.
   below `lg` from Menu, and a page's sections from the section row
   (`openSection`, `currentSection`).
   `tests/e2e/shell/organization-header.spec.ts` covers Home and the switch;
-  `tests/e2e/responsive/aud04-mob02-shell.spec.ts` the phone: the five places,
-  Projects remembering, the project switch, the section row, Back, New, Inbox,
-  Menu, the bar folding and the keyboard. These need the database to run.
+  `tests/e2e/responsive/aud04-mob02-shell.spec.ts` the phone: the bar's places,
+  Projects remembering, the project switch, the section row, Back, New, Inbox
+  beside search, Menu, the bar's one height and the keyboard. These need the
+  database to run.
 
 ## 8. Next
 

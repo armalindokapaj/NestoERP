@@ -187,7 +187,8 @@ export type UnitFilesDTO = {
   media: UnitMediaDTO[];
   /** Files uploaded against the unit that nothing points at yet — an upload whose second step failed. */
   unfiled: UnitFileDTO[];
-  capabilities: { canManageDocuments: boolean; canManageMedia: boolean; canUpload: boolean; canUploadVersion: boolean };
+  /** `canManageContract`: the buyer's signed contract (category Contract) and nothing else — whoever sells the unit (unit-documents.rules.ts). */
+  capabilities: { canManageDocuments: boolean; canManageMedia: boolean; canManageContract: boolean; canUpload: boolean; canUploadVersion: boolean };
 };
 
 export type AttachableDocumentDTO = { id: string; name: string; fileName: string | null; mimeType: string | null; onUnit: boolean };

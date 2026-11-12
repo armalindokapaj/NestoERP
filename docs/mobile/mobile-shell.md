@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/mobile/mobile-shell.md
 > **About:** How the app shell is built below 1024px — the component tree, the widths, the space the bar keeps, the keyboard, layers and motion — for whoever changes the phone shell next.
-> **Last updated:** 2026-11-12
+> **Last updated:** 2026-11-12 (Inbox beside search; the bar keeps one height; Sales units)
 
 # Mobile shell
 
@@ -13,10 +13,11 @@ AppShell (components/layout/app-shell.tsx)
 ├── Topbar                          header[data-shell-region], 56px, glass
 │   ├── PhoneTitle (below lg)       Back · the page's name, or the project switch
 │   ├── QuickCreate                 below lg only its sheet, opened by New
-│   └── GlobalSearch                below lg alone, in a cell
+│   ├── GlobalSearch                below lg in a cell
+│   └── PhoneInbox (below lg)       in a cell at the end, with the bell's count
 ├── PhoneSections (below lg)        the page's sections, pinned under the top bar
 ├── <main class="nesto-page">
-└── PhoneBar (below lg)             Home · Projects · New · Inbox · Menu
+└── PhoneBar (below lg)             Home · Projects · New · Sales units · Menu
 ```
 
 One shell, one tree, the widths decided in CSS (`lg:hidden`, `max-lg:…`).
@@ -36,8 +37,8 @@ width says.
   `[data-mobile-bottom-nav]` is on the page, and `--nesto-bottom-reserve`
   follows it (toasts, focus scrolling). `.nesto-page` pads by it; modules add
   no bottom padding.
-- The bar folds to 48px while scrolling down; the page keeps the full 64px
-  clear, so nothing moves when it opens again.
+- The bar is 64px and stays 64px: nothing about it changes as the page
+  scrolls, so it sits still while Chrome's own toolbar moves.
 - It steps aside for a page's own hand-made bottom bar
   (`data-sticky-action-bar`) and while a text field has focus, coming back
   0.3s after the field lets go, so the tap that ends the typing lands where
@@ -70,12 +71,12 @@ it closes; focus goes back to New.
 
 `lib/navigation/analytics.ts` `emitNavigationEvent` dispatches
 `nesto:navigation-event` on `window`: `navigation_destination_opened`
-(`source: "phone_bar" | "phone_menu" | "phone_sections"`),
+(`source: "phone_bar" | "phone_top_bar" | "phone_menu" | "phone_sections"`),
 `quick_create_opened`, `more_opened` (the logo's panel). No dependency, no
 payload beyond ids.
 
 ## Motion and accessibility
 
 Reduced-motion aware throughout. Every control is a real button or link with a
-visible name — the bar's cells keep theirs when folded. Focus returns to the
-trigger when a sheet closes. Targets are 48px.
+visible name. Focus returns to the trigger when a sheet closes. Targets are
+48px.
