@@ -49,7 +49,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Pro
   }
 }
 
-type SearchOptions = { limitPerProvider?: number | string | null; moduleKeys?: string[]; totalLimit?: number | string | null };
+type SearchOptions = { limitPerProvider?: number | string | null; moduleKeys?: string[]; entityTypes?: string[]; totalLimit?: number | string | null };
 
 /** The query as the providers see it, or null when there is nothing to search for (PRD #26 §45). */
 function prepare(rawQuery: string, options: SearchOptions) {
@@ -63,8 +63,12 @@ function prepare(rawQuery: string, options: SearchOptions) {
         text,
         limitPerProvider: clampLimit(options.limitPerProvider, LIMIT_PER_PROVIDER),
         moduleKeys: options.moduleKeys,
+        entityTypes: options.entityTypes,
       } satisfies GlobalSearchQuery,
-      active: searchProviders.filter((provider) => !options.moduleKeys?.length || options.moduleKeys.includes(provider.moduleKey)),
+      // A filter by kind asks only the providers that find that kind (the palette's Projects, Units, People…).
+      active: searchProviders.filter(
+        (provider) => (!options.moduleKeys?.length || options.moduleKeys.includes(provider.moduleKey)) && (!options.entityTypes?.length || provider.entityTypes.some((type) => options.entityTypes!.includes(type))),
+      ),
     },
   };
 }
@@ -100,9 +104,9 @@ async function runProviders(context: UserContext, providers: GlobalSearchProvide
   return { results, failedModules };
 }
 
-/** Ranks, limits and groups what the providers found — the same way in either workspace. */
-function respond(text: string, found: GlobalSearchResultDTO[], failedModules: string[], totalLimit: number): GlobalSearchResponseDTO {
-  const results = [...found];
+/** Ranks, limits and groups what the providers found — the same way in either workspace. A filter by kind keeps only that kind (a provider may find several). */
+function respond(text: string, found: GlobalSearchResultDTO[], failedModules: string[], totalLimit: number, entityTypes?: string[]): GlobalSearchResponseDTO {
+  const results = entityTypes?.length ? found.filter((result) => entityTypes.includes(result.entityType)) : [...found];
   // Deterministic order, so the same query twice gives the same answer
   // (PRD #26 §47).
   results.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title) || a.entityId.localeCompare(b.entityId));
@@ -128,7 +132,7 @@ export async function globalSearch(context: UserContext, rawQuery: string, optio
   if (!ready) return empty(text);
 
   const { results, failedModules } = await runProviders(context, ready.active, ready.query);
-  return respond(text, results, failedModules, ready.totalLimit);
+  return respond(text, results, failedModules, ready.totalLimit, ready.query.entityTypes);
 }
 
 /**
@@ -199,5 +203,6 @@ export async function globalSearchForWorkspace(
     // A module that failed in two companies is one module to name.
     [...new Set(answers.flatMap((answer) => answer.failedModules))],
     ready.totalLimit,
+    ready.query.entityTypes,
   );
 }

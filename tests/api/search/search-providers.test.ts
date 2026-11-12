@@ -91,6 +91,20 @@ describe("department records are findable (PRD #26 §70-§100)", () => {
       expect(results.some((row) => row.entityId === id), `${label} not found`).toBe(true);
     }
   });
+
+  it("finds a unit by its code as people read it, and the filter by kind keeps only units (2026-11-12)", async () => {
+    const owner = await loginAs("OWNER");
+    const unit = await prisma.projectUnit.findFirst({
+      where: { companyId: owner.companyId, publicationStatus: { not: "ARCHIVED" }, floor: { is: { building: { is: { code: { not: null } } } } } },
+      select: { id: true, unitCode: true, floor: { select: { building: { select: { code: true } } } } },
+    });
+    expect(unit, "the seed must contain a unit in a building with a code").not.toBeNull();
+    const code = unit!.unitCode.toUpperCase().startsWith(`${unit!.floor.building.code!.toUpperCase()}-`) ? unit!.unitCode : `${unit!.floor.building.code}-${unit!.unitCode}`;
+
+    const { results } = await globalSearch(owner, code, { entityTypes: ["project_unit"], limitPerProvider: 20 });
+    expect(results.some((row) => row.entityId === unit!.id), "unit not found by its code").toBe(true);
+    expect(results.every((row) => row.entityType === "project_unit")).toBe(true);
+  });
 });
 
 describe("search never widens access (PRD #26 §22, §23, §29)", () => {

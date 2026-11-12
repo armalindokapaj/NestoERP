@@ -20,6 +20,7 @@ import {
   fetchWithDeadline,
   isInternalAppPath,
   menuPathname,
+  QUICK_CREATE_PICK_EVENT,
   REQUEST_TIMEOUT_MS,
   type MenuFailure,
 } from "@/lib/modules/quick-create/menu-cache";
@@ -335,6 +336,19 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     window.addEventListener(OPEN_QUICK_CREATE_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_QUICK_CREATE_EVENT, onOpen);
   }, [summary.canOpen, open, openPanel, close]);
+
+  // Search's actions (docs/ui/UI-08-search.md): one create action by its key, with its company or project step, as the dial runs it.
+  const pickRef = React.useRef(pick);
+  pickRef.current = pick;
+  React.useEffect(() => {
+    if (!summary.canOpen) return;
+    const onPick = (event: Event) => {
+      const key = (event as CustomEvent<{ key?: string }>).detail?.key;
+      if (typeof key === "string") void pickRef.current(key);
+    };
+    window.addEventListener(QUICK_CREATE_PICK_EVENT, onPick);
+    return () => window.removeEventListener(QUICK_CREATE_PICK_EVENT, onPick);
+  }, [summary.canOpen]);
 
   // On a touch layout the panel carries a pointer: it is aimed at the button that was pressed.
   React.useLayoutEffect(() => {

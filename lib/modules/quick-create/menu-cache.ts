@@ -29,6 +29,9 @@ export type MenuLoad =
 
 type Entry = { menu: QuickCreateMenuDTO; storedAt: number; usedAt: number };
 
+/** Runs one create action by its key, as the dial's buttons do (`detail: { key }`): how search hands Quick Create an action (docs/ui/UI-08-search.md). */
+export const QUICK_CREATE_PICK_EVENT = "nesto:quick-create-pick";
+
 export function menuPathname(pathname: string | null | undefined): string {
   const value = (pathname || "/").split(/[?#]/)[0] || "/";
   return value.startsWith("/") ? value : `/${value}`;

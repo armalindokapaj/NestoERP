@@ -13,6 +13,8 @@ export type GlobalSearchQuery = {
   text: string;
   limitPerProvider: number;
   moduleKeys?: string[];
+  /** Only these kinds of record (the palette's filters: Projects, Units, People…); every kind when absent. */
+  entityTypes?: string[];
   /**
    * The company a Group-workspace search was narrowed to, already validated
    * against the companies the reader may use (Workspace Context §86, §87). Only

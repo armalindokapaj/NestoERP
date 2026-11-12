@@ -151,13 +151,13 @@ test("every panel opened from the top bar starts on its row's lower edge; search
   await expect(mainRegion(page).locator("h1").first()).toBeVisible();
   const bar = page.locator("[data-topbar-row]");
   // The line, and the content box panels line up with: the bar's row, inside its gutters.
-  const { line, left, right } = await bar.evaluate((element) => {
+  const { line, right } = await bar.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     return { line: rect.bottom, left: rect.left + parseFloat(style.paddingLeft), right: rect.right - parseFloat(style.paddingRight) };
   });
   expect(Math.round(line)).toBe(63);
-  /** Where a panel rests: placed a frame after it mounts, and search travels out of its icon first. */
+  /** Where a panel rests: placed a frame after it mounts. */
   const placed = async (panel: Locator) => {
     await expect(panel).toBeVisible();
     await panel.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
@@ -182,11 +182,15 @@ test("every panel opened from the top bar starts on its row's lower edge; search
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
 
-  // Search: a third of the content's width, never under 352px, in the middle of it; the page stays in view around it.
+  // Search (docs/ui/UI-08-search.md): a 720px palette in the upper third, in the middle of the window, the page dimmed behind it.
   await page.getByTestId("search-trigger").click();
-  const search = await placed(page.getByRole("dialog", { name: "Search NESTO" }));
-  expect(Math.abs(search.width - Math.max((right - left) / 3, 352))).toBeLessThanOrEqual(1);
-  expect(Math.abs(search.x + search.width / 2 - (left + right) / 2)).toBeLessThanOrEqual(1);
+  const palette = page.getByRole("dialog", { name: "Search NESTO" });
+  await expect(palette).toBeVisible();
+  await palette.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
+  const search = (await palette.boundingBox())!;
+  expect(Math.abs(search.width - Math.min(720, viewport.width - 32))).toBeLessThanOrEqual(1);
+  expect(Math.abs(search.x + search.width / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
+  expect(Math.abs(search.y - Math.max(72, viewport.height * 0.12))).toBeLessThanOrEqual(1);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Search NESTO" })).toHaveCount(0);
 

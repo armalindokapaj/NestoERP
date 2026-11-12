@@ -21,6 +21,10 @@ import {
   buildPermitScopeWhere,
 } from "@/lib/modules/hse/hse.scope";
 import { buildOpportunityScopeWhere } from "@/lib/modules/sales/sales.scope";
+import { readableUnitWhere, structureOpen } from "@/lib/modules/project-structure/structure.permissions";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
+import { salesCapabilities } from "@/lib/modules/sales/units/unit-sales.core";
+import { moneyText, saleStatusOf } from "@/lib/modules/sales/units/unit-sales.rules";
 import { summaryQualificationWhere } from "@/lib/modules/hr/qualifications/qualification.access";
 import { PROFICIENCY_LABELS, QUALIFICATION_TYPE_RULES } from "@/lib/modules/hr/qualifications/qualification.types";
 import { directoryQuerySchema } from "@/lib/modules/people/people.schema";
@@ -78,6 +82,69 @@ const projectProvider: GlobalSearchProvider = {
       score: scoreMatch(query.text, row.name, row.code),
       status: row.status,
     }));
+  },
+};
+
+/**
+ * A project's units (2026-11-12): by their code as people read it ("T-501", the
+ * building's code and the unit's own), by the unit's own code alone, or by type.
+ * Through the projects' own door (`readableUnitWhere`), as Sales units lists
+ * them, archived units left out. Somebody who may see the units' sales opens a
+ * unit's sales page and sees its sale status; anybody else its page in its
+ * project, without a status.
+ */
+const unitProvider: GlobalSearchProvider = {
+  moduleKey: "projects",
+  entityTypes: ["project_unit"],
+  async search(context, query) {
+    if (!canAccessModule(context, "projects") || !structureOpen(context)) return [];
+    const sales = salesCapabilities(context);
+    // "T-501": the building's code, then the unit's.
+    const coded = /^([^\s-]+)-(.+)$/.exec(query.text.trim());
+
+    const rows = await prisma.projectUnit.findMany({
+      where: {
+        AND: [
+          readableUnitWhere(context),
+          { publicationStatus: { not: "ARCHIVED" } },
+          {
+            OR: [
+              { unitCode: { contains: query.text, mode: "insensitive" } },
+              ...(coded ? [{ unitCode: { startsWith: coded[2], mode: "insensitive" as const }, floor: { is: { building: { is: { code: { equals: coded[1], mode: "insensitive" as const } } } } } }] : []),
+              { unitType: { is: { name: { contains: query.text, mode: "insensitive" } } } },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        projectId: true,
+        unitCode: true,
+        project: { select: { name: true } },
+        unitType: { select: { name: true } },
+        floor: { select: { name: true, building: { select: { code: true } } } },
+        commercialProfile: { select: { status: true, askingPrice: true } },
+      },
+      orderBy: [{ project: { name: "asc" } }, { floor: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+      take: query.limitPerProvider,
+    });
+
+    return rows.map((row) => {
+      const label = unitLabel(row.floor.building.code, row.unitCode);
+      // The code is the unit's name: "T-501" typed in full, or "501", ranks it as a code.
+      const score = Math.max(scoreMatch(query.text, label, label), scoreMatch(query.text, row.unitCode, row.unitCode), row.unitType.name.toLowerCase().includes(query.text.toLowerCase()) ? SCORE.CONTAINS : 0);
+      return {
+        moduleKey: "projects",
+        entityType: "project_unit",
+        entityId: row.id,
+        title: label,
+        subtitle: `${row.project.name} · ${row.floor.name}`,
+        meta: row.unitType.name,
+        href: sales.canView ? `/sales/units/${row.id}` : `/projects/${row.projectId}/units/${row.id}`,
+        score,
+        status: sales.canView ? saleStatusOf(row.commercialProfile?.status, moneyText(row.commercialProfile?.askingPrice)) : null,
+      };
+    });
   },
 };
 
@@ -1046,6 +1113,7 @@ export const searchProviders: GlobalSearchProvider[] = [
   milestoneProvider,
   announcementProvider,
   projectProvider,
+  unitProvider,
   taskProvider,
   clientProvider,
   documentProvider,

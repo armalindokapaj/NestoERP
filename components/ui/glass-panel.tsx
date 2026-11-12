@@ -9,7 +9,8 @@ import { topbarContentBox, topbarLine } from "@/lib/layout/topbar-line";
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The shell's glass panel (search).
+ * The glass panel of the platform admin's search (components/platform/platform-search.tsx).
+ * The shell's own search is a palette of its own since 2026-11-12 (docs/ui/UI-08-search.md).
  *
  * A slab of liquid glass in the manner of Apple's: the page behind it stays
  * where it is and stays readable — nothing outside the panel is blurred or

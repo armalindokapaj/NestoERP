@@ -27,7 +27,7 @@ test("search opens full screen with recent work and the link to My Work", async 
   const dialog = page.getByRole("dialog", { name: "Search NESTO" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("link", { name: /View all recent work/ })).toBeVisible();
-  // Under 640px the panel is the whole screen, once it has travelled out of its icon.
+  // Under 640px the palette is the whole screen (docs/ui/UI-08-search.md).
   await dialog.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
   const box = (await dialog.boundingBox())!;
   const viewport = page.viewportSize()!;

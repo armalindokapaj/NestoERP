@@ -60,6 +60,8 @@ export async function Topbar({
   // Company Settings is offered only where its own page would open (settings-access.ts), never by title.
   const companySettings = context.workspace.scopeType === "COMPANY" && canAccessModule(context, "settings") && can(context, "company.name.update");
   const roleLabel = roles(`${context.role}.label`);
+  // Search's pages (docs/ui/UI-08-search.md): every place this person's navigation offers, once each, with where it sits.
+  const pages = [...new Map([...navigation.menu, ...navigation.ribbon].flatMap((group) => group.items).map((item) => [item.href, { key: item.key, label: item.label, href: item.href, icon: item.icon, place: shell(`groups.${item.group}`) }])).values()];
 
   return (
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
@@ -98,7 +100,7 @@ export async function Topbar({
         {/* The universal cluster in its order on every surface: Search, Notifications, Account (UI-01 §1). Below lg, Search and Inbox, each in a cell. */}
         <div className="col-start-3 flex min-w-0 items-center justify-end justify-self-end max-lg:items-stretch lg:w-full lg:max-w-(--nesto-bar-side) lg:gap-1.5" data-testid="global-actions">
           <div className="flex w-14 items-center justify-center border-l border-line-strong lg:contents">
-            <GlobalSearch contextKey={core.contextKey} />
+            <GlobalSearch contextKey={core.contextKey} pages={pages} />
           </div>
           {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31).
               Below lg it is mounted but not drawn: Inbox, beside search, carries its count. */}

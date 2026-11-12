@@ -26,10 +26,13 @@ export async function GET(request: Request) {
 
       const params = new URL(request.url).searchParams;
       const modules = params.getAll("module");
+      // The palette's filter by kind (`type=project_unit`); at most a handful, each a plain name.
+      const types = params.getAll("type").filter((type) => /^[a-z_]{1,40}$/.test(type)).slice(0, 8);
 
       const [result, contextKey] = await Promise.all([
         globalSearchForWorkspace(context, params.get("q") ?? "", {
           moduleKeys: modules.length > 0 ? modules : undefined,
+          entityTypes: types.length > 0 ? types : undefined,
           // Passed as written; the service clamps both, so no caller can widen them (PRD #47 §175).
           limitPerProvider: params.get("limitPerProvider"),
           totalLimit: params.get("limit"),
