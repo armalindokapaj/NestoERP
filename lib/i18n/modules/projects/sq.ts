@@ -71,6 +71,8 @@ export const projectsSq: typeof projectsEn = {
       "Të njëjtat të dhëna shfaqen edhe në modulet e tyre, të filtruara sipas projekteve që mund të hapni, dhe secila tregon projektin të cilit i përket.",
     project: "Projekti",
     summary: "Përmbledhja e projektit",
+    overdue: "Me vonesë",
+    details: "Detajet",
     noDescription: "Projekti nuk ka përshkrim.",
     projectManager: "Menaxheri i projektit",
     inactive: "Joaktiv",

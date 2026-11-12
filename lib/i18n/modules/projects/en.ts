@@ -69,6 +69,8 @@ export const projectsEn = {
       "The same records also appear in their own modules, filtered to the projects you can open, and each names the project it belongs to.",
     project: "Project",
     summary: "Project summary",
+    overdue: "Overdue",
+    details: "Details",
     noDescription: "No project description.",
     projectManager: "Project manager",
     inactive: "Inactive",

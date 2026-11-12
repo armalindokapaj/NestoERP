@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/ui/UI-07-unified-design.md
 > **About:** Bringing every module and page, on desktop and phone, to the one design of My Day, the dashboard and the public site — the rules decided with the owner, what each wave changed, and what is left — for whoever builds or reviews a page next.
-> **Last updated:** 2026-11-12 (the account panel redrawn, §4)
+> **Last updated:** 2026-11-12 (the project's Overview, §6)
 
 # UI-07 — One design across the app
 
@@ -108,7 +108,34 @@ More filters are ranges (from–to, two query keys) or selects; their count
 joins the Filters badge and Clear all clears them. Sales units is the first
 list to use it (docs/unit-sales.md); others take it as each is reviewed.
 
-## 6. Not in scope
+## 6. The project's Overview
+
+`/projects/<id>` (`app/(nesto)/projects/[projectId]/page.tsx`, drawn by
+`components/projects/overview/project-overview.tsx`), reworked 2026-11-12.
+
+**What it held, and why it was messy.** A dark hero 430–500px tall with the
+picture, a status line, the name, the place and type, a progress text and a
+white progress bar; beside it big dark tiles for 3D, renders and animations;
+then a Summary card repeating the place, the type and the progress next to the
+manager, dates, area and the description; then three cards (my work, upcoming,
+activity) with gaps between them; then the media library. A phone added its
+own block above all that — a 3D button, four rounded quick-action tiles, a
+"requires attention" card and three metric tiles — and still drew the summary,
+cards and media below. The project's name was shown three times on a phone (top
+bar, compact header, heading), the progress four times on a desktop.
+
+**What it is now.** One page, in the drawing set, the same pieces at every
+width — and from lg nothing left blank beside anything else:
+
+| Piece | From lg | Below lg |
+| --- | --- | --- |
+| Title block | Mono line: code · company · status, the ⋯ after the status; the name in the display face on its gold square; the description as a two-line italic standfirst; place · type · area · due in mono. The figures stand on the block's foot — progress (with a thin gold rule along its cell), open tasks, overdue (red when any), units, each opening its list — so the left half is filled to the ink rule. At the right the picture fills its column down to the same rule, with View in 3D (ink, opens beside), Renders and Animations in one row of cells under it. | The top bar names the project; the compact header is code · company in mono, status, ⋯. The heading stays for a screen reader. Then the figures and, flush under them, Task · Document · Site diary · Meeting. |
+| The sections | Two columns that balance themselves (CSS columns): each section keeps whole and the next fills the shorter column, so neither runs on alone. 01 / My work (tasks assigned, approvals, meetings, documents — a kind with nothing is left out); 02 / Upcoming (a mono day, the title, its kind); 03 / Recent activity (View all in the caption); 04 / Details (manager, completion, place, type, area, last edited, the deal it came from — mono label, value on the right); 05 / Visual library (four renders in cells sharing lines, the animations, View all media). | One column in the same order, the picture and its 3D, renders and animations rows after My work, the description under Details. |
+
+The project's overdue tasks are one figure, not also a line under My work.
+Every piece still streams in its own place, and a section that fails says so.
+
+## 7. Not in scope
 
 - The public site (`app/(public)`, `components/marketing`), which is the
   reference.

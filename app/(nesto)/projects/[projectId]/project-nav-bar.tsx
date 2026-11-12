@@ -78,19 +78,21 @@ export function ProjectNavBar({ projectId, crumbs, tabs, sectionsLabel, identity
 }
 
 /**
- * The project's compact header below lg: its name, then its code and company,
- * on the left; its status, then the page's ⋯, on the right. The ⋯ here is the
- * one for a section's tips, Help and secondary actions (`PageMenuSlot`, below
- * lg only: from lg a section's own header has it); on the Overview the
- * project's own menu, which follows this header in the row, holds them.
+ * The project's compact header below lg: its code and company in one mono
+ * line on the left — the top bar above already names the project, in the
+ * display face (components/layout/phone-title.tsx) — and its status, then the
+ * page's ⋯, on the right. The ⋯ here is the one for a section's tips, Help and
+ * secondary actions (`PageMenuSlot`, below lg only: from lg a section's own
+ * header has it); on the Overview the project's own menu, which follows this
+ * header in the row, holds them.
  */
 function ProjectCompactHeader({ identity, className }: { identity: ProjectIdentity; className?: string }) {
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-2 py-1", className)} data-testid="project-phone-identity">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-card font-semibold text-fg">{identity.name}</p>
-        <p className="truncate text-table text-fg-muted">
-          <span data-testid="project-phone-code">{identity.code}</span>
+        <p className="sr-only">{identity.name}</p>
+        <p className="truncate font-mono text-meta font-medium uppercase tracking-[0.1em] text-fg-subtle">
+          <span data-testid="project-phone-code" className="text-fg">{identity.code}</span>
           <span aria-hidden="true"> · </span>
           <span data-testid="project-phone-company">{identity.companyName}</span>
         </p>

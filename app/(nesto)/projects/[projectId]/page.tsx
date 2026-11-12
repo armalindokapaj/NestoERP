@@ -1,11 +1,23 @@
-/* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
-import { Suspense, type ReactNode } from "react";
+import { Suspense } from "react";
 import Link from "@/components/navigation/nav-link";
-import { Box, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileWarning, Film, Image as ImageIcon, MapPin, Play, TriangleAlert } from "@/components/icons";
+import { TriangleAlert } from "@/components/icons";
 
 import { WhatIsThis } from "@/components/help/what-is-this";
-import { ProjectMobileOverview, type ProjectQuickAction } from "@/components/projects/mobile/project-mobile-overview";
+import {
+  ProjectActivity,
+  ProjectDetails,
+  ProjectFigures,
+  ProjectMediaStrip,
+  ProjectMyWork,
+  ProjectQuickActions,
+  ProjectTitleBlock,
+  ProjectUpcoming,
+  ProjectVisuals,
+  type ProjectFact,
+  type ProjectFigure,
+  type ProjectQuickAction,
+} from "@/components/projects/overview/project-overview";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { PersonLink } from "@/components/people/person-link";
 import { favoriteState, RecordOpened } from "@/components/productivity/record-favorite";
@@ -28,7 +40,7 @@ import { orDash } from "@/lib/utils/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { projectTypeName } from "@/lib/i18n/stock-names";
 import { localizeActivity } from "@/lib/i18n/system";
-import { loadProject, } from "./project-context";
+import { loadProject } from "./project-context";
 
 type Params = { params: Promise<{ projectId: string }> };
 
@@ -42,39 +54,22 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   }
 }
 
-/** The project's ⋯ (and Restore) on the hero's image: white, with a white focus ring (the shell's accent ring is lost on a dark photo), and no taller than the line of text it ends. */
-const HERO_MENU = {
-  trigger: "-my-2 text-white/80 hover:bg-white/15 hover:text-white focus-visible:outline-white data-[state=open]:bg-white/15 data-[state=open]:text-white touch:-my-3.5",
-  restore: "-my-2 bg-white text-neutral-900 hover:bg-white/90 focus-visible:outline-white touch:-my-3.5",
-};
-
-const workIcons = { tasks: CheckCircle2, approvals: ClipboardCheck, meetings: CalendarDays, documents: FileWarning };
-
 function projectProgress(planning: Awaited<ReturnType<typeof projectPlanningSummary>>): number | null {
   if (!planning) return null;
   if (planning.phases.length) return Math.round(planning.phases.reduce((sum, phase) => sum + (phase.progress ?? 0), 0) / planning.phases.length);
   return planning.metrics.total ? Math.round((planning.metrics.completed / planning.metrics.total) * 100) : null;
 }
 
-function ExperienceTile({ href, title, detail, icon, large = false, newTab = false }: { href: string; title: string; detail?: string; icon: ReactNode; large?: boolean; newTab?: boolean }) {
-  return (
-    <Link href={href} target={newTab ? "_blank" : undefined} rel={newTab ? "noopener noreferrer" : undefined} className={`group relative flex min-h-36 overflow-hidden bg-neutral-900 p-6 text-white outline-none transition hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${large ? "sm:col-span-2 lg:min-h-56" : ""}`}>
-      <div className="relative mt-auto"><span className="mb-4 grid size-10 place-items-center border border-white/15 bg-white/10">{icon}</span><span className="block text-card font-semibold">{title}</span>{detail ? <span className="mt-1 block text-table text-white/55">{detail}</span> : null}</div>
-    </Link>
-  );
-}
-
 /**
- * The canonical, role-aware Project home described by the workspace PRD
- * (NAV-03 STREAM-02, STREAM-06).
+ * The canonical, role-aware Project home (NAV-03 STREAM-02, STREAM-06), drawn
+ * in the drawing set (docs/ui/UI-07-unified-design.md §6,
+ * components/projects/overview/project-overview.tsx).
  *
- * `loadProject` is the prerequisite: identity, breadcrumbs, actions, tabs and
- * the summary render from it at once. Everything optional — the cover, 3D and
- * media, planning progress, my work, upcoming dates, activity and the Sales
- * source — is read beside it and arrives in its own place. The hero keeps its
- * height whatever arrives, media sits below the work cards so nothing above
- * moves, and a section that fails says so rather than claiming there is
- * nothing to show.
+ * `loadProject` is the prerequisite: identity, the project's menu and the
+ * details render from it at once. Everything optional — the picture, 3D and
+ * media, planning progress, the figures, my work, upcoming dates and activity —
+ * is read beside it and arrives in its own place, and a section that fails
+ * says so rather than claiming there is nothing to show.
  */
 export default async function ProjectOverviewPage({ params }: Params) {
   const locale = await getLocale();
@@ -91,34 +86,136 @@ export default async function ProjectOverviewPage({ params }: Params) {
   const myWork = projectMyWork(context, project.id);
   const upcoming = projectUpcoming(context, project);
   const activity = actions.canViewActivity ? projects.listActivity(context, project.id, { page: 1, limit: 5 }) : null;
-  const [lastChange, favorite] = await Promise.all([
-    actions.canViewActivity ? projects.lastProjectChange(context, project.id) : null,
-    favoriteState(context, "project", project.id).catch(() => null),
-  ]);
+  const [lastChange, favorite] = await Promise.all([actions.canViewActivity ? projects.lastProjectChange(context, project.id) : null, favoriteState(context, "project", project.id).catch(() => null)]);
   /*
    * The deal this project came from (PRD #17 §267, §385) — only for somebody who
    * may see Sales records, resolved through the Sales scope, so a project manager
    * without Sales access never sees the commercial value behind their job (§365, §416).
    */
   const sourceOpportunity = can(context, "sales.opportunity.view")
-    ? prisma.opportunity.findFirst({ where: { AND: [buildOpportunityScopeWhere(context), { convertedProjectId: project.id }] }, select: { id: true, name: true } })
+    ? prisma.opportunity.findFirst({
+        where: {
+          AND: [buildOpportunityScopeWhere(context), { convertedProjectId: project.id }],
+        },
+        select: { id: true, name: true },
+      })
     : null;
-  for (const promise of [threeD, media, planning, myWork, upcoming, activity, sourceOpportunity]) promise?.catch(() => undefined);
   const progress = planning.then(projectProgress, () => null);
-  const mobileSummary = projectMobileSummary(context, project.id, { canViewTasks: actions.canViewTasks, canViewUnits: actions.canViewUnits });
-  mobileSummary.catch(() => undefined);
+  const summary = projectMobileSummary(context, project.id, {
+    canViewTasks: actions.canViewTasks,
+    canViewUnits: actions.canViewUnits,
+  });
+  for (const promise of [threeD, media, planning, myWork, upcoming, activity, sourceOpportunity, summary]) promise?.catch(() => undefined);
   // A new record is offered on a live project only, and only to someone who may create it (MOB-05 §30, §31).
-  const quickActions: ProjectQuickAction[] = archived ? [] : [
-    ...(actions.canViewTasks && can(context, "task.create") ? [{ key: "task" as const, href: `/tasks/new?projectId=${project.id}` }] : []),
-    ...(actions.canViewDocuments && can(context, "document.create") ? [{ key: "document" as const, href: `/documents/new?projectId=${project.id}` }] : []),
-    ...(actions.canViewDailyLogs && can(context, "daily_log.create") ? [{ key: "siteDiary" as const, href: `/projects/${project.id}/daily-logs/new` }] : []),
-    ...(actions.canViewMeetings && can(context, "meeting.create") ? [{ key: "meeting" as const, href: `/meetings/new?projectId=${project.id}` }] : []),
+  const quickActions: ProjectQuickAction[] = archived
+    ? []
+    : [
+        ...(actions.canViewTasks && can(context, "task.create")
+          ? [
+              {
+                key: "task" as const,
+                href: `/tasks/new?projectId=${project.id}`,
+              },
+            ]
+          : []),
+        ...(actions.canViewDocuments && can(context, "document.create")
+          ? [
+              {
+                key: "document" as const,
+                href: `/documents/new?projectId=${project.id}`,
+              },
+            ]
+          : []),
+        ...(actions.canViewDailyLogs && can(context, "daily_log.create")
+          ? [
+              {
+                key: "siteDiary" as const,
+                href: `/projects/${project.id}/daily-logs/new`,
+              },
+            ]
+          : []),
+        ...(actions.canViewMeetings && can(context, "meeting.create")
+          ? [
+              {
+                key: "meeting" as const,
+                href: `/meetings/new?projectId=${project.id}`,
+              },
+            ]
+          : []),
+      ];
+
+  const place = [project.location.city, project.location.country].filter(Boolean).join(", ");
+  const typeName = project.projectType ? projectTypeName(project.projectType.name, locale) : null;
+  const area = project.builtArea === null ? null : `${numberText(project.builtArea, undefined, locale, "en-US")} m²`;
+  const facts: ProjectFact[] = [
+    {
+      key: "manager",
+      label: t("overview.projectManager"),
+      value: project.projectManager ? (
+        <span className="inline-flex flex-wrap items-center justify-end gap-2">
+          <PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />
+          {!project.projectManager.membershipActive ? <Badge tone="warning">{t("overview.inactive")}</Badge> : null}
+        </span>
+      ) : (
+        t("overview.unassigned")
+      ),
+    },
+    {
+      key: "completion",
+      label: t("overview.expectedCompletion"),
+      value: project.schedule.endDate ? formatDate(project.schedule.endDate, locale) : t("overview.notSet"),
+    },
+    { key: "location", label: t("overview.location"), value: orDash(place) },
+    {
+      key: "type",
+      label: t("overview.projectType"),
+      value: typeName ?? t("overview.notSet"),
+    },
+    {
+      key: "area",
+      label: t("overview.totalArea"),
+      value: area ?? t("overview.notSet"),
+    },
+    ...(lastChange
+      ? [
+          {
+            key: "edited",
+            label: t("overview.lastEditedBy"),
+            value: (
+              <span data-testid="project-last-edited">
+                <PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatDate(lastChange.at, locale)}
+              </span>
+            ),
+          },
+        ]
+      : []),
   ];
+  const menu = (
+    <ProjectActions
+      at="lg"
+      projectId={project.id}
+      projectName={project.name}
+      companyName={project.company.name}
+      statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []}
+      archived={archived}
+      canUpdate={actions.canUpdate}
+      canArchive={actions.canArchive}
+      canRestore={actions.canRestore}
+      canManageMedia={actions.canManageMedia}
+      canManageTeam={actions.canManageMembers}
+      favorite={favorite === null ? undefined : { initial: favorite }}
+      offline
+    />
+  );
+  const visuals = (className?: string) => (
+    <Suspense fallback={null}>
+      <Visuals project={project} threeD={threeD} media={media} className={className} />
+    </Suspense>
+  );
 
   return (
-    // Tighter below lg, where the project's compact header sits right above (Keep it tight vertically).
-    <div className="space-y-7 max-lg:space-y-4">
-      {/* The star, "Available offline", the project's actions and "What is this?" are in the project's ⋯, right after its status: on the hero from lg, in the compact header below it (project-tabs.tsx). */}
+    <div className="space-y-6 max-lg:space-y-4" data-testid="project-mobile-overview">
+      {/* The star, "Available offline", the project's actions and "What is this?" are in the project's ⋯: after the status in the title block from lg, in the compact header below it (project-tabs.tsx). */}
       <RecordOpened context={context} entityType="project" entityId={project.id} />
 
       {/* How a project's records hang together (AUD-05 §7, UX-13): an item of the project's ⋯, drawn here only if nothing held it. */}
@@ -127,203 +224,183 @@ export default async function ProjectOverviewPage({ params }: Params) {
         <p>{t("overview.relationshipsBody2")}</p>
       </WhatIsThis>
 
-      {archived ? <p className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 py-3 text-table text-fg-muted"><TriangleAlert className="size-4" aria-hidden="true" />{t("overview.archivedNotice")}</p> : null}
+      {archived ? (
+        <p className="flex items-center gap-2 border border-line-strong bg-surface-muted px-4 py-3 text-table text-fg-muted">
+          <TriangleAlert className="size-4" aria-hidden="true" />
+          {t("overview.archivedNotice")}
+        </p>
+      ) : null}
 
-      {/* A phone's heading: the project's compact header above (project-nav-bar.tsx) already shows the name, so this one is for screen readers. From sm the hero's is the heading. */}
-      <h1 className="sr-only sm:hidden">{project.name}</h1>
+      <ProjectTitleBlock
+        name={project.name}
+        description={project.description}
+        code={project.code}
+        company={project.company.name}
+        status={t(`status.${project.status}`)}
+        menu={menu}
+        facts={[place, typeName, area].filter((fact): fact is string => Boolean(fact))}
+        figures={
+          <SectionBoundary>
+            <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+              <Figures projectId={project.id} progress={progress} summary={summary} className="border-b-0" />
+            </Suspense>
+          </SectionBoundary>
+        }
+        aside={visuals("lg:flex lg:h-full lg:flex-col lg:border-b-0")}
+      />
 
-
-      <Suspense fallback={null}>
-        <MobileOverview projectId={project.id} progress={progress} summary={mobileSummary} myWork={myWork} quickActions={quickActions} threeD={threeD} />
-      </Suspense>
-
-      <section className="overflow-hidden border border-line bg-surface max-sm:hidden lg:flex" aria-labelledby="project-title" data-section="primary">
-        <div className="relative min-h-[430px] flex-1 overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-neutral-950 lg:min-h-[500px]">
-          <Suspense fallback={null}>
-            <HeroCover project={project} media={media} />
+      {/* Below lg the top bar and the compact header name the project: its figures, then what a person makes on site, flush under them. */}
+      <div className="lg:hidden">
+        <SectionBoundary>
+          <Suspense fallback={<Skeleton className="h-20 w-full" />}>
+            <Figures projectId={project.id} progress={progress} summary={summary} />
           </Suspense>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/10" aria-hidden="true" />
-          <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
-            {/* Below lg the project's compact header above names it (code, company, status): the hero does not name it again; its heading stays for screen readers. */}
-            {/* From lg the project's ⋯ follows the status on this line (one copy mounted at a time: components/projects/project-actions.tsx). The hero is drawn at every width from lg, archived or without media too, so the menu is always reachable there. */}
-            <div className="flex flex-wrap items-center gap-2 text-micro font-medium font-mono uppercase tracking-[0.16em] text-white/65 max-lg:hidden" data-testid="project-hero-status-line">
-              <span>{project.code}</span>
-              <span aria-hidden="true">·</span>
-              <span data-testid="project-hero-status">{t(`status.${project.status}`)}</span>
-              <span className="inline-flex items-center gap-2 normal-case tracking-normal empty:hidden">
-                <ProjectActions
-                  at="lg"
-                  projectId={project.id}
-                  projectName={project.name}
-                  companyName={project.company.name}
-                  statusMoves={actions.canManageStatus && !archived ? statusMovesFrom(project.status) : []}
-                  archived={archived}
-                  canUpdate={actions.canUpdate}
-                  canArchive={actions.canArchive}
-                  canRestore={actions.canRestore}
-                  canManageMedia={actions.canManageMedia}
-                  canManageTeam={actions.canManageMembers}
-                  favorite={favorite === null ? undefined : { initial: favorite }}
-                  offline
-                  classNames={HERO_MENU}
-                />
-              </span>
-            </div>
-            <h1 id="project-title" className="mt-3 max-w-3xl font-display text-[2.5rem] font-medium leading-[0.96] tracking-(--nesto-tracking-display) max-lg:sr-only sm:text-[3rem]">{project.name}</h1>
-            <p className="mt-2 text-table font-medium text-white/70 max-lg:hidden">{project.company.name}</p>
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-table text-white/70 max-lg:mt-0"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{projectTypeName(project.projectType.name, locale)}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
-            <div className="mt-4 h-1.5 max-w-md">
-              <Suspense fallback={null}>
-                <ProgressBar progress={progress} />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-        <Suspense fallback={<div aria-hidden="true" className="hidden bg-neutral-900/95 lg:block lg:w-1/2" />}>
-          <Experiences projectId={project.id} threeD={threeD} media={media} />
-        </Suspense>
-      </section>
+        </SectionBoundary>
+        <ProjectQuickActions actions={quickActions} />
+      </div>
 
-      <section className="nesto-card p-5 sm:p-6" aria-labelledby="summary-title">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,2fr)]">
-          <div><p className="text-meta font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{t("overview.project")}</p><h2 id="summary-title" className="mt-1 nesto-section-head">{t("overview.summary")}</h2>{project.description ? <p className="mt-3 line-clamp-5 max-w-2xl text-body leading-6 text-fg-muted">{project.description}</p> : <p className="mt-3 text-body text-fg-subtle">{t("overview.noDescription")}</p>}</div>
-          <dl className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
-            <Summary label={t("overview.projectManager")} value={project.projectManager ? <span className="flex flex-wrap items-center gap-2"><PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />{!project.projectManager.membershipActive ? <Badge tone="warning">{t("overview.inactive")}</Badge> : null}</span> : t("overview.unassigned")} />
-            <Summary label={t("overview.expectedCompletion")} value={project.schedule.endDate ? formatDate(project.schedule.endDate, locale) : t("overview.notSet")} />
-            <Summary label={t("overview.location")} value={orDash([project.location.city, project.location.country].filter(Boolean).join(", "))} />
-            <Summary label={t("overview.projectType")} value={project.projectType ? projectTypeName(project.projectType.name, locale) : t("overview.notSet")} />
-            <Summary label={t("overview.totalArea")} value={project.builtArea === null ? t("overview.notSet") : `${numberText(project.builtArea, undefined, locale, "en-US")} m²`} />
-            <Summary label={t("overview.progress")} value={<Suspense fallback={<Skeleton className="h-4 w-12" />}><ProgressValue progress={progress} /></Suspense>} />
-            {lastChange ? <Summary label={t("overview.lastEditedBy")} value={<span data-testid="project-last-edited"><PersonLink memberId={lastChange.actorMemberId} name={lastChange.actor} /> · {formatDate(lastChange.at, locale)}</span>} /> : null}
-            {sourceOpportunity ? (
-              <Suspense fallback={null}>
-                <SourceOpportunity opportunity={sourceOpportunity} />
-              </Suspense>
-            ) : null}
-          </dl>
-        </div>
-      </section>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <SectionBoundary className="nesto-card">
-          <Suspense fallback={<ListSectionSkeleton title={t("overview.myWork")} rows={4} />}>
+      {/*
+       * The sections as two columns that balance themselves: each section keeps
+       * whole, and the next fills the shorter column, so neither runs on with
+       * nothing beside it. Numbered in reading order.
+       */}
+      <div className="lg:columns-2 lg:gap-x-8 [&>*]:mb-4 [&>*]:break-inside-avoid lg:[&>*]:mb-6">
+        <SectionBoundary>
+          <Suspense fallback={<ListSectionSkeleton title={t("overview.myWork")} rows={3} />}>
             <MyWork myWork={myWork} />
           </Suspense>
         </SectionBoundary>
-        <SectionBoundary className="nesto-card">
-          <Suspense fallback={<ListSectionSkeleton title={t("overview.upcoming")} rows={4} />}>
+        {/* Below lg the picture and its 3D come after what needs you, before the dates. */}
+        <div className="lg:hidden">{visuals()}</div>
+        <SectionBoundary>
+          <Suspense fallback={<ListSectionSkeleton title={t("overview.upcoming")} rows={3} />}>
             <Upcoming upcoming={upcoming} />
           </Suspense>
         </SectionBoundary>
-        {activity ? (
-          <SectionBoundary className="nesto-card">
-            <Suspense fallback={<ListSectionSkeleton title={t("overview.recentActivity")} rows={4} />}>
-              <RecentActivity projectId={project.id} activity={activity} />
-            </Suspense>
-          </SectionBoundary>
-        ) : (
-          <section className="nesto-card p-5"><h2 className="nesto-section-head">{t("overview.recentActivity")}</h2><p className="mt-4 text-table text-fg-subtle">{t("overview.noActivity")}</p></section>
-        )}
+        <SectionBoundary>
+          <Suspense fallback={<ListSectionSkeleton title={t("overview.recentActivity")} rows={3} />}>
+            <Activity projectId={project.id} activity={activity} />
+          </Suspense>
+        </SectionBoundary>
+        <div>
+          <Suspense fallback={<ProjectDetails number="04" facts={facts} description={project.description} />}>
+            <Details facts={facts} description={project.description} opportunity={sourceOpportunity} />
+          </Suspense>
+        </div>
+        <SectionBoundary>
+          <Suspense fallback={null}>
+            <MediaLibrary projectId={project.id} media={media} />
+          </Suspense>
+        </SectionBoundary>
       </div>
-
-      <SectionBoundary>
-        <Suspense fallback={null}>
-          <MediaLibrary projectId={project.id} media={media} />
-        </Suspense>
-      </SectionBoundary>
     </div>
   );
-}
-
-
-async function MobileOverview({ projectId, progress, summary, myWork, quickActions, threeD }: { projectId: string; progress: Promise<number | null>; summary: Promise<Awaited<ReturnType<typeof projectMobileSummary>>>; myWork: Promise<ProjectWorkItem[]>; quickActions: ProjectQuickAction[]; threeD: Promise<Awaited<ReturnType<typeof getProject3DAvailability>> | null> }) {
-  const [progressValue, summaryValue, work, viewer] = await Promise.all([progress, summary.catch(() => ({ openTasks: null, overdueTasks: null, units: null })), myWork.catch(() => []), threeD.catch(() => null)]);
-  return <ProjectMobileOverview projectId={projectId} progress={progressValue} summary={summaryValue} myWork={work} quickActions={quickActions} threeDUrl={viewer?.viewerUrl ?? null} />;
 }
 
 type Project = Awaited<ReturnType<typeof loadProject>>["project"];
 type Media = ReturnType<typeof listProjectMedia>;
+type Summary = ReturnType<typeof projectMobileSummary>;
 
-async function HeroCover({ project, media }: { project: Project; media: Media }) {
-  const value = await media.catch(() => null);
-  const t = await getTranslations("projects");
-  const coverUrl = value?.cover?.thumbnailUrl ?? (value?.capabilities.canView && project.coverImageDocumentId ? `/api/projects/${project.id}/cover` : null);
-  return coverUrl ? <img src={coverUrl} alt={t("overview.coverAlt", { name: project.name })} className="absolute inset-0 h-full w-full object-cover" fetchPriority="high" sizes="(min-width: 1024px) 50vw, 100vw" /> : null;
-}
 
-async function ProgressText({ progress }: { progress: Promise<number | null> }) {
-  const value = await progress;
-  const t = await getTranslations("projects");
-  return value !== null ? <span>{t("overview.percentComplete", { value })}</span> : null;
-}
-
-async function ProgressBar({ progress }: { progress: Promise<number | null> }) {
-  const value = await progress;
-  const t = await getTranslations("projects");
-  return value !== null ? <div className="h-1.5 overflow-hidden bg-white/20" role="progressbar" aria-label={t("overview.progressLabel")} aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-white" style={{ width: `${value}%` }} /></div> : null;
-}
-
-async function ProgressValue({ progress }: { progress: Promise<number | null> }) {
-  const value = await progress;
-  const t = await getTranslations("projects");
-  return <>{value === null ? t("overview.notSet") : `${value}%`}</>;
-}
-
-async function SourceOpportunity({ opportunity }: { opportunity: Promise<{ id: string; name: string } | null> }) {
-  const value = await opportunity.catch(() => null);
-  const t = await getTranslations("projects");
-  return value ? <Summary label={t("overview.fromOpportunity")} value={<Link href={`/sales/opportunities/${value.id}`} className="text-fg transition-colors hover:text-accent">{value.name}</Link>} /> : null;
-}
-
-/** 3D and media in the hero's reserved column; the column closes when there is nothing to offer. */
-async function Experiences({ projectId, threeD, media }: { projectId: string; threeD: Promise<Awaited<ReturnType<typeof getProject3DAvailability>> | null>; media: Media }) {
-  const [viewer, library] = await Promise.all([threeD.catch(() => null), media.catch(() => null)]);
-  const renders = library?.counts.renders ?? 0;
-  const animations = library?.counts.animations ?? 0;
-  if (!viewer && !renders && !animations) return null;
-  const t = await getTranslations("projects");
-  return (
-    <div className="grid sm:grid-cols-2 lg:w-1/2">
-      {viewer?.viewerUrl ? <ExperienceTile href={viewer.viewerUrl} title={t("overview.viewIn3d")} detail={t("overview.publishedExplorer")} icon={<Box className="size-5" />} large newTab /> : null}
-      {renders ? <ExperienceTile href={`/projects/${projectId}/media?type=renders`} title={t("overview.viewRenders")} detail={t("overview.renders", { count: renders })} icon={<ImageIcon className="size-5" />} large={!viewer && !animations} /> : null}
-      {animations ? <ExperienceTile href={`/projects/${projectId}/media?type=animations`} title={t("overview.viewAnimations")} detail={t("overview.animations", { count: animations })} icon={<Film className="size-5" />} large={!viewer && !renders} /> : null}
-    </div>
-  );
+/** Progress, open and overdue tasks and units: each a figure that opens its list; a figure the person may not see is left out. */
+async function Figures({ projectId, progress, summary, className }: { projectId: string; progress: Promise<number | null>; summary: Summary; className?: string }) {
+  const [t, locale] = await Promise.all([getTranslations("projects"), getLocale()]);
+  const [value, counts] = await Promise.all([progress, summary.catch(() => ({ openTasks: null, overdueTasks: null, units: null }))]);
+  const figures: ProjectFigure[] = [];
+  if (value !== null)
+    figures.push({
+      key: "progress",
+      label: t("mobile.progress"),
+      value: `${value}%`,
+      href: `/projects/${projectId}/planning`,
+      meter: value,
+    });
+  if (counts.openTasks !== null)
+    figures.push({
+      key: "openTasks",
+      label: t("mobile.openTasks"),
+      value: numberText(counts.openTasks, undefined, locale, "en-US"),
+      href: `/projects/${projectId}/tasks`,
+    });
+  if (counts.overdueTasks !== null)
+    figures.push({
+      key: "overdue",
+      label: t("overview.overdue"),
+      value: numberText(counts.overdueTasks, undefined, locale, "en-US"),
+      href: `/projects/${projectId}/tasks?due=overdue`,
+      tone: counts.overdueTasks > 0 ? "danger" : "plain",
+    });
+  if (counts.units !== null)
+    figures.push({
+      key: "units",
+      label: t("mobile.units"),
+      value: numberText(counts.units, undefined, locale, "en-US"),
+      href: `/projects/${projectId}/units`,
+    });
+  return <ProjectFigures figures={figures} label={t("mobile.metricsTitle")} className={className} />;
 }
 
 async function MyWork({ myWork }: { myWork: Promise<ProjectWorkItem[]> }) {
-  const items = await myWork;
-  const t = await getTranslations("projects");
-  return <section className="nesto-card p-5" aria-labelledby="my-work-title"><h2 id="my-work-title" className="nesto-section-head">{t("overview.myWork")}</h2>{items.length ? <ul className="mt-4 space-y-2">{items.map((item) => { const Icon = workIcons[item.key]; return <li key={item.key}><Link href={item.href} className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-hover"><span className="grid size-9 place-items-center rounded-lg bg-surface-muted text-fg-muted"><Icon className="size-4" /></span><span className="min-w-0 flex-1 text-table text-fg">{t(`overview.workKind.${item.key}`)}</span><span className="text-card font-semibold tabular-nums text-fg" title={item.partial ? t("overview.approvalsPartial") : undefined}>{item.partial ? (item.count ? `${item.count}+` : "—") : item.count}</span></Link></li>; })}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.nothingNeedsYou")}</p>}</section>;
+  return <ProjectMyWork number="01" items={await myWork} />;
 }
 
 async function Upcoming({ upcoming }: { upcoming: Promise<ProjectUpcomingItem[]> }) {
-  const locale = await getLocale();
-  const items = await upcoming;
-  const t = await getTranslations("projects");
-  return <section className="nesto-card p-5" aria-labelledby="upcoming-title"><h2 id="upcoming-title" className="nesto-section-head">{t("overview.upcoming")}</h2>{items.length ? <ul className="mt-4 divide-y divide-line">{items.map((item) => <li key={item.id}><Link href={item.href} className="flex gap-3 py-3 first:pt-0 hover:text-accent-strong"><Clock3 className="mt-0.5 size-4 shrink-0 text-fg-subtle" /><span className="min-w-0"><span className="block truncate text-table font-medium text-fg">{item.title}</span><span className="mt-0.5 block text-meta text-fg-subtle">{t(`overview.upcomingKind.${item.kind}`)} · {formatDate(item.at, locale)}</span></span></Link></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noUpcoming")}</p>}</section>;
+  return <ProjectUpcoming number="02" items={await upcoming} />;
 }
 
-async function RecentActivity({ projectId, activity }: { projectId: string; activity: Promise<{ data: ProjectActivityDTO[] }> }) {
-  const entries = (await activity).data;
-  const t = await getTranslations("projects");
+async function Activity({ projectId, activity }: { projectId: string; activity: Promise<{ data: ProjectActivityDTO[] }> | null }) {
   const locale = await getLocale();
-  return <section className="nesto-card p-5" aria-labelledby="activity-title"><div className="flex items-center justify-between gap-3"><h2 id="activity-title" className="nesto-section-head">{t("overview.recentActivity")}</h2>{entries.length ? <Link href={`/projects/${projectId}/activity`} className="text-meta font-medium text-accent-strong">{t("overview.viewAll")}</Link> : null}</div>{entries.length ? <ul className="mt-4 space-y-4">{entries.map((entry) => <li key={entry.id} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" aria-hidden="true" /><p className="min-w-0 text-table text-fg"><span className="font-medium">{entry.actor ?? "NESTO"}</span> {localizeActivity(locale, entry)}<span className="mt-0.5 block text-meta text-fg-subtle">{formatDate(entry.createdAt, locale)}</span></p></li>)}</ul> : <p className="mt-4 text-table text-fg-subtle">{t("overview.noActivity")}</p>}</section>;
+  const entries = activity
+    ? (await activity).data.map((entry) => ({
+        id: entry.id,
+        actor: entry.actor ?? "NESTO",
+        text: localizeActivity(locale, entry) ?? "",
+        at: String(entry.createdAt),
+      }))
+    : null;
+  return <ProjectActivity number="03" entries={entries} href={`/projects/${projectId}/activity`} />;
+}
+
+/** The details, with the deal the project came from once it is read. */
+async function Details({ facts, description, opportunity }: { facts: ProjectFact[]; description: string | null; opportunity: Promise<{ id: string; name: string } | null> | null }) {
+  const [t, value] = await Promise.all([getTranslations("projects"), opportunity?.catch(() => null) ?? null]);
+  const all = value
+    ? [
+        ...facts,
+        {
+          key: "opportunity",
+          label: t("overview.fromOpportunity"),
+          value: (
+            <Link href={`/sales/opportunities/${value.id}`} className="text-fg transition-colors hover:text-accent-strong">
+              {value.name}
+            </Link>
+          ),
+        },
+      ]
+    : facts;
+  return <ProjectDetails number="04" facts={all} description={description} />;
+}
+
+/** The picture and the ways into 3D, renders and animations; nothing when there is none of them. */
+async function Visuals({ project, threeD, media, className }: { project: Project; threeD: Promise<Awaited<ReturnType<typeof getProject3DAvailability>> | null>; media: Media; className?: string }) {
+  const [viewer, library] = await Promise.all([threeD.catch(() => null), media.catch(() => null)]);
+  const coverUrl = library?.cover?.thumbnailUrl ?? (library?.capabilities.canView && project.coverImageDocumentId ? `/api/projects/${project.id}/cover` : null);
+  return (
+    <ProjectVisuals
+      projectId={project.id}
+      name={project.name}
+      className={className}
+      visuals={{
+        coverUrl,
+        threeDUrl: viewer?.viewerUrl ?? null,
+        renders: library?.counts.renders ?? 0,
+        animations: library?.counts.animations ?? 0,
+      }}
+    />
+  );
 }
 
 async function MediaLibrary({ projectId, media }: { projectId: string; media: Media }) {
   const library = await media;
-  if (!library.renders.length && !library.animations.length) return null;
-  const t = await getTranslations("projects");
-  return (
-    <section className="space-y-4" aria-labelledby="media-title">
-      <div className="flex items-end justify-between gap-3"><div><p className="text-meta font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{t("overview.visualLibrary")}</p><h2 id="media-title" className="mt-1 nesto-section-head">{t("overview.projectMedia")}</h2></div><Link href={`/projects/${projectId}/media`} className="text-table font-medium text-accent-strong hover:underline">{t("overview.viewAllMedia")}</Link></div>
-      {library.renders.length ? <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{library.renders.slice(0, 4).map((item, index) => <Link key={item.id} href={`/projects/${projectId}/media?type=renders`} className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-accent">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" /> : null}{index === 3 && library.renders.length > 4 ? <span className="absolute inset-0 grid place-items-center bg-black/55 text-card font-semibold text-white">+{library.renders.length - 4}</span> : null}<span className="sr-only">{t("overview.open", { title: item.title })}</span></Link>)}</div> : null}
-      {library.animations.length ? <div className="grid gap-3 sm:grid-cols-2">{library.animations.slice(0, 2).map((item) => <Link key={item.id} href={`/projects/${projectId}/media?type=animations`} className="group flex items-center gap-4 overflow-hidden rounded-xl border border-line bg-surface p-3 outline-none hover:border-line-strong focus-visible:ring-2 focus-visible:ring-accent"><span className="relative grid aspect-video w-32 shrink-0 place-items-center overflow-hidden rounded-lg bg-neutral-900">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-80" /> : null}<span className="relative grid size-9 place-items-center bg-black/60 text-white"><Play className="ml-0.5 size-4 fill-current" /></span></span><span className="min-w-0"><span className="block truncate font-medium text-fg">{item.title}</span><span className="mt-1 block text-meta text-fg-muted">{t("overview.animation")}{item.durationSeconds ? ` · ${Math.floor(item.durationSeconds / 60)}:${String(item.durationSeconds % 60).padStart(2, "0")}` : ""}</span></span></Link>)}</div> : null}
-    </section>
-  );
-}
-
-function Summary({ label, value }: { label: string; value: ReactNode }) {
-  return <div><dt className="text-meta text-fg-subtle">{label}</dt><dd className="mt-1 text-table font-medium text-fg">{value}</dd></div>;
+  return <ProjectMediaStrip number="05" projectId={projectId} renders={library.renders} renderCount={library.renders.length} animations={library.animations} />;
 }

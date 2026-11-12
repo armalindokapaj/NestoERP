@@ -238,6 +238,8 @@ describe("AUD-11 module visual system (§6, AV-13)", () => {
      */
     const allowed = [
       "app/(nesto)/projects/[projectId]/page.tsx",
+      // The project's renders and animations on its Overview (docs/ui/UI-07 §6): white over a dark media scrim.
+      "components/projects/overview/project-overview.tsx",
       "components/projects/project-media-gallery.tsx",
       "components/daily-logs/evidence-gallery.tsx",
       // MOB-07: the photo viewer's dark surface, the PDF page's paper white, and the remove badge on a photo thumbnail.

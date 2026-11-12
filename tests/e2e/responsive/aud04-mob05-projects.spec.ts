@@ -48,7 +48,8 @@ test("Project workspace: phone identity, tabs and Overview", async ({ page }) =>
     await expect(page.getByTestId("project-metrics")).toBeVisible();
     await expect(page.getByTestId("project-quick-actions").locator("a").first()).toHaveAttribute("href", /projectId=project_a|daily-logs\/new/);
   } else {
-    await expect(page.getByTestId("project-mobile-overview")).toBeHidden();
+    // One Overview at every width (docs/ui/UI-07 §6): from sm the same page, its quick actions below lg only.
+    await expect(page.getByTestId("project-mobile-overview")).toBeVisible();
   }
   await expectNoPageOverflow(page);
 });
