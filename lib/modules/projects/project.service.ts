@@ -70,6 +70,13 @@ export async function listProjects(context: UserContext, query: ProjectListQuery
   };
 }
 
+/** Names only, for the project switcher: what this person may open here (§8, §27), at most `limit`. */
+export async function listProjectNames(context: UserContext, query: ProjectListQuery): Promise<{ id: string; name: string }[]> {
+  assertModule(context, MODULE);
+  assertPermission(context, "project.view");
+  return repository.listProjectNames(context, query);
+}
+
 export async function getProject(
   context: UserContext,
   projectId: string,

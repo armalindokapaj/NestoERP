@@ -135,7 +135,7 @@ export default async function MeetingPrintPage({ params }: Params) {
             <ol className="space-y-3">
               {meeting.decisions.map((decision) => (
                 <li key={decision.id} className="flex gap-3">
-                  <span className="w-12 shrink-0 font-mono text-table font-semibold text-fg-muted">{decision.label}</span>
+                  <span className="w-12 shrink-0 font-mono text-table font-medium text-fg-muted">{decision.label}</span>
                   <span className="flex-1">
                     <span className="block text-body">{decision.title}</span>
                     {decision.description ? <PlainText text={decision.description} className="mt-0.5 text-table text-fg-muted" /> : null}

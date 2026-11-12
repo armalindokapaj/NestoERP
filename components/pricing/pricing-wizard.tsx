@@ -664,7 +664,7 @@ function ProposalDialog({ open, type, quote, t, money, onOpenChange }: { open: b
         <DialogTitle>{reference ? t.proposal.savedTitle : t.proposal[type]}</DialogTitle>
         <DialogDescription>{reference ? t.proposal.savedBody : fill(t.proposal.intro, { months: quote.contractMonths, value: money(quote.preIndexationContractValueCents) })}</DialogDescription>
         {reference ? (
-          <div className="mt-6 rounded-xl border border-success/30 bg-success-soft p-5 text-center"><p className="text-table text-fg-muted">{t.proposal.yourReference}</p><p className="mt-1 font-mono text-section font-semibold text-fg">{reference}</p><Button type="button" className="mt-5" onClick={() => onOpenChange(false)}>{t.proposal.done}</Button></div>
+          <div className="mt-6 rounded-xl border border-success/30 bg-success-soft p-5 text-center"><p className="text-table text-fg-muted">{t.proposal.yourReference}</p><p className="mt-1 font-mono text-section font-medium text-fg">{reference}</p><Button type="button" className="mt-5" onClick={() => onOpenChange(false)}>{t.proposal.done}</Button></div>
         ) : (
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">

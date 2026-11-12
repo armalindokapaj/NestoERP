@@ -61,6 +61,20 @@ export type ProjectSummaryRow = Prisma.ProjectGetPayload<{ select: typeof SUMMAR
  * Order: company → archive state → permission scope → search → filters
  * (PRD #10 §159).
  */
+/**
+ * The project switcher's list: the same projects the Projects page lists, in its
+ * default order, as names only — one plain read, without the summary's joins,
+ * its count or its snapshot transaction.
+ */
+export async function listProjectNames(context: UserContext, query: ProjectListQuery) {
+  return prisma.project.findMany({
+    where: buildProjectListWhere(context, query),
+    select: { id: true, name: true },
+    orderBy: SORT_ORDER[query.sort],
+    take: query.limit,
+  });
+}
+
 export function buildProjectListWhere(
   context: UserContext,
   query: ProjectListQuery,

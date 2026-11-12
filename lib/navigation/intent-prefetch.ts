@@ -1,8 +1,10 @@
 /**
  * Route preparation on deliberate intent (NAV-03 §7, PREFETCH-01..05).
  *
- * Five exact destinations may be prepared, and only where the permitted
- * navigation already offers them. A pointer resting on one for 150 ms, or
+ * Seven exact destinations may be prepared, and only where the permitted
+ * navigation already offers them: the desktop's five, and on a phone the
+ * bar's Home and Sales units, which the bar asks for once while the phone is
+ * idle (components/layout/phone-bar.tsx) — under the same budget. A pointer resting on one for 150 ms, or
  * focus staying 100 ms, asks this scheduler; it issues at most one call every
  * 1.5 s and four a minute per tab, keeps one queued candidate (the latest),
  * and never prepares the same destination twice within 60 s for one context.
@@ -14,7 +16,8 @@
  * clear the framework's router cache.
  */
 
-export const INTENT_ROUTES = ["/dashboard", "/projects", "/clients", "/tasks", "/finance"] as const;
+// The desktop's five, and the phone bar's own places (Home and Sales units), which it warms while idle.
+export const INTENT_ROUTES = ["/dashboard", "/projects", "/clients", "/tasks", "/finance", "/my-day", "/sales/units"] as const;
 export type IntentRoute = (typeof INTENT_ROUTES)[number];
 
 export const HOVER_DWELL_MS = 150;

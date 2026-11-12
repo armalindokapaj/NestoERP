@@ -10,12 +10,14 @@ import localFont from "next/font/local";
  * License; the licences sit beside the files.
  *
  * - IBM Plex Sans (variable weight): the running text and controls.
- * - IBM Plex Mono (400, 500, 600): labels, indexes, table headings.
+ * - IBM Plex Mono (400, 500): labels, section heads, figures' captions, table
+ *   headings — on every screen since the drawing set (docs/ui/UI-07), so it is
+ *   preloaded too; labels are medium (500), and nothing asks for 600.
  * - Newsreader (variable weight and optical size): the italic standfirst.
  * - Archivo (variable weight and width): headings and figures, `font-display`.
  *
- * The body face and the display face are preloaded, being on every first
- * paint; the mono and the serif swap in.
+ * The body, display and mono faces are preloaded, being on every first paint;
+ * the serif swaps in.
  */
 
 export const plexSans = localFont({
@@ -31,11 +33,9 @@ export const plexMono = localFont({
   src: [
     { path: "./files/ibm-plex-mono-latin-400-normal.woff2", weight: "400", style: "normal" },
     { path: "./files/ibm-plex-mono-latin-500-normal.woff2", weight: "500", style: "normal" },
-    { path: "./files/ibm-plex-mono-latin-600-normal.woff2", weight: "600", style: "normal" },
   ],
   variable: "--font-nesto-mono",
   display: "swap",
-  preload: false,
 });
 
 export const newsreader = localFont({

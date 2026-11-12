@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { after } from "next/server";
 
 import type { UserContext } from "@/lib/context/types";
@@ -27,11 +28,11 @@ export async function RecordOpened({ context, entityType, entityId }: { context:
   return null;
 }
 
-/** Whether the member starred the record, or null where the company has favourites off. */
-export async function favoriteState(context: UserContext, entityType: NavigableType, entityId: string): Promise<boolean | null> {
+/** Whether the member starred the record, or null where the company has favourites off. Read once per request, however many places ask. */
+export const favoriteState = cache(async (context: UserContext, entityType: NavigableType, entityId: string): Promise<boolean | null> => {
   const [settings, favorite] = await Promise.all([resolveProductivitySettings(context.companyId), isFavorite(context, entityType, entityId)]);
   return settings.favoritesEnabled ? favorite : null;
-}
+});
 
 async function recordOpened(context: UserContext, entityType: NavigableType, entityId: string) {
   // A prefetch is the router guessing where the person might go, not an open (Fast Re-entry §100):

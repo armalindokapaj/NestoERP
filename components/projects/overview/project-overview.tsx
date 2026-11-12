@@ -272,7 +272,12 @@ export type ProjectVisualsDTO = {
   animations: number;
 };
 
-/** The project's picture, square in a 1px frame, with the ways into its visuals as lined rows under it. */
+/**
+ * The project's picture, square in a 1px frame, with the ways into its visuals
+ * as lined rows under it. The page draws it twice — beside the title from lg, in
+ * the sections below it — and only one is ever shown: the picture is lazy, so
+ * the hidden one is never downloaded and each screen fetches it once.
+ */
 export async function ProjectVisuals({ projectId, name, visuals, className }: { projectId: string; name: string; visuals: ProjectVisualsDTO; className?: string }) {
   const t = await getTranslations("projects");
   const links = [
@@ -318,7 +323,7 @@ export async function ProjectVisuals({ projectId, name, visuals, className }: { 
     <div className={cn("border border-line-strong bg-surface", className)} data-testid="project-visuals">
       {visuals.coverUrl ? (
         <div className="relative aspect-video overflow-hidden bg-surface-muted lg:aspect-auto lg:min-h-44 lg:flex-1">
-          <img src={visuals.coverUrl} alt={t("overview.coverAlt", { name })} className="absolute inset-0 size-full object-cover" fetchPriority="high" sizes="(min-width: 1024px) 26rem, 100vw" />
+          <img src={visuals.coverUrl} alt={t("overview.coverAlt", { name })} className="absolute inset-0 size-full object-cover" loading="lazy" decoding="async" sizes="(min-width: 1024px) 28rem, 100vw" />
         </div>
       ) : null}
       {/* Below lg each way in is a lined row; from lg they share one row of cells under the picture, so the block is no taller than the title beside it. */}

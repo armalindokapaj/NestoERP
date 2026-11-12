@@ -142,8 +142,22 @@ export async function listUnitsOverview(
 
   const where = inView(input.view);
   const views = Object.keys(UNIT_STATUS_VIEWS) as UnitStatusView[];
+  /*
+   * Every count in two reads: all the units under the filters, and the same units
+   * grouped by their sale status — the views' counts, and the list's own total,
+   * come from them. A reader who may not see the sales gets one plain count.
+   */
+  const counted = sales.canView
+    ? Promise.all([
+        prisma.projectUnit.count({ where: base }),
+        prisma.unitCommercialProfile.groupBy({ by: ["status"], where: { unit: { is: base } }, _count: { _all: true } }),
+      ]).then(([all, groups]) => {
+        const byStatus = new Map(groups.map((group) => [group.status, group._count._all]));
+        return { all, ...Object.fromEntries(views.map((view) => [view, byStatus.get(UNIT_STATUS_VIEWS[view]) ?? 0])) } as NonNullable<UnitsOverview["counts"]>;
+      })
+    : null;
   const [total, rows, counts, projects, buildings, types] = await Promise.all([
-    prisma.projectUnit.count({ where }),
+    counted ? counted.then((all) => (input.view ? all[input.view] : all.all)) : prisma.projectUnit.count({ where }),
     prisma.projectUnit.findMany({
       where,
       orderBy: [{ project: { name: "asc" } }, { floor: { building: { sortOrder: "asc" } } }, { floor: { sortOrder: "asc" } }, { sortOrder: "asc" }],
@@ -164,7 +178,7 @@ export async function listUnitsOverview(
         reservations: { where: { status: "ACTIVE" }, take: 1, select: { client: { select: { name: true } } } },
       },
     }),
-    sales.canView ? Promise.all([prisma.projectUnit.count({ where: base }), ...views.map((view) => prisma.projectUnit.count({ where: inView(view) }))]) : null,
+    counted,
     prisma.project.findMany({ where: { units: { some: readable } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.projectBuilding.findMany({
       where: { floors: { some: { units: { some: readable } } } },
@@ -199,7 +213,7 @@ export async function listUnitsOverview(
     types,
     total,
     page: input.page,
-    counts: counts ? { all: counts[0]!, ...Object.fromEntries(views.map((view, index) => [view, counts[index + 1]!])) } as UnitsOverview["counts"] : null,
+    counts,
     canSeeSales: sales.canView,
   };
 }

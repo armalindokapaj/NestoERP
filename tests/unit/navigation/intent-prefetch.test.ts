@@ -36,9 +36,10 @@ function setup(overrides: Partial<{ allowed: boolean; busy: boolean; path: strin
 }
 
 describe("the approved destinations (PREFETCH-02)", () => {
-  it("accepts the five exact paths only", () => {
-    expect(["/dashboard", "/projects", "/clients", "/tasks", "/finance"].map((href) => intentRoute(href))).toEqual(["/dashboard", "/projects", "/clients", "/tasks", "/finance"]);
-    for (const href of ["/projects/abc", "/finance/invoices", "/tasks?tab=mine", "/clients#top", "//evil.test/dashboard", "https://evil.test/dashboard", "/api/tasks", "/tasks/export", "/notifications/1/open"]) {
+  it("accepts the seven exact paths only", () => {
+    const approved = ["/dashboard", "/projects", "/clients", "/tasks", "/finance", "/my-day", "/sales/units"];
+    expect(approved.map((href) => intentRoute(href))).toEqual(approved);
+    for (const href of ["/projects/abc", "/finance/invoices", "/tasks?tab=mine", "/clients#top", "//evil.test/dashboard", "https://evil.test/dashboard", "/api/tasks", "/tasks/export", "/notifications/1/open", "/sales/units/u1", "/my-day?tab=late"]) {
       expect(intentRoute(href, "http://localhost"), href).toBeNull();
     }
     expect(intentRoute("http://localhost/tasks", "http://localhost")).toBe("/tasks");

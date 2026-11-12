@@ -125,7 +125,7 @@ export function RevisionPanel({
             return (
               <li key={revision.id} className="relative flex gap-4 pb-6 last:pb-0" data-testid="revision-item" data-revision={revision.revisionCode} data-status={revision.status}>
                 {index < revisions.length - 1 ? <span aria-hidden="true" className="absolute left-[1.3rem] top-11 bottom-0 w-px bg-line" /> : null}
-                <div className={cn("relative z-[1] flex size-11 shrink-0 items-center justify-center rounded-lg border font-mono text-body font-semibold", revision.current ? "border-accent bg-accent-soft text-accent-strong" : superseded ? "border-line bg-surface-muted text-fg-subtle line-through" : "border-line-strong bg-surface text-fg")}>
+                <div className={cn("relative z-[1] flex size-11 shrink-0 items-center justify-center rounded-lg border font-mono text-body font-medium", revision.current ? "border-accent bg-accent-soft text-accent-strong" : superseded ? "border-line bg-surface-muted text-fg-subtle line-through" : "border-line-strong bg-surface text-fg")}>
                   {revision.revisionCode}
                 </div>
                 <div className="min-w-0 flex-1">

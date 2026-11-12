@@ -7,7 +7,7 @@ import { statusMovesFrom } from "@/lib/modules/projects/project.machine";
 import { favoriteState } from "@/components/productivity/record-favorite";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { ProjectNavBar, type ProjectNavTab } from "./project-nav-bar";
-import type { ProjectTabKey } from "./project-context";
+import { readProject, type ProjectTabKey } from "./project-context";
 
 /**
  * The project's breadcrumbs and record tabs (PRD #10 §45, §34), drawn once by the
@@ -20,14 +20,14 @@ import type { ProjectTabKey } from "./project-context";
  */
 export async function ProjectNav({ projectId }: { projectId: string }) {
   const context = await requireUserContext();
-  const project = await projects.getProject(context, projectId).catch(() => null);
+  const project = await readProject(context, projectId).catch(() => null);
   if (!project) return null;
   const t = await getTranslations("projects");
   const actions = projects.projectActions(context);
   // The switcher lists only projects this person may open here (§8, §27): the same scoped list as the Projects page.
   const [threeD, siblings, favorite] = await Promise.all([
     hasActiveProject3DViewer(context, projectId).catch(() => false),
-    projects.listProjects(context, projectListQuerySchema.parse({ limit: 100 })).then((result) => result.data, () => []),
+    projects.listProjectNames(context, projectListQuerySchema.parse({ limit: 100 })).catch(() => []),
     favoriteState(context, "project", projectId).catch(() => null),
   ]);
   const base = `/projects/${projectId}`;

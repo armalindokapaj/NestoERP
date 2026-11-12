@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { canAccessModule, isModuleEnabled } from "@/lib/access/can";
@@ -22,7 +23,16 @@ import { getTranslations } from "@/lib/i18n/server";
  * same answer the API gives, so a URL cannot be used to discover that a record
  * exists or which company holds it (PRD #10 §113, E-05A §49).
  */
-export async function loadProject(
+/**
+ * One read of a project per request: the page's title, the project's tabs and the
+ * page itself all ask for it, and React's request cache answers the second and
+ * third time. Nothing outlives the request.
+ */
+export const readProject = cache((context: UserContext, projectId: string) => projects.getProject(context, projectId));
+
+export const loadProject = cache(loadProjectOnce);
+
+async function loadProjectOnce(
   projectId: string,
 ): Promise<{ context: UserContext; project: ProjectDetailDTO }> {
   const session = await requireUserContext();
@@ -34,7 +44,7 @@ export async function loadProject(
 
   if (opensHere) {
     try {
-      return { context: session, project: await projects.getProject(session, projectId) };
+      return { context: session, project: await readProject(session, projectId) };
     } catch (error) {
       if (!(error instanceof AccessError && error.code === "NOT_FOUND")) throw error;
     }

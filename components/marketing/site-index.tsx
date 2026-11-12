@@ -219,7 +219,7 @@ export function SiteIndex({ copy }: { copy: SiteCopy["sheet"] }) {
             </span>
           ))}
           <span className="absolute inset-x-0 h-px bg-accent" style={{ top: `${pct * 100}%` }}>
-            <b className={cn("absolute right-1 bg-canvas px-0.5 font-mono text-[9.5px] max-md:text-meta font-semibold tracking-[0.06em] text-accent-strong", pct > 0.9 ? "-top-4" : "top-[3px]")}>
+            <b className={cn("absolute right-1 bg-canvas px-0.5 font-mono text-[9.5px] max-md:text-meta font-medium tracking-[0.06em] text-accent-strong", pct > 0.9 ? "-top-4" : "top-[3px]")}>
               {String(percent).padStart(3, "0")} %
             </b>
           </span>

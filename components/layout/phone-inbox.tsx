@@ -38,7 +38,7 @@ export function PhoneInbox() {
     >
       <Inbox aria-hidden="true" className="size-5" />
       {count ? (
-        <span aria-hidden="true" data-testid="phone-inbox-count" className="absolute left-[calc(50%+2px)] top-1.5 grid h-5 min-w-5 place-items-center bg-accent px-1 font-mono text-meta font-semibold leading-none tabular-nums text-accent-fg">
+        <span aria-hidden="true" data-testid="phone-inbox-count" className="absolute left-[calc(50%+2px)] top-1.5 grid h-5 min-w-5 place-items-center bg-accent px-1 font-mono text-meta font-medium leading-none tabular-nums text-accent-fg">
           {count > 99 ? "99+" : count}
         </span>
       ) : null}

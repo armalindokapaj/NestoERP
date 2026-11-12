@@ -144,7 +144,7 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
         <ol className="space-y-2">
           {decisions.map((decision) => (
             <li key={decision.id} className="group flex gap-3 rounded-xl border border-line bg-surface p-3.5" data-testid="decision-card">
-              <span className="flex h-6 shrink-0 items-center rounded-md bg-surface-muted px-1.5 font-mono text-meta font-semibold text-fg-muted">{decision.label}</span>
+              <span className="flex h-6 shrink-0 items-center rounded-md bg-surface-muted px-1.5 font-mono text-meta font-medium text-fg-muted">{decision.label}</span>
               {editing === decision.id ? (
                 <form
                   className="min-w-0 flex-1 space-y-2"

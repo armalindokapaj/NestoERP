@@ -8,7 +8,9 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { useRecordNavigation } from "@/components/navigation/record-navigation-provider";
+import { useIntentScheduler } from "@/components/navigation/intent-prefetch";
 import { emitNavigationEvent } from "@/lib/navigation/analytics";
+import { intentRoute, ISSUE_GAP_MS, type IntentRoute } from "@/lib/navigation/intent-prefetch";
 import { usePanelOpen } from "@/lib/navigation/panel-host";
 import { PHONE_HOME, PHONE_MENU, SALES_UNITS, placeOf, projectIdFrom, projectsHref, readLastProject, rememberLastProject, type PhonePlace } from "@/lib/navigation/phone";
 import { cn } from "@/lib/utils/cn";
@@ -55,6 +57,29 @@ export function PhoneBar({ canCreate, canSeeUnits }: { canCreate: boolean; canSe
     if (current) rememberLastProject(workspace, current);
     setLastProject(current ?? readLastProject(workspace));
   }, [pathname, workspace]);
+
+  // A phone has no hover to prepare a page on: while it is idle, the bar asks for its
+  // own places once — Home, Sales units, and Projects while it is the list — under the
+  // same budget as a pointer's intent (lib/navigation/intent-prefetch.ts), so a tap opens at once.
+  const scheduler = useIntentScheduler();
+  const projectsTarget = projectsHref(lastProject);
+  React.useEffect(() => {
+    if (!scheduler || !window.matchMedia("(max-width: 1023.98px)").matches) return;
+    const routes = [PHONE_HOME, canSeeUnits ? SALES_UNITS : null, projectsTarget]
+      .map((href) => (href ? intentRoute(href) : null))
+      .filter((route): route is IntentRoute => route !== null && route !== window.location.pathname);
+    const timers: number[] = [];
+    // One at a time, past the budget's gap between two issues.
+    const warm = () => routes.forEach((route, index) => timers.push(window.setTimeout(() => scheduler.intent(route, "focus"), index * (ISSUE_GAP_MS + 200))));
+    // Safari has no idle callback: a short wait stands in for it.
+    const canIdle = typeof window.requestIdleCallback === "function";
+    const handle = canIdle ? window.requestIdleCallback(warm, { timeout: 3000 }) : window.setTimeout(warm, 1200);
+    return () => {
+      if (canIdle) window.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [scheduler, canSeeUnits, projectsTarget]);
 
   return (
     <nav
