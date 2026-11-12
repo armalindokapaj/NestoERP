@@ -5,6 +5,7 @@ import { dateText, formatDateTime, formatRelativeTime } from "@/lib/i18n/format"
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { adminText } from "@/components/platform/admin-i18n";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
+import { HealthGrid } from "@/components/platform/admin-health";
 import { adminActionLabel } from "@/components/platform/admin-actions";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -68,8 +69,6 @@ const bytes = (value: number) => value < 1024 ** 2 ? `${Math.round(value / 1024)
 
 // ── Health ──────────────────────────────────────────────────────────────────
 
-const STATE_DOT: Record<string, string> = { HEALTHY: "bg-success", DEGRADED: "bg-warning", DOWN: "bg-danger", UNKNOWN: "bg-fg-subtle" };
-
 /** The eight services in one lined strip, each with its state; the strip opens Health. */
 export async function HealthSection({ context }: { context: PlatformContext }) {
   const t = await getTranslations("admin");
@@ -88,17 +87,7 @@ export async function HealthSection({ context }: { context: PlatformContext }) {
       <p className={cn("border-b border-line px-4 py-2 text-table font-medium", issues ? "text-warning-strong" : "text-fg-muted")} data-testid="dashboard-health-summary">
         {issues ? t("dashboard.healthIssues", { count: issues }) : t("dashboard.healthAll", { count: checks.length })}
       </p>
-      <ul className="grid grid-cols-2 gap-px bg-line sm:grid-cols-4 xl:grid-cols-8">
-        {checks.map((check) => (
-          <li key={check.service} className="min-w-0 bg-surface px-4 py-3" data-state={check.state}>
-            <p className="truncate font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-subtle">{adminText(t, `dashboard.service.${check.service}`, check.service)}</p>
-            <p className={cn("mt-1.5 flex items-center gap-2 text-table font-medium", check.state === "HEALTHY" ? "text-fg" : check.state === "DOWN" ? "text-danger-strong" : "text-warning-strong")}>
-              <span aria-hidden="true" className={cn("size-2 shrink-0", STATE_DOT[check.state] ?? "bg-fg-subtle")} />
-              <span className="truncate">{adminText(t, `dashboard.healthState.${check.state}`, check.state)}</span>
-            </p>
-          </li>
-        ))}
-      </ul>
+      <HealthGrid cells={checks.map((check) => ({ key: check.service, service: adminText(t, `dashboard.service.${check.service}`, check.service), state: check.state, stateLabel: adminText(t, `dashboard.healthState.${check.state}`, check.state) }))} />
     </Panel>
   );
 }

@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/ui/UI-09-admin-console.md
 > **About:** The Admin Console redesign — the company app's shell around six areas by task, a new search palette and an operations cockpit for Home — what it does, how it looks, where it lives and what is left for the next waves, for whoever changes the console next.
-> **Last updated:** 2026-11-13 (wave 2: lists and hubs, §5)
+> **Last updated:** 2026-11-13 (wave 3: settings and operations, §6)
 
 # UI-09 — Admin Console: the company app's shell, six areas by task
 
@@ -17,7 +17,7 @@ cockpit; delivered in waves, each merged.
 
 - **Wave 1:** the shell, the navigation, search, Home.
 - **Wave 2:** the list pages, and the organization, user and project hubs.
-- **Wave 3:** the settings and operations pages.
+- **Wave 3:** the settings and operations pages, and every page head left.
 
 ## 1. The areas
 
@@ -133,7 +133,27 @@ of pieces (`components/platform/admin-list.tsx`):
   record's own name and an empty state's sentence keep the ordinary face.
   Tables inside panels run edge to edge instead of sitting in padding.
 
-## 6. Where it lives
+## 6. Settings and operations (wave 3)
+
+- **Health** is the same lined grid as Home's strip
+  (`components/platform/admin-health.tsx`), four across, each service with
+  its state in words (Healthy, Degraded, Down, Not reporting) and what was
+  checked.
+- **The Audit log** is a list like the others — the table from md, compact
+  lines on a phone, every row opening its event, the count and pages at the
+  foot. On a phone its filters fold behind one "Filters" line with how many
+  are set (`components/platform/admin-filter-toggle.tsx`), so the events start
+  on the first screen; from 640px they stand in their row.
+- **Panels with a title and a table** (Jobs, Notifications) have the title in
+  a head bar and the table edge to edge; a fact's label is a mono eyebrow.
+- **Every page head left** — an audit event, one company's entitlements (now
+  with its sections in the tab row), Departments, the Platform Admin's own
+  Account — is the shared header, the title in the display face; the 3D
+  project's title too.
+- **Bold capitals** in the user drawers became mono section heads; the
+  password notice's action is ink, not gold.
+
+## 7. Where it lives
 
 | Piece | File |
 | --- | --- |
@@ -145,11 +165,14 @@ of pieces (`components/platform/admin-list.tsx`):
 | The phone title's Back for a shell without record history | `components/layout/phone-title.tsx` (`up`) |
 | Home | `app/admin/page.tsx`, `app/admin/_dashboard/sections.tsx`, `app/admin/loading.tsx` |
 | Lists and hubs: frame, lines, tabs, choices, foot | `components/platform/admin-list.tsx` |
+| Health grid; filters folded on a phone | `components/platform/admin-health.tsx`, `components/platform/admin-filter-toggle.tsx` |
 | Words | `lib/i18n/modules/admin/{en,sq}.ts` (`shell`, `nav`, `search`, `dashboard`) |
 
-## 7. Next waves
+## 8. What is left
 
-- **Wave 3** — the settings and operations pages (System, Health, Jobs,
-  Storage, Email and the rest).
+- The pages' tables inside a hub's tabs (an organization's users, roles,
+  modules) still stack on a phone rather than turning into compact lines.
+- The 3D pages (Experiences and a project's 3D workspace) keep their own
+  layout inside the shell.
 - The Group console (`components/group/group-shell.tsx`) keeps its own shell
-  and glass search for now.
+  and glass search.

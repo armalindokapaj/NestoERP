@@ -13,7 +13,7 @@ export const adminPlatformEn = {
     by: "by {name}",
   },
   enums: {
-    health: { HEALTHY: "HEALTHY", DEGRADED: "DEGRADED", DOWN: "DOWN", UNKNOWN: "UNKNOWN" },
+    health: { HEALTHY: "Healthy", DEGRADED: "Degraded", DOWN: "Down", UNKNOWN: "Not reporting" },
     healthService: {
       Application: "Application",
       Database: "Database",

@@ -4,6 +4,7 @@ import { PasswordForm } from "@/components/settings/password-form";
 import { SessionList } from "@/components/settings/session-list";
 import { RecoveryEmailForm } from "@/components/platform/recovery-email-form";
 import { Badge } from "@/components/ui/badge";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import {
   changePlatformPasswordAction,
   revokePlatformOtherSessionsAction,
@@ -33,12 +34,7 @@ export default async function PlatformAccountPage() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <div>
-        <h1 className="text-page font-semibold text-fg">{t("account.title")}</h1>
-        <p className="mt-1 text-body text-fg-muted">
-          {account.fullName} · <span className="font-mono text-meta">{account.username}</span>
-        </p>
-      </div>
+      <PageHeaderFrame kind="page" title={t("account.title")} subtitle={<>{account.fullName} · <span className="font-mono not-italic">{account.username}</span></>} />
 
       <section className="nesto-card p-6" aria-labelledby="recovery-title">
         <div className="flex flex-wrap items-center gap-2">

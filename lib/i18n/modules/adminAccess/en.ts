@@ -395,6 +395,7 @@ export const adminAccessEn = {
       title: "Audit Log",
       description: "Who did what, to which record, and when — across the platform.",
       export: "Export CSV",
+      filters: "Filters",
       filterLabel: "Filter audit events",
       search: "Search",
       searchPlaceholder: "Actor, record, action...",

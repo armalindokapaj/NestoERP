@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import { AccessError } from "@/lib/access/guards";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { formatDateTime } from "@/lib/i18n/format";
@@ -35,11 +36,13 @@ export default async function AuditEventPage({ params }: Props) {
   const action = enumLabel(ta, "actions", event.actionKey.replace(/^PLATFORM_/, ""), event.action);
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={[{ label: t("audit.event.breadcrumbRoot"), href: "/admin/audit" }, { label: action }]} />
-      <header>
-        <h1 className="text-page font-semibold text-fg">{action}</h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted"><span>{formatDateTime(event.occurredAt, locale)}</span><AdminStatusBadge status={event.severity} /><span className="font-mono text-meta">{event.actionKey}</span></div>
-      </header>
+      <PageHeaderFrame
+        kind="record"
+        lead={<Breadcrumbs items={[{ label: t("audit.event.breadcrumbRoot"), href: "/admin/audit" }, { label: action }]} />}
+        title={action}
+        subtitle={<>{formatDateTime(event.occurredAt, locale)} · <span className="font-mono">{event.actionKey}</span></>}
+        status={<AdminStatusBadge status={event.severity} />}
+      />
       <section className="nesto-card p-5" aria-label={t("audit.event.sectionLabel")}>
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
           {([

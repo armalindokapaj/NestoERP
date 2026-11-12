@@ -24,9 +24,9 @@ export default async function NotificationHealthPage() {
   return (
     <div className="space-y-5">
       <PageHeader title={t("system.notifications.title")} description={t("system.notifications.description", { hours: health.windowHours })} />
-      <section className="nesto-card p-5" data-testid="notification-health">
-        <h2 className="mb-4 text-card font-semibold">{t("system.notifications.push")}</h2>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="nesto-card overflow-x-auto" data-testid="notification-health">
+        <h2 className="border-b border-line px-5 py-3 nesto-section-head">{t("system.notifications.push")}</h2>
+        <dl className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Fact label={t("system.notifications.mode")}>{mode}</Fact>
           <Fact label={t("system.notifications.apns")}>{health.credentials.apns ? t("system.notifications.configured") : t("system.notifications.notSet")}</Fact>
           <Fact label={t("system.notifications.fcm")}>{health.credentials.fcm ? t("system.notifications.configured") : t("system.notifications.notSet")}</Fact>
@@ -39,9 +39,9 @@ export default async function NotificationHealthPage() {
           <Fact label={t("system.notifications.queueDue")}>{health.pushQueueDue}</Fact>
         </dl>
       </section>
-      <section className="nesto-card p-5">
-        <h2 className="mb-4 text-card font-semibold">{t("system.notifications.events")}</h2>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="nesto-card overflow-x-auto">
+        <h2 className="border-b border-line px-5 py-3 nesto-section-head">{t("system.notifications.events")}</h2>
+        <dl className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Fact label={t("system.notifications.processed")}>{health.eventsProcessed}</Fact>
           <Fact label={t("system.notifications.created")}>{health.notificationsCreated}</Fact>
           <Fact label={t("system.notifications.backlog")}>{health.outboxBacklog}</Fact>

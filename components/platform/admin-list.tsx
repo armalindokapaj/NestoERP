@@ -86,11 +86,11 @@ export function AdminListFrame({ label, testId, table, lines, empty, foot }: { l
 }
 
 /** The count, and Previous · page n of m · Next when there is more than one page. */
-export function AdminListFoot({ count, page, pages, previousHref, nextHref, words }: { count: string; page: number; pages: number; previousHref: string; nextHref: string; words: { pages: string; previous: string; next: string; pageOf: string } }) {
+export function AdminListFoot({ count, countTestId, page, pages, previousHref, nextHref, words }: { count: string; countTestId?: string; page: number; pages: number; previousHref: string; nextHref: string; words: { pages: string; previous: string; next: string; pageOf: string } }) {
   const step = "inline-grid size-9 place-items-center border border-line-strong text-fg transition-colors hover:bg-hover touch:size-11";
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-strong px-4 py-2">
-      <span className="font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-muted">{count}</span>
+      <span data-testid={countTestId} className="font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-muted">{count}</span>
       {pages > 1 ? (
         <nav aria-label={words.pages} className="flex items-center gap-2">
           {page > 1 ? (

@@ -204,7 +204,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                 {detail.ownerProtected ? <p role="status" className="rounded-lg border border-line p-2.5 text-table text-fg-muted" data-testid="group-user-owner-protected">{t("groupUser.ownerProtected", { name })}</p> : null}
 
                 <section aria-labelledby="gu-overview" className="space-y-2">
-                  <h2 id="gu-overview" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("groupUser.groupAccess")}</h2>
+                  <h2 id="gu-overview" className="nesto-section-head">{t("groupUser.groupAccess")}</h2>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-table">
                     <dt className="text-fg-subtle">{t("groupUser.group")}</dt><dd className="text-fg">{groupName}</dd>
                     <dt className="text-fg-subtle">{t("groupUser.groupRole")}</dt><dd className="text-fg">{detail.roleName ? adminRoleName(tr, detail.roleName) : t("groupUsers.seatOnly")}</dd>
@@ -217,7 +217,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
 
                 <section aria-labelledby="gu-companies" className="space-y-2" data-testid="group-user-companies">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 id="gu-companies" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("groupUser.companyAccess")}</h2>
+                    <h2 id="gu-companies" className="nesto-section-head">{t("groupUser.companyAccess")}</h2>
                     {detail.can.manage && detail.seatStatus === "ACTIVE" ? <Button size="sm" variant="ghost" onClick={() => { setError(null); setDialog("access"); }}>{t("groupUser.editScope")}</Button> : null}
                   </div>
                   <p className="text-table text-fg">
@@ -245,7 +245,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                 </section>
 
                 <section aria-labelledby="gu-projects" className="space-y-2" data-testid="group-user-projects">
-                  <h2 id="gu-projects" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("groupUser.projectAccess")}{detail.projects.total ? ` · ${detail.projects.total}` : ""}</h2>
+                  <h2 id="gu-projects" className="nesto-section-head">{t("groupUser.projectAccess")}{detail.projects.total ? ` · ${detail.projects.total}` : ""}</h2>
                   {detail.projects.rows.length === 0 ? <p className="text-table text-fg-muted">{t("groupUser.noProjects")}</p> : (
                     <ul className="divide-y divide-line rounded-lg border border-line">
                       {detail.projects.rows.map((row) => (
@@ -261,7 +261,7 @@ function DrawerBody({ open, userId, groupId, groupName, api, platform }: { open:
                 </section>
 
                 <section aria-labelledby="gu-activity" className="space-y-2" data-testid="group-user-activity">
-                  <h2 id="gu-activity" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("groupUser.activity")}</h2>
+                  <h2 id="gu-activity" className="nesto-section-head">{t("groupUser.activity")}</h2>
                   {activity.length === 0 ? <p className="text-table text-fg-muted">{t("groupUser.noActivity")}</p> : (
                     <ul className="divide-y divide-line">
                       {activity.map((row) => (

@@ -13,12 +13,12 @@ export async function PasswordChangeNotice({ userId, href }: { userId: string; h
   if (!user?.mustChangePassword) return null;
   const t = await getTranslations("adminAccess");
   return (
-    <div role="alert" data-testid="password-change-notice" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-warning-soft px-4 py-3">
+    <div role="alert" data-testid="password-change-notice" className="mb-5 flex flex-wrap items-center justify-between gap-3 border border-warning/50 bg-warning-soft px-4 py-3">
       <div>
         <p className="text-table font-semibold text-fg">{t("passwordNotice.title")}</p>
         <p className="text-table text-fg-muted">{t("passwordNotice.body")}</p>
       </div>
-      <Link href={href} className="inline-flex h-9 items-center rounded-lg bg-accent px-3 text-table font-medium text-accent-fg hover:opacity-90">{t("passwordNotice.action")}</Link>
+      <Link href={href} className="inline-flex h-9 items-center bg-primary px-3 text-table font-medium text-primary-fg hover:bg-primary-hover">{t("passwordNotice.action")}</Link>
     </div>
   );
 }

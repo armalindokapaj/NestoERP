@@ -15,7 +15,7 @@ export const adminPlatformSq: typeof adminPlatformEn = {
     by: "nga {name}",
   },
   enums: {
-    health: { HEALTHY: "SHËNDETSHËM", DEGRADED: "I PRISHUR", DOWN: "JASHTË PUNE", UNKNOWN: "I PANJOHUR" },
+    health: { HEALTHY: "Në rregull", DEGRADED: "I dobësuar", DOWN: "Jashtë pune", UNKNOWN: "Nuk raporton" },
     healthService: {
       Application: "Aplikacioni",
       Database: "Baza e të dhënave",

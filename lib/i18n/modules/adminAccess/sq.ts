@@ -397,6 +397,7 @@ export const adminAccessSq: typeof adminAccessEn = {
       title: "Regjistri i auditimit",
       description: "Kush bëri çfarë, në cilin regjistër dhe kur — në të gjithë platformën.",
       export: "Eksporto CSV",
+      filters: "Filtrat",
       filterLabel: "Filtro ngjarjet e auditimit",
       search: "Kërko",
       searchPlaceholder: "Aktori, regjistri, veprimi...",

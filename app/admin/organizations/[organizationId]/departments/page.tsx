@@ -1,4 +1,5 @@
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import Link from "@/components/navigation/nav-link";
 import { notFound } from "next/navigation";
 
@@ -68,14 +69,13 @@ export default async function PlatformDepartmentsPage({ params, searchParams }: 
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={[{ label: t("departments.parentGroups"), href: "/admin" }, { label: group.group.name, href: `/admin/organizations/${groupId}` }, { label: t("departments.title") }]} />
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-page font-semibold text-fg">{t("departments.title")}</h1>
-          <p className="mt-1 text-body text-fg-muted">{t("departments.description", { name: group.group.name })}</p>
-        </div>
-        {group.actions.canConfigure ? <NewDepartmentButton api={api} /> : null}
-      </div>
+      <PageHeaderFrame
+        kind="record"
+        lead={<Breadcrumbs items={[{ label: t("departments.parentGroups"), href: "/admin/organizations" }, { label: group.group.name, href: `/admin/organizations/${groupId}` }, { label: t("departments.title") }]} />}
+        title={t("departments.title")}
+        subtitle={t("departments.description", { name: group.group.name })}
+        actions={group.actions.canConfigure ? <NewDepartmentButton api={api} /> : undefined}
+      />
 
       <section className="nesto-card p-5" aria-labelledby="platform-departments">
         <h2 id="platform-departments" className="sr-only">

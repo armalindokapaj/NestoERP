@@ -28,7 +28,7 @@ export default async function DiagnosticsPage() {
       <Card className="p-5"><p className="text-table text-fg-muted">{t("threeD.diagnostics.awaiting")}</p><p className="mt-2 text-3xl font-semibold">{unpublished.length}</p></Card>
     </div>
     <Card className="p-5">
-      <h2 className="text-card font-semibold">{t("threeD.diagnostics.findings")}</h2>
+      <h2 className="nesto-section-head">{t("threeD.diagnostics.findings")}</h2>
       <div className="mt-4 space-y-2">
         {withoutModel.map((row) => <Finding key={`model-${row.id}`} row={row} label={t("threeD.diagnostics.noModel")} tone="warning" badge={t("threeD.diagnostics.modelNeeded")} />)}
         {failed.map(({ row, slot, version }) => <Finding key={version.id} row={row} label={t("threeD.diagnostics.failedVersion", { slot: slot.displayName, version: version.version })} tone="danger" badge={t("threeD.diagnostics.failedBadge")} />)}

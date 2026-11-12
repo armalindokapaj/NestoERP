@@ -169,7 +169,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                 {detail.ownerProtected ? <p role="status" className="rounded-lg border border-line p-2.5 text-table text-fg-muted" data-testid="company-user-owner-protected">{t("companyUsers.ownerProtected", { name })}</p> : null}
 
                 <section aria-labelledby="cu-overview" className="space-y-2">
-                  <h2 id="cu-overview" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("companyUsers.sectionOverview")}</h2>
+                  <h2 id="cu-overview" className="nesto-section-head">{t("companyUsers.sectionOverview")}</h2>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-table">
                     <dt className="text-fg-subtle">{t("companyUsers.fieldStatus")}</dt><dd><AdminStatusBadge status={detail.accountStatus !== "ACTIVE" ? detail.accountStatus : detail.membershipStatus} /></dd>
                     {detail.directRole ? (<><dt className="text-fg-subtle">{t("companyUsers.fieldRole")}</dt><dd className="text-fg">{role(detail.directRole)}</dd></>) : null}
@@ -183,7 +183,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
 
                 {detail.groupAccess ? (
                   <section aria-labelledby="cu-group" className="space-y-2" data-testid="company-user-group-access">
-                    <h2 id="cu-group" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("companyUsers.sectionGroupAccess")}</h2>
+                    <h2 id="cu-group" className="nesto-section-head">{t("companyUsers.sectionGroupAccess")}</h2>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-table">
                       <dt className="text-fg-subtle">{t("companyUsers.fieldSource")}</dt><dd className="text-fg">{t("companyUsers.viaGroupLine", { group: detail.groupAccess.groupName })}</dd>
                       <dt className="text-fg-subtle">{t("companyUsers.fieldGroupRole")}</dt><dd className="text-fg">{role(detail.groupAccess.roleName)}</dd>
@@ -194,7 +194,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                 ) : null}
 
                 <section aria-labelledby="cu-projects" className="space-y-2" data-testid="company-user-projects">
-                  <h2 id="cu-projects" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("companyUsers.sectionProjects")}{detail.projectAccess.length ? ` · ${detail.projectAccess.length}` : ""}</h2>
+                  <h2 id="cu-projects" className="nesto-section-head">{t("companyUsers.sectionProjects")}{detail.projectAccess.length ? ` · ${detail.projectAccess.length}` : ""}</h2>
                   {detail.projectAccess.length === 0 ? <p className="text-table text-fg-muted">{t("companyUsers.noProjectAccess")}</p> : (
                     <ul className="divide-y divide-line rounded-lg border border-line">
                       {detail.projectAccess.map((row) => (
@@ -205,7 +205,7 @@ function DrawerBody({ open, userId, companyId, companyName, groupName, api, opti
                 </section>
 
                 <section aria-labelledby="cu-activity" className="space-y-2" data-testid="company-user-activity">
-                  <h2 id="cu-activity" className="text-meta font-semibold uppercase tracking-wide text-fg-subtle">{t("companyUsers.sectionActivity")}</h2>
+                  <h2 id="cu-activity" className="nesto-section-head">{t("companyUsers.sectionActivity")}</h2>
                   {activity.length === 0 ? <p className="text-table text-fg-muted">{t("companyUsers.noActivity")}</p> : (
                     <ul className="divide-y divide-line">
                       {activity.map((row) => (

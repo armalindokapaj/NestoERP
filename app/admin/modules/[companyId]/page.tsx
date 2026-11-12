@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 
 import Link from "@/components/navigation/nav-link";
 import { EntitlementControl } from "@/components/3d/platform/EntitlementControl";
+import { AdminTabs } from "@/components/platform/admin-list";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
+import { Button } from "@/components/ui/button";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import { EntitlementEditor } from "@/components/platform/entitlement-editor";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -60,27 +63,15 @@ export default async function CompanyEntitlementsPage({ params, searchParams }: 
 
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={[{ label: t("meta.modules"), href: "/admin/modules" }, { label: data.company.name }]} />
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-page font-semibold text-fg">{data.company.name}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted">
-            <span>{data.company.group?.name ?? t("common.standaloneCompany")}</span>
-            <AdminStatusBadge status={data.company.status} />
-            <span>{t("entitlements.planLabel", { plan: data.plan.name })}</span>
-            <span className="text-fg-subtle">· {t("entitlements.enabledCount", { count: enabled })}</span>
-          </div>
-          {data.company.status !== "ACTIVE" ? <p className="mt-1 text-meta text-fg-subtle">{t("tabs.modules.inactiveNote", { status: statusWord(t, data.company.status) })}</p> : null}
-        </div>
-        <Link href={`/admin/organizations/${data.company.id}`} className="text-table font-medium text-accent-strong hover:underline">{t("entitlements.openOrganization")}</Link>
-      </header>
-      <nav aria-label={t("entitlements.sectionsNav")} className="nesto-context-tabs" data-context-tabs>
-        <ul className="border-b border-line flex gap-1">
-          {TABS.map(([key, labelKey]) => (
-            <li key={key}><Link href={key === "modules" ? `/admin/modules/${companyId}` : `/admin/modules/${companyId}?tab=${key}`} scroll={false} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table", tab === key ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{t(labelKey)}</Link></li>
-          ))}
-        </ul>
-      </nav>
+      <PageHeaderFrame
+        kind="record"
+        lead={<Breadcrumbs items={[{ label: t("meta.modules"), href: "/admin/modules" }, { label: data.company.name }]} />}
+        title={data.company.name}
+        subtitle={<>{data.company.group?.name ?? t("common.standaloneCompany")} · {t("entitlements.planLabel", { plan: data.plan.name })} · {t("entitlements.enabledCount", { count: enabled })}{data.company.status !== "ACTIVE" ? <span className="block">{t("tabs.modules.inactiveNote", { status: statusWord(t, data.company.status) })}</span> : null}</>}
+        status={<AdminStatusBadge status={data.company.status} />}
+        actions={<Button asChild variant="secondary"><Link href={`/admin/organizations/${data.company.id}`}>{t("entitlements.openOrganization")}</Link></Button>}
+      />
+      <AdminTabs label={t("entitlements.sectionsNav")} tabs={TABS.map(([key, labelKey]) => ({ key, label: t(labelKey), href: key === "modules" ? `/admin/modules/${companyId}` : `/admin/modules/${companyId}?tab=${key}`, active: tab === key }))} />
 
       {tab === "modules" ? (
         <>
