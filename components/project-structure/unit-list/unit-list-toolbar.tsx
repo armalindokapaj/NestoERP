@@ -22,6 +22,9 @@ import { activeCount, FILTER_FIELDS, panelCount, SORTS, type FilterField, type U
  * panel with the same fields wherever they apply, one sort list, and Clear.
  * Units chooses the building and floor in its tree, so its panel has none;
  * Sales has no tree, so its panel does, and Units alone filters archived units.
+ * On a phone the search and Filters share one line, as on Sales units, with
+ * the page's main action at its end; the sort is the panel's first field
+ * there (2026-11-12).
  */
 
 type Place = { id: string; name: string; floors: Array<{ id: string; name: string }> };
@@ -38,6 +41,7 @@ export function UnitListToolbar({
   placeholder,
   unitTypes,
   buildings = [],
+  action,
 }: {
   kind: UnitListKind;
   filters: UnitListFilters;
@@ -50,6 +54,8 @@ export function UnitListToolbar({
   unitTypes: Array<{ id: string; name: string }>;
   /** Sales: the buildings and their floors, for the panel's Building and Floor. */
   buildings?: Place[];
+  /** The page's main action, at the end of the line where the page wants it (its own classes say where). */
+  action?: React.ReactNode;
 }) {
   const t = useTranslations("projects");
   const locale = useLocale();
@@ -83,21 +89,24 @@ export function UnitListToolbar({
     }
   };
 
+  const sortOptions = SORTS[kind].map((sort) => (
+    <option key={sort} value={sort}>
+      {t(`unitSort.${sort}`)}
+    </option>
+  ));
+  const sortTo = (event: React.ChangeEvent<HTMLSelectElement>) => onChange({ sort: event.target.value as UnitListFilters["sort"] });
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <SearchField className="w-full sm:w-auto sm:min-w-0 sm:max-w-xs sm:flex-1" placeholder={placeholder} value={search} onChange={(event) => onSearch(event.target.value)} aria-label={t("workspace.searchLabel")} />
+        <SearchField className="min-w-0 flex-1 sm:max-w-xs" placeholder={placeholder} value={search} onChange={(event) => onSearch(event.target.value)} aria-label={t("workspace.searchLabel")} />
         <Button variant="secondary" onClick={() => setOpen((current) => !current)} aria-expanded={open}>
           <SlidersHorizontal aria-hidden="true" />
           {t("workspace.filters")}
           {set ? ` (${set})` : ""}
         </Button>
-        <FormSelect aria-label={t("workspace.sortLabel")} className={cn(selectClass, "w-auto")} value={filters.sort} onChange={(event) => onChange({ sort: event.target.value as UnitListFilters["sort"] })}>
-          {SORTS[kind].map((sort) => (
-            <option key={sort} value={sort}>
-              {t(`unitSort.${sort}`)}
-            </option>
-          ))}
+        <FormSelect aria-label={t("workspace.sortLabel")} className={cn(selectClass, "w-auto max-md:hidden")} value={filters.sort} onChange={sortTo}>
+          {sortOptions}
         </FormSelect>
         {activeCount(filters, kind) ? (
           <Button variant="ghost" onClick={onClear}>
@@ -105,9 +114,19 @@ export function UnitListToolbar({
             {t("workspace.clearFilters")}
           </Button>
         ) : null}
+        {action}
       </div>
       {open ? (
         <div className="grid grid-cols-2 gap-3 rounded-md border border-line bg-surface-muted p-3 sm:grid-cols-3 lg:grid-cols-5" data-testid={kind === "sales" ? "sales-filters" : "unit-filters"}>
+          {/* A phone's sort, which has no room on the line above. */}
+          <div className="col-span-2 flex min-w-0 flex-col gap-1 md:hidden">
+            <label htmlFor={`${kind}-filter-sort`} className="text-meta font-medium text-fg-muted">
+              {t("workspace.sortLabel")}
+            </label>
+            <FormSelect id={`${kind}-filter-sort`} className={cn(selectClass, "h-9")} value={filters.sort} onChange={sortTo}>
+              {sortOptions}
+            </FormSelect>
+          </div>
           {fields.map(field)}
         </div>
       ) : null}

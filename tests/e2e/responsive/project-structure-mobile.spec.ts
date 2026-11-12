@@ -5,7 +5,8 @@ import { STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
  * Project structure on a phone (E-05B §33): no tree, a Building and a Floor
- * dropdown, units as compact lines, search, and a line opening the unit in a
+ * dropdown on one line, the search line with Add units at its end, units as
+ * compact lines, and a line opening the unit in a
  * full-height sheet, and from there its page. Reads
  * only, so nothing needs putting back.
  */
@@ -21,6 +22,11 @@ test("finds a unit by building and floor on a phone", async ({ page }) => {
 
   const cards = page.getByTestId("unit-cards").getByTestId("unit-card");
   await expect(cards).toHaveCount(4);
+  // Tight under the top bar (2026-11-12): the search line holds the main action, and the first unit is high on the screen.
+  const search = page.getByRole("searchbox", { name: "Search units" });
+  const add = page.getByTestId("add-units-compact");
+  if (await add.count()) expect(Math.abs((await add.boundingBox())!.y - (await search.boundingBox())!.y)).toBeLessThan(8);
+  expect((await cards.first().boundingBox())!.y).toBeLessThan(page.viewportSize()!.height / 2);
   await page.getByRole("searchbox", { name: "Search units" }).fill("B-104");
   await expect(cards).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

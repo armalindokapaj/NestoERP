@@ -243,14 +243,21 @@ with their unit counts (a find box appears past eight buildings) — and the
 choice on the right: its title (*Floor 9 — Block A*), its counts, its actions,
 then search, filters (type, orientation, position, bedrooms, bathrooms, area
 ranges), sort, the unit table and 50 per page. Inside one floor the Building and
-Floor columns are left out. Phone and tablet: Building and Floor dropdowns in
-place of the tree; from md the table, and on a phone the units as Sales units
-lists them (2026-11-12) — compact lines in one lined block: the code with its
-gross area, the floor and type under it, the price over the status badge at the
+Floor columns are left out. Phone and tablet (2026-11-12), close under the
+project's compact header, one line each: the Building and Floor dropdowns in
+place of the tree, with the chosen building's or floor's ⋯ at their end; the
+search, **Filters** and the main action (**+**, Add units — or Add floor where
+there is no floor yet); then the counts, what is missing with **Fill in**, and
+on a phone **Select**. The heading is for a screen reader there (the dropdowns
+say what is shown), and Prices, Export, the Google Sheet, Add floor and Add
+building are in the page's ⋯ on the compact header. A phone's sort is the
+Filters panel's first field. From md the table; on a phone the units as Sales
+units lists them — compact lines in one lined block: the code with its gross
+area, the floor and type under it, the price over the status badge at the
 right, then the unit's ⋯. A line opens the unit in its panel. Tick boxes come
-with **Select** (or by themselves once a unit on the page is ticked, as Fill in
-does), so a line keeps its room for the unit. The URL holds the choice
-(`?floor=` or `?building=`) and the filters.
+with **Select** (or by themselves while any unit is ticked, as Fill in does), so
+a line keeps its room for the unit. The URL holds the choice (`?floor=` or
+`?building=`) and the filters.
 
 - **Empty project:** *Set up project structure — Start by adding the first
   building.* with **Add building** for somebody who may.

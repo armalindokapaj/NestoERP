@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
 import { floorName } from "@/lib/i18n/stock-names";
 import { ArrowDown, ArrowUp, Building2, ChevronRight, Copy, Layers, MoreHorizontal, MoveRight, Pencil, Plus, Tags, Trash2 } from "@/components/icons";
 import Link from "@/components/navigation/nav-link";
+import { FoldIntoPageMenu, useRegisterPageMenuItem } from "@/components/navigation/page-menu";
 
 import { selectClass } from "@/components/forms/record-form";
 import { Button } from "@/components/ui/button";
@@ -502,43 +503,54 @@ export function StructureWorkspace({
   const canAddUnits = caps.canCreateUnit && structure.buildings.some((candidate) => candidate.floors.length > 0);
   const floorTarget = building ?? (structure.buildings.length === 1 ? structure.buildings[0]! : null);
   const addFloorFirst = !canAddUnits && caps.canCreateFloor && floorTarget !== null && (Boolean(building) || !floorTarget.floors.length);
+  const pricesHref = `/projects/${projectId}/sales/prices`;
   const prices =
     caps.canManagePrice && structure.totals.units > 0 ? (
-      <Button asChild variant="secondary">
-        <Link href={`/projects/${projectId}/sales/prices`} data-testid="units-prices-link">
-          <Tags aria-hidden="true" />
-          {t("workspace.prices")}
-        </Link>
-      </Button>
+      <FoldIntoPageMenu item={{ kind: "action", label: t("workspace.prices"), icon: <Tags aria-hidden="true" />, href: pricesHref }}>
+        <Button asChild variant="secondary">
+          <Link href={pricesHref} data-testid="units-prices-link">
+            <Tags aria-hidden="true" />
+            {t("workspace.prices")}
+          </Link>
+        </Button>
+      </FoldIntoPageMenu>
     ) : null;
   // Export and the Google Sheet (2026-11-10): Export once there are units, the sheet once there is a building for its rows.
   const exportOffered = structure.totals.units > 0;
   const sheetOffered = structure.buildings.length > 0;
+  /** The main action — Add units, or Add floor where there is no floor to add units to — with what it opens. */
+  const primary = canAddUnits ? { label: t("workspace.addUnits"), run: () => setDialog({ kind: "addUnits" }) } : addFloorFirst && floorTarget ? { label: t("workspace.addFloor"), run: () => setDialog({ kind: "floor", building: floorTarget }) } : null;
+  /** What can be done to the building or floor chosen: from lg after the actions, below lg at the end of its dropdowns. */
+  const placeMenu = floor && building ? floorMenu(building, floor) : building ? buildingMenu(building, t("workspace.moreActionsFor", { name: building.name })) : null;
+  // From lg the tree has its own + for a building; below lg it is in the page's ⋯ (2026-11-12).
+  useRegisterPageMenuItem(caps.canCreateBuilding && structure.buildings.length ? { kind: "action", label: t("workspace.addBuilding"), icon: <Plus aria-hidden="true" />, onSelect: () => setDialog({ kind: "building" }) } : null);
+  // From lg: [Prices] [Export] [Google Sheet] [Add floor] [+ Add units] [⋯] after the heading. Below lg the secondary ones fold into the
+  // page's ⋯ (the project's compact header), the main one sits at the end of the search line and the ⋯ at the end of the dropdowns.
   const headerActions = (
     <>
       {prices}
       <UnitSheetActions projectId={projectId} view="units" initialStatus={sheetStatus} exportOffered={exportOffered} sheetOffered={sheetOffered} />
       {canAddUnits && building && !floor && caps.canCreateFloor ? (
-        <Button variant="secondary" onClick={() => setDialog({ kind: "floor", building })}>
+        <FoldIntoPageMenu item={{ kind: "action", label: t("workspace.addFloor"), icon: <Plus aria-hidden="true" />, onSelect: () => setDialog({ kind: "floor", building }) }}>
+          <Button variant="secondary" onClick={() => setDialog({ kind: "floor", building })}>
+            <Plus aria-hidden="true" />
+            {t("workspace.addFloor")}
+          </Button>
+        </FoldIntoPageMenu>
+      ) : null}
+      {primary ? (
+        <Button onClick={primary.run} data-testid={canAddUnits ? "add-units" : undefined}>
           <Plus aria-hidden="true" />
-          {t("workspace.addFloor")}
+          {primary.label}
         </Button>
       ) : null}
-      {canAddUnits ? (
-        <Button onClick={() => setDialog({ kind: "addUnits" })} data-testid="add-units">
-          <Plus aria-hidden="true" />
-          {t("workspace.addUnits")}
-        </Button>
-      ) : addFloorFirst && floorTarget ? (
-        <Button onClick={() => setDialog({ kind: "floor", building: floorTarget })}>
-          <Plus aria-hidden="true" />
-          {t("workspace.addFloor")}
-        </Button>
-      ) : null}
-      {floor && building ? floorMenu(building, floor) : building ? buildingMenu(building, t("workspace.moreActionsFor", { name: building.name })) : null}
+      {placeMenu}
     </>
   );
   const hasHeaderActions = Boolean(prices) || exportOffered || sheetOffered || canAddUnits || addFloorFirst || Boolean(building);
+  // Below lg the lines carry their tick boxes once Select is pressed, or while any unit is ticked (2026-11-12).
+  const [ticking, setTicking] = React.useState(false);
+  const tUi = useTranslations("ui");
 
   /* Body ----------------------------------------------------------------------- */
 
@@ -595,8 +607,10 @@ export function StructureWorkspace({
     const page = pageState(ticks, rows.map((row) => row.id));
     const missingCount = caps.canUpdateUnit && caps.canManagePrice ? units?.missing.either ?? 0 : caps.canUpdateUnit ? units?.missing.details ?? 0 : caps.canManagePrice ? units?.missing.price ?? 0 : 0;
     const missingKind = caps.canUpdateUnit && caps.canManagePrice ? "either" : caps.canUpdateUnit ? "details" : "price";
+    // Below lg the boxes come with Select and stay while anything is ticked; the table from md always has them.
+    const boxes = ticking || ticks.size > 0;
     body = (
-      <div className="space-y-3">
+      <div className="space-y-3 max-lg:space-y-2">
         <UnitListToolbar
           kind="units"
           filters={filters}
@@ -606,6 +620,15 @@ export function StructureWorkspace({
           onClear={clearFilters}
           placeholder={t("workspace.searchPlaceholder")}
           unitTypes={structure.unitTypes}
+          action={
+            primary ? (
+              // Below lg the main action ends the search line (from lg it follows the heading).
+              <Button className="lg:hidden" onClick={primary.run} data-testid={canAddUnits ? "add-units-compact" : undefined}>
+                <Plus aria-hidden="true" />
+                <span className="max-sm:sr-only">{primary.label}</span>
+              </Button>
+            ) : null
+          }
         />
 
         {loadError ? (
@@ -616,49 +639,58 @@ export function StructureWorkspace({
             </Button>
           </div>
         ) : units && units.items.length ? (
-          <div className="space-y-3">
-            {activeFilters ? <p className="text-table text-fg-muted">{t("counts.results", { count: units.total })}</p> : null}
-            {canTick ? (
-              <SelectionHelp
-                ticked={ticks.size}
-                page={page}
-                total={units.total}
-                limit={500}
-                onSelectAll={async () => {
-                  const found = await fetchSelection(selectionUrl({ withFilters: true }));
-                  bulk.setMany(found.units, true);
-                }}
-                // The whole floor, whatever the filters and pages show: offered while some of it is not ticked and the page alone would not tick it.
-                floor={
-                  floor && (floor.unitCount > units.items.length || activeFilters > 0) && [...ticks.values()].filter((unit) => unit.floorId === floor.id).length < floor.unitCount
-                    ? {
-                        count: floor.unitCount,
-                        onSelect: async () => {
-                          const found = await fetchSelection(selectionUrl({ withFilters: false, floorId: floor.id }));
-                          bulk.setMany(found.units, true);
-                        },
-                      }
-                    : null
-                }
-                missing={
-                  missingCount > 0
-                    ? {
-                        text: t(`unitList.missing.${missingKind}`, { count: missingCount }),
-                        // Ticks exactly the units missing something and opens Edit details — the areas a price per m² needs come first —
-                        // or Set price when only prices are missing. The ticks stay, so Set price can follow on the same units.
-                        onFill: async () => {
-                          const found = await fetchSelection(selectionUrl({ withFilters: false, missing: missingKind }));
-                          if (!found.units.length) return;
-                          bulk.clear();
-                          bulk.setMany(found.units, true);
-                          const needsDetails = caps.canUpdateUnit && (missingKind === "details" || (units.missing.details ?? 0) > 0);
-                          bulk.start(needsDetails ? "details" : "price", found.units);
-                        },
-                      }
-                    : null
-                }
-              />
-            ) : null}
+          <div className="space-y-3 max-lg:space-y-2">
+            {/* One line of what the list holds and what can be done to it. Below lg it starts on the counts (the tree says them from lg)
+                and a phone ends it on Select; from lg, with only those in it (`data-compact`), it is not drawn. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-table text-fg-muted lg:[&:not(:has(>:not([data-compact])))]:hidden" data-testid="units-line">
+              {activeFilters ? <span>{t("counts.results", { count: units.total })}</span> : <span className="lg:hidden" data-compact="">{counts}</span>}
+              {canTick ? (
+                <SelectionHelp
+                  ticked={ticks.size}
+                  page={page}
+                  total={units.total}
+                  limit={500}
+                  onSelectAll={async () => {
+                    const found = await fetchSelection(selectionUrl({ withFilters: true }));
+                    bulk.setMany(found.units, true);
+                  }}
+                  // The whole floor, whatever the filters and pages show: offered while some of it is not ticked and the page alone would not tick it.
+                  floor={
+                    floor && (floor.unitCount > units.items.length || activeFilters > 0) && [...ticks.values()].filter((unit) => unit.floorId === floor.id).length < floor.unitCount
+                      ? {
+                          count: floor.unitCount,
+                          onSelect: async () => {
+                            const found = await fetchSelection(selectionUrl({ withFilters: false, floorId: floor.id }));
+                            bulk.setMany(found.units, true);
+                          },
+                        }
+                      : null
+                  }
+                  missing={
+                    missingCount > 0
+                      ? {
+                          text: t(`unitList.missing.${missingKind}`, { count: missingCount }),
+                          // Ticks exactly the units missing something and opens Edit details — the areas a price per m² needs come first —
+                          // or Set price when only prices are missing. The ticks stay, so Set price can follow on the same units.
+                          onFill: async () => {
+                            const found = await fetchSelection(selectionUrl({ withFilters: false, missing: missingKind }));
+                            if (!found.units.length) return;
+                            bulk.clear();
+                            bulk.setMany(found.units, true);
+                            const needsDetails = caps.canUpdateUnit && (missingKind === "details" || (units.missing.details ?? 0) > 0);
+                            bulk.start(needsDetails ? "details" : "price", found.units);
+                          },
+                        }
+                      : null
+                  }
+                />
+              ) : null}
+              {canTick && ticks.size === 0 ? (
+                <button type="button" className="tap-target ml-auto font-medium text-accent-strong hover:underline md:hidden" aria-pressed={ticking} onClick={() => setTicking(!ticking)} data-compact="" data-testid="unit-select-mode">
+                  {ticking ? tUi("doneSelecting") : tUi("select")}
+                </button>
+              ) : null}
+            </div>
             <UnitListTable
               kind="units"
               rows={rows}
@@ -670,6 +702,7 @@ export function StructureWorkspace({
               href={(row) => `/projects/${projectId}/units/${row.id}`}
               onOpen={(row, field) => panel.open(row.id, field)}
               openId={panel.openId}
+              ticking={boxes}
               addable={{ details: caps.canUpdateUnit, price: caps.canManagePrice }}
               selection={
                 canTick
@@ -712,7 +745,8 @@ export function StructureWorkspace({
 
   // A narrow tree (13rem, 14rem from xl) so the unit table beside it fits without scrolling sideways, even at 1024px with long prices and floor names. Long names truncate.
   return (
-    <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)]">
+    // Below lg everything sits close under the project's compact header: dropdowns, search, the list (2026-11-12).
+    <div className="grid gap-5 max-lg:gap-2 lg:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)]">
       {structure.buildings.length ? (
         <>
           {/* Desktop: the tree (§31, §32). */}
@@ -807,61 +841,51 @@ export function StructureWorkspace({
             </div>
           </aside>
 
-          {/* Phone and tablet: building and floor dropdowns (§33, §103, §104). */}
-          <div className="grid grid-cols-2 gap-2 lg:hidden">
-            <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <label htmlFor="structure-building" className="text-meta font-medium text-fg-muted">
-                  {t("workspace.building")}
-                </label>
-                {/* The tree's + for adding a building, where the tree is not drawn. */}
-                {caps.canCreateBuilding ? (
-                  <Button variant="ghost" size="icon-sm" className="-my-1" aria-label={t("workspace.addBuilding")} onClick={() => setDialog({ kind: "building" })}>
-                    <Plus />
-                  </Button>
-                ) : null}
-              </div>
-              <FormSelect id="structure-building" className={selectClass} value={selection.buildingId ?? ""} onChange={(event) => choose({ buildingId: event.target.value || null, floorId: null })}>
-                <option value="">{t("workspace.allBuildings")}</option>
-                {structure.buildings.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.name}
-                  </option>
-                ))}
-              </FormSelect>
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <label htmlFor="structure-floor" className="text-meta font-medium text-fg-muted">
-                {t("workspace.floor")}
-              </label>
-              <FormSelect id="structure-floor" className={selectClass} value={selection.floorId ?? ""} disabled={!building} onChange={(event) => choose({ buildingId: selection.buildingId, floorId: event.target.value || null })}>
-                <option value="">{t("workspace.allFloors")}</option>
-                {/* Floors with units first, the empty ones in their own group, as the tree folds them. */}
-                {building
-                  ? splitFloors(building).withUnits.map((level) => (
-                      <option key={level.id} value={level.id}>
-                        {floorName(level.name, locale)} · {level.unitCount}
-                      </option>
-                    ))
-                  : null}
-                {building && splitFloors(building).empty.length ? (
-                  <optgroup label={t("workspace.emptyFloorsGroup")}>
-                    {splitFloors(building).empty.map((level) => (
-                      <option key={level.id} value={level.id}>
-                        {floorName(level.name, locale)}
-                      </option>
-                    ))}
-                  </optgroup>
-                ) : null}
-              </FormSelect>
-            </div>
+          {/* Phone and tablet: the building and floor as two dropdowns on one line (§33, §103, §104), then the ⋯ of the one chosen. */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <label htmlFor="structure-building" className="sr-only">
+              {t("workspace.building")}
+            </label>
+            <FormSelect id="structure-building" className={cn(selectClass, "min-w-0 flex-1")} value={selection.buildingId ?? ""} onChange={(event) => choose({ buildingId: event.target.value || null, floorId: null })}>
+              <option value="">{t("workspace.allBuildings")}</option>
+              {structure.buildings.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+            </FormSelect>
+            <label htmlFor="structure-floor" className="sr-only">
+              {t("workspace.floor")}
+            </label>
+            <FormSelect id="structure-floor" className={cn(selectClass, "min-w-0 flex-1")} value={selection.floorId ?? ""} disabled={!building} onChange={(event) => choose({ buildingId: selection.buildingId, floorId: event.target.value || null })}>
+              <option value="">{t("workspace.allFloors")}</option>
+              {/* Floors with units first, the empty ones in their own group, as the tree folds them. */}
+              {building
+                ? splitFloors(building).withUnits.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {floorName(level.name, locale)} · {level.unitCount}
+                    </option>
+                  ))
+                : null}
+              {building && splitFloors(building).empty.length ? (
+                <optgroup label={t("workspace.emptyFloorsGroup")}>
+                  {splitFloors(building).empty.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {floorName(level.name, locale)}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </FormSelect>
+            {placeMenu ? <div className="shrink-0">{placeMenu}</div> : null}
           </div>
         </>
       ) : null}
 
-      <section className={cn("min-w-0 space-y-4", !structure.buildings.length && "lg:col-span-2")} aria-labelledby="structure-heading">
+      {/* Below lg the dropdowns say what is shown, so the heading is for a screen reader; its counts lead the line above the list. */}
+      <section className={cn("min-w-0 space-y-4 max-lg:space-y-0", !structure.buildings.length && "lg:col-span-2")} aria-labelledby="structure-heading">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 max-lg:sr-only">
             <h2 id="structure-heading" className="nesto-section-head" data-testid="structure-heading">
               {title}
             </h2>
@@ -877,7 +901,7 @@ export function StructureWorkspace({
               </p>
             ) : null}
           </div>
-          {hasHeaderActions ? <div className="flex flex-wrap items-center gap-2">{headerActions}</div> : null}
+          {hasHeaderActions ? <div className="flex flex-wrap items-center gap-2 max-lg:hidden">{headerActions}</div> : null}
         </div>
         {body}
       </section>

@@ -128,6 +128,7 @@ export function UnitListTable({
   deal,
   onOpen,
   openId = null,
+  ticking = false,
   addable = { details: false, price: false },
 }: {
   kind: UnitListKind;
@@ -151,6 +152,8 @@ export function UnitListTable({
   onOpen?: (row: UnitListRow, field?: PanelField) => void;
   /** The unit the panel shows, marked in the list. */
   openId?: string | null;
+  /** Units on a phone: whether the lines carry their tick boxes — after Select, or while units are ticked (the page decides). */
+  ticking?: boolean;
   /** Who may fill an empty cell in: the details (bedrooms, areas) and the price. */
   addable?: { details: boolean; price: boolean };
 }) {
@@ -177,12 +180,6 @@ export function UnitListTable({
       : undefined;
   /** The cell's value, or its "Add" while it is empty and the reader may fill it in. */
   const orAdd = (row: UnitListRow, field: PanelField, value: React.ReactNode) => (onOpen && offersAdd(row, field, addable) ? <AddCell row={row} field={field} onOpen={onOpen} /> : value);
-  // Units on a phone ticks as the shared phone lists do (components/data/selection.tsx): the boxes come with
-  // Select, or by themselves once a unit on the page is ticked (Fill in, Select all), so a line keeps its room.
-  const tUi = useTranslations("ui");
-  const [choosing, setChoosing] = React.useState(false);
-  const pageTicked = selection ? rows.some((row) => selection.isSelected(row.id)) : false;
-  const boxes = Boolean(selection) && (choosing || pageTicked);
 
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
@@ -364,49 +361,40 @@ export function UnitListTable({
       ) : (
         // Units on a phone (2026-11-12): Sales units' compact lines in one lined block — the code with its gross
         // area, the floor and type under it, the price over the status at the right, the unit's ⋯, and the tick
-        // box while ticking. The whole line opens the unit; the status is said by its badge, not a tint.
-        <>
-          {selection && !pageTicked ? (
-            <div className={cn("mb-2 flex justify-end", cardsShown)}>
-              <Button type="button" variant="secondary" size="sm" aria-pressed={choosing} onClick={() => setChoosing(!choosing)} data-testid="unit-select-mode">
-                {choosing ? tUi("doneSelecting") : tUi("select")}
-              </Button>
-            </div>
-          ) : null}
-          <ul className={cn("nesto-card overflow-hidden", cardsShown)} data-testid={ids.cards}>
-            {rows.map((row, index) => (
-              <MobileRecordRow
-                key={row.id}
-                data={{ "data-testid": ids.card, "data-unit-code": row.unitCode, "data-status": row.status }}
-                href={href(row)}
-                onOpen={openFromLink(row)}
-                label={[row.label, floorName(row.floorName, locale), unitTypeName(row.typeName, locale)].join(", ")}
-                selection={boxes && selection ? <span className="-ml-3 grid size-11 place-items-center"><RowTick row={row} selection={selection} /></span> : undefined}
-                selected={selection?.isSelected(row.id)}
-                title={
-                  <>
-                    <span className="whitespace-nowrap tabular-nums">{row.label}</span>
-                    {row.grossArea !== null ? (
-                      <span className="ml-2 whitespace-nowrap text-table font-normal tabular-nums text-fg-subtle" data-testid="unit-card-area">
-                        {areaText(row.grossArea, locale)}
-                      </span>
-                    ) : null}
-                    {row.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
-                    {row.archived ? <Badge className="ml-2" data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
-                  </>
-                }
-                subtitle={`${floorName(row.floorName, locale)} · ${unitTypeName(row.typeName, locale)}`}
-                value={
-                  <span className="flex flex-col items-end gap-1">
-                    {row.askingPrice ? <span data-testid="unit-card-price">{price(row)}</span> : null}
-                    <CommercialStatusBadge status={row.saleStatus} />
-                  </span>
-                }
-                actions={cardActions?.(row, index)}
-              />
-            ))}
-          </ul>
-        </>
+        // box while ticking (`ticking`). The whole line opens the unit; the status is said by its badge, not a tint.
+        <ul className={cn("nesto-card overflow-hidden", cardsShown)} data-testid={ids.cards}>
+          {rows.map((row, index) => (
+            <MobileRecordRow
+              key={row.id}
+              data={{ "data-testid": ids.card, "data-unit-code": row.unitCode, "data-status": row.status }}
+              href={href(row)}
+              onOpen={openFromLink(row)}
+              label={[row.label, floorName(row.floorName, locale), unitTypeName(row.typeName, locale)].join(", ")}
+              selection={ticking && selection ? <span className="-ml-3 grid size-11 place-items-center"><RowTick row={row} selection={selection} /></span> : undefined}
+              selected={selection?.isSelected(row.id)}
+              title={
+                <>
+                  <span className="whitespace-nowrap tabular-nums">{row.label}</span>
+                  {row.grossArea !== null ? (
+                    <span className="ml-2 whitespace-nowrap text-table font-normal tabular-nums text-fg-subtle" data-testid="unit-card-area">
+                      {areaText(row.grossArea, locale)}
+                    </span>
+                  ) : null}
+                  {row.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
+                  {row.archived ? <Badge className="ml-2" data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
+                </>
+              }
+              subtitle={`${floorName(row.floorName, locale)} · ${unitTypeName(row.typeName, locale)}`}
+              value={
+                <span className="flex flex-col items-end gap-1">
+                  {row.askingPrice ? <span data-testid="unit-card-price">{price(row)}</span> : null}
+                  <CommercialStatusBadge status={row.saleStatus} />
+                </span>
+              }
+              actions={cardActions?.(row, index)}
+            />
+          ))}
+        </ul>
       )}
 
       {/* The row colours, where rows are tinted: the Units table from md (a phone line says its status with a badge). */}
