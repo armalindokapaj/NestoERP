@@ -42,7 +42,7 @@ export async function CompanyUsersPanel({ actor, companyId, open, api, platform,
     <section className="nesto-card overflow-hidden" aria-label={t("companyUsers.title")} data-testid="company-users-panel">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
         <div>
-          <h2 className="text-card font-semibold text-fg">{t("companyUsers.title")} <span className="font-normal text-fg-muted" data-testid="company-users-count">{list.total}</span></h2>
+          <h2 className="nesto-section-head">{t("companyUsers.title")} <span className="font-normal text-fg-muted" data-testid="company-users-count">{list.total}</span></h2>
           <p className="text-table text-fg-muted">{t("companyUsers.description", { name: list.company.name })}</p>
         </div>
         {add}

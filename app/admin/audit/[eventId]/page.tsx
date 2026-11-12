@@ -57,7 +57,7 @@ export default async function AuditEventPage({ params }: Props) {
       </section>
       {blocks.length === 0 ? <p className="text-table text-fg-muted">{t("audit.event.noSnapshot")}</p> : blocks.map(([title, text]) => (
         <section key={title} className="nesto-card p-5" aria-label={title}>
-          <h2 className="text-card font-semibold text-fg">{title}</h2>
+          <h2 className="nesto-section-head">{title}</h2>
           <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-surface-muted p-3 font-mono text-micro text-fg">{text}</pre>
         </section>
       ))}

@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 
 import Link from "@/components/navigation/nav-link";
 import { adminRoleName } from "@/components/platform/admin-roles";
+import { AdminTabs } from "@/components/platform/admin-list";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -15,7 +17,6 @@ import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/i18n/forma
 import { getPlatformUser, userActivity, userGrants, userSessions } from "@/lib/modules/platform/platform-users.query";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { enumLabel } from "@/lib/i18n/modules/adminAccess/enum-label";
-import { cn } from "@/lib/utils/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminAccess");
@@ -50,23 +51,14 @@ export default async function PlatformUserPage({ params, searchParams }: Props) 
   return (
     <div className="space-y-5">
       {origin ? <Link href={`/admin/organizations/${origin.id}?tab=users`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {origin.name}</Link> : null}
-      <Breadcrumbs items={origin ? [{ label: origin.name, href: `/admin/organizations/${origin.id}?tab=users` }, { label: user.name }] : [{ label: t("users.detail.breadcrumbRoot"), href: "/admin/users" }, { label: user.name }]} />
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-page font-semibold text-fg">{user.name}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted">
-            <span className="font-mono text-meta">{user.username}</span>
-            {user.email ? <span>{user.email}</span> : null}
-            <AdminStatusBadge status={user.status} />
-            {user.platformAdmin ? <Badge tone="info">{t("users.detail.platformAdmin")}</Badge> : null}
-          </div>
-        </div>
-      </header>
-      <nav aria-label={t("users.detail.tabsLabel")} className="nesto-context-tabs overflow-x-auto" data-context-tabs>
-        <ul className="border-b border-line flex min-w-max gap-1">
-          {TABS.map((key) => <li key={key}><Link href={key === "overview" ? `/admin/users/${user.id}` : `/admin/users/${user.id}?tab=${key}`} scroll={false} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table", tab === key ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{t(`users.detail.tabs.${key}` as never)}</Link></li>)}
-        </ul>
-      </nav>
+      <PageHeaderFrame
+        kind="record"
+        lead={<Breadcrumbs items={origin ? [{ label: origin.name, href: `/admin/organizations/${origin.id}?tab=users` }, { label: user.name }] : [{ label: t("users.detail.breadcrumbRoot"), href: "/admin/users" }, { label: user.name }]} />}
+        title={user.name}
+        subtitle={<><span className="font-mono">{user.username}</span>{user.email ? <> · {user.email}</> : null}</>}
+        status={<><AdminStatusBadge status={user.status} />{user.platformAdmin ? <Badge tone="info">{t("users.detail.platformAdmin")}</Badge> : null}</>}
+      />
+      <AdminTabs label={t("users.detail.tabsLabel")} tabs={TABS.map((key) => ({ key, label: t(`users.detail.tabs.${key}` as never), href: key === "overview" ? `/admin/users/${user.id}` : `/admin/users/${user.id}?tab=${key}`, active: tab === key }))} />
 
       {tab === "overview" ? (
         <section className="nesto-card p-5" aria-label={t("users.detail.overview.label")}>
@@ -102,7 +94,7 @@ async function AccessTab({ context, user }: { context: Context; user: Awaited<Re
       {user.platformAdmin ? <p className="nesto-card p-4 text-table text-fg">{t("users.detail.access.platformAdminNote")}</p> : null}
       {user.groups.map((group) => <p key={group.id} className="nesto-card p-4 text-table"><Link href={`/admin/organizations/${group.id}`} className="font-medium text-fg hover:underline">{group.name}</Link> <span className="text-fg-muted">· {t("users.detail.access.groupLevel")}</span> <AdminStatusBadge status={group.status} /></p>)}
       <section className="nesto-card overflow-hidden" aria-label={t("users.detail.access.membershipsLabel")}>
-        <h2 className="border-b border-line px-5 py-3 text-card font-semibold text-fg">{t("users.detail.access.companiesHeading")}</h2>
+        <h2 className="border-b border-line px-5 py-3 nesto-section-head">{t("users.detail.access.companiesHeading")}</h2>
         {user.memberships.length === 0 ? <p className="px-5 py-4 text-table text-fg-muted">{t("users.detail.access.noMembership")}</p> : (
           <ul className="divide-y divide-line">
             {user.memberships.map((row) => (
@@ -118,7 +110,7 @@ async function AccessTab({ context, user }: { context: Context; user: Awaited<Re
         )}
       </section>
       <section className="nesto-card overflow-hidden" aria-label={t("users.detail.access.grantsLabel")}>
-        <h2 className="border-b border-line px-5 py-3 text-card font-semibold text-fg">{t("users.detail.access.grantsHeading")}</h2>
+        <h2 className="border-b border-line px-5 py-3 nesto-section-head">{t("users.detail.access.grantsHeading")}</h2>
         {grants.length === 0 ? <p className="px-5 py-4 text-table text-fg-muted">{t("users.detail.access.noGrants")}</p> : (
           <ul className="divide-y divide-line">{grants.map((row) => <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5 text-table"><span className="text-fg">{t("users.detail.access.grantLine", { module: row.module === "All modules" ? t("users.detail.access.allModules") : row.module, level: enumLabel(t, "enums.accessLevelLower", row.level, row.level.toLowerCase()), scope: enumLabel(t, "enums.scopeLower", row.scope, row.scope.toLowerCase()), group: row.group })}</span><AdminStatusBadge status={row.active ? "ACTIVE" : "INACTIVE"} /></li>)}</ul>
         )}

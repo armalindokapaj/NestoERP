@@ -7,10 +7,13 @@ import { Home, Menu, Plus, Search, UsersRound, X, Building2, type IconComponent 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
 import { OrganizationMark } from "@/components/layout/organization-mark";
+import { PhoneSections } from "@/components/layout/phone-sections";
 import { PhoneTitle } from "@/components/layout/phone-title";
 import { RibbonPanel, RibbonProvider, RibbonTabs, type RibbonModel } from "@/components/layout/ribbon";
 import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
 import Link from "@/components/navigation/nav-link";
+import { PageMenuProvider } from "@/components/navigation/page-menu";
+import { SectionStoreProvider } from "@/components/navigation/section-registry";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { adminText } from "@/components/platform/admin-i18n";
 import { ADMIN_AREAS, ADMIN_HOME, ADMIN_MENU, ADMIN_TABS, adminPagesFor, adminPlaceOf, adminUp, type AdminArea, type AdminPage, type AdminPlace } from "@/components/platform/admin-navigation";
@@ -86,6 +89,9 @@ export function AdminShell({ user, permissions, ribbonFolded, children }: { user
 
   return (
     <BreadcrumbRegistryProvider>
+      {/* A page's tab row hands its tabs to the phone's section row below lg; its tips and secondary actions fold into its ⋯ (as in the company app). */}
+      <SectionStoreProvider>
+      <PageMenuProvider>
       {/* `data-app-shell`: a signed-in shell's root (styles/globals.css); `data-admin-shell`: the console's own rules. */}
       <div data-app-shell data-admin-shell className="min-h-dvh bg-canvas">
         <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) flex-col border-b border-fg">
@@ -141,6 +147,8 @@ export function AdminShell({ user, permissions, ribbonFolded, children }: { user
             <RibbonPanel />
           </RibbonProvider>
         </header>
+        {/* Below lg: the page's tabs, pinned under the top bar. */}
+        <PhoneSections />
 
         <PageContainer as="main" id="nesto-main" tabIndex={-1} className="outline-none">
           {/* Where the page is: the page head's mono line, scrolling with it, as in the company shell. */}
@@ -151,6 +159,8 @@ export function AdminShell({ user, permissions, ribbonFolded, children }: { user
         <CreateDial items={create} />
         <PhoneBar pages={pages} create={create} />
       </div>
+      </PageMenuProvider>
+      </SectionStoreProvider>
     </BreadcrumbRegistryProvider>
   );
 }

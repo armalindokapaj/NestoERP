@@ -22,7 +22,7 @@ export async function RecoveryExperiences() {
       {rows.length === 0 ? (
         <EmptyState title={t("system.recovery.experiences.empty")} description={t("system.recovery.experiences.emptyDescription")} />
       ) : (
-        <section className="nesto-card p-5">
+        <section className="nesto-card overflow-x-auto">
           <Table stack aria-label={t("system.recovery.experiences.tableLabel")} data-testid="deleted-experiences">
             <TableHead>
               <TableRow>

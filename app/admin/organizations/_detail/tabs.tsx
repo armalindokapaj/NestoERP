@@ -50,7 +50,7 @@ function Card({ title, description, action, children }: { title: string; descrip
     <section className="nesto-card overflow-hidden" aria-label={title}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
         <div>
-          <h2 className="text-card font-semibold text-fg">{title}</h2>
+          <h2 className="nesto-section-head">{title}</h2>
           {description ? <p className="text-table text-fg-muted">{description}</p> : null}
         </div>
         {action}
@@ -289,7 +289,7 @@ async function MemberPanel({ context, scope, org, membershipId }: { context: Pla
           [t("tabs.member.lastSignIn"), member.user.lastLoginAt ? formatRelativeTime(member.user.lastLoginAt, locale) : t("tabs.member.never")],
         ] as const).map(([label, value]) => <div key={label}><dt className="text-meta text-fg-subtle">{label}</dt><dd className="text-body text-fg">{value}</dd></div>)}
       </dl>
-      <h3 className="mt-5 text-table font-semibold text-fg">{t("common.projects")}</h3>
+      <h3 className="mt-5 nesto-section-head">{t("common.projects")}</h3>
       {member.projects.length === 0 ? <p className="mt-1 text-table text-fg-muted">{t("tabs.member.noProjects", { company: member.company.name })}</p> : (
         <ul className="mt-1 divide-y divide-line text-table">{member.projects.map((project) => <li key={project.id} className="flex justify-between gap-2 py-1.5"><Link href={`/admin/projects/${project.id}?from=${org.id}`} className="text-fg hover:underline">{project.name}</Link><span className="text-fg-muted">{project.role ? adminRoleName(tr, project.role) : ""}</span></li>)}</ul>
       )}

@@ -1,5 +1,8 @@
 import Link from "@/components/navigation/nav-link";
+import { AdminChoice, AdminListFoot, AdminListFrame, AdminTabs, AdminToolbar } from "@/components/platform/admin-list";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
+import { LinkRow } from "@/components/platform/link-row";
+import { Button } from "@/components/ui/button";
 import { OrganizationFilters } from "@/components/platform/organization-filters";
 import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -29,15 +32,16 @@ export default async function ModulesPage({ searchParams }: Props) {
   const t = await getTranslations("adminOrgs");
   const context = await requirePlatformContext();
   const view = raw.view === "module" ? "module" : "organization";
-  const tab = (value: string, label: string) => (
-    <li>
-      <Link href={value === "organization" ? "/admin/modules" : "/admin/modules?view=module"} aria-current={view === value ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table transition-colors", view === value ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{label}</Link>
-    </li>
-  );
   return (
     <div className="space-y-4">
-      <PageHeader title={t("modules.title")} description={t("modules.description")} actions={<Link href="/admin/modules/catalog" className="inline-flex h-9 items-center rounded-lg border border-line px-3 text-table font-medium text-fg hover:bg-hover">{t("modules.manageCatalog")}</Link>} />
-      <nav aria-label={t("modules.viewsNav")} className="nesto-context-tabs" data-context-tabs><ul className="border-b border-line flex gap-1">{tab("organization", t("modules.byOrganization"))}{tab("module", t("modules.byModule"))}</ul></nav>
+      <PageHeader title={t("modules.title")} description={t("modules.description")} actions={<Button asChild variant="secondary"><Link href="/admin/modules/catalog">{t("modules.manageCatalog")}</Link></Button>} />
+      <AdminTabs
+        label={t("modules.viewsNav")}
+        tabs={[
+          { key: "organization", label: t("modules.byOrganization"), href: "/admin/modules", active: view === "organization" },
+          { key: "module", label: t("modules.byModule"), href: "/admin/modules?view=module", active: view === "module" },
+        ]}
+      />
       {view === "organization" ? <ByOrganization context={context} raw={raw} /> : <ByModule context={context} moduleKey={typeof raw.module === "string" ? raw.module : ""} />}
     </div>
   );
@@ -53,41 +57,44 @@ async function ByOrganization({ context, raw }: { context: Awaited<ReturnType<ty
     if (number > 1) params.set("page", String(number));
     return `/admin/modules${params.size ? `?${params}` : ""}`;
   };
+  const words = { pages: t("common.pages"), previous: t("common.previous"), next: t("common.next"), pageOf: t("common.pageOf", { page: query.page, pages }) };
+  const modulesText = (row: (typeof rows)[number]) => `${t("modules.enabled", { count: row.modules })}${row.trials ? ` · ${t("modules.trial", { count: row.trials })}` : ""}`;
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <AdminToolbar>
         <OrganizationFilters statuses={[{ value: "ACTIVE", label: t("modules.statuses.ACTIVE") }, { value: "SUSPENDED", label: t("modules.statuses.SUSPENDED") }, { value: "INACTIVE", label: t("modules.statuses.INACTIVE") }]} groups={groups} showGroup placeholder={t("modules.searchCompanies")} />
         <PlanFilter plans={plans.map((plan) => ({ value: plan.id, label: plan.name }))} current={query.plan} raw={raw} t={t} />
-      </div>
-      <section className="nesto-card overflow-hidden" data-testid="entitlement-directory">
-        {rows.length === 0 ? (
-          filtered ? <NoResultsState className="m-4" noun={t("modules.noun")} clearHref="/admin/modules" /> : <EmptyState className="m-4" title={t("modules.emptyTitle")} description={t("modules.emptyBody")} />
-        ) : (
-          <div className="overflow-x-auto">
-            <Table stack aria-label={t("modules.tableLabel")}>
-              <TableHead><TableRow><TableHeaderCell>{t("modules.headers.company")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("modules.headers.parentGroup")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.plan")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.modules")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("modules.headers.projects")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.status")}</TableHeaderCell></TableRow></TableHead>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell><Link href={`/admin/modules/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link></TableCell>
-                    <TableCell className="max-md:hidden">{row.parentGroup?.name ?? t("modules.standalone")}</TableCell>
-                    <TableCell>{row.plan}</TableCell>
-                    <TableCell className="tabular-nums">{t("modules.enabled", { count: row.modules })}{row.trials ? <span className="text-meta text-fg-subtle"> · {t("modules.trial", { count: row.trials })}</span> : null}</TableCell>
-                    <TableCell className="tabular-nums max-sm:hidden">{row.projects}</TableCell>
-                    <TableCell><AdminStatusBadge status={row.status} /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-        {total > 0 ? (
-          <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-table text-fg-muted">
-            <span>{t("modules.total", { count: total })}</span>
-            {pages > 1 ? <span className="flex gap-2">{query.page > 1 ? <Link href={page(query.page - 1)}>{t("common.previous")}</Link> : null}<span>{t("common.pageOf", { page: query.page, pages })}</span>{query.page < pages ? <Link href={page(query.page + 1)}>{t("common.next")}</Link> : null}</span> : null}
-          </div>
-        ) : null}
-      </section>
+      </AdminToolbar>
+      <AdminListFrame
+        label={t("modules.tableLabel")}
+        testId="entitlement-directory"
+        empty={rows.length === 0 ? (filtered ? <NoResultsState className="m-4" noun={t("modules.noun")} clearHref="/admin/modules" /> : <EmptyState className="m-4" title={t("modules.emptyTitle")} description={t("modules.emptyBody")} />) : undefined}
+        lines={rows.map((row) => ({
+          href: `/admin/modules/${row.id}`,
+          title: row.name,
+          subtitle: [row.plan, row.parentGroup?.name ?? t("modules.standalone")].join(" · "),
+          status: <AdminStatusBadge status={row.status} />,
+          facts: [{ key: "modules", label: t("modules.headers.modules"), value: modulesText(row) }],
+        }))}
+        table={
+          <Table aria-label={t("modules.tableLabel")}>
+            <TableHead><TableRow><TableHeaderCell>{t("modules.headers.company")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("modules.headers.parentGroup")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.plan")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.modules")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("modules.headers.projects")}</TableHeaderCell><TableHeaderCell>{t("modules.headers.status")}</TableHeaderCell></TableRow></TableHead>
+            <TableBody>
+              {rows.map((row) => (
+                <LinkRow key={row.id} href={`/admin/modules/${row.id}`}>
+                  <TableCell><Link href={`/admin/modules/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link></TableCell>
+                  <TableCell className="max-lg:hidden">{row.parentGroup?.name ?? t("modules.standalone")}</TableCell>
+                  <TableCell>{row.plan}</TableCell>
+                  <TableCell className="tabular-nums">{modulesText(row)}</TableCell>
+                  <TableCell className="tabular-nums max-lg:hidden">{row.projects}</TableCell>
+                  <TableCell><AdminStatusBadge status={row.status} /></TableCell>
+                </LinkRow>
+              ))}
+            </TableBody>
+          </Table>
+        }
+        foot={total > 0 ? <AdminListFoot count={t("modules.total", { count: total })} page={query.page} pages={pages} previousHref={page(query.page - 1)} nextHref={page(query.page + 1)} words={words} /> : undefined}
+      />
     </>
   );
 }
@@ -99,13 +106,7 @@ function PlanFilter({ plans, current, raw, t }: { plans: Array<{ value: string; 
     return `/admin/modules${params.size ? `?${params}` : ""}`;
   };
   const options = [{ value: "", label: t("modules.anyPlan") }, ...plans, { value: "custom", label: t("modules.customPlan") }];
-  return (
-    <nav aria-label={t("modules.planNav")} className="flex flex-wrap gap-1">
-      {options.map((option) => (
-        <Link key={option.value || "any"} href={link(option.value)} aria-current={current === option.value ? "true" : undefined} className={cn("rounded-full border px-2.5 py-1 text-meta", current === option.value ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:bg-hover")}>{option.label}</Link>
-      ))}
-    </nav>
-  );
+  return <AdminChoice label={t("modules.planNav")} options={options.map((option) => ({ key: option.value, label: option.label, href: link(option.value), active: current === option.value }))} />;
 }
 
 async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<typeof requirePlatformContext>>; moduleKey: string }) {
@@ -116,7 +117,7 @@ async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<ty
   const holders = selected ? await moduleHolders(context, selected.key) : [];
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-      <section className="nesto-card overflow-hidden" aria-label={t("modules.listLabel")}>
+      <section className="border border-line-strong bg-surface" aria-label={t("modules.listLabel")}>
         <ul className="divide-y divide-line">
           {catalog.modules.map((row) => {
             const active = row.key === moduleKey;
@@ -124,7 +125,7 @@ async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<ty
             return (
               <li key={row.key}>
                 {row.scope === "Company" ? (
-                  <Link href={`/admin/modules?view=module&module=${row.key}`} aria-current={active ? "true" : undefined} className={cn("flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-hover/50", active && "bg-accent-soft/50")}>
+                  <Link href={`/admin/modules?view=module&module=${row.key}`} aria-current={active ? "true" : undefined} className={cn("flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-hover", active && "bg-hover shadow-[inset_2px_0_0_var(--nesto-accent)]")}>
                     <span className="font-medium text-fg">{row.name}</span><span className="text-meta text-fg-subtle">{text}</span>
                   </Link>
                 ) : (
@@ -135,14 +136,14 @@ async function ByModule({ context, moduleKey }: { context: Awaited<ReturnType<ty
           })}
         </ul>
       </section>
-      <section className="nesto-card overflow-hidden" aria-label={selected ? t("modules.holders", { name: selected.name }) : t("modules.moduleHolders")}>
+      <section className="min-w-0 border border-line-strong bg-surface" aria-label={selected ? t("modules.holders", { name: selected.name }) : t("modules.moduleHolders")}>
         {!selected ? (
           <p className="p-5 text-table text-fg-muted">{t("modules.chooseModule")}</p>
         ) : holders.length === 0 ? (
           <EmptyState className="m-4" title={t("modules.noHolders")} />
         ) : (
           <div className="overflow-x-auto">
-            <Table stack aria-label={t("modules.holdersTable", { name: selected.name })}>
+            <Table aria-label={t("modules.holdersTable", { name: selected.name })}>
               <TableHead><TableRow><TableHeaderCell>{t("modules.holderHeaders.company")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("modules.holderHeaders.group")}</TableHeaderCell><TableHeaderCell>{t("modules.holderHeaders.plan")}</TableHeaderCell><TableHeaderCell>{t("modules.holderHeaders.status")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("modules.holderHeaders.since")}</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {holders.map((row) => (

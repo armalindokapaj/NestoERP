@@ -27,7 +27,7 @@ export async function RecoveryTenants() {
       {rows.length === 0 ? (
         <EmptyState title={t("system.recovery.tenants.empty")} description={t("system.recovery.tenants.emptyDescription")} />
       ) : (
-        <section className="nesto-card p-5">
+        <section className="nesto-card overflow-x-auto">
           <Table stack aria-label={t("system.recovery.tenants.tableLabel")} data-testid="deleted-tenants">
             <TableHead>
               <TableRow>

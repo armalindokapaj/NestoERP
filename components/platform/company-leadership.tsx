@@ -34,7 +34,7 @@ export function CompanyLeadershipCard({ leadership, api = PLATFORM_LEADERSHIP_AP
   const { ceo } = leadership;
   return (
     <section className="nesto-card p-5" aria-labelledby="company-leadership" data-testid="company-leadership">
-      <h2 id="company-leadership" className="text-card font-semibold text-fg">{t("leadership.title")}</h2>
+      <h2 id="company-leadership" className="nesto-section-head">{t("leadership.title")}</h2>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-meta text-fg-subtle">{t("leadership.ceo")}</p>

@@ -21,13 +21,13 @@ export async function GroupSettings({ implementation }: Props) {
   return (
     <div className="space-y-5">
       <section className="nesto-card p-5" aria-labelledby="group-general">
-        <h2 id="group-general" className="text-card font-semibold text-fg">{t("group.settings.general")}</h2>
+        <h2 id="group-general" className="nesto-section-head">{t("group.settings.general")}</h2>
         <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
           {rows.map(([label, value]) => <div key={label}><dt className="text-meta text-fg-subtle">{label}</dt><dd className="text-body text-fg">{value || "—"}</dd></div>)}
         </dl>
       </section>
       <section className="nesto-card p-5" aria-labelledby="group-branding">
-        <h2 id="group-branding" className="text-card font-semibold text-fg">{t("group.settings.branding")}</h2>
+        <h2 id="group-branding" className="nesto-section-head">{t("group.settings.branding")}</h2>
         <p className="mt-2 text-table text-fg-muted">{group.logoUrl ? t("group.settings.logoSet") : t("group.settings.logoNone")}</p>
         {group.status !== "ARCHIVED" ? <LogoUpload kind="group" id={group.id} name={group.name} logoUrl={group.logoUrl} /> : null}
       </section>

@@ -7,12 +7,12 @@ import { OrganizationFilters } from "@/components/platform/organization-filters"
 import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { LinkRow } from "@/components/platform/link-row";
+import { AdminListFoot, AdminListFrame, AdminTabs } from "@/components/platform/admin-list";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
 import { dateText } from "@/lib/i18n/format";
 import { COMPANY_STATUSES, GROUP_STATUSES, listOrganizations, organizationGroupOptions, type OrganizationQuery } from "@/lib/modules/platform/platform-organizations.query";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
-import { cn } from "@/lib/utils/cn";
 import { statusLabel } from "./_detail/labels";
 
 export async function generateMetadata() {
@@ -42,7 +42,8 @@ function href(query: OrganizationQuery, changes: Partial<OrganizationQuery>): st
 /**
  * Groups and Companies in one directory (Organizations PRD §1, §5-§12):
  * All / Groups / Companies / Standalone, search, filters, sorting and pages,
- * all held in the address.
+ * all held in the address. Drawn as the console's lists are
+ * (components/platform/admin-list.tsx): the table from md, compact lines on a phone.
  */
 export default async function OrganizationsPage({ searchParams }: Props) {
   const locale = await getLocale();
@@ -66,6 +67,9 @@ export default async function OrganizationsPage({ searchParams }: Props) {
     );
   };
 
+  const words = { pages: t("common.pages"), previous: t("common.previous"), next: t("common.next"), pageOf: t("common.pageOf", { page: query.page, pages }) };
+  const typeLine = (row: (typeof rows)[number]) => [t(TYPE_LABEL[row.type]), row.parentGroup?.name, row.companies !== null ? t("orgs.companies", { count: row.companies }) : null].filter(Boolean).join(" · ");
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -73,77 +77,62 @@ export default async function OrganizationsPage({ searchParams }: Props) {
         description={t("orgs.description")}
         actions={<OrganizationCreateMenu groups={openGroups} canCompany={canPlatform(context, "platform.company.create")} canGroup={canPlatform(context, "platform.group.create")} />}
       />
-      <nav aria-label={t("orgs.typesNav")} className="nesto-context-tabs overflow-x-auto" data-context-tabs>
-        <ul className="border-b border-line flex min-w-max gap-1">
-          {TABS.map((tab) => {
-            const active = query.type === tab;
-            return (
-              <li key={tab}>
-                <Link href={href(query, { type: tab, page: 1, group: tab === "group" ? "" : query.group })} aria-current={active ? "page" : undefined} data-testid={`org-tab-${tab}`} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table transition-colors", active ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>
-                  {t(`orgs.tabs.${tab}` as const)}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <AdminTabs
+        label={t("orgs.typesNav")}
+        tabs={TABS.map((tab) => ({ key: tab, label: t(`orgs.tabs.${tab}` as const), href: href(query, { type: tab, page: 1, group: tab === "group" ? "" : query.group }), active: query.type === tab, testId: `org-tab-${tab}` }))}
+      />
       <OrganizationFilters statuses={statuses} groups={groups} showGroup={query.type !== "group" && query.type !== "standalone"} />
 
-      <section className="nesto-card overflow-hidden" aria-label={t("orgs.title")} data-testid="organization-directory">
-        {rows.length === 0 ? (
-          filtered ? (
-            <NoResultsState className="m-4" noun={t("orgs.noun")} clearHref={href(query, { q: "", status: "", group: "", page: 1 })} />
-          ) : (
-            <EmptyState className="m-4" title={t("orgs.emptyTitle")} description={t("orgs.emptyBody")} />
-          )
-        ) : (
-          <div className="overflow-x-auto">
-            <Table stack aria-label={t("orgs.title")}>
-              <TableHead>
-                <TableRow>
-                  {sortHeader(t("orgs.headers.organization"), "name")}
-                  <TableHeaderCell>{t("orgs.headers.type")}</TableHeaderCell>
-                  <TableHeaderCell className="max-md:hidden">{t("orgs.headers.parentGroup")}</TableHeaderCell>
-                  {sortHeader(t("orgs.headers.projects"), "projects", "max-sm:hidden")}
-                  {sortHeader(t("orgs.headers.users"), "users", "max-lg:hidden")}
-                  <TableHeaderCell className="max-lg:hidden">{t("orgs.headers.modules")}</TableHeaderCell>
-                  {sortHeader(t("orgs.headers.status"), "status")}
-                  {sortHeader(t("orgs.headers.created"), "created", "max-xl:hidden")}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row) => (
-                  <LinkRow key={row.id} href={`/admin/organizations/${row.id}`} data-testid="organization-row" data-type={row.type}>
-                    <TableCell>
-                      <Link href={`/admin/organizations/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link>
-                      <p className="font-mono text-micro text-fg-subtle">{row.slug}</p>
-                    </TableCell>
-                    <TableCell>{t(TYPE_LABEL[row.type])}{row.companies !== null ? <span className="block text-meta text-fg-subtle">{t("orgs.companies", { count: row.companies })}</span> : null}</TableCell>
-                    <TableCell className="max-md:hidden">{row.parentGroup ? <Link href={`/admin/organizations/${row.parentGroup.id}`} className="text-fg-muted hover:underline">{row.parentGroup.name}</Link> : "—"}</TableCell>
-                    <TableCell className="tabular-nums max-sm:hidden">{row.projects}</TableCell>
-                    <TableCell className="tabular-nums max-lg:hidden">{row.users}</TableCell>
-                    <TableCell className="tabular-nums max-lg:hidden">{row.modules ?? "—"}</TableCell>
-                    <TableCell><AdminStatusBadge status={row.status} /></TableCell>
-                    <TableCell className="max-xl:hidden">{dateText(new Date(row.createdAt), { day: "2-digit", month: "short", year: "numeric" }, locale)}</TableCell>
-                  </LinkRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-        {total > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-table text-fg-muted">
-            <span>{t("orgs.total", { count: total })}</span>
-            {pages > 1 ? (
-              <nav aria-label={t("common.pages")} className="flex items-center gap-2">
-                {query.page > 1 ? <Link href={href(query, { page: query.page - 1 })} className="rounded-md px-2 py-1 hover:bg-hover">{t("common.previous")}</Link> : null}
-                <span>{t("common.pageOf", { page: query.page, pages })}</span>
-                {query.page < pages ? <Link href={href(query, { page: query.page + 1 })} className="rounded-md px-2 py-1 hover:bg-hover">{t("common.next")}</Link> : null}
-              </nav>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
+      <AdminListFrame
+        label={t("orgs.title")}
+        testId="organization-directory"
+        empty={rows.length === 0 ? (filtered ? <NoResultsState className="m-4" noun={t("orgs.noun")} clearHref={href(query, { q: "", status: "", group: "", page: 1 })} /> : <EmptyState className="m-4" title={t("orgs.emptyTitle")} description={t("orgs.emptyBody")} />) : undefined}
+        lines={rows.map((row) => ({
+          href: `/admin/organizations/${row.id}`,
+          title: row.name,
+          subtitle: typeLine(row),
+          status: <AdminStatusBadge status={row.status} />,
+          facts: [
+            { key: "projects", label: t("orgs.headers.projects"), value: `${t("orgs.headers.projects")} ${row.projects}` },
+            { key: "users", label: t("orgs.headers.users"), value: `${t("orgs.headers.users")} ${row.users}` },
+          ],
+          data: { "data-testid": "organization-line" },
+        }))}
+        table={
+          <Table aria-label={t("orgs.title")}>
+            <TableHead>
+              <TableRow>
+                {sortHeader(t("orgs.headers.organization"), "name")}
+                <TableHeaderCell>{t("orgs.headers.type")}</TableHeaderCell>
+                <TableHeaderCell className="max-lg:hidden">{t("orgs.headers.parentGroup")}</TableHeaderCell>
+                {sortHeader(t("orgs.headers.projects"), "projects")}
+                {sortHeader(t("orgs.headers.users"), "users", "max-lg:hidden")}
+                <TableHeaderCell className="max-xl:hidden">{t("orgs.headers.modules")}</TableHeaderCell>
+                {sortHeader(t("orgs.headers.status"), "status")}
+                {sortHeader(t("orgs.headers.created"), "created", "max-xl:hidden")}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((row) => (
+                <LinkRow key={row.id} href={`/admin/organizations/${row.id}`} data-testid="organization-row" data-type={row.type}>
+                  <TableCell>
+                    <Link href={`/admin/organizations/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link>
+                    <p className="font-mono text-micro text-fg-subtle">{row.slug}</p>
+                  </TableCell>
+                  <TableCell>{t(TYPE_LABEL[row.type])}{row.companies !== null ? <span className="block text-meta text-fg-subtle">{t("orgs.companies", { count: row.companies })}</span> : null}</TableCell>
+                  <TableCell className="max-lg:hidden">{row.parentGroup ? <Link href={`/admin/organizations/${row.parentGroup.id}`} className="text-fg-muted hover:underline">{row.parentGroup.name}</Link> : "—"}</TableCell>
+                  <TableCell className="tabular-nums">{row.projects}</TableCell>
+                  <TableCell className="tabular-nums max-lg:hidden">{row.users}</TableCell>
+                  <TableCell className="tabular-nums max-xl:hidden">{row.modules ?? "—"}</TableCell>
+                  <TableCell><AdminStatusBadge status={row.status} /></TableCell>
+                  <TableCell className="max-xl:hidden">{dateText(new Date(row.createdAt), { day: "2-digit", month: "short", year: "numeric" }, locale)}</TableCell>
+                </LinkRow>
+              ))}
+            </TableBody>
+          </Table>
+        }
+        foot={total > 0 ? <AdminListFoot count={t("orgs.total", { count: total })} page={query.page} pages={pages} previousHref={href(query, { page: query.page - 1 })} nextHref={href(query, { page: query.page + 1 })} words={words} /> : undefined}
+      />
     </div>
   );
 }

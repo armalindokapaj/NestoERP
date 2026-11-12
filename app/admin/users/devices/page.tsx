@@ -25,7 +25,7 @@ export default async function PlatformDevicesPage() {
   return (
     <div className="space-y-5">
       <PageHeader title={t("users.devices.title")} description={t("users.devices.description")} />
-      <section className="nesto-card p-5">
+      <section className="nesto-card overflow-x-auto">
         <Table stack aria-label={t("users.devices.tableLabel")}>
           <TableHead>
             <TableRow>

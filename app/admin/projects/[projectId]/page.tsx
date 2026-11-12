@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 
 import Link from "@/components/navigation/nav-link";
 import { adminRoleName } from "@/components/platform/admin-roles";
+import { AdminTabs } from "@/components/platform/admin-list";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { AssignProjectCompany } from "@/components/platform/project-assignment";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -14,7 +16,6 @@ import { canPlatform, requirePlatformContext } from "@/lib/context/platform-cont
 import { formatDate } from "@/lib/i18n/format";
 import { getPlatformProjectDetail, projectCompanyOptions, projectModules, projectUsers } from "@/lib/modules/platform/platform-projects.query";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
-import { cn } from "@/lib/utils/cn";
 import { threeDLabel } from "../../organizations/_detail/labels";
 
 export async function generateMetadata() {
@@ -51,26 +52,15 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
   return (
     <div className="space-y-5">
       {company && from && (from === company.id || from === project.group?.id) ? <Link href={`/admin/organizations/${from}?tab=projects`} className="text-table text-fg-muted hover:text-fg" data-testid="return-to-organization">← {from === company.id ? company.name : project.group!.name}</Link> : null}
-      <Breadcrumbs items={[{ label: t("meta.projects"), href: "/admin/projects" }, tab === "overview" ? { label: project.name } : { label: project.name, href: `/admin/projects/${project.id}` }, ...(tab === "overview" ? [] : [{ label }])]} />
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-page font-semibold text-fg">{project.name}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted">
-            {company ? <Link href={`/admin/organizations/${company.id}`} className="text-accent-strong hover:underline">{company.name}</Link> : <AdminStatusBadge status="UNASSIGNED" />}
-            <AdminStatusBadge status={project.status} />
-            <span className="font-mono text-meta">{project.code}</span>
-          </div>
-        </div>
-        {canAssign ? <AssignProjectCompany projectId={project.id} projectName={project.name} companies={companyOptions} /> : null}
-        {project.threeD.configured ? <Button asChild size="sm" variant="secondary"><Link href={`/admin/3d/projects/${project.id}`}>{t("project.admin3d")}</Link></Button> : null}
-      </header>
-      <nav aria-label={t("project.sectionsNav")} className="nesto-context-tabs overflow-x-auto" data-context-tabs>
-        <ul className="border-b border-line flex min-w-max gap-1">
-          {tabs.map(([key, text]) => (
-            <li key={key}><Link href={key === "overview" ? `/admin/projects/${project.id}` : `/admin/projects/${project.id}?tab=${key}`} scroll={false} aria-current={tab === key ? "page" : undefined} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table", tab === key ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:text-fg")}>{t(text)}</Link></li>
-          ))}
-        </ul>
-      </nav>
+      <PageHeaderFrame
+        kind="record"
+        lead={<Breadcrumbs items={[{ label: t("meta.projects"), href: "/admin/projects" }, tab === "overview" ? { label: project.name } : { label: project.name, href: `/admin/projects/${project.id}` }, ...(tab === "overview" ? [] : [{ label }])]} />}
+        title={project.name}
+        subtitle={<>{company ? <Link href={`/admin/organizations/${company.id}`} className="text-fg underline decoration-accent decoration-2 underline-offset-4">{company.name}</Link> : null}{company ? " · " : null}<span className="font-mono">{project.code}</span></>}
+        status={<>{company ? null : <AdminStatusBadge status="UNASSIGNED" />}<AdminStatusBadge status={project.status} /></>}
+        actions={canAssign || project.threeD.configured ? <>{canAssign ? <AssignProjectCompany projectId={project.id} projectName={project.name} companies={companyOptions} /> : null}{project.threeD.configured ? <Button asChild variant="secondary"><Link href={`/admin/3d/projects/${project.id}`}>{t("project.admin3d")}</Link></Button> : null}</> : undefined}
+      />
+      <AdminTabs label={t("project.sectionsNav")} tabs={tabs.map(([key, text]) => ({ key, label: t(text), href: key === "overview" ? `/admin/projects/${project.id}` : `/admin/projects/${project.id}?tab=${key}`, active: tab === key }))} />
 
       {tab === "overview" ? (
         <section className="nesto-card p-5" aria-label={t("project.tabs.overview")}>
@@ -98,9 +88,9 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
 
       {company && tab === "companies" ? (
         <section className="nesto-card p-5" aria-label={t("project.tabs.companies")}>
-          <h2 className="text-card font-semibold text-fg">{t("project.managingCompany")}</h2>
+          <h2 className="nesto-section-head">{t("project.managingCompany")}</h2>
           <p className="mt-2 text-body"><Link href={`/admin/organizations/${company!.id}`} className="text-accent-strong hover:underline">{company!.name}</Link>{project.group ? <span className="text-fg-muted"> · {project.group.name}</span> : null}</p>
-          <h2 className="mt-5 text-card font-semibold text-fg">{t("project.participating")}</h2>
+          <h2 className="mt-5 nesto-section-head">{t("project.participating")}</h2>
           <p className="mt-2 text-table text-fg-muted">{t("project.participatingNone")}</p>
         </section>
       ) : null}
@@ -110,7 +100,7 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
 
       {company && tab === "3d" ? (
         <section className="nesto-card p-5" aria-label={t("project.experience")}>
-          <h2 className="text-card font-semibold text-fg">{t("project.experience")}</h2>
+          <h2 className="nesto-section-head">{t("project.experience")}</h2>
           {project.threeD.configured ? (
             <>
               <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-3">
@@ -140,7 +130,7 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
 
       {tab === "settings" ? (
         <section className="nesto-card p-5" aria-label={t("project.tabs.settings")}>
-          <h2 className="text-card font-semibold text-fg">{t("project.settings.general")}</h2>
+          <h2 className="nesto-section-head">{t("project.settings.general")}</h2>
           <p className="mt-1 text-table text-fg-muted">{t("project.settings.description")}</p>
           {canManage && !project.archived ? (
             <div className="mt-4 flex flex-wrap gap-2">

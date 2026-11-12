@@ -121,7 +121,7 @@ export async function CompanyLeadershipSection({ companyId }: { companyId: strin
   } catch {
     return (
       <section className="nesto-card p-5" aria-labelledby="company-leadership">
-        <h2 id="company-leadership" className="text-card font-semibold text-fg">{t("leadership.title")}</h2>
+        <h2 id="company-leadership" className="nesto-section-head">{t("leadership.title")}</h2>
         <p role="alert" className="mt-2 text-table text-danger">{t("leadership.loadFailed")}</p>
         <Link href={`/admin/organizations/${companyId}`} className="text-table font-medium text-accent-strong hover:underline">{t("leadership.retry")}</Link>
       </section>
@@ -140,7 +140,7 @@ export async function CompanyOverview({ overview }: Props) {
       <DetachBlocked overview={overview} />
       <CompanyLeadershipSection companyId={company.id} />
       <section className="nesto-card p-5" aria-labelledby="company-counts">
-        <h2 id="company-counts" className="text-card font-semibold text-fg">{t("company.overview.glance")}</h2>
+        <h2 id="company-counts" className="nesto-section-head">{t("company.overview.glance")}</h2>
         <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {([[t("company.overview.users"), counts.users], [t("company.overview.employees"), counts.people], [t("company.overview.projects"), counts.projects], [t("company.overview.departments"), counts.departments], [t("company.overview.modulesOn"), counts.modules]] as const).map(([label, value]) => (
             <div key={label}>
@@ -153,7 +153,7 @@ export async function CompanyOverview({ overview }: Props) {
       </section>
 
       <section className="nesto-card p-5" aria-labelledby="company-setup">
-        <h2 id="company-setup" className="text-card font-semibold text-fg">{t("company.overview.setupTitle")}</h2>
+        <h2 id="company-setup" className="nesto-section-head">{t("company.overview.setupTitle")}</h2>
         <p className="mt-1 text-table text-fg-muted">
           {open === 0 ? t("company.overview.setupDone") : t("company.overview.setupOptional")}
         </p>
@@ -172,7 +172,7 @@ export async function CompanyOverview({ overview }: Props) {
 
       <section className="nesto-card p-5" aria-labelledby="company-history">
         <div className="flex items-center justify-between gap-3">
-          <h2 id="company-history" className="text-card font-semibold text-fg">{t("company.overview.historyTitle")}</h2>
+          <h2 id="company-history" className="nesto-section-head">{t("company.overview.historyTitle")}</h2>
           <Link href={`/admin/audit?org=${company.id}`} className="text-table font-medium text-accent-strong hover:underline">{t("company.overview.openAudit")}</Link>
         </div>
         {overview.history.length === 0 ? (
@@ -204,7 +204,7 @@ export async function CompanySettings({ overview }: Props) {
     <div className="space-y-5">
       <section className="nesto-card p-5" aria-labelledby="company-general">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="company-general" className="text-card font-semibold text-fg">{t("company.settings.general")}</h2>
+          <h2 id="company-general" className="nesto-section-head">{t("company.settings.general")}</h2>
           <PlatformCommandButton label={t("company.menu.edit")} title={t("company.menu.editTitle", { name: company.name })} action="company.update" fixed={{ companyId: company.id }} fields={companyFields(t).map((field) => ({ ...field }))} initial={{ ...company, logoUrl: company.logoUrl ?? "" }} success={t("company.menu.updated")} />
         </div>
         <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -214,14 +214,14 @@ export async function CompanySettings({ overview }: Props) {
         </dl>
       </section>
       <section className="nesto-card p-5" aria-labelledby="company-organization">
-        <h2 id="company-organization" className="text-card font-semibold text-fg">{t("company.settings.organization")}</h2>
+        <h2 id="company-organization" className="nesto-section-head">{t("company.settings.organization")}</h2>
         <p className="mt-2 text-body text-fg">
           {structure.group ? (() => { const [before, after] = t("company.settings.belongsTo", { group: "\u0001" }).split("\u0001"); return <>{before}<Link href={`/admin/organizations/${structure.group.id}`} className="text-accent-strong hover:underline">{structure.group.name}</Link>{after}</>; })() : t("company.settings.standaloneNote")}
         </p>
         <p className="mt-1 text-table text-fg-muted">{t("company.settings.controlsNote")}</p>
       </section>
       <section className="nesto-card p-5" aria-labelledby="company-branding">
-        <h2 id="company-branding" className="text-card font-semibold text-fg">{t("company.settings.branding")}</h2>
+        <h2 id="company-branding" className="nesto-section-head">{t("company.settings.branding")}</h2>
         <p className="mt-2 text-table text-fg-muted">{company.logoUrl ? t("company.settings.logoSet") : t("company.settings.logoNone")}</p>
         <LogoUpload kind="company" id={company.id} name={company.name} logoUrl={company.logoUrl} />
       </section>

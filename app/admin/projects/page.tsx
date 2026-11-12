@@ -1,5 +1,7 @@
 import Link from "@/components/navigation/nav-link";
+import { AdminChoice, AdminListFoot, AdminListFrame, AdminToolbar } from "@/components/platform/admin-list";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
+import { LinkRow } from "@/components/platform/link-row";
 import { OrganizationFilters } from "@/components/platform/organization-filters";
 import { PlatformCommandButton } from "@/components/platform/platform-command";
 import { EmptyState, NoResultsState } from "@/components/ui/empty-state";
@@ -9,7 +11,6 @@ import { canPlatform, requirePlatformContext } from "@/lib/context/platform-cont
 import { listProjectsDirectory, projectCompanyOptions } from "@/lib/modules/platform/platform-projects.query";
 import { organizationGroupOptions } from "@/lib/modules/platform/platform-organizations.query";
 import { getTranslations } from "@/lib/i18n/server";
-import { cn } from "@/lib/utils/cn";
 import { threeDLabel } from "../organizations/_detail/labels";
 
 export async function generateMetadata() {
@@ -58,53 +59,54 @@ export default async function ProjectsPage({ searchParams }: Props) {
     />
   ) : undefined;
 
+  const threeDName = (value: (typeof THREE_D)[number]) => (value === "" ? t("projects.anyThreeD") : value === "configured" ? t("threeD.configured") : threeDLabel(t, value === "none" ? "Not configured" : value));
+  const words = { pages: t("common.pages"), previous: t("common.previous"), next: t("common.next"), pageOf: t("common.pageOf", { page: query.page, pages }) };
+
   return (
     <div className="space-y-4">
       <PageHeader title={t("projects.title")} description={t("projects.description")} actions={create} />
-      <div className="flex flex-wrap items-center gap-2">
+      <AdminToolbar>
         <OrganizationFilters statuses={[{ value: "ACTIVE", label: t("projects.statuses.ACTIVE") }, { value: "PENDING", label: t("projects.statuses.PENDING") }, { value: "FINISHED", label: t("projects.statuses.FINISHED") }, { value: "ARCHIVED", label: t("projects.statuses.ARCHIVED") }]} groups={groups} showGroup placeholder={t("common.searchProjects")} />
-        <nav aria-label={t("projects.ownershipNav")} className="flex flex-wrap gap-1" data-testid="ownership-filter">
-          {([["", t("projects.ownership.all")], ["assigned", t("projects.ownership.assigned")], ["unassigned", t("projects.ownership.unassigned")]] as const).map(([value, label]) => (
-            <Link key={value || "all"} href={link({ ownership: value, page: "1" })} replace aria-current={query.ownership === value ? "true" : undefined} className={cn("rounded-full border px-2.5 py-1 text-meta", query.ownership === value ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:bg-hover")}>{label}</Link>
-          ))}
-        </nav>
-        <nav aria-label={t("projects.threeDNav")} className="flex flex-wrap gap-1">
-          {THREE_D.map((value) => (
-            <Link key={value || "any"} href={link({ three: value, page: "1" })} replace aria-current={query.three === value ? "true" : undefined} className={cn("rounded-full border px-2.5 py-1 text-meta", query.three === value ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:bg-hover")}>{value === "" ? t("projects.anyThreeD") : value === "configured" ? t("threeD.configured") : threeDLabel(t, value === "none" ? "Not configured" : value)}</Link>
-          ))}
-        </nav>
-      </div>
-      <section className="nesto-card overflow-hidden" data-testid="project-directory">
-        {rows.length === 0 ? (
-          filtered ? <NoResultsState className="m-4" noun={t("projects.noun")} clearHref="/admin/projects" /> : (
-            <EmptyState className="m-4" title={t("projects.emptyTitle")} description={companies.length ? t("projects.emptyWithCompany") : t("projects.emptyNoCompany")} action={companies.length && canCreate ? { label: t("projects.create.label"), href: "/admin/projects?create=project" } : undefined} />
-          )
-        ) : (
-          <div className="overflow-x-auto">
-            <Table stack aria-label={t("projects.title")}>
-              <TableHead><TableRow><TableHeaderCell>{t("projects.headers.project")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("projects.headers.company")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("projects.headers.group")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("projects.headers.modules")}</TableHeaderCell><TableHeaderCell>{t("projects.headers.threeD")}</TableHeaderCell><TableHeaderCell>{t("projects.headers.status")}</TableHeaderCell></TableRow></TableHead>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id} data-testid="project-row">
-                    <TableCell><Link href={`/admin/projects/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link><p className="font-mono text-micro text-fg-subtle">{row.code}</p></TableCell>
-                    <TableCell className="max-sm:hidden">{row.company ? <Link href={`/admin/organizations/${row.company.id}`} className="text-fg-muted hover:underline">{row.company.name}</Link> : <AdminStatusBadge status="UNASSIGNED" />}</TableCell>
-                    <TableCell className="max-lg:hidden">{row.group ? <Link href={`/admin/organizations/${row.group.id}`} className="text-fg-muted hover:underline">{row.group.name}</Link> : "—"}</TableCell>
-                    <TableCell className="tabular-nums max-md:hidden">{row.modules ?? "—"}</TableCell>
-                    <TableCell>{row.threeD === "Not configured" ? <AdminStatusBadge status={row.threeD} /> : <Link href={`/admin/3d/projects/${row.id}`} aria-label={t("projects.threeDLink", { state: threeDLabel(t, row.threeD), name: row.name })}><AdminStatusBadge status={row.threeD} /></Link>}</TableCell>
-                    <TableCell><AdminStatusBadge status={row.status} /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-        {total > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-table text-fg-muted">
-            <span>{t("projects.total", { count: total })}</span>
-            {pages > 1 ? <nav aria-label={t("common.pages")} className="flex gap-2">{query.page > 1 ? <Link href={link({ page: String(query.page - 1) })}>{t("common.previous")}</Link> : null}<span>{t("common.pageOf", { page: query.page, pages })}</span>{query.page < pages ? <Link href={link({ page: String(query.page + 1) })}>{t("common.next")}</Link> : null}</nav> : null}
-          </div>
-        ) : null}
-      </section>
+        <AdminChoice
+          label={t("projects.ownershipNav")}
+          testId="ownership-filter"
+          options={([["", t("projects.ownership.all")], ["assigned", t("projects.ownership.assigned")], ["unassigned", t("projects.ownership.unassigned")]] as const).map(([value, label]) => ({ key: value, label, href: link({ ownership: value, page: "1" }), active: query.ownership === value }))}
+        />
+        <AdminChoice label={t("projects.threeDNav")} options={THREE_D.map((value) => ({ key: value, label: threeDName(value), href: link({ three: value, page: "1" }), active: query.three === value }))} />
+      </AdminToolbar>
+      <AdminListFrame
+        label={t("projects.title")}
+        testId="project-directory"
+        empty={rows.length === 0 ? (filtered ? <NoResultsState className="m-4" noun={t("projects.noun")} clearHref="/admin/projects" /> : (
+          <EmptyState className="m-4" title={t("projects.emptyTitle")} description={companies.length ? t("projects.emptyWithCompany") : t("projects.emptyNoCompany")} action={companies.length && canCreate ? { label: t("projects.create.label"), href: "/admin/projects?create=project" } : undefined} />
+        )) : undefined}
+        lines={rows.map((row) => ({
+          href: `/admin/projects/${row.id}`,
+          title: row.name,
+          subtitle: [row.company?.name ?? t("projects.ownership.unassigned"), row.group?.name].filter(Boolean).join(" · "),
+          status: <AdminStatusBadge status={row.status} />,
+          facts: [{ key: "code", label: t("common.code"), value: row.code }, { key: "threeD", label: t("projects.headers.threeD"), value: `3D ${threeDLabel(t, row.threeD)}` }],
+          data: { "data-testid": "project-line" },
+        }))}
+        table={
+          <Table aria-label={t("projects.title")}>
+            <TableHead><TableRow><TableHeaderCell>{t("projects.headers.project")}</TableHeaderCell><TableHeaderCell>{t("projects.headers.company")}</TableHeaderCell><TableHeaderCell className="max-lg:hidden">{t("projects.headers.group")}</TableHeaderCell><TableHeaderCell className="max-xl:hidden">{t("projects.headers.modules")}</TableHeaderCell><TableHeaderCell>{t("projects.headers.threeD")}</TableHeaderCell><TableHeaderCell>{t("projects.headers.status")}</TableHeaderCell></TableRow></TableHead>
+            <TableBody>
+              {rows.map((row) => (
+                <LinkRow key={row.id} href={`/admin/projects/${row.id}`} data-testid="project-row">
+                  <TableCell><Link href={`/admin/projects/${row.id}`} className="font-medium text-fg hover:underline">{row.name}</Link><p className="font-mono text-micro text-fg-subtle">{row.code}</p></TableCell>
+                  <TableCell>{row.company ? <Link href={`/admin/organizations/${row.company.id}`} className="text-fg-muted hover:underline">{row.company.name}</Link> : <AdminStatusBadge status="UNASSIGNED" />}</TableCell>
+                  <TableCell className="max-lg:hidden">{row.group ? <Link href={`/admin/organizations/${row.group.id}`} className="text-fg-muted hover:underline">{row.group.name}</Link> : "—"}</TableCell>
+                  <TableCell className="tabular-nums max-xl:hidden">{row.modules ?? "—"}</TableCell>
+                  <TableCell>{row.threeD === "Not configured" ? <AdminStatusBadge status={row.threeD} /> : <Link href={`/admin/3d/projects/${row.id}`} aria-label={t("projects.threeDLink", { state: threeDLabel(t, row.threeD), name: row.name })}><AdminStatusBadge status={row.threeD} /></Link>}</TableCell>
+                  <TableCell><AdminStatusBadge status={row.status} /></TableCell>
+                </LinkRow>
+              ))}
+            </TableBody>
+          </Table>
+        }
+        foot={total > 0 ? <AdminListFoot count={t("projects.total", { count: total })} page={query.page} pages={pages} previousHref={link({ page: String(query.page - 1) })} nextHref={link({ page: String(query.page + 1) })} words={words} /> : undefined}
+      />
     </div>
   );
 }

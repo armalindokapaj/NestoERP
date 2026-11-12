@@ -1,15 +1,15 @@
 import { notFound } from "next/navigation";
 
 import Link from "@/components/navigation/nav-link";
+import { AdminTabs } from "@/components/platform/admin-list";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
+import { PageHeaderFrame } from "@/components/ui/page-header";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { AccessError } from "@/lib/access/guards";
 import { requirePlatformContext } from "@/lib/context/platform-context";
 import { getPlatformCompanyOverview } from "@/lib/modules/platform/platform-company.service";
 import { getGroupImplementation } from "@/lib/modules/platform/platform-implementation.service";
 import { getTranslations } from "@/lib/i18n/server";
-import type { Translate } from "@/lib/i18n/translator";
-import { cn } from "@/lib/utils/cn";
 import { CompanyHeaderActions, CompanyOverview, CompanySettings } from "../_detail/company-detail";
 import { GroupHeaderActions, GroupOverview } from "../_detail/group-detail";
 import { statusWord } from "../_detail/labels";
@@ -30,22 +30,6 @@ const orNull = <T,>(promise: Promise<T>) => promise.catch((error: unknown) => {
   if (error instanceof AccessError && error.code === "NOT_FOUND") return null;
   throw error;
 });
-
-function Tabs({ id, tabs, current, t }: { id: string; tabs: readonly string[]; current: string; t: Translate<"adminOrgs"> }) {
-  return (
-    <nav aria-label={t("detail.sectionsNav")} className="nesto-context-tabs overflow-x-auto" data-context-tabs>
-      <ul className="border-b border-line flex min-w-max gap-1">
-        {tabs.map((tab) => (
-          <li key={tab}>
-            <Link href={tab === "overview" ? `/admin/organizations/${id}` : `/admin/organizations/${id}?tab=${tab}`} scroll={false} aria-current={tab === current ? "page" : undefined} data-testid={`org-detail-tab-${tab}`} className={cn("-mb-px flex h-10 items-center border-b-2 px-3 text-table transition-colors", tab === current ? "border-accent font-semibold text-fg" : "border-transparent text-fg-muted hover:border-line-strong hover:text-fg")}>
-              {t(`detail.tabs.${tab}` as "detail.tabs.overview")}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
 
 /**
  * One organization page for either kind (Organizations PRD §19-§23, §63, §64):
@@ -72,29 +56,33 @@ export default async function OrganizationPage({ params, searchParams }: Props) 
   const parent = company?.structure.group ? [{ label: company.structure.group.name, href: `/admin/organizations/${company.structure.group.id}?tab=companies` }] : [];
   const crumbs = [{ label: t("detail.organizations"), href: "/admin/organizations" }, ...parent, tab === "overview" ? { label: name } : { label: name, href: `/admin/organizations/${organizationId}` }, ...(tab === "overview" ? [] : [{ label: t(`detail.tabs.${tab}` as "detail.tabs.overview") }])];
 
+  const kind = group ? (
+    <span data-testid="organization-kind">{t("detail.kind.parentGroup")}</span>
+  ) : company!.structure.group ? (
+    <span data-testid="organization-kind">
+      {t("detail.kind.company")} ·{" "}
+      <Link href={`/admin/organizations/${company!.structure.group.id}`} className="text-fg underline decoration-accent decoration-2 underline-offset-4" data-testid="company-structure">{company!.structure.group.name}</Link>
+    </span>
+  ) : (
+    <span data-testid="organization-kind"><span data-testid="company-structure">{t("detail.kind.standaloneCompany")}</span></span>
+  );
+
   return (
     <div className="space-y-5">
-      <Breadcrumbs items={crumbs} />
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg">{name}</h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body text-fg-muted" data-testid="organization-kind">
-            {group ? (
-              <><span>{t("detail.kind.parentGroup")}</span><AdminStatusBadge status={group.group.status} /></>
-            ) : company!.structure.group ? (
-              <><span>{t("detail.kind.company")}</span><span aria-hidden="true">·</span><Link href={`/admin/organizations/${company!.structure.group.id}`} className="text-accent-strong hover:underline" data-testid="company-structure">{company!.structure.group.name}</Link><AdminStatusBadge status={company!.company.status} /></>
-            ) : (
-              <><span data-testid="company-structure">{t("detail.kind.standaloneCompany")}</span><AdminStatusBadge status={company!.company.status} /></>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {group ? <GroupHeaderActions implementation={group} /> : <CompanyHeaderActions overview={company!} />}
-        </div>
-      </header>
-      <Tabs id={organizationId} tabs={tabs} current={tab} t={t} />
+      <PageHeaderFrame
+        kind="record"
+        lead={<Breadcrumbs items={crumbs} />}
+        title={name}
+        subtitle={kind}
+        status={<AdminStatusBadge status={status} />}
+        actions={group ? <GroupHeaderActions implementation={group} /> : <CompanyHeaderActions overview={company!} />}
+      />
+      <AdminTabs
+        label={t("detail.sectionsNav")}
+        tabs={tabs.map((key) => ({ key, label: t(`detail.tabs.${key}` as "detail.tabs.overview"), href: key === "overview" ? `/admin/organizations/${organizationId}` : `/admin/organizations/${organizationId}?tab=${key}`, active: key === tab, testId: `org-detail-tab-${key}` }))}
+      />
       {tab === "overview" ? (group ? <GroupOverview implementation={group} /> : <CompanyOverview overview={company!} />) : null}
-      {!org.open ? <p className="nesto-card border-warning/40 p-3 text-table text-fg" role="status" data-testid="organization-closed">{t("detail.closed", { name, status: statusWord(t, status) })}</p> : null}
+      {!org.open ? <p className="border border-warning/50 bg-warning-soft px-4 py-3 text-table text-fg" role="status" data-testid="organization-closed">{t("detail.closed", { name, status: statusWord(t, status) })}</p> : null}
       {tab === "companies" && group ? <GroupCompaniesTab context={context} group={org} /> : null}
       {tab === "projects" ? <ProjectsTab context={context} scope={scope} org={org} /> : null}
       {tab === "users" ? <UsersTab context={context} scope={scope} org={org} params={query} /> : null}

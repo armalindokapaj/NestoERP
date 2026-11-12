@@ -21,7 +21,7 @@ export async function RecoveryMedia() {
       {rows.length === 0 ? (
         <EmptyState title={t("system.recovery.media.empty")} description={t("system.recovery.media.emptyDescription")} />
       ) : (
-        <section className="nesto-card p-5">
+        <section className="nesto-card overflow-x-auto">
           <Table stack aria-label={t("system.recovery.media.tableLabel")} data-testid="removed-media">
             <TableHead>
               <TableRow>

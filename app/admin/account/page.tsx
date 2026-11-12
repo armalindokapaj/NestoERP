@@ -42,7 +42,7 @@ export default async function PlatformAccountPage() {
 
       <section className="nesto-card p-6" aria-labelledby="recovery-title">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id="recovery-title" className="text-card font-semibold text-fg">{t("account.recoveryHeading")}</h2>
+          <h2 id="recovery-title" className="nesto-section-head">{t("account.recoveryHeading")}</h2>
           {account.recoveryEmail ? <Badge tone="success">{t("account.verified")}</Badge> : <Badge tone="warning">{t("account.notSet")}</Badge>}
         </div>
         <p className="mt-1 text-table text-fg-muted">
@@ -61,7 +61,7 @@ export default async function PlatformAccountPage() {
       </section>
 
       <section className="nesto-card p-6" aria-labelledby="password-title">
-        <h2 id="password-title" className="text-card font-semibold text-fg">{t("account.passwordHeading")}</h2>
+        <h2 id="password-title" className="nesto-section-head">{t("account.passwordHeading")}</h2>
         <p className="mt-1 text-table text-fg-muted">{t("account.passwordNote")}</p>
         <div className="mt-4">
           <PasswordForm action={changePlatformPasswordAction} />
@@ -69,7 +69,7 @@ export default async function PlatformAccountPage() {
       </section>
 
       <section className="nesto-card p-6" aria-labelledby="sessions-title">
-        <h2 id="sessions-title" className="text-card font-semibold text-fg">{t("account.sessionsHeading")}</h2>
+        <h2 id="sessions-title" className="nesto-section-head">{t("account.sessionsHeading")}</h2>
         <div className="mt-4">
           <SessionList
             actions={{ revokeOne: revokePlatformSessionAction, revokeOthers: revokePlatformOtherSessionsAction, everywhere: signOutPlatformEverywhereAction }}

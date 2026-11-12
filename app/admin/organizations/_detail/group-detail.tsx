@@ -52,7 +52,7 @@ export async function GroupOverview({ implementation }: Props) {
   return (
     <div className="space-y-5">
       <section className="nesto-card p-5" aria-labelledby="implementation-checklist">
-        <h2 id="implementation-checklist" className="text-card font-semibold text-fg">
+        <h2 id="implementation-checklist" className="nesto-section-head">
           {t("group.overview.checklistTitle")}
         </h2>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2" data-testid="implementation-checklist">
@@ -71,7 +71,7 @@ export async function GroupOverview({ implementation }: Props) {
 
       <section className="nesto-card flex flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="group-departments">
         <div>
-          <h2 id="group-departments" className="text-card font-semibold text-fg">
+          <h2 id="group-departments" className="nesto-section-head">
             {t("group.overview.departmentsTitle")}
           </h2>
           <p className="mt-1 text-table text-fg-muted" data-testid="department-setup">
@@ -84,7 +84,7 @@ export async function GroupOverview({ implementation }: Props) {
       </section>
 
       <section className="nesto-card p-5" aria-labelledby="group-people">
-        <h2 id="group-people" className="text-card font-semibold text-fg">
+        <h2 id="group-people" className="nesto-section-head">
           {t("group.overview.peopleTitle")}
         </h2>
         {implementation.people.length === 0 ? (

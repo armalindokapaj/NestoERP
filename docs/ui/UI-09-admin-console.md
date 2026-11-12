@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/ui/UI-09-admin-console.md
 > **About:** The Admin Console redesign — the company app's shell around six areas by task, a new search palette and an operations cockpit for Home — what it does, how it looks, where it lives and what is left for the next waves, for whoever changes the console next.
-> **Last updated:** 2026-11-13
+> **Last updated:** 2026-11-13 (wave 2: lists and hubs, §5)
 
 # UI-09 — Admin Console: the company app's shell, six areas by task
 
@@ -15,8 +15,8 @@ Decided with the owner on 2026-11-12: the same layout and function as the
 company app; the pages grouped by task into six areas; Home an operations
 cockpit; delivered in waves, each merged.
 
-- **Wave 1 (this one):** the shell, the navigation, search, Home.
-- **Wave 2:** the list pages, and the organization and user hubs.
+- **Wave 1:** the shell, the navigation, search, Home.
+- **Wave 2:** the list pages, and the organization, user and project hubs.
 - **Wave 3:** the settings and operations pages.
 
 ## 1. The areas
@@ -108,7 +108,32 @@ then numbered lined panels, each streaming and failing on its own:
 5. **Organizations** and 6. **Projects** — the newest of each.
 7. **Platform usage** — storage, module provisioning, 3D.
 
-## 5. Where it lives
+## 5. Lists and hubs (wave 2)
+
+The console's lists and records are drawn as the company app's, from one set
+of pieces (`components/platform/admin-list.tsx`):
+
+- **A list** — Organizations, Projects, Accounts, Entitlements — is a lined
+  frame: the table from md, and below it compact lines as Sales units' on a
+  phone (name, what it belongs to, a line of facts, the status badge, a
+  chevron; the whole line opens the record). Every table row opens its
+  record too. The foot carries the count in mono capitals and square
+  previous and next steps with "page n of m".
+- **Views** (All · Groups · Companies · Standalone; By organization · By
+  module) are the context tab row from lg and the phone's section row under
+  the top bar below it, as in the company app. The shell now has that row
+  and the page's ⋯ menu.
+- **Choices** that were rounded pills (ownership, 3D, scope, plan) are one
+  segmented control: square cells sharing their lines, the chosen one in
+  ink.
+- **Hubs** — an organization, an account, a project — have the record
+  header every record page has (breadcrumb, title in the display face, the
+  line under it, status, actions) and their sections in the context tab row.
+- **Panels.** Panel headings across the console are mono section heads; a
+  record's own name and an empty state's sentence keep the ordinary face.
+  Tables inside panels run edge to edge instead of sitting in padding.
+
+## 6. Where it lives
 
 | Piece | File |
 | --- | --- |
@@ -119,12 +144,11 @@ then numbered lined panels, each streaming and failing on its own:
 | The shared Ribbon | `components/layout/ribbon.tsx` (`RibbonModel`); the company app builds its model in `components/layout/topbar.tsx` |
 | The phone title's Back for a shell without record history | `components/layout/phone-title.tsx` (`up`) |
 | Home | `app/admin/page.tsx`, `app/admin/_dashboard/sections.tsx`, `app/admin/loading.tsx` |
+| Lists and hubs: frame, lines, tabs, choices, foot | `components/platform/admin-list.tsx` |
 | Words | `lib/i18n/modules/admin/{en,sq}.ts` (`shell`, `nav`, `search`, `dashboard`) |
 
-## 6. Next waves
+## 7. Next waves
 
-- **Wave 2** — the list pages (organizations, projects, users and the rest)
-  in the lined list design, and the organization and user hubs.
 - **Wave 3** — the settings and operations pages (System, Health, Jobs,
   Storage, Email and the rest).
 - The Group console (`components/group/group-shell.tsx`) keeps its own shell
