@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Check } from "@/components/icons";
 
 import { PricingWizard } from "@/components/pricing/pricing-wizard";
+import { ModuleSchedule } from "@/components/marketing/module-schedule";
 import { PriceBook } from "@/components/marketing/price-book";
 import { Dotted, Section, SectionHeader, hairlineCell, hairlineGrid } from "@/components/marketing/section";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,16 @@ export default async function PricingPage() {
           <PriceBook config={pricing} copy={site.home.prices} locale={locale} />
         </div>
       </Section>
+
+      {/* Every module with its own rate, and what typical buyers pay (docs/pricing-modules.md). */}
+      {pricing ? (
+        <Section id="modules" tone="surface" className="scroll-mt-28" bar={t.schedule.eyebrow}>
+          <SectionHeader title={t.schedule.title} lead={t.schedule.intro} />
+          <div className="mt-8">
+            <ModuleSchedule config={pricing} copy={t} locale={locale} />
+          </div>
+        </Section>
+      ) : null}
 
       <Section tone="surface" bar={t.sections.includedEyebrow}>
         <SectionHeader title={t.sections.includedTitle} />

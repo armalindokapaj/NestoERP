@@ -119,7 +119,7 @@ export const siteSq: SiteCopy = {
       signIn: "Hyr",
     },
     foundations: {
-      platform: { name: "NESTO Platform", note: "Çdo modul, një hapësirë pune" },
+      platform: { name: "NESTO Platform", note: "Modulet që zgjidhni, një hapësirë pune" },
       rozaris: { name: "NESTO ROZARIS", note: "Kulla 3D e shitjeve, për projekt" },
     },
     callouts: {
@@ -269,7 +269,8 @@ export const siteSq: SiteCopy = {
       cta: "Ndërto NESTO-n tënd",
       columns: { item: "Zëri", included: "Përfshihet", rate: "Tarifa", per: "Në muaj, për" },
       rows: {
-        platform: { item: "NESTO Platform, çdo modul", included: "{companies} kompani · {projects} projekt · {users} persona", per: "hapësirë pune" },
+        platform: { item: "Baza e NESTO Platform", included: "{companies} kompani · {projects} projekt · {users} persona · mjetet e përditshme", per: "hapësirë pune" },
+        modules: { item: "Modulet, të zgjedhura një nga një", included: "{n} module, secili me çmimin e vet", per: "modul" },
         company: { item: "Kompani shtesë", included: "{users} persona secila", per: "kompani" },
         project: { item: "Projekt aktiv shtesë", included: "—", per: "projekt" },
         users: { item: "Persona shtesë", included: "—", per: "{n} persona" },
@@ -1022,7 +1023,7 @@ export const siteSq: SiteCopy = {
       start: "Nisja",
       estimate: "Vlerësim shembull",
       perMonth: "{price} në muaj",
-      estimateNote: "Nga lista publike e çmimeve: NESTO Platform për 24 muaj, para ofertës së nisjes. Propozimi juaj shkruhet posaçërisht për ju.",
+      estimateNote: "Nga lista publike e çmimeve: baza e NESTO Platform për 24 muaj, para moduleve dhe ofertës së nisjes. Propozimi juaj shkruhet posaçërisht për ju.",
       show: "Shfaq aplikimin",
       hide: "Fshih aplikimin",
     },

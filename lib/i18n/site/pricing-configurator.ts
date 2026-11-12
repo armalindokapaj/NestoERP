@@ -172,6 +172,24 @@ const en = {
     /** A request the server refused without saying why. */
     failed: "The request could not be completed.",
   },
+  schedule: {
+    eyebrow: "Modules",
+    title: "Every module, priced on its own.",
+    intro: "The base carries your company, your first project, 15 people and the everyday tools. Add only the modules your team works in: each is charged once for the whole group, however many of its companies use it.",
+    columns: { module: "Module", covers: "What it covers", rate: "Per month" },
+    inBase: "In the base",
+    examplesTitle: "What a company pays",
+    examplesNote: "A month on 24 months, before the launch offer and VAT, worked out by the configurator above.",
+    examples: {
+      sales: { title: "Selling units", body: "The base and Sales: units, buyers, reservations and contracts." },
+      developer: { title: "A developer", body: "The base with Sales, Finance, Project Management and Procurement." },
+      everything: { title: "Everything", body: "The base with every module." },
+      group: { title: "A group of companies", body: "Sales, Finance, Project Management and Procurement, once for the whole group." },
+    },
+    setupOne: "1 company · 1 project · {users} people",
+    setupGroup: "{companies} companies · {projects} projects · {users} people",
+    perMonth: "/ month",
+  },
   sections: {
     includedEyebrow: "What's included",
     includedTitle: "Every NESTO subscription includes",
@@ -184,6 +202,7 @@ const en = {
   },
   faq: [
     ["What counts as an active user?", "A person with an enabled NESTO login. Employee and workforce records do not become paid users unless login access is enabled."],
+    ["Is a module charged for each company in a group?", "No. A module is charged once for the whole group. Each further company adds its own monthly rate and 15 people."],
     ["What is an active project?", "A project currently used for live operational work. Completed and archived projects are not priced here."],
     ["What is a joint-venture company?", "A separate legal company you operate together with partners. It gets its own workspace like an operating company."],
     ["What is documents-only access?", "A restricted company connection for controlled shared-document access. It does not create a full workspace or add included users."],
@@ -362,6 +381,24 @@ const sq: PricingCopy = {
     wait: "Prisni që vlerësimi të ruhet.",
     failed: "Kërkesa nuk u krye dot.",
   },
+  schedule: {
+    eyebrow: "Modulet",
+    title: "Çdo modul, me çmimin e vet.",
+    intro: "Baza mban kompaninë tuaj, projektin e parë, 15 persona dhe mjetet e përditshme. Shtoni vetëm modulet ku punon ekipi juaj: secili paguhet një herë për të gjithë grupin, sado kompani të tij ta përdorin.",
+    columns: { module: "Moduli", covers: "Çfarë mbulon", rate: "Në muaj" },
+    inBase: "Në bazë",
+    examplesTitle: "Sa paguan një kompani",
+    examplesNote: "Në muaj, për 24 muaj, para ofertës së nisjes dhe TVSH-së, llogaritur nga konfiguruesi më sipër.",
+    examples: {
+      sales: { title: "Shitja e njësive", body: "Baza dhe Shitjet: njësitë, blerësit, rezervimet dhe kontratat." },
+      developer: { title: "Një zhvillues", body: "Baza me Shitjet, Financat, Menaxhimin e projekteve dhe Prokurimin." },
+      everything: { title: "Gjithçka", body: "Baza me çdo modul." },
+      group: { title: "Një grup kompanish", body: "Shitjet, Financat, Menaxhimi i projekteve dhe Prokurimi, një herë për të gjithë grupin." },
+    },
+    setupOne: "1 kompani · 1 projekt · {users} persona",
+    setupGroup: "{companies} kompani · {projects} projekte · {users} persona",
+    perMonth: "/ muaj",
+  },
   sections: {
     includedEyebrow: "Çfarë përfshihet",
     includedTitle: "Çdo abonim NESTO përfshin",
@@ -374,6 +411,7 @@ const sq: PricingCopy = {
   },
   faq: [
     ["Kush llogaritet si përdorues aktiv?", "Një person me hyrje aktive në NESTO. Të dhënat e punonjësve dhe të fuqisë punëtore nuk bëhen përdorues me pagesë, përveç nëse aktivizohet hyrja."],
+    ["A paguhet një modul për çdo kompani të grupit?", "Jo. Një modul paguhet një herë për të gjithë grupin. Çdo kompani shtesë shton tarifën e vet mujore dhe 15 persona."],
     ["Çfarë është një projekt aktiv?", "Një projekt që përdoret aktualisht për punë operative. Projektet e përfunduara dhe të arkivuara nuk llogariten këtu."],
     ["Çfarë është një kompani e përbashkët (JV)?", "Një kompani ligjore e veçantë që e drejtoni bashkë me partnerë. Ajo merr hapësirën e vet të punës si një kompani operative."],
     ["Çfarë është qasja vetëm për dokumente?", "Një lidhje e kufizuar kompanie për qasje të kontrolluar në dokumente të përbashkëta. Nuk krijon hapësirë të plotë pune dhe nuk shton përdorues të përfshirë."],

@@ -166,7 +166,7 @@ export const siteEn = {
       signIn: "Sign in",
     },
     foundations: {
-      platform: { name: "NESTO Platform", note: "Every module, one workspace" },
+      platform: { name: "NESTO Platform", note: "The modules you choose, one workspace" },
       rozaris: { name: "NESTO ROZARIS", note: "The 3D sales tower, per project" },
     },
     callouts: {
@@ -317,7 +317,8 @@ export const siteEn = {
       cta: "Build your NESTO",
       columns: { item: "Item", included: "Included", rate: "Rate", per: "Per month, per" },
       rows: {
-        platform: { item: "NESTO Platform, every module", included: "{companies} company · {projects} project · {users} people", per: "workspace" },
+        platform: { item: "NESTO Platform base", included: "{companies} company · {projects} project · {users} people · everyday tools", per: "workspace" },
+        modules: { item: "Modules, chosen one by one", included: "{n} modules, each priced on its own", per: "module" },
         company: { item: "Further company", included: "{users} people each", per: "company" },
         project: { item: "Further active project", included: "—", per: "project" },
         users: { item: "Further people", included: "—", per: "{n} people" },
@@ -987,7 +988,7 @@ export const siteEn = {
       start: "Start",
       estimate: "Sample estimate",
       perMonth: "{price} a month",
-      estimateNote: "From the public price book: NESTO Platform on 24 months, before the launch offer. Your proposal is written for you.",
+      estimateNote: "From the public price book: the NESTO Platform base on 24 months, before modules and the launch offer. Your proposal is written for you.",
       show: "Show the application",
       hide: "Hide the application",
     },

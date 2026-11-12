@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_LAUNCH_PROMOTION, DEFAULT_PRICING_CONFIG } from "@/lib/modules/pricing/pricing.config";
 import type { PublicPricingConfig } from "@/lib/modules/pricing/pricing.types";
-import { formatEuros, platformOffer, priceRows, sampleEstimateCents } from "@/lib/marketing/price-book";
+import { formatEuros, moduleGroups, platformOffer, priceExamples, priceRows, sampleEstimateCents } from "@/lib/marketing/price-book";
 
 /** The public price book as the home page, /pricing and /apply quote it (UI-05 §3.5). */
 const config: PublicPricingConfig = {
@@ -52,5 +52,41 @@ describe("price book", () => {
 
   it("formats whole euros", () => {
     expect(formatEuros(250_000, "en")).toBe("€2,500");
+  });
+});
+
+/** The book charged by module (docs/pricing-modules.md): a €400 base, the everyday tools in it, every other module on its own. */
+const PRICES: Record<string, number> = {
+  SALES: 300, FINANCE: 300, PROJECT_MANAGEMENT: 250, PROCUREMENT: 200, HR: 150, LEGAL_FULL: 150, LEGAL_DOCUMENTS: 50,
+  ARCHITECTURE: 100, ENGINEERING: 100, HSE: 100, INVENTORY: 100, CONTRACTORS: 100,
+};
+const byModule: PublicPricingConfig = {
+  ...config,
+  foundations: config.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, baseMonthlyCents: 40_000 } : row)),
+  companies: { ...config.companies, NESTO_PLATFORM: { ...config.companies.NESTO_PLATFORM, fullGroupMonthlyCents: 25_000 } },
+  nestoProjects: { ...config.nestoProjects, additionalMonthlyCents: 20_000 },
+  users: config.users.map((rule) => (rule.foundation === "NESTO_PLATFORM" ? { ...rule, pricePerPackCents: 30_000 } : rule)),
+  modules: config.modules.map((row) => (row.id in PRICES ? { ...row, monthlyPriceCents: PRICES[row.id]! * 100, includedInFoundations: row.includedInFoundations.filter((id) => id !== "NESTO_PLATFORM") } : row)),
+};
+
+describe("price book charged by module", () => {
+  it("adds a modules row quoted from the cheapest module, and none while every module is in the base", () => {
+    expect(priceRows(byModule).find((row) => row.key === "modules")).toMatchObject({ from: true, monthlyCents: 5_000, values: { n: 12 } });
+    expect(priceRows(config).some((row) => row.key === "modules")).toBe(false);
+  });
+
+  it("lists every module by group, the everyday tools in the base", () => {
+    const groups = moduleGroups(byModule);
+    expect(groups.map((entry) => entry.group)).toEqual(["Commercial", "Corporate / Control", "Delivery", "Operations", "Collaboration / Support"]);
+    const lines = groups.flatMap((entry) => entry.modules);
+    expect(lines.find((row) => row.id === "SALES")).toMatchObject({ included: false, monthlyCents: 30_000 });
+    expect(lines.find((row) => row.id === "DAILY_LOG")).toMatchObject({ included: true, monthlyCents: 0 });
+    expect(lines.some((row) => row.id === "DOCUMENTS_CORE")).toBe(false);
+  });
+
+  it("works out what typical buyers pay with the configurator's engine", () => {
+    const examples = Object.fromEntries(priceExamples(byModule).map((example) => [example.key, example.monthlyCents]));
+    expect(examples).toEqual({ sales: 70_000, developer: 145_000, everything: 225_000, group: 235_000 });
+    expect(priceExamples(config)).toEqual([]);
   });
 });

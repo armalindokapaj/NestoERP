@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { numberText } from "@/lib/i18n/format";
+import { engineBook } from "@/lib/marketing/price-book";
 import { fill, type PricingCopy } from "@/lib/i18n/site/pricing-configurator";
 import { defaultRequest, MODULE_GROUPS } from "@/lib/modules/pricing/pricing.config";
 import { calculatePricing, hasRozarisProjects, isIncluded, isOffered, resolveModules } from "@/lib/modules/pricing/pricing.engine";
@@ -28,14 +29,6 @@ const CLASSES: RozarisClass[] = ["BASIC", "LARGE", "VILLAGE"];
 type ProposalType = "FORMAL_PROPOSAL" | "TALK_TO_SALES" | "THREE_D_PRODUCTION";
 
 /** The public config as a price book the engine can run (technical modules are server-only and simply absent here). */
-function priceBookOf(config: PublicPricingConfig): PricingConfig {
-  return {
-    schemaVersion: 2, version: config.pricingVersion, currency: "EUR", foundations: config.foundations, modules: config.modules,
-    companies: config.companies, nestoProjects: config.nestoProjects, nestoIncludedUsers: config.nestoIncludedUsers,
-    rozaris: config.rozaris, users: config.users, indexation: config.indexation,
-  };
-}
-
 function promotionFor(config: PublicPricingConfig, foundation: Foundation, months: 12 | 24, requested?: string | null) {
   const eligible = config.promotions.filter((row) => row.enabled && row.product === foundation && row.requiredContractMonths === months);
   return eligible.find((row) => row.code === requested) ?? eligible[0] ?? null;
@@ -115,7 +108,7 @@ type Ctx = { config: PublicPricingConfig; book: PricingConfig; input: PricingReq
 
 export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: PublicPricingConfig; copy: PricingCopy; locale: string }) {
   const t = copy;
-  const book = React.useMemo(() => priceBookOf(initialConfig), [initialConfig]);
+  const book = React.useMemo(() => engineBook(initialConfig), [initialConfig]);
   // Never `Intl` with the reader's locale: Chrome has no Albanian data, so the server and the browser would print two different prices.
   const money = React.useCallback((cents: number) => numberText(cents / 100, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }, locale === "sq" ? "sq" : "en", "en"), [locale]);
   const initial = React.useMemo(() => withPromotion(initialConfig, defaultRequest("ROZARIS", initialConfig)), [initialConfig]);
