@@ -3,7 +3,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/unit-sales.md
 > **About:** How units are sold — the commercial status, prices, reservations, the sale, Sales units (/sales/units) and a unit's sales page — for whoever changes unit sales next.
-> **Last updated:** 2026-11-12 (Sales units and the unit's sales page; Sales files the buyer's contract; Units left the desktop top bar)
+> **Last updated:** 2026-11-12 (Sales units: filters and the compact phone line)
 
 Sales works on the same units E-05B created and E-05D publishes. There is no
 Sales copy of a unit, of a client or of a deal: a unit's commercial side is a
@@ -206,6 +206,21 @@ reopened, added to and removed from a deal.
   units*); the Sales tab's Units set and the logo's panel open it on a
   desktop. Everyone who may see units opens it; status, price and buyer need
   `project.unit.sales.view`. Details in `docs/ui/UI-04-navigation-layouts.md` §4.
+  Filters: a search, and by default Status (with its counts), Project and
+  Bedrooms (studio, 1, 2, 3, 4 or more) — inline from md, in a sheet beside
+  the search on a phone, applied filters shown as chips; there are no status
+  tabs. **More filters** holds Price from–to (only for whom may see prices),
+  Area from–to (m², the saleable area or the gross where there is none),
+  Floor from–to (the floor's number), Building and Type: on a phone it opens
+  the sheet to the whole screen, from md a panel at the right. Bounds left
+  empty, negative or unreadable filter nothing. The
+  Ribbon's For sale, Reserved and Sold open `/sales/units/<status>`, which
+  goes to the list with that status chosen (`?status=`). The Project filter
+  lists only projects with units this person may see, and the query still
+  goes through the projects' own door. Below lg the page's title is in the
+  top bar, so the search sits straight under it. On a phone each unit is one compact line: its
+  code and size, project and floor, then its price over its status; type,
+  bedrooms and buyer wait on the unit's page.
 - **A unit's sales page** `/sales/units/:unitId` (2026-11-12,
   `components/sales/sales-unit.tsx`) — the part of a unit that comes after the
   architect's, for the agent who sells it. Sections as `?tab=` on one route:

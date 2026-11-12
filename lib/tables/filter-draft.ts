@@ -88,13 +88,38 @@ export function appliedDraftQuery(
   filters: readonly FilterConfig[],
   draft: FilterDraft,
   pageParam = "page",
+  /** The More filters' parameters (`moreFilterParams`), staged in the same draft. */
+  extraParams: readonly string[] = [],
 ): string {
   const changes: Record<string, string | null> = {};
   for (const filter of filters) {
     if (!(filter.param in draft)) continue;
     changes[filter.param] = draft[filter.param] || null;
   }
+  for (const param of extraParams) {
+    if (!(param in draft)) continue;
+    changes[param] = draft[param]?.trim() || null;
+  }
   return applyListChange(query, changes, pageParam);
+}
+
+/**
+ * A filter kept behind "More filters": the few a list shows by default are
+ * `FilterConfig`s; these open the sheet to the whole screen (UI-07). A range
+ * is two parameters, its lower and upper bound, either of which may be empty.
+ */
+export type MoreFilterField =
+  | { kind: "range"; label: string; minParam: string; maxParam: string; unit?: string }
+  | { kind: "select"; label: string; param: string; options: FilterOption[] };
+
+/** Every query parameter the More filters write, in order. */
+export function moreFilterParams(fields: readonly MoreFilterField[]): string[] {
+  return fields.flatMap((field) => (field.kind === "range" ? [field.minParam, field.maxParam] : [field.param]));
+}
+
+/** How many More filters are set: a range with either bound counts once. */
+export function moreFilterCount(fields: readonly MoreFilterField[], value: (param: string) => string): number {
+  return fields.filter((field) => (field.kind === "range" ? value(field.minParam) || value(field.maxParam) : value(field.param))).length;
 }
 
 export type FilterChip = { param: string; label: string; value: string; valueLabel: string };

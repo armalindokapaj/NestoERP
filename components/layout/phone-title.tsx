@@ -48,8 +48,11 @@ export function PhoneTitle() {
       {project ? (
         <ProjectSwitcher name={project.label} switcher={project.switcher} />
       ) : (
-        <span className="flex min-w-0 flex-1 items-center px-4 text-card font-semibold text-fg sm:px-6" data-testid="phone-page-title">
-          <span className="truncate">{pageName ?? " "}</span>
+        <span className="flex min-w-0 flex-1 items-center px-4 font-display text-[1.625rem] font-medium leading-none tracking-(--nesto-tracking-display) text-fg sm:px-6" data-testid="phone-page-title">
+          <span className="truncate">
+            {pageName ?? " "}
+            {pageName ? <TitleSquare /> : null}
+          </span>
         </span>
       )}
     </div>
@@ -97,8 +100,11 @@ function ProjectSwitcher({ name, switcher }: { name: string; switcher?: CrumbSwi
 
   if (!choice) {
     return (
-      <span className="flex min-w-0 flex-1 items-center px-4 text-card font-semibold text-fg sm:px-6" data-testid="phone-page-title">
-        <span className="truncate">{name}</span>
+      <span className="flex min-w-0 flex-1 items-center px-4 font-display text-[1.625rem] font-medium leading-none tracking-(--nesto-tracking-display) text-fg sm:px-6" data-testid="phone-page-title">
+        <span className="truncate">
+          {name}
+          <TitleSquare />
+        </span>
       </span>
     );
   }
@@ -116,9 +122,12 @@ function ProjectSwitcher({ name, switcher }: { name: string; switcher?: CrumbSwi
         aria-controls={open ? panelId : undefined}
         aria-label={t("phone.switchProject", { name })}
         data-testid="phone-project-switch"
-        className="flex min-w-0 flex-1 items-center gap-2 px-4 text-left text-card font-semibold text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
+        className="flex min-w-0 flex-1 items-center gap-2 px-4 text-left font-display text-[1.625rem] font-medium leading-none tracking-(--nesto-tracking-display) text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-6"
       >
-        <span className="truncate">{name}</span>
+        <span className="truncate">
+          {name}
+          <TitleSquare />
+        </span>
         <ChevronDown aria-hidden="true" className={cn("size-4 shrink-0 text-fg-subtle transition-transform", open && "rotate-180")} />
       </button>
       {open ? (
@@ -211,4 +220,9 @@ function usePageName(): string | null {
     };
   }, [pathname]);
   return name;
+}
+
+/** The gold square a title ends on, as the page titles on a desktop and the site's headings (UI-07). */
+function TitleSquare() {
+  return <span aria-hidden="true" className="ml-[0.06em] inline-block size-[0.15em] bg-accent" />;
 }

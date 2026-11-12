@@ -97,7 +97,18 @@ redrawn in the drawing set, 352px wide:
   nobody has to guess what a click will do. Both are radio groups: arrow
   keys move the choice.
 
-## 5. Not in scope
+## 5. Filters: a few, then More filters
+
+A list shows the few filters people reach for first, and keeps the rest
+behind **More filters** (`ListToolbar`'s `more`, `components/data/filter-sheet.tsx`):
+on a phone the Filters sheet ends on a More filters line that opens the
+same sheet to the whole screen, one draft and one Apply for both; from md a
+More filters button beside the inline filters opens a panel at the right.
+More filters are ranges (from–to, two query keys) or selects; their count
+joins the Filters badge and Clear all clears them. Sales units is the first
+list to use it (docs/unit-sales.md); others take it as each is reviewed.
+
+## 6. Not in scope
 
 - The public site (`app/(public)`, `components/marketing`), which is the
   reference.

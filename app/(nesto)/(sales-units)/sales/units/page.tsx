@@ -9,5 +9,5 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Every unit across the projects, as Sales sees them (components/sales/sales-units.tsx). */
 export default async function SalesUnitsRoute({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  return <SalesUnitsPage view={null} search={await searchParams} />;
+  return <SalesUnitsPage search={await searchParams} />;
 }

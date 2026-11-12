@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils/cn";
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/components/navigation/guarded-router";
@@ -15,16 +16,19 @@ import {
   appliedDraftQuery,
   appliedFilterValue,
   filterChips,
+  moreFilterCount,
+  moreFilterParams,
   removeFilterQuery,
   type FilterConfig,
   type FilterDraft,
   type FilterOption,
+  type MoreFilterField,
 } from "@/lib/tables/filter-draft";
 import { applyListChange, clearListFilters, queryHref, sameQuery } from "@/lib/tables/list-url";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { FormSelect } from "@/components/ui/form-select";
 
-export type { FilterConfig, FilterOption } from "@/lib/tables/filter-draft";
+export type { FilterConfig, FilterOption, MoreFilterField } from "@/lib/tables/filter-draft";
 
 /**
  * List search, filters and sort (PRD #7 §17, §24, §25, §27).
@@ -71,7 +75,8 @@ export function ListToolbar({
   sortOptions = [],
   sortParam = "sort",
   pageParam = "page",
-  extraFilterParams = [],
+  extraFilterParams: extraFilterParamsProp = [],
+  more = [],
   applied,
   className,
 }: {
@@ -83,6 +88,8 @@ export function ListToolbar({
   pageParam?: string;
   /** Other query keys this list filters by (date ranges, chips) that Clear also removes. */
   extraFilterParams?: readonly string[];
+  /** Filters kept behind "More filters" (UI-07): the few `filters` show by default, these open the sheet to the whole screen on a phone and a panel from md. */
+  more?: readonly MoreFilterField[];
   /** The effective values the server parsed, by param — the canonical applied state (AUD-08 §3). */
   applied?: Readonly<Record<string, string | undefined>>;
   className?: string;
@@ -148,7 +155,10 @@ export function ListToolbar({
   // The chips and the badge count what is applied: a URL value no option
   // offers was not applied by the server, so it is neither.
   const chips = filterChips(filters, appliedValue);
-  const extraActive = extraFilterParams.filter((param) => current(param) !== "").length;
+  const moreParams = moreFilterParams(more);
+  const extraFilterParams = [...extraFilterParamsProp, ...moreParams];
+  // A More range counts once, whichever of its bounds is set.
+  const extraActive = extraFilterParamsProp.filter((param) => current(param) !== "").length + moreFilterCount(more, current);
   const activeFilters = chips.length + extraActive;
   const hasActive =
     urlSearch !== "" || extraActive > 0 || filters.some((filter) => current(filter.param) !== "");
@@ -159,7 +169,7 @@ export function ListToolbar({
   }
 
   function applyDraft(draft: FilterDraft) {
-    navigate(appliedDraftQuery(searchParams.toString(), filters, draft, pageParam));
+    navigate(appliedDraftQuery(searchParams.toString(), filters, draft, pageParam, moreParams));
   }
 
   function removeChip(param: string) {
@@ -174,7 +184,8 @@ export function ListToolbar({
     <div className="flex flex-wrap items-center gap-2">
       <form
         role="search"
-        className="min-w-0 flex-1 max-md:basis-full md:max-w-xs"
+        // On a phone the search shares its line with Filters; a Sort takes a line of its own under it.
+        className={cn("min-w-0 flex-1 md:max-w-xs", sortOptions.length > 0 && "max-md:basis-full")}
         onSubmit={(event) => {
           event.preventDefault();
           submitSearch();
@@ -209,6 +220,8 @@ export function ListToolbar({
             ))}
           </FormSelect>
         ))}
+
+        {more.length > 0 ? <FilterSheet variant="more" filters={filters} more={more} current={current} applied={appliedValue} activeCount={activeFilters} onApply={applyDraft} /> : null}
 
         {sortOptions.length > 0 ? (
           <FormSelect
@@ -254,8 +267,8 @@ export function ListToolbar({
         </div>
       ) : null}
 
-      {filters.length > 0 ? (
-        <FilterSheet filters={filters} applied={appliedValue} activeCount={activeFilters} onApply={applyDraft} />
+      {filters.length > 0 || more.length > 0 ? (
+        <FilterSheet filters={filters} more={more} current={current} applied={appliedValue} activeCount={activeFilters} onApply={applyDraft} />
       ) : null}
     </div>
 

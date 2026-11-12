@@ -8,9 +8,12 @@ import {
   draftCount,
   draftFromApplied,
   filterChips,
+  moreFilterCount,
+  moreFilterParams,
   removeFilterQuery,
   setDraftValue,
   type FilterConfig,
+  type MoreFilterField,
 } from "@/lib/tables/filter-draft";
 import { sameQuery } from "@/lib/tables/list-url";
 
@@ -128,5 +131,28 @@ describe("chips outside the sheet", () => {
 
   it("removing a chip drops that key only and the page", () => {
     expect(removeFilterQuery("status=DONE&projectId=p2&search=roof&page=2", "status")).toBe("projectId=p2&search=roof");
+  });
+});
+
+describe("More filters (UI-07): ranges and selects behind the few", () => {
+  const MORE: MoreFilterField[] = [
+    { kind: "range", label: "Price", minParam: "priceMin", maxParam: "priceMax" },
+    { kind: "range", label: "Area", minParam: "areaMin", maxParam: "areaMax", unit: "m²" },
+    { kind: "select", label: "Type", param: "type", options: [{ value: "t1", label: "Apartment" }] },
+  ];
+
+  it("names every parameter it writes, a range as its two bounds", () => {
+    expect(moreFilterParams(MORE)).toEqual(["priceMin", "priceMax", "areaMin", "areaMax", "type"]);
+  });
+
+  it("counts a range once, whichever bound is set", () => {
+    const values: Record<string, string> = { priceMax: "200000", areaMin: "60", areaMax: "90" };
+    expect(moreFilterCount(MORE, (param) => values[param] ?? "")).toBe(2);
+    expect(moreFilterCount(MORE, () => "")).toBe(0);
+  });
+
+  it("applies with the few in one navigation, back to page 1, dropping emptied bounds", () => {
+    const query = appliedDraftQuery("status=sold&priceMin=1000&page=3", [STATUS], { status: "", priceMin: "", priceMax: " 250000 ", type: "t1" }, "page", moreFilterParams(MORE));
+    expect(query).toBe("priceMax=250000&type=t1");
   });
 });
