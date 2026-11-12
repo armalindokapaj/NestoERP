@@ -43,7 +43,7 @@ export default async function NcrDocumentsPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("detail.documents")}</h1>
+        <h1 className="text-page font-display text-fg">{t("detail.documents")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{ncr.ncrNumber}</p>
       </div>
 

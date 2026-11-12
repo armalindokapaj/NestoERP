@@ -39,7 +39,7 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
     <>
       <ul className={type === "renders" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid gap-4 lg:grid-cols-2"} aria-label={type === "renders" ? t("gallery.rendersLabel") : t("gallery.animationsLabel")}>
         {items.map((item, index) => (
-          <li key={item.id} className="overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+          <li key={item.id} className="overflow-hidden border border-line bg-surface">
             {type === "renders" ? (
               <button type="button" className="group block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => setSelected(index)} aria-label={t("gallery.openRender", { title: item.title })}>
                 <div className="aspect-[4/3] overflow-hidden bg-surface-muted">

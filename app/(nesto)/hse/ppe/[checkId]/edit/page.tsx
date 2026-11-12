@@ -59,7 +59,7 @@ export default async function EditPpeCheckPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: check.checkNumber })}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.editNumber", { number: check.checkNumber })}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {t("page.ppeEditIntro")}
         </p>

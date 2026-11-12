@@ -44,7 +44,7 @@ export default async function MyWorkPage({ searchParams }: Params) {
     <div className="mx-auto max-w-5xl space-y-5">
       <Breadcrumbs items={[{ label: m("myWork.title") }]} />
       <header>
-        <h1 className="text-page font-semibold tracking-tight text-fg">{m("myWork.title")}</h1>
+        <h1 className="text-page font-display text-fg">{m("myWork.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{m("myWork.description")}</p>
       </header>
       <MyWorkView key={JSON.stringify({ tab: input.tab, query })} tab={input.tab} query={query} initial={page} favoritesEnabled={availability.favoritesEnabled} recentEnabled={availability.recentWorkEnabled} />

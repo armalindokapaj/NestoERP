@@ -157,7 +157,7 @@ export function AccountPanel({ model }: { model: AccountPanelModel }) {
                   data-testid={`account-theme-${option.value}`}
                   className={cn(
                     "flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 text-meta transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:min-h-11",
-                    selected ? "bg-surface font-semibold text-fg shadow-sm ring-1 ring-accent" : "text-fg-muted hover:text-fg",
+                    selected ? "bg-surface font-semibold text-fg ring-1 ring-accent" : "text-fg-muted hover:text-fg",
                   )}
                 >
                   <option.icon aria-hidden className="size-4" />

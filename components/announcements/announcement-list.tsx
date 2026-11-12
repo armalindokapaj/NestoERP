@@ -40,7 +40,7 @@ function Card({ item, zone, manage }: { item: AnnouncementCardDTO; zone: string;
         <div className="flex flex-wrap items-center gap-2 text-meta text-fg-muted">
           {/* aria-label on a bare span is not announced; the state is real text (AUD-11 §5, AV-06). */}
           {unread ? <><span aria-hidden="true" className="size-2 rounded-full bg-accent" /><span className="sr-only">{t("list.unread")}</span></> : null}
-          <span className="font-medium uppercase tracking-[0.08em] text-fg-subtle" data-testid="announcement-scope">
+          <span className="font-medium font-mono uppercase tracking-[0.08em] text-fg-subtle" data-testid="announcement-scope">
             {item.audience.label}
           </span>
           <PriorityMark priority={item.priority} />

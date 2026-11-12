@@ -96,7 +96,7 @@ export function NotificationCenter({ initial, readState }: { initial: Notificati
         <div data-testid="notification-center-list">
           {sections.map((section) => (
             <section key={section.key} aria-label={sections.length > 1 ? section.label : undefined} data-testid={`notification-section-${section.key}`}>
-              {sections.length > 1 ? <h2 className="pb-1 pt-3 text-label font-semibold uppercase tracking-wider text-fg-subtle">{section.label}</h2> : null}
+              {sections.length > 1 ? <h2 className="pb-1 pt-3 text-label font-medium font-mono uppercase tracking-wider text-fg-subtle">{section.label}</h2> : null}
         <ul className="divide-y divide-line">
           {section.items.map((item) => {
             const unread = item.readState === "UNREAD";

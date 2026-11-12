@@ -63,7 +63,7 @@ export default async function DailyLogPrintPage({ params }: Params) {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 break-words">
           <p className="text-meta text-fg-muted">{company?.name}</p>
-          <h1 className="text-page font-semibold text-fg">{t("dailyLogs.heading", { project: log.project.name })}</h1>
+          <h1 className="text-page font-display text-fg">{t("dailyLogs.heading", { project: log.project.name })}</h1>
           <p className="text-body text-fg">{longDateLabel(log.workDate, locale)}</p>
           <p className="text-meta text-fg-muted">
             {joined(dailyLogsLabel(tl, "status", log.status, DAILY_LOG_STATUS_LABELS[log.status]), log.lateEntry && t("dailyLogs.lateEntry"), log.corrections.length > 0 && t("dailyLogs.corrected"), log.createdBy && t("dailyLogs.author", { name: log.createdBy.name }), log.reviewedBy && t("dailyLogs.reviewedBy", { name: log.reviewedBy.name }), log.lockedBy && t("dailyLogs.lockedBy", { name: log.lockedBy.name }))}

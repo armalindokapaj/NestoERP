@@ -41,7 +41,7 @@ export default async function HazardDocumentsPage({ params }: Params) {
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">{t("page.documentsOn", { number: hazard.hazardNumber })}</h1>
+      <h1 className="text-page font-display text-fg">{t("page.documentsOn", { number: hazard.hazardNumber })}</h1>
 
       <HseRecordDocuments context={context} entityType="hazard" entityId={hazard.id} />
     </div>

@@ -295,7 +295,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
           </div>
           {caps.canApplyTemplate ? (
             <div className="mt-6">
-              <p className="text-meta font-medium uppercase tracking-wide text-fg-subtle">{t("planning.applyTemplateHeading")}</p>
+              <p className="text-meta font-medium font-mono uppercase tracking-wide text-fg-subtle">{t("planning.applyTemplateHeading")}</p>
               <ul className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {PLANNING_TEMPLATES.map((entry) => (
                   <li key={entry.key}>
@@ -455,7 +455,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                                 <OwnerName owner={milestone.owner} plain />
                               </span>
                             </span>
-                            {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium uppercase text-fg-muted">{t("planning.critical")}</span> : null}
+                            {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium font-mono uppercase text-fg-muted">{t("planning.critical")}</span> : null}
                             <MilestoneStatusBadge status={milestone.status} delayed={milestone.delayed} />
                           </button>
                         </li>

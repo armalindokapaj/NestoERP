@@ -264,7 +264,7 @@ export function MyWorkView({ tab, query, initial, favoritesEnabled, recentEnable
               </Button>
             </div>
           ) : null}
-          <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_7rem_2.25rem] gap-3 border-b border-line px-4 py-2 text-micro font-semibold uppercase tracking-[0.08em] text-fg-subtle md:grid" aria-hidden="true">
+          <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_7rem_2.25rem] gap-3 border-b border-line px-4 py-2 text-micro font-medium font-mono uppercase tracking-[0.08em] text-fg-subtle md:grid" aria-hidden="true">
             <span>{t("myWork.record")}</span>
             <span>{t("myWork.company")}</span>
             <span>{t("myWork.module")}</span>

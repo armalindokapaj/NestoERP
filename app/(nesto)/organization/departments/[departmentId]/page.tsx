@@ -90,7 +90,7 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-page font-semibold text-fg">{department.name}</h1>
+            <h1 className="text-page font-display text-fg">{department.name}</h1>
             <Badge tone="neutral">{department.code}</Badge>
             <StatusBadge status={department.status} />
           </div>

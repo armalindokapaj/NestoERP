@@ -556,7 +556,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
             </Link>{" "}
             · {t("workspace.dailyLog")}
           </p>
-          <h1 className="text-page font-semibold text-fg" data-testid="daily-log-date">
+          <h1 className="text-page font-display text-fg" data-testid="daily-log-date">
             {longDateLabel(log.workDate, locale)}
           </h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -695,7 +695,7 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
               <ul className="divide-y divide-line">
                 {log.records.map((record) => (
                   <li key={record.linkId} className="flex items-center gap-3 py-2.5" data-testid="linked-record">
-                    <span className="rounded bg-hover px-1.5 py-0.5 text-micro font-medium uppercase text-fg-muted">{record.domain === "hse" ? "HSE" : "QA/QC"}</span>
+                    <span className="rounded bg-hover px-1.5 py-0.5 text-micro font-medium font-mono uppercase text-fg-muted">{record.domain === "hse" ? "HSE" : "QA/QC"}</span>
                     <span className="min-w-0 flex-1 text-table text-fg">
                       {record.href ? (
                         <Link href={record.href} className="font-medium hover:text-accent-strong">

@@ -40,7 +40,7 @@ export async function GroupAgingReport({ context }: { context: UserContext }) {
       <ScrollRegion label={t("reports.agingByCompany")} className="nesto-card">
         <table className="w-full text-table" data-sticky-first="">
           <caption className="sr-only">{t("reports.agingByCompany")}</caption>
-          <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
+          <thead className="border-b border-line text-meta font-mono uppercase tracking-wide text-fg-subtle">
             <tr>
               <th scope="col" className="px-4 py-2.5 text-left font-medium">
                 {t("group.company")}
@@ -146,7 +146,7 @@ export async function GroupBudgetReport({ context }: { context: UserContext }) {
       <ScrollRegion label={t("reports.budgetTotals")} className="nesto-card">
         <table className="w-full text-table" data-sticky-first="">
           <caption className="sr-only">{t("reports.budgetTotals")}</caption>
-          <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
+          <thead className="border-b border-line text-meta font-mono uppercase tracking-wide text-fg-subtle">
             <tr>
               <th scope="col" className="px-4 py-2.5 text-left font-medium">
                 {t("reports.allCompanies")}
@@ -265,7 +265,7 @@ export async function GroupCashflowReport({ context, period }: { context: UserCo
         <ScrollRegion label={t("reports.cashflowByCompany")} className="nesto-card">
           <table className="w-full text-table" data-sticky-first="">
             <caption className="sr-only">{t("reports.cashflowByCompany")}</caption>
-            <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
+            <thead className="border-b border-line text-meta font-mono uppercase tracking-wide text-fg-subtle">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium">
                   {t("group.company")}

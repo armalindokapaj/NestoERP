@@ -48,7 +48,7 @@ export default async function EditHseActionPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: action.actionNumber })}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.editNumber", { number: action.actionNumber })}</h1>
       </div>
 
       <ActionForm

@@ -48,7 +48,7 @@ export default async function ContractorLayout({ children, params }: Props) {
         <Breadcrumbs items={[{ label: t("meta.contractors"), href: "/contractors" }, { label: contractor.legalName }]} />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-page font-semibold tracking-tight text-fg">{contractor.legalName}</h1>
+            <h1 className="text-page font-display text-fg">{contractor.legalName}</h1>
             <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2 text-table text-fg-muted">
               <ReviewBadge status={contractor.status} label={contractorsLabel(t, "contractorStatus", contractor.status, CONTRACTOR_STATUS_LABELS[contractor.status])} testId="contractor-status" />
               <span data-testid="contractor-counts">

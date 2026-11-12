@@ -59,8 +59,7 @@ function projectProgress(planning: Awaited<ReturnType<typeof projectPlanningSumm
 function ExperienceTile({ href, title, detail, icon, large = false, newTab = false }: { href: string; title: string; detail?: string; icon: ReactNode; large?: boolean; newTab?: boolean }) {
   return (
     <Link href={href} target={newTab ? "_blank" : undefined} rel={newTab ? "noopener noreferrer" : undefined} className={`group relative flex min-h-36 overflow-hidden bg-neutral-900 p-6 text-white outline-none transition hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${large ? "sm:col-span-2 lg:min-h-56" : ""}`}>
-      <div className="absolute -right-10 -top-12 size-40 rounded-full bg-white/[0.06] transition-transform duration-300 group-hover:scale-110" aria-hidden="true" />
-      <div className="relative mt-auto"><span className="mb-4 grid size-10 place-items-center border border-white/15 bg-white/10">{icon}</span><span className="block text-lg font-semibold">{title}</span>{detail ? <span className="mt-1 block text-sm text-white/55">{detail}</span> : null}</div>
+      <div className="relative mt-auto"><span className="mb-4 grid size-10 place-items-center border border-white/15 bg-white/10">{icon}</span><span className="block text-card font-semibold">{title}</span>{detail ? <span className="mt-1 block text-table text-white/55">{detail}</span> : null}</div>
     </Link>
   );
 }
@@ -138,7 +137,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
         <MobileOverview projectId={project.id} progress={progress} summary={mobileSummary} myWork={myWork} quickActions={quickActions} threeD={threeD} />
       </Suspense>
 
-      <section className="overflow-hidden rounded-3xl border border-line bg-surface shadow-sm max-sm:hidden lg:flex" aria-labelledby="project-title" data-section="primary">
+      <section className="overflow-hidden border border-line bg-surface max-sm:hidden lg:flex" aria-labelledby="project-title" data-section="primary">
         <div className="relative min-h-[430px] flex-1 overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-neutral-950 lg:min-h-[500px]">
           <Suspense fallback={null}>
             <HeroCover project={project} media={media} />
@@ -147,7 +146,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
           <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
             {/* Below lg the project's compact header above names it (code, company, status): the hero does not name it again; its heading stays for screen readers. */}
             {/* From lg the project's ⋯ follows the status on this line (one copy mounted at a time: components/projects/project-actions.tsx). The hero is drawn at every width from lg, archived or without media too, so the menu is always reachable there. */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65 max-lg:hidden" data-testid="project-hero-status-line">
+            <div className="flex flex-wrap items-center gap-2 text-micro font-medium font-mono uppercase tracking-[0.16em] text-white/65 max-lg:hidden" data-testid="project-hero-status-line">
               <span>{project.code}</span>
               <span aria-hidden="true">·</span>
               <span data-testid="project-hero-status">{t(`status.${project.status}`)}</span>
@@ -170,9 +169,9 @@ export default async function ProjectOverviewPage({ params }: Params) {
                 />
               </span>
             </div>
-            <h1 id="project-title" className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.025em] max-lg:sr-only sm:text-4xl">{project.name}</h1>
-            <p className="mt-2 text-sm font-medium text-white/70 max-lg:hidden">{project.company.name}</p>
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70 max-lg:mt-0"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{projectTypeName(project.projectType.name, locale)}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
+            <h1 id="project-title" className="mt-3 max-w-3xl font-display text-[2.5rem] font-medium leading-[0.96] tracking-(--nesto-tracking-display) max-lg:sr-only sm:text-[3rem]">{project.name}</h1>
+            <p className="mt-2 text-table font-medium text-white/70 max-lg:hidden">{project.company.name}</p>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-table text-white/70 max-lg:mt-0"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />{orDash([project.location.city, project.location.country].filter(Boolean).join(", "))}</span>{project.projectType ? <span>{projectTypeName(project.projectType.name, locale)}</span> : null}<Suspense fallback={null}><ProgressText progress={progress} /></Suspense></div>
             <div className="mt-4 h-1.5 max-w-md">
               <Suspense fallback={null}>
                 <ProgressBar progress={progress} />
@@ -187,7 +186,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
 
       <section className="nesto-card p-5 sm:p-6" aria-labelledby="summary-title">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,2fr)]">
-          <div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("overview.project")}</p><h2 id="summary-title" className="mt-1 nesto-section-head">{t("overview.summary")}</h2>{project.description ? <p className="mt-3 line-clamp-5 max-w-2xl text-body leading-6 text-fg-muted">{project.description}</p> : <p className="mt-3 text-body text-fg-subtle">{t("overview.noDescription")}</p>}</div>
+          <div><p className="text-meta font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{t("overview.project")}</p><h2 id="summary-title" className="mt-1 nesto-section-head">{t("overview.summary")}</h2>{project.description ? <p className="mt-3 line-clamp-5 max-w-2xl text-body leading-6 text-fg-muted">{project.description}</p> : <p className="mt-3 text-body text-fg-subtle">{t("overview.noDescription")}</p>}</div>
           <dl className="grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
             <Summary label={t("overview.projectManager")} value={project.projectManager ? <span className="flex flex-wrap items-center gap-2"><PersonLink memberId={project.projectManager.memberId} name={project.projectManager.fullName} />{!project.projectManager.membershipActive ? <Badge tone="warning">{t("overview.inactive")}</Badge> : null}</span> : t("overview.unassigned")} />
             <Summary label={t("overview.expectedCompletion")} value={project.schedule.endDate ? formatDate(project.schedule.endDate, locale) : t("overview.notSet")} />
@@ -318,8 +317,8 @@ async function MediaLibrary({ projectId, media }: { projectId: string; media: Me
   const t = await getTranslations("projects");
   return (
     <section className="space-y-4" aria-labelledby="media-title">
-      <div className="flex items-end justify-between gap-3"><div><p className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("overview.visualLibrary")}</p><h2 id="media-title" className="mt-1 nesto-section-head">{t("overview.projectMedia")}</h2></div><Link href={`/projects/${projectId}/media`} className="text-table font-medium text-accent-strong hover:underline">{t("overview.viewAllMedia")}</Link></div>
-      {library.renders.length ? <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{library.renders.slice(0, 4).map((item, index) => <Link key={item.id} href={`/projects/${projectId}/media?type=renders`} className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-accent">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" /> : null}{index === 3 && library.renders.length > 4 ? <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-semibold text-white">+{library.renders.length - 4}</span> : null}<span className="sr-only">{t("overview.open", { title: item.title })}</span></Link>)}</div> : null}
+      <div className="flex items-end justify-between gap-3"><div><p className="text-meta font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{t("overview.visualLibrary")}</p><h2 id="media-title" className="mt-1 nesto-section-head">{t("overview.projectMedia")}</h2></div><Link href={`/projects/${projectId}/media`} className="text-table font-medium text-accent-strong hover:underline">{t("overview.viewAllMedia")}</Link></div>
+      {library.renders.length ? <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{library.renders.slice(0, 4).map((item, index) => <Link key={item.id} href={`/projects/${projectId}/media?type=renders`} className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-muted outline-none focus-visible:ring-2 focus-visible:ring-accent">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={item.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" /> : null}{index === 3 && library.renders.length > 4 ? <span className="absolute inset-0 grid place-items-center bg-black/55 text-card font-semibold text-white">+{library.renders.length - 4}</span> : null}<span className="sr-only">{t("overview.open", { title: item.title })}</span></Link>)}</div> : null}
       {library.animations.length ? <div className="grid gap-3 sm:grid-cols-2">{library.animations.slice(0, 2).map((item) => <Link key={item.id} href={`/projects/${projectId}/media?type=animations`} className="group flex items-center gap-4 overflow-hidden rounded-xl border border-line bg-surface p-3 outline-none hover:border-line-strong focus-visible:ring-2 focus-visible:ring-accent"><span className="relative grid aspect-video w-32 shrink-0 place-items-center overflow-hidden rounded-lg bg-neutral-900">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-80" /> : null}<span className="relative grid size-9 place-items-center bg-black/60 text-white"><Play className="ml-0.5 size-4 fill-current" /></span></span><span className="min-w-0"><span className="block truncate font-medium text-fg">{item.title}</span><span className="mt-1 block text-meta text-fg-muted">{t("overview.animation")}{item.durationSeconds ? ` · ${Math.floor(item.durationSeconds / 60)}:${String(item.durationSeconds % 60).padStart(2, "0")}` : ""}</span></span></Link>)}</div> : null}
     </section>
   );

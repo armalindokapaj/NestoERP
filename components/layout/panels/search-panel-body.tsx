@@ -212,7 +212,7 @@ export function SearchPanelBody({ query, state, shortcuts, homeFailed, listId, a
             .filter((group) => group.rows.length)
             .map((group) => (
               <div key={group.key} role="group" aria-label={group.label} className="mb-1" data-testid={`palette-${group.key}`}>
-                <p className="px-2 pb-1 pt-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{group.label}</p>
+                <p className="px-2 pb-1 pt-2 text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{group.label}</p>
                 {group.rows.map((option) => {
                   index += 1;
                   const position = index;

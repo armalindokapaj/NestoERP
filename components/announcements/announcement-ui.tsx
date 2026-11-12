@@ -30,7 +30,7 @@ export function formatDayTime(iso: string | null, zone: string, locale: Locale):
 export function PriorityMark({ priority, className }: { priority: AnnouncementPriority; className?: string }) {
   if (priority === "NORMAL") return null;
   return (
-    <Badge tone={priority === "CRITICAL" ? "danger" : "warning"} className={cn("uppercase tracking-wide", className)} data-testid="announcement-priority">
+    <Badge tone={priority === "CRITICAL" ? "danger" : "warning"} className={cn("font-mono uppercase tracking-wide", className)} data-testid="announcement-priority">
       <AnnouncementsLabel group="priority" value={priority} fallback={PRIORITY_LABELS[priority]} />
     </Badge>
   );

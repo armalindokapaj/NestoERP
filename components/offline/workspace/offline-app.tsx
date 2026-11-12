@@ -47,7 +47,7 @@ export function OfflineApp() {
               <CloudOff className="size-5 shrink-0 text-fg-muted" aria-hidden />
             )}
             <div className="min-w-0">
-              <h1 className="truncate text-h2 font-semibold">{t("app.title")}</h1>
+              <h1 className="truncate text-h2 font-display">{t("app.title")}</h1>
               <p className="truncate text-micro text-fg-muted">{t("app.subtitle")}</p>
             </div>
           </div>

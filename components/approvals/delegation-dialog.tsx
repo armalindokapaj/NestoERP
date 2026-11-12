@@ -280,7 +280,7 @@ function DelegationList({
   const word = useApprovalsWord();
   return (
     <section>
-      <h3 className="text-micro font-semibold uppercase tracking-[0.12em] text-fg-subtle">{title}</h3>
+      <h3 className="text-micro font-medium font-mono uppercase tracking-[0.12em] text-fg-subtle">{title}</h3>
       {rows.length === 0 ? (
         <p className="mt-2 text-table text-fg-subtle">{empty}</p>
       ) : (

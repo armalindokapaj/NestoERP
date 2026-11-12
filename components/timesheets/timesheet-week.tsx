@@ -317,7 +317,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
                 <h3 className="nesto-section-head">
                   {label.weekday} <span className="font-normal text-fg-muted">{label.day}</span>
                 </h3>
-                {day.date === week.today ? <span className="text-micro font-medium uppercase tracking-wide text-accent-strong">{t("week.today")}</span> : null}
+                {day.date === week.today ? <span className="text-micro font-medium font-mono uppercase tracking-wide text-accent-strong">{t("week.today")}</span> : null}
                 {day.leave ? <span className="text-meta text-info-strong">{day.leave.label}</span> : null}
                 <span className="flex-1" />
                 <span className="text-body font-semibold tabular-nums text-fg">{day.totalMinutes ? formatMinutes(day.totalMinutes) : "–"}</span>

@@ -49,7 +49,7 @@ export function NotificationPreferences({ initial }: { initial: CategoryPreferen
     <ScrollRegion label={t("sections.notifications.label")}>
       <table className="w-full text-left sm:min-w-[40rem]">
         <thead>
-          <tr className="border-b border-line text-micro font-semibold uppercase tracking-wide text-fg-subtle">
+          <tr className="border-b border-line text-micro font-medium font-mono uppercase tracking-wide text-fg-subtle">
             <th scope="col" className="py-2 pr-4">{t("notifications.category")}</th>
             <th scope="col" className="w-16 px-1 py-2 text-center sm:w-28 sm:px-2">{t("notifications.inApp")}</th>
             <th scope="col" className="w-16 px-1 py-2 text-center sm:w-28 sm:px-2">{t("notifications.push")}</th>

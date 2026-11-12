@@ -25,7 +25,7 @@ export default async function DeviceUnavailablePage({ searchParams }: Params) {
       <div className="flex max-w-sm flex-col items-stretch gap-3 text-center">
         {/* Version 2: the mark every system page opens with, and the same heading step (UI-02 §7.5). */}
         <NestoLogo className="mb-5 hidden self-center" />
-        <h1 className="text-lg font-semibold text-fg">{title}</h1>
+        <h1 className="text-card font-display text-fg">{title}</h1>
         <p className="text-table text-fg-muted">{body}</p>
         <DeviceUnavailableActions update={kind === "update"} />
       </div>

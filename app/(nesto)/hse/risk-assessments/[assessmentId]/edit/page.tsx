@@ -52,7 +52,7 @@ export default async function EditRiskAssessmentPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">
+        <h1 className="text-page font-display text-fg">
           {may.canEdit
             ? t("page.editNumber", { number: assessment.assessmentNumber })
             : t("page.newVersionOf", { number: assessment.assessmentNumber })}

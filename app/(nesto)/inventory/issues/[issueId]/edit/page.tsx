@@ -64,7 +64,7 @@ export default async function EditIssuePage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.editIssue")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.editIssue")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{record.issueNumber}</p>
       </div>
 

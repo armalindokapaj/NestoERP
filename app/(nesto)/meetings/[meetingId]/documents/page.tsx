@@ -25,7 +25,7 @@ export default async function MeetingDocumentsPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs items={[{ label: t("common.meetings"), href: "/meetings" }, { label: meeting.title, href: `/meetings/${meeting.id}` }, { label: t("documents.title") }]} />
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-page font-semibold text-fg">{meeting.title}</h1>
+        <h1 className="text-page font-display text-fg">{meeting.title}</h1>
         <Link href={`/meetings/${meeting.id}`} className="text-table font-medium text-accent-strong">
           {t("common.backToMeeting")}
         </Link>

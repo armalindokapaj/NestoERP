@@ -48,7 +48,7 @@ export default async function IncidentActivityPage({ params, searchParams }: Par
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">{t("page.activityOn", { number: incident.incidentNumber })}</h1>
+      <h1 className="text-page font-display text-fg">{t("page.activityOn", { number: incident.incidentNumber })}</h1>
 
       <HseActivityFeed
         context={context}

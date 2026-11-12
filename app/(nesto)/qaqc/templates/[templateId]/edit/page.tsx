@@ -57,7 +57,7 @@ export default async function EditTemplatePage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">
+        <h1 className="text-page font-display text-fg">
           {template.usageCount > 0 ? t("templatePage.newVersionTitle") : t("meta.editTemplate")}
         </h1>
         <p className="mt-1.5 text-body text-fg-muted">{template.name}</p>

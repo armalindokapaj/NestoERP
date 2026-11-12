@@ -206,7 +206,7 @@ function RowMain({
     <span className="min-w-0 flex-1">
       <span className={lead ? "flex flex-wrap items-center gap-x-2 gap-y-1" : "flex items-center gap-2"}>
         {lead}
-        <span className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{word(item.sourceLabel)}</span>
+        <span className="text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{word(item.sourceLabel)}</span>
         {item.totalSteps ? (
           <span className="text-micro text-fg-subtle">
             · {t("list.step", { current: item.currentStep ?? "", total: item.totalSteps })}

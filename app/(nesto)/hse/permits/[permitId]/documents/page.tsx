@@ -41,7 +41,7 @@ export default async function PermitDocumentsPage({ params }: Params) {
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">{t("page.documentsOn", { number: permit.permitNumber })}</h1>
+      <h1 className="text-page font-display text-fg">{t("page.documentsOn", { number: permit.permitNumber })}</h1>
 
       <HseRecordDocuments context={context} entityType="work_permit" entityId={permit.id} />
     </div>

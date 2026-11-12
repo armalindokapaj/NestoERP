@@ -57,7 +57,7 @@ export default async function InvoiceDetailPage({ params }: Params) {
           <ScrollRegion label={t("invoices.lineItems")} className="mt-4">
             <table className="w-full min-w-[32rem] text-table" data-stack="" data-flush="">
               <caption className="sr-only">{t("invoices.lineItems")}</caption>
-              <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
+              <thead className="border-b border-line text-meta font-mono uppercase tracking-wide text-fg-subtle">
                 <tr>
                   <th scope="col" className="py-2 text-left font-medium">
                     {t("lines.description")}

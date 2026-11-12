@@ -41,7 +41,7 @@ export default async function IncidentDocumentsPage({ params }: Params) {
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">
+      <h1 className="text-page font-display text-fg">
         {t("page.documentsOn", { number: incident.incidentNumber })}
       </h1>
 

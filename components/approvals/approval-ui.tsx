@@ -75,7 +75,7 @@ export function PriorityBadge({ priority }: { priority: ApprovalPriority }) {
   const t = useApprovalsTranslations();
   if (priority !== "HIGH" && priority !== "CRITICAL") return null;
   return (
-    <Badge tone={priority === "CRITICAL" ? "danger" : "warning"} className="uppercase tracking-[0.06em]">
+    <Badge tone={priority === "CRITICAL" ? "danger" : "warning"} className="font-mono uppercase tracking-[0.06em]">
       {t(`priority.${priority}`)}
     </Badge>
   );

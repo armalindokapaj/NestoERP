@@ -57,7 +57,7 @@ export default async function EditRfqPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.editRfq")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.editRfq")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {rfq.rfqNumber} — {rfq.title}
         </p>

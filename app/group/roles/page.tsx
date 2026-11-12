@@ -23,7 +23,7 @@ export default async function GroupRolesPage() {
   return (
     <section className="nesto-card overflow-hidden" aria-label={t("roles.title")}>
       <div className="border-b border-line px-5 py-3.5">
-        <h1 className="text-card font-semibold text-fg">{t("roles.title")}</h1>
+        <h1 className="text-card font-display text-fg">{t("roles.title")}</h1>
         <p className="text-table text-fg-muted">{t("roles.description", { name: context.groupName })}</p>
       </div>
       <div className="overflow-x-auto">

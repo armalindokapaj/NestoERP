@@ -52,7 +52,7 @@ export default async function EditAmendmentPage({ params }: Params) {
       <Breadcrumbs items={contractBreadcrumbs(contract, t("crumbs.amendmentEdit", { number: amendment.amendmentNumber }), t)} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.editAmendment")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.editAmendment")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {contract.contractNumber} — {amendment.amendmentNumber}
         </p>

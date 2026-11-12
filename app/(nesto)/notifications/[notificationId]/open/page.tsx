@@ -53,7 +53,7 @@ export default async function OpenNotificationPage({ params }: Params) {
     <div className="mx-auto max-w-lg py-10">
       <section className="nesto-card p-8 text-center" data-testid="notification-unavailable">
         <ShieldQuestion aria-hidden="true" className="mx-auto size-8 text-fg-subtle" />
-        <h1 className="mt-4 text-section font-semibold text-fg">{t("unavailableTitle")}</h1>
+        <h1 className="mt-4 text-section font-display text-fg">{t("unavailableTitle")}</h1>
         <p className="mt-2 text-body text-fg-muted">{t("unavailableBody")}</p>
         <Link href="/activity" className="mt-6 inline-flex text-table font-medium text-accent-strong hover:underline">
           {t("back")}

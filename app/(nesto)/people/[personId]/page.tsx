@@ -123,7 +123,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
         <Avatar firstName={profile.initials.firstName} lastName={profile.initials.lastName} src={profile.photoUrl} size="xl" />
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-page font-semibold text-fg">{profile.name}</h1>
+            <h1 className="text-page font-display text-fg">{profile.name}</h1>
             <Badge tone={status.tone}>{peopleLabel(t, "workStatus", profile.status, status.label)}</Badge>
             {profile.capabilities.isSelf ? <Badge tone="info">{t("profile.you")}</Badge> : null}
           </div>

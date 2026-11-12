@@ -35,7 +35,7 @@ export default async function NewInspectionPage() {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.newSafetyInspection")}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.newSafetyInspection")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {t("page.inspectionIntro")}
         </p>

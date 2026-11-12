@@ -62,7 +62,7 @@ export async function ProjectMobileOverview({
 
       {quickActions.length ? (
         <section aria-labelledby="pm-actions">
-          <h2 id="pm-actions" className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("mobile.quickActions")}</h2>
+          <h2 id="pm-actions" className="text-meta font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{t("mobile.quickActions")}</h2>
           <ul className="mt-2 grid grid-cols-2 gap-2" data-testid="project-quick-actions">
             {quickActions.map((action) => {
               const Icon = ACTION_ICONS[action.key];
@@ -99,7 +99,7 @@ export async function ProjectMobileOverview({
 
       {metrics.length ? (
         <section aria-labelledby="pm-metrics">
-          <h2 id="pm-metrics" className="text-meta font-semibold uppercase tracking-[0.14em] text-fg-subtle">{t("mobile.metricsTitle")}</h2>
+          <h2 id="pm-metrics" className="text-meta font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{t("mobile.metricsTitle")}</h2>
           <dl className="mt-2 grid grid-cols-3 gap-2" data-testid="project-metrics">
             {metrics.map((metric) => (
               <div key={metric.key} className="rounded-xl border border-line bg-surface p-3">

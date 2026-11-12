@@ -51,7 +51,7 @@ export default async function ExecuteInspectionPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{inspection.inspectionNumber}</h1>
+        <h1 className="text-page font-display text-fg">{inspection.inspectionNumber}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {inspection.locationText
             ? `${inspection.locationText} · `

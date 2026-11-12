@@ -135,7 +135,7 @@ async function ProjectsFrame({ session, description, children }: { session: User
       <div className="min-w-0">
         {/* "What is this?" is an item of the ⋯ at the end of the title's line, at every width (components/navigation/page-menu.tsx). */}
         <div className="flex items-start gap-2">
-          <h1 className="min-w-0 flex-1 text-page font-semibold text-fg">{t("meta.projects")}</h1>
+          <h1 className="min-w-0 flex-1 text-page font-display text-fg">{t("meta.projects")}</h1>
           <PageMenuSlot />
         </div>
         {description === null ? null : <p className="mt-1.5 text-body text-fg-muted">{description}</p>}

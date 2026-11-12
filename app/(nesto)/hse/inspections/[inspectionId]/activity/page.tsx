@@ -48,7 +48,7 @@ export default async function InspectionActivityPage({ params, searchParams }: P
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">
+      <h1 className="text-page font-display text-fg">
         {t("page.activityOn", { number: inspection.inspectionNumber })}
       </h1>
 

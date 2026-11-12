@@ -166,7 +166,7 @@ export function TimeGridView({
           const isToday = day === today;
           return (
             <div key={day} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 border-l border-line px-2 py-2">
-              <span className="text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">
+              <span className="text-meta font-medium font-mono uppercase tracking-[0.08em] text-fg-subtle">
                 {dateText(noon, { timeZone: zone, weekday: "short" }, words.locale)}
               </span>
               <span

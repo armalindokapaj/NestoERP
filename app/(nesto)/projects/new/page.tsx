@@ -122,7 +122,7 @@ async function Header({ description }: { description: string }) {
   return (
     <div>
       <Breadcrumbs items={[{ label: t("meta.projects"), href: "/projects" }, { label: t("pages.newProject") }]} />
-      <h1 className="mt-3 text-page font-semibold text-fg">{t("pages.newProject")}</h1>
+      <h1 className="mt-3 text-page font-display text-fg">{t("pages.newProject")}</h1>
       <p className="mt-1.5 text-body text-fg-muted">{description}</p>
     </div>
   );

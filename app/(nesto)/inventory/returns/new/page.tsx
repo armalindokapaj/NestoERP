@@ -44,7 +44,7 @@ export default async function NewReturnPage() {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.newReturn")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.newReturn")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{t("newPage.returns")}</p>
       </div>
 

@@ -50,7 +50,7 @@ export default async function EditInspectionPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: inspection.inspectionNumber })}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.editNumber", { number: inspection.inspectionNumber })}</h1>
       </div>
 
       <InspectionForm

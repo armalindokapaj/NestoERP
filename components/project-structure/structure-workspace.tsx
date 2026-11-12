@@ -714,7 +714,7 @@ export function StructureWorkspace({
           <aside className="hidden lg:block" aria-label={t("workspace.treeLabel")}>
             <div className="nesto-card sticky top-4 max-h-[calc(100dvh-2rem)] overflow-y-auto p-2">
               <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1">
-                <h2 className="text-meta font-semibold uppercase tracking-[0.08em] text-fg-subtle">{t("workspace.structure")}</h2>
+                <h2 className="text-meta font-medium font-mono uppercase tracking-[0.08em] text-fg-subtle">{t("workspace.structure")}</h2>
                 {caps.canCreateBuilding ? (
                   <Button variant="ghost" size="icon-sm" aria-label={t("workspace.addBuilding")} onClick={() => setDialog({ kind: "building" })}>
                     <Plus />

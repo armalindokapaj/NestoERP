@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/ui/UI-07-unified-design.md
 > **About:** Bringing every module and page, on desktop and phone, to the one design of My Day, the dashboard and the public site — the rules decided with the owner, what each wave changed, and what is left — for whoever builds or reviews a page next.
-> **Last updated:** 2026-11-12 (wave 1: the shared building blocks)
+> **Last updated:** 2026-11-12 (wave 2: the app-wide sweep — shared lines, mono labels, display titles)
 
 # UI-07 — One design across the app
 
@@ -25,15 +25,22 @@ page is how every page is brought to it, in waves, each merged to main.
   radii are square wherever they are used. `rounded-full` is the one round
   class, and only on avatars, dots and the dial. Don't add a radius.
 - **Panels.** `.nesto-card` is a surface inside a 1px line with no shadow
-  (`--nesto-shadow-card: none`). Where two panels sit side by side or one
-  above the other, they share a line rather than standing apart: no gap, the
-  second pulled over the first's border (`-mb-px`, `-mr-px`), or a lined
-  list (`components/ui/lined.tsx`).
+  (`--nesto-shadow-card: none`). Panels laid out together share their lines
+  on their own: any grid, row or stack (`.grid`, `.flex`, `space-y-*`) whose
+  children are all `.nesto-card` loses its gap and pulls each card 1px over
+  its neighbour (the last rule in `styles/globals.css`). Put anything else in
+  the container — a heading, a button — and it keeps its gaps, so a section's
+  head goes outside the grid of its panels. For rows of records, a lined list
+  (`components/ui/lined.tsx`).
 - **A section's head** is `nesto-section-head` (`styles/globals.css`): mono
   capitals, 12px, wide spacing — as My Day's `LineCaption`. A record's name
   in a card keeps the ordinary face.
-- **Page titles** stay as they are: the display face, the gold square, the
-  ink rule (`components/ui/page-header.tsx`).
+- **Page titles** are in the display face everywhere: a module's or a
+  page's ends on the gold square over the ink rule
+  (`components/ui/page-header.tsx`); a form's or a record's title (New
+  purchase order, Edit hazard) is the display face alone.
+- **Capital labels** — eyebrows, captions, small headings in capitals — are
+  always the mono face, medium weight; never bold capitals in the body face.
 - **Tables** were already in the design: mono column labels over an ink line.
 - **Overlays** — menus, popovers, the select's list, dialogs, sheets — are
   square and keep their shadow, because they float.
@@ -46,15 +53,13 @@ in this design; its "Page and panels" entry is a module page's parts.
 | Wave | Scope | State |
 | --- | --- | --- |
 | 1 | The shared pieces: tokens, cards, section heads, inputs, selects, checkboxes, switches, tabs, badges and chips, empty and error states, skeletons, dialogs, sheets, menus, popovers, tooltips, progress bars — which already changes every page | Done 2026-11-12 |
-| 2 | Projects and everything inside a project | Next |
-| 3 | Sales, clients, contracts, finance | |
-| 4 | Procurement, inventory, HR, workforce, timesheets | |
-| 5 | Settings, organization, people, the admin console, help and the rest; a last sweep | |
+| 2 | Every module at once, by rule rather than page by page: panels share their lines, every capital label is mono, every page title is in the display face, the project cards and the project page lose their lift, blob and shadows | Done 2026-11-12 |
+| 3 | Page by page: what a rule cannot see — a page whose layout mixes panels with headings or buttons in one grid, a hero, a picture frame — from the owner's list of pages that still look off, checked at 390px and 1280px in Day and Night | Open |
 
-Each module wave turns the module's grids of separate cards into shared-line
-grids, removes the page-specific leftovers (hero blobs, lifted shadows,
-rounded photo frames) and checks the page at 390px and 1280px in Day and
-Night.
+Wave 2 replaced the module-by-module waves planned at first: the same few
+rules reached every module, so going module by module would only have
+repeated them. What is left needs the pages with their real data in front of
+someone, which this environment cannot render (no database).
 
 ### Wave 1, in numbers
 
@@ -63,6 +68,16 @@ Night.
 - The fixed corner values of the inputs, selects, checkboxes, menus,
   popovers, dialogs, drawers and sheets removed; the phone's sheets and the
   touch layouts' popups square too; the search panel's glass square.
+
+### Wave 2, in numbers
+
+- One rule lines every grid, row and stack made only of panels, across all
+  modules.
+- 66 capital labels moved to the mono face; 124 page titles to the display
+  face.
+- The project cards are lined plates (no lift, no shadow); the project
+  page's hero loses its decorative circle and shadow, its title in the
+  display face.
 
 ## 4. Not in scope
 

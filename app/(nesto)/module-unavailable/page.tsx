@@ -26,7 +26,7 @@ export default async function ModuleUnavailablePage() {
         <div className="mx-auto mb-4 grid size-11 place-items-center border border-line bg-surface text-fg-subtle">
           <ToggleRight className="size-5" />
         </div>
-        <h1 className="text-section font-semibold text-fg">{t("moduleUnavailable.title")}</h1>
+        <h1 className="text-section font-display text-fg">{t("moduleUnavailable.title")}</h1>
         <p className="mt-2 text-body text-fg-muted">{t("moduleUnavailable.description")}</p>
         <Button asChild className="mt-6">
           <Link href="/dashboard">{t("returnToDashboard")}</Link>

@@ -17,7 +17,7 @@ export default async function GroupAccountPage() {
   return (
     <div className="max-w-3xl space-y-5">
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("account.title")}</h1>
+        <h1 className="text-page font-display text-fg">{t("account.title")}</h1>
         <p className="mt-1 text-body text-fg-muted">{context.fullName} · <span className="font-mono text-meta">{context.username}</span></p>
       </div>
       <section className="nesto-card p-6" aria-labelledby="password-title">

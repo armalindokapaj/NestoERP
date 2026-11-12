@@ -34,7 +34,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("title")}</h1>
+        <h1 className="text-page font-display text-fg">{t("title")}</h1>
         <p className="mt-1 text-body text-fg-muted">{t("description")}</p>
       </div>
 

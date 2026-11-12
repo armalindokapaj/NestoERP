@@ -177,7 +177,7 @@ async function AgingReport({ context }: { context: UserContext }) {
       <ScrollRegion label={t("reports.tab.aging")} className="nesto-card">
         <table className="w-full text-table" data-sticky-first="">
           <caption className="sr-only">{t("reports.tab.aging")}</caption>
-          <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
+          <thead className="border-b border-line text-meta font-mono uppercase tracking-wide text-fg-subtle">
             <tr>
               <th scope="col" className="px-4 py-2.5 text-left font-medium">
                 {t("form.currency")}
@@ -399,7 +399,7 @@ async function CashflowReport({
         <ScrollRegion label={t("reports.cashflowSummary")} className="nesto-card">
           <table className="w-full text-table" data-sticky-first="">
             <caption className="sr-only">{t("reports.cashflowSummary")}</caption>
-            <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
+            <thead className="border-b border-line text-meta font-mono uppercase tracking-wide text-fg-subtle">
               <tr>
                 <th scope="col" className="px-4 py-2.5 text-left font-medium">
                   {t("form.currency")}

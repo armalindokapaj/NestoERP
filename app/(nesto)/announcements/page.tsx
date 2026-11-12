@@ -73,7 +73,7 @@ export default async function AnnouncementsPage({ searchParams }: Params) {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="max-lg:grow">
           <div className="flex items-start gap-2">
-            <h1 className="min-w-0 flex-1 text-page font-semibold tracking-tight text-fg">{t("page.title")}</h1>
+            <h1 className="min-w-0 flex-1 text-page font-display text-fg">{t("page.title")}</h1>
             <PageMenuSlot reserve />
           </div>
           <p className="mt-1.5 text-body text-fg-muted">{t("page.description")}</p>

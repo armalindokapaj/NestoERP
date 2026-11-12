@@ -119,14 +119,14 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
           {t("detail.back")}
         </Link>
         <div className="mt-6 flex flex-wrap items-center gap-2 text-meta text-fg-muted">
-          <span className="font-medium uppercase tracking-[0.1em] text-fg-subtle" data-testid="announcement-scope">
+          <span className="font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle" data-testid="announcement-scope">
             {item.audience.label}
           </span>
           <PriorityMark priority={item.priority} />
           {item.pinned ? <PinnedMark /> : null}
           {item.status !== "PUBLISHED" ? <AnnouncementStatusBadge status={item.status} /> : null}
         </div>
-        <h1 className="mt-3 text-page font-semibold leading-tight tracking-tight text-fg md:text-[34px]" data-testid="announcement-title">
+        <h1 className="mt-3 text-page font-display leading-tight text-fg md:text-[34px]" data-testid="announcement-title">
           {item.title}
         </h1>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-muted">
@@ -155,7 +155,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
         {item.documents && (item.documents.length || caps.canUploadDocuments) ? (
           <section className="mt-10" aria-labelledby="attachments-title">
             <div className="flex items-center justify-between">
-              <h2 id="attachments-title" className="text-meta font-medium uppercase tracking-[0.1em] text-fg-subtle">
+              <h2 id="attachments-title" className="text-meta font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">
                 {t("detail.attachments")}
               </h2>
               {caps.canUploadDocuments ? (
@@ -174,7 +174,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
                   <a href={`${document.href}?inline=1`} target="_blank" rel="noopener" className="flex items-center gap-3 px-4 py-3 text-table hover:bg-row-hover" data-testid="announcement-attachment">
                     <FileText aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
                     <span className="min-w-0 flex-1 truncate text-fg">{document.name}</span>
-                    {document.extension ? <span className="shrink-0 text-meta uppercase text-fg-subtle">{document.extension}</span> : null}
+                    {document.extension ? <span className="shrink-0 text-meta font-mono uppercase text-fg-subtle">{document.extension}</span> : null}
                   </a>
                 </li>
               ))}

@@ -56,7 +56,7 @@ export default async function EditItemPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.editItem")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.editItem")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{item.name}</p>
       </div>
 

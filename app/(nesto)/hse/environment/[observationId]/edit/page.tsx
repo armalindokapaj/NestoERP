@@ -48,7 +48,7 @@ export default async function EditObservationPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: observation.observationNumber })}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.editNumber", { number: observation.observationNumber })}</h1>
       </div>
 
       <ObservationForm

@@ -64,7 +64,7 @@ export default async function EditContractPage({ params }: Params) {
       <div className="space-y-5">
         <Breadcrumbs items={breadcrumbs} />
         <div>
-          <h1 className="text-page font-semibold text-fg">{t("meta.editContract")}</h1>
+          <h1 className="text-page font-display text-fg">{t("meta.editContract")}</h1>
           <p className="mt-1.5 text-body text-fg-muted">
             {contract.contractNumber} — {contract.title}
           </p>
@@ -91,7 +91,7 @@ export default async function EditContractPage({ params }: Params) {
       <Breadcrumbs items={breadcrumbs} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.editContract")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.editContract")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {contract.contractNumber} — {contract.title}
         </p>

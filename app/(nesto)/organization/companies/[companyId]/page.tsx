@@ -101,7 +101,7 @@ export default async function CompanyDepartmentsPage({ params }: Props) {
     <div className="space-y-5">
       <Breadcrumbs items={[{ label: t("common.organization"), href: "/organization" }, { label: t("common.companies"), href: "/organization/companies" }, { label: view.company.name }]} />
       <div>
-        <h1 className="text-page font-semibold text-fg">{view.company.name}</h1>
+        <h1 className="text-page font-display text-fg">{view.company.name}</h1>
         <p className="mt-1 text-body text-fg-muted">{t("company.description")}</p>
       </div>
       {view.rows.length === 0 ? (

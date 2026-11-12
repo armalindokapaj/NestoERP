@@ -81,7 +81,7 @@ export default async function EditProjectPage({ params }: Params) {
             { label: t("pages.edit") },
           ]}
         />
-        <h1 className="mt-3 text-page font-semibold text-fg">{t("pages.editNamed", { name: project.name })}</h1>
+        <h1 className="mt-3 text-page font-display text-fg">{t("pages.editNamed", { name: project.name })}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{project.code}</p>
       </div>
 

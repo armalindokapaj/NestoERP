@@ -251,7 +251,7 @@ export function PlanningTimeline({
             if (row.kind === "group") {
               return (
                 <div key={row.id} className="absolute left-0 flex border-b border-line/60 bg-surface-muted/60" style={{ top, height: ROW, width: LEFT + width }}>
-                  <div className="sticky left-0 z-10 flex items-center border-r border-line bg-surface-muted px-4 text-meta font-semibold uppercase tracking-wide text-fg-muted" style={{ width: LEFT, minWidth: LEFT }}>
+                  <div className="sticky left-0 z-10 flex items-center border-r border-line bg-surface-muted px-4 text-meta font-medium font-mono uppercase tracking-wide text-fg-muted" style={{ width: LEFT, minWidth: LEFT }}>
                     {row.label}
                   </div>
                 </div>
@@ -296,7 +296,7 @@ export function PlanningTimeline({
               <div key={row.id} className="absolute left-0 flex border-b border-line/40" style={{ top, height: ROW, width: LEFT + width }} data-testid="timeline-row">
                 <button type="button" onClick={() => onOpenMilestone(milestone.id)} className="sticky left-0 z-10 flex items-center gap-2 border-r border-line bg-surface pl-9 pr-4 text-left text-table text-fg hover:text-accent-strong" style={{ width: LEFT, minWidth: LEFT }} aria-label={label}>
                   <span className="truncate">{milestone.name}</span>
-                  {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium uppercase text-fg-muted">{t("timeline.critical")}</span> : null}
+                  {milestone.critical ? <span className="shrink-0 rounded border border-line-strong px-1 text-micro font-medium font-mono uppercase text-fg-muted">{t("timeline.critical")}</span> : null}
                 </button>
                 <div className="relative" style={{ width }}>
                   {baselineShown ? (

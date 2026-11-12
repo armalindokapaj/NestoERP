@@ -401,7 +401,7 @@ function MilestoneDrawerBody({
             <header className="sticky top-0 z-10 border-b border-line bg-surface px-5 pb-4 pt-5">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-meta uppercase tracking-wide text-fg-subtle">
+                  <p className="text-meta font-mono uppercase tracking-wide text-fg-subtle">
                     {t(`milestoneType.${detail.type}`)}
                     {detail.phase ? ` · ${detail.phase.name}` : ""}
                   </p>

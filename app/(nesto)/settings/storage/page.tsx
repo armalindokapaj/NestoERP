@@ -138,7 +138,7 @@ export default async function StorageSettingsPage() {
 function StorageStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="nesto-card p-5">
-      <p className="text-meta uppercase tracking-wide text-fg-subtle">{label}</p>
+      <p className="text-meta font-mono uppercase tracking-wide text-fg-subtle">{label}</p>
       <p className="mt-1.5 text-page font-semibold tabular-nums text-fg">{value}</p>
     </div>
   );

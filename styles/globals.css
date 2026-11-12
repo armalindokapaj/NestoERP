@@ -1989,3 +1989,19 @@ html[data-unsaved-masked] [data-experience-editor] {
     font-size: 12px;
   }
 }
+
+/*
+ * Lines, not cards (docs/ui/UI-07-unified-design.md §2). Wherever panels are
+ * laid out together — a grid, a row or a stack holding nothing but
+ * `.nesto-card`s — they share their lines instead of standing apart: no gap,
+ * and each pulled 1px over its neighbour's border on the right and below, so
+ * two borders read as one line. A container with anything else in it keeps its
+ * gaps. Outside the CSS layers, so it wins over the `gap-*` and `space-y-*`
+ * utilities it replaces.
+ */
+:is(.grid, .flex, [class*="space-y-"]):has(> .nesto-card):not(:has(> :not(.nesto-card))) {
+  gap: 0;
+}
+:is(.grid, .flex, [class*="space-y-"]):has(> .nesto-card):not(:has(> :not(.nesto-card))) > .nesto-card {
+  margin: 0 -1px -1px 0;
+}

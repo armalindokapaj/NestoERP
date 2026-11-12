@@ -110,7 +110,7 @@ export function CalendarFilters({
       </label>
 
       <fieldset>
-        <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("sidebar.categories")}</legend>
+        <legend className="mb-2 text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{t("sidebar.categories")}</legend>
         <div className="flex flex-col gap-1">
           {FILTER_CATEGORIES.map((category) => {
             const meta = CATEGORY_META[category];
@@ -130,7 +130,7 @@ export function CalendarFilters({
 
       {projects.length > 0 ? (
         <fieldset>
-          <legend className="mb-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("sidebar.projects")}</legend>
+          <legend className="mb-2 text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{t("sidebar.projects")}</legend>
           <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
             {projects.map((project) => {
               const id = `calendar-project-${project.id}`;

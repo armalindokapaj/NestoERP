@@ -29,7 +29,7 @@ export default async function NewAnnouncementPage({ searchParams }: Params) {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
-        <h1 className="text-page font-semibold tracking-tight text-fg">{t("meta.newAnnouncement")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.newAnnouncement")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{t("page.newDescription")}</p>
       </header>
       <AnnouncementEditor

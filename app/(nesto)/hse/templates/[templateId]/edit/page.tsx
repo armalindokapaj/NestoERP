@@ -47,7 +47,7 @@ export default async function EditTemplatePage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: template.code })}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.editNumber", { number: template.code })}</h1>
       </div>
 
       <TemplateForm

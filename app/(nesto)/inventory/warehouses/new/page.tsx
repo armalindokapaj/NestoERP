@@ -33,7 +33,7 @@ export default async function NewWarehousePage() {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.newWarehouse")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.newWarehouse")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {t("newPage.warehouses")}
         </p>

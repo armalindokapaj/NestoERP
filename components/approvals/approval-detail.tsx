@@ -110,7 +110,7 @@ export function ApprovalDetailView({
                 {t("title")}
               </Button>
             ) : (
-              <span className="text-micro font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("detail.review")}</span>
+              <span className="text-micro font-medium font-mono uppercase tracking-[0.12em] text-fg-subtle">{t("detail.review")}</span>
             )}
             <div className="flex items-center gap-1">
               <Button type="button" variant="ghost" size="icon-sm" onClick={onReload} aria-label={t("detail.reload")}>
@@ -126,7 +126,7 @@ export function ApprovalDetailView({
           <div className="flex items-start gap-3">
             <SourceIcon provider={item.providerKey} className="mt-0.5" />
             <div className="min-w-0 flex-1">
-              <p className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("detail.sourceApproval", { source: word(item.sourceLabel) })}</p>
+              <p className="text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{t("detail.sourceApproval", { source: word(item.sourceLabel) })}</p>
               <h2 className="mt-1 nesto-section-head leading-snug tracking-[-0.01em] text-fg [overflow-wrap:anywhere]" data-testid="approval-title">
                 {item.title}
               </h2>
@@ -254,7 +254,7 @@ export function ApprovalDetailView({
 function SectionHeading({ id, children, trailing }: { id: string; children: React.ReactNode; trailing?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <h3 id={id} className="text-micro font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+      <h3 id={id} className="text-micro font-medium font-mono uppercase tracking-[0.12em] text-fg-subtle">
         {children}
       </h3>
       {trailing}

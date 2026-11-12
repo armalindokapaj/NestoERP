@@ -58,7 +58,7 @@ export default async function EditTaskPage({ params }: Params) {
       <Breadcrumbs items={await taskBreadcrumbs(task, t("common.edit"))} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("editPage.heading")}</h1>
+        <h1 className="text-page font-display text-fg">{t("editPage.heading")}</h1>
         <p className="mt-1.5 text-body text-fg-muted [overflow-wrap:anywhere]">{task.title}</p>
       </div>
 

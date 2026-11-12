@@ -19,8 +19,8 @@ export default async function AppNotFound() {
         <div className="mx-auto mb-4 grid size-11 place-items-center border border-line bg-surface text-fg-subtle">
           <SearchX className="size-5" />
         </div>
-        <p className="text-micro font-semibold uppercase tracking-[0.18em] text-fg-subtle">404</p>
-        <h1 className="mt-2 text-section font-semibold text-fg">{t("notFound.title")}</h1>
+        <p className="text-micro font-medium font-mono uppercase tracking-[0.18em] text-fg-subtle">404</p>
+        <h1 className="mt-2 text-section font-display text-fg">{t("notFound.title")}</h1>
         <p className="mt-2 text-body text-fg-muted">{t("notFound.description")}</p>
         <Button asChild className="mt-6">
           <Link href="/dashboard">{t("returnToDashboard")}</Link>

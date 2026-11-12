@@ -490,9 +490,9 @@ export function ApprovalsShell({
       {/* "What is this?" and Help are items of the ⋯ at the end of the heading's line, at every width (components/navigation/page-menu.tsx). */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0 max-lg:grow">
-          <p className="text-meta font-medium uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>
+          <p className="text-meta font-medium font-mono uppercase tracking-[0.12em] text-fg-subtle">{t("title")}</p>
           <div className="flex items-start gap-2">
-          <h1 className="mt-1 min-w-0 flex-1 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-fg md:text-[30px]" data-testid="approvals-heading" aria-live="polite">
+          <h1 className="mt-1 min-w-0 flex-1 text-[26px] font-display leading-tight text-fg md:text-[30px]" data-testid="approvals-heading" aria-live="polite">
             {partial
               ? counts.waiting > 0
                 ? t("shell.atLeastWaiting", { count: counts.waiting })

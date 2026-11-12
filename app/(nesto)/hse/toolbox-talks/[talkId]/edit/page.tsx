@@ -49,7 +49,7 @@ export default async function EditToolboxTalkPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.editNumber", { number: talk.talkNumber })}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.editNumber", { number: talk.talkNumber })}</h1>
       </div>
 
       <ToolboxForm

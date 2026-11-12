@@ -60,7 +60,7 @@ export default async function CandidatePage({ params }: Props) {
       <Breadcrumbs items={[{ label: t("meta.hr"), href: "/hr" }, { label: t("meta.recruitment"), href: "/hr/recruitment" }, { label: candidate.name }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg">{candidate.name}</h1>
+          <h1 className="text-page font-display text-fg">{candidate.name}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <StatusBadge status={candidate.status} />
             {candidate.targetJobTitle ? <span className="text-body text-fg-muted">{candidate.targetJobTitle}</span> : null}

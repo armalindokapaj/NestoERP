@@ -28,7 +28,7 @@ export default async function NewClientPage() {
       <Breadcrumbs items={[{ label: t("meta.clients"), href: "/clients" }, { label: t("newPage.title") }]} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("newPage.title")}</h1>
+        <h1 className="text-page font-display text-fg">{t("newPage.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {t("newPage.description")}
         </p>

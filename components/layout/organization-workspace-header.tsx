@@ -87,7 +87,7 @@ const faceClass =
 function Names({ identity, switchable = false }: { identity: Identity; switchable?: boolean }) {
   return (
     <span className="nesto-nav-label flex min-w-0 flex-1 items-center gap-1.5 leading-tight">
-      <span data-testid="workspace-label" className="block truncate font-semibold text-fg text-[0.8125rem] uppercase tracking-[0.08em] [font-family:var(--font-nesto-display),sans-serif] [font-variation-settings:'wdth'_100] leading-(--nesto-leading-body)">
+      <span data-testid="workspace-label" className="block truncate font-medium text-fg text-[0.8125rem] font-mono uppercase tracking-[0.08em] [font-family:var(--font-nesto-display),sans-serif] [font-variation-settings:'wdth'_100] leading-(--nesto-leading-body)">
         {identity.workspace}
       </span>
       {switchable ? <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" /> : null}

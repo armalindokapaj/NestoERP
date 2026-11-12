@@ -33,7 +33,7 @@ export default async function EditMeetingPage({ params }: Params) {
     <div className="space-y-5">
       <Breadcrumbs items={[{ label: t("common.meetings"), href: "/meetings" }, { label: meeting.title, href: `/meetings/${meetingId}` }, { label: t("editPage.edit") }]} />
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("editPage.title")}</h1>
+        <h1 className="text-page font-display text-fg">{t("editPage.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {meeting.status === "COMPLETED" ? t("editPage.held") : t("editPage.notice")}
         </p>

@@ -62,7 +62,7 @@ export default async function BudgetDetailPage({ params }: Params) {
           <ScrollRegion label={t("lines.budgetLines")} className="mt-4">
             <table className="w-full text-table" data-stack="" data-flush="">
               <caption className="sr-only">{t("lines.budgetLines")}</caption>
-              <thead className="border-b border-line text-meta uppercase tracking-wide text-fg-subtle">
+              <thead className="border-b border-line text-meta font-mono uppercase tracking-wide text-fg-subtle">
                 <tr>
                   <th scope="col" className="py-2 text-left font-medium">
                     {t("form.category")}

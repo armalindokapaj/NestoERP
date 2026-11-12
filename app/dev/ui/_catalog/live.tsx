@@ -153,7 +153,7 @@ export function InvoiceTable() {
               type="button"
               onClick={() => setDirection((current) => (current === "ascending" ? "descending" : "ascending"))}
               title="Sort by amount"
-              className="-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase tracking-[0.08em] text-fg transition-colors touch:min-h-11"
+              className="-mx-1 inline-flex items-center gap-1 rounded px-1 font-mono uppercase tracking-[0.08em] text-fg transition-colors touch:min-h-11"
             >
               Amount
               <SortIcon aria-hidden="true" className="size-3.5" />

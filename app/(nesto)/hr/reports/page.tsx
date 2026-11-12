@@ -538,23 +538,23 @@ async function OrganizationReport({ context, query }: { context: UserContext; qu
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="nesto-card p-4" data-testid="org-headcount">
           <p className="text-meta text-fg-subtle">{t("overview.headcount")}</p>
-          <p className="text-2xl font-semibold tabular-nums text-fg">{report.headcount}</p>
+          <p className="text-section font-semibold tabular-nums text-fg">{report.headcount}</p>
         </div>
         <div className="nesto-card p-4">
           <p className="text-meta text-fg-subtle">{t("reports.joinersLeavers")}</p>
-          <p className="text-2xl font-semibold tabular-nums text-fg">
+          <p className="text-section font-semibold tabular-nums text-fg">
             {moves.joiners} · {moves.leavers}
           </p>
         </div>
         <div className="nesto-card p-4">
           <p className="text-meta text-fg-subtle">{t("reports.promotionsTransfers")}</p>
-          <p className="text-2xl font-semibold tabular-nums text-fg">
+          <p className="text-section font-semibold tabular-nums text-fg">
             {moves.promotions} · {moves.departmentTransfers + moves.companyTransfers}
           </p>
         </div>
         <div className="nesto-card p-4">
           <p className="text-meta text-fg-subtle">{t("reports.averageTenure")}</p>
-          <p className="text-2xl font-semibold tabular-nums text-fg">{years(report.tenure.averageYears)}</p>
+          <p className="text-section font-semibold tabular-nums text-fg">{years(report.tenure.averageYears)}</p>
         </div>
       </div>
       <div className="grid gap-3 lg:grid-cols-2">

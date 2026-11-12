@@ -41,7 +41,7 @@ export default async function InspectionDocumentsPage({ params }: Params) {
         ]}
       />
 
-      <h1 className="text-page font-semibold text-fg">
+      <h1 className="text-page font-display text-fg">
         {t("page.documentsOn", { number: inspection.inspectionNumber })}
       </h1>
 

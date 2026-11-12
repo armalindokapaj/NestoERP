@@ -64,7 +64,7 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-meta text-fg-muted">{t("meta.timesheet")}</p>
-          <h1 className="text-page font-semibold text-fg">
+          <h1 className="text-page font-display text-fg">
             <PersonLink memberId={week.member.memberId} name={week.member.name} /> <span className="font-normal text-fg-muted">· {weekLabel(week.periodStart, locale)}</span>
           </h1>
         </div>

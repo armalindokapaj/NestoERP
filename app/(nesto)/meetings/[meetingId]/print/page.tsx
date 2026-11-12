@@ -58,8 +58,8 @@ export default async function MeetingPrintPage({ params }: Params) {
 
       <article id="meeting-print" className="mx-auto max-w-[820px] rounded-2xl border border-line bg-surface px-8 py-10 text-fg sm:px-12" data-testid="meeting-print">
         <header className="border-b border-line pb-6">
-          <p className="text-micro font-semibold uppercase tracking-[0.14em] text-fg-subtle">{context.company.name}</p>
-          <h1 className="mt-2 text-[26px] font-semibold leading-tight">{meeting.title}</h1>
+          <p className="text-micro font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{context.company.name}</p>
+          <h1 className="mt-2 text-[26px] font-display leading-tight">{meeting.title}</h1>
           <p className="mt-1 text-table text-fg-muted">
             {t("print.minutesOf", { state: final ? t("print.final") : t("print.draftNotFinal") })}
           </p>
@@ -193,7 +193,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8 break-inside-avoid-page">
-      <h2 className="mb-3 text-micro font-semibold uppercase tracking-[0.14em] text-fg-subtle">{title}</h2>
+      <h2 className="mb-3 text-micro font-medium font-mono uppercase tracking-[0.14em] text-fg-subtle">{title}</h2>
       {children}
     </section>
   );

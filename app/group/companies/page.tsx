@@ -25,7 +25,7 @@ export default async function GroupCompaniesPage() {
     <section className="nesto-card overflow-hidden" aria-label={t("companies.title")}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
         <div>
-          <h1 className="text-card font-semibold text-fg">{t("companies.title")}</h1>
+          <h1 className="text-card font-display text-fg">{t("companies.title")}</h1>
           <p className="text-table text-fg-muted">{create ? t("companies.description", { name: context.groupName }) : t("companies.noPermission")}</p>
         </div>
         {create && open ? <CreateGroupCompany groupName={context.groupName} /> : null}

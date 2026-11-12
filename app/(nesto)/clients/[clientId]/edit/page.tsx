@@ -36,7 +36,7 @@ export default async function EditClientPage({ params }: Params) {
       <Breadcrumbs items={clientBreadcrumbs(client, t("tabs.edit"), t("meta.clients"))} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("editPage.title")}</h1>
+        <h1 className="text-page font-display text-fg">{t("editPage.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{client.name}</p>
       </div>
 

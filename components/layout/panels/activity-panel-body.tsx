@@ -261,13 +261,13 @@ export function ActivityPanelBody({
             ) : null}
             {pinned.length ? (
               <section aria-label={t("needsAttention")} className="mb-1 rounded-md border border-danger/25 bg-danger-soft/40">
-                <p className="px-2 pt-1.5 text-micro font-semibold uppercase tracking-[0.1em] text-danger-strong">{t("needsAttention")}</p>
+                <p className="px-2 pt-1.5 text-micro font-medium font-mono uppercase tracking-[0.1em] text-danger-strong">{t("needsAttention")}</p>
                 <ul>{pinned.map(row)}</ul>
               </section>
             ) : null}
             {buckets.map((group) => (
               <section key={group.bucket} aria-label={t(group.bucket)}>
-                <p className="px-2 pb-0.5 pt-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t(group.bucket)}</p>
+                <p className="px-2 pb-0.5 pt-2 text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{t(group.bucket)}</p>
                 <ul>{group.rows.map(row)}</ul>
               </section>
             ))}

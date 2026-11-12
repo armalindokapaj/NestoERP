@@ -244,13 +244,13 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
         <div id={`${panelId}-list`} className="min-h-0 flex-1 overflow-y-auto p-1.5">
           {recentActions.length ? (
             <section aria-label={tc("shell.recent")}>
-              <p className="px-2 pb-0.5 pt-1.5 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{tc("shell.recent")}</p>
+              <p className="px-2 pb-0.5 pt-1.5 text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{tc("shell.recent")}</p>
               <ul>{recentActions.map((action) => row(action, "recent"))}</ul>
             </section>
           ) : null}
           {grouped.map((entry) => (
             <section key={entry.group} aria-label={groupLabel(entry.group)}>
-              <p className="px-2 pb-0.5 pt-2 text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{groupLabel(entry.group)}</p>
+              <p className="px-2 pb-0.5 pt-2 text-micro font-medium font-mono uppercase tracking-[0.1em] text-fg-subtle">{groupLabel(entry.group)}</p>
               <ul>{entry.rows.map((action) => row(action, entry.group))}</ul>
             </section>
           ))}

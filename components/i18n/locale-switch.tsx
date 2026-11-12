@@ -26,7 +26,7 @@ export function LocaleSwitch({ label, className }: { label: string; className?: 
       aria-label={`${label}: ${LOCALE_NAMES[choice]}`}
       title={LOCALE_NAMES[next]}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-micro font-semibold uppercase tracking-wide text-fg-muted transition-colors hover:bg-hover hover:text-fg disabled:opacity-60",
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-micro font-medium font-mono uppercase tracking-wide text-fg-muted transition-colors hover:bg-hover hover:text-fg disabled:opacity-60",
         className,
       )}
     >

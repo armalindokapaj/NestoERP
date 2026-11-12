@@ -24,7 +24,7 @@ export default async function GroupOverviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("overview.welcome", { name: context.groupName })}</h1>
+        <h1 className="text-page font-display text-fg">{t("overview.welcome", { name: context.groupName })}</h1>
         <p className="mt-1 text-body text-fg-muted">{to(`groupUsers.role${context.roleKey}`)}</p>
       </div>
       <dl className="grid gap-4 sm:grid-cols-3">

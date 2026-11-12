@@ -51,7 +51,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
       <Breadcrumbs items={[{ label: t("common.organization"), href: "/organization" }, { label: t("provisioning.title"), href: "/organization/provisioning" }, { label: request.person.name }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-page font-semibold text-fg">{request.person.name}</h1>
+          <h1 className="text-page font-display text-fg">{request.person.name}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <StatusBadge status={request.status} />
             <span className="text-body text-fg-muted">

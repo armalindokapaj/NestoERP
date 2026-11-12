@@ -30,7 +30,7 @@ export default async function NewTemplatePage() {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("page.newSafetyChecklist")}</h1>
+        <h1 className="text-page font-display text-fg">{t("page.newSafetyChecklist")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">
           {t("page.newChecklistIntro")}
         </p>

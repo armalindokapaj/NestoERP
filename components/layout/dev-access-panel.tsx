@@ -77,7 +77,7 @@ export function DevAccessPanel({ snapshot }: { snapshot: DevAccessSnapshot }) {
           type="button"
           onClick={toggle}
           aria-expanded={open}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left text-micro font-semibold uppercase tracking-[0.08em] text-fg-subtle transition-colors hover:bg-hover"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-micro font-medium font-mono uppercase tracking-[0.08em] text-fg-subtle transition-colors hover:bg-hover"
         >
           <Wrench aria-hidden="true" className="size-3.5" />
           Dev access

@@ -60,7 +60,7 @@ export function MonthView({
             <div
               key={index}
               role="columnheader"
-              className={cn("px-3 py-2 text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle", !workingDays.includes(index + 1) && "text-fg-subtle/70")}
+              className={cn("px-3 py-2 text-meta font-medium font-mono uppercase tracking-[0.08em] text-fg-subtle", !workingDays.includes(index + 1) && "text-fg-subtle/70")}
             >
               {weekday}
             </div>
@@ -154,7 +154,7 @@ export function MonthView({
           })}
         </div>
         <section aria-label={dayHeading(selectedDate, zone, today, words)}>
-          <h2 className="mb-2 text-meta font-semibold uppercase tracking-[0.08em] text-fg-subtle">{dayHeading(selectedDate, zone, today, words)}</h2>
+          <h2 className="mb-2 text-meta font-medium font-mono uppercase tracking-[0.08em] text-fg-subtle">{dayHeading(selectedDate, zone, today, words)}</h2>
           <div className="flex flex-col gap-2">
             {(byDay.get(selectedDate) ?? []).length === 0 ? (
               <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-table text-fg-muted">{t("nothingScheduled")}</p>

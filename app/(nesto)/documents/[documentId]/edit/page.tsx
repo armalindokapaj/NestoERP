@@ -47,7 +47,7 @@ export default async function EditDocumentPage({ params }: Params) {
       <Breadcrumbs items={documentBreadcrumbs(document, t("crumbs.documents"), t("crumbs.edit"))} />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("edit.title")}</h1>
+        <h1 className="text-page font-display text-fg">{t("edit.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{document.name}</p>
       </div>
 

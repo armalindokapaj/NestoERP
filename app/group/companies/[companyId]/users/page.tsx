@@ -31,7 +31,7 @@ export default async function GroupCompanyUsersPage({ params, searchParams }: Pr
   return (
       <div className="space-y-4">
         <Link href="/group/companies" className="text-table text-fg-muted hover:text-fg">{t("companies.title")}</Link>
-        <h1 className="text-page font-semibold text-fg">{company.name}</h1>
+        <h1 className="text-page font-display text-fg">{company.name}</h1>
         <CompanyUsersPanel actor={groupActor(context)} companyId={company.id} open={company.status === "ACTIVE"} api={GROUP_COMPANY_API} platform={false} formAction={`/group/companies/${company.id}/users`} params={query} />
       </div>
   );

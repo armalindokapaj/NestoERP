@@ -79,7 +79,7 @@ export function AgendaView({
         return (
           <section key={day} aria-label={dayHeading(day, zone, today, words)} className="border-b border-line py-4 last:border-b-0">
             {/* The page heading is the h1; day sections follow it directly (AUD-11 §3). */}
-            <h2 className={cn("mb-2 px-2 text-meta font-semibold uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
+            <h2 className={cn("mb-2 px-2 text-meta font-medium font-mono uppercase tracking-[0.1em]", day === today ? "text-accent-strong" : "text-fg-subtle")}>
               {dayHeading(day, zone, today, words)}
             </h2>
             {list.length === 0 ? (

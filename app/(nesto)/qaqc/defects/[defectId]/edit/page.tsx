@@ -51,7 +51,7 @@ export default async function EditDefectPage({ params }: Params) {
       />
 
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("meta.editDefect")}</h1>
+        <h1 className="text-page font-display text-fg">{t("meta.editDefect")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{defect.defectNumber}</p>
       </div>
 

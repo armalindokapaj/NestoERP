@@ -31,7 +31,7 @@ export default async function NewMeetingPage({ searchParams }: { searchParams: P
     <div className="space-y-5">
       <Breadcrumbs items={[{ label: t("common.meetings"), href: "/meetings" }, { label: t("newPage.title") }]} />
       <div>
-        <h1 className="text-page font-semibold text-fg">{t("newPage.title")}</h1>
+        <h1 className="text-page font-display text-fg">{t("newPage.title")}</h1>
         <p className="mt-1.5 text-body text-fg-muted">{t("newPage.intro")}</p>
       </div>
       <MeetingForm

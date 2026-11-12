@@ -62,7 +62,7 @@ export default async function ActivityPage({ searchParams }: Params) {
       <Breadcrumbs items={[{ label: t("title") }]} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-page font-semibold tracking-tight text-fg">{t("title")}</h1>
+          <h1 className="text-page font-display text-fg">{t("title")}</h1>
           <p className="mt-1.5 text-body text-fg-muted">{m("activity.description")}</p>
         </div>
         <div className="flex items-center gap-2">
