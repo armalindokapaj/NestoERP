@@ -1,80 +1,62 @@
 import Link from "@/components/navigation/nav-link";
-import { AlertOctagon, AlertTriangle, ArrowRight, Building2, ChevronRight, FolderKanban, Info, Plus, ShieldCheck, Users } from "@/components/icons";
+import { AlertOctagon, AlertTriangle, ArrowRight, ChevronRight, Info } from "@/components/icons";
 
 import { dateText, formatDateTime, formatRelativeTime } from "@/lib/i18n/format";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
-import { greetingText } from "@/components/dashboard/config-text";
 import { adminText } from "@/components/platform/admin-i18n";
-import { Badge } from "@/components/ui/badge";
 import { AdminStatusBadge } from "@/components/platform/admin-status-badge";
-import { QUICK_CREATE } from "@/components/platform/quick-create-items";
 import { adminActionLabel } from "@/components/platform/admin-actions";
+import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
-import type { PlatformContext } from "@/lib/context/platform-context";
+import { canPlatform, type PlatformContext } from "@/lib/context/platform-context";
+import { platformHealth } from "@/lib/modules/platform/platform-control.query";
 import {
-  dashboardActivity, dashboardAttention, dashboardOrganizations, dashboardPlatformStatus, dashboardProjects, dashboardSummary, dashboardUsage,
+  dashboardActivity, dashboardAttention, dashboardOrganizations, dashboardProjects, dashboardSummary, dashboardUsage,
   STORAGE_CRITICAL, STORAGE_WARNING, type Severity,
 } from "@/lib/modules/platform/platform-dashboard.query";
 import { cn } from "@/lib/utils/cn";
 import { assignedCompany } from "@/lib/access/project-ownership";
 
 /*
- * The Dashboard's sections (Dashboard PRD §5, §34). Each is its own async
- * server component, so each streams in when its data lands and fails alone.
+ * The Overview's sections, an operations cockpit (docs/ui/UI-09-admin-console.md §Home):
+ * health first, the platform in numbers, then what needs attention beside
+ * what just happened, the newest organizations and projects, and usage. Each
+ * is its own async server component, so each streams in when its data lands
+ * and fails alone (Dashboard PRD §43, §44).
  */
 
-export function SectionHeader({ id, title, href, linkLabel }: { id: string; title: string; href?: string; linkLabel?: string }) {
+/** The page's head: its name, who and when, and Refresh. */
+export async function CockpitHeader({ actions }: { actions?: React.ReactNode }) {
+  const [t, locale] = await Promise.all([getTranslations("admin"), getLocale()]);
+  const today = dateText(new Date(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }, locale);
+  return <PageHeader title={t("nav.page.overview")} description={t("dashboard.standfirst", { date: today })} actions={actions} />;
+}
+
+/** A lined panel with a numbered mono caption, as the console's lists are drawn. */
+function Panel({ id, number, title, count, href, linkLabel, testId, tone, children }: { id: string; number: string; title: string; count?: React.ReactNode; href?: string; linkLabel?: string; testId: string; tone?: "danger"; children: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 items-start justify-between gap-3">
-      <h2 id={id} className="text-card font-semibold text-fg">{title}</h2>
-      {href ? <Link href={href} className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong transition-opacity hover:opacity-80">{linkLabel}<ArrowRight aria-hidden="true" className="size-3.5" /></Link> : null}
-    </div>
+    <section aria-labelledby={id} className={cn("flex min-w-0 flex-col border bg-surface", tone === "danger" ? "border-danger/50" : "border-line-strong")} data-testid={testId}>
+      <div className="flex min-h-11 items-center justify-between gap-3 border-b border-line-strong px-4">
+        <h2 id={id} className="min-w-0 truncate font-mono text-meta font-medium uppercase tracking-[0.12em] text-fg">
+          <span aria-hidden="true" className="mr-2.5 text-fg-subtle">{number} /</span>
+          {title}
+          {count !== undefined ? <span className="ml-2.5 tabular-nums text-fg-subtle">{count}</span> : null}
+        </h2>
+        {href ? (
+          <Link href={href} className="inline-flex shrink-0 items-center gap-1.5 font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-muted transition-colors hover:text-fg">
+            {linkLabel}
+            <ArrowRight aria-hidden="true" className="size-3.5" />
+          </Link>
+        ) : null}
+      </div>
+      {children}
+    </section>
   );
 }
 
-/** The platform dashboard's own header: the date as a gold eyebrow, a serif title with its gold italic word, the greeting and the focus line. */
-export async function DashboardHeader({ context, actions }: { context: PlatformContext; actions?: React.ReactNode }) {
-  const t = await getTranslations("dashboard");
-  const ta = await getTranslations("admin");
-  const locale = await getLocale();
-  const today = dateText(new Date(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }, locale);
-  const quick = QUICK_CREATE.filter((item) => context.permissions.includes(item.permission));
-  return (
-    <>
-      <div className="border-b pb-6 max-md:border-0 max-md:pb-1 max-md:pt-1 border-fg">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="nesto-eyebrow text-accent-strong">{today}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="text-fg font-display font-semibold text-[clamp(4rem,9vw,7.5rem)] max-md:text-[min(calc(25vw-10px),7.5rem)] leading-[0.82] tracking-[-0.035em] [font-variation-settings:'wdth'_62]">{ta("dashboard.lead")} <em className="block pl-[0.42em] font-display font-semibold not-italic tracking-[-0.035em] text-transparent [-webkit-text-stroke:1.25px_var(--nesto-fg)] [font-variation-settings:'wdth'_62] after:ml-[0.04em] after:inline-block after:size-[0.13em] after:bg-accent after:align-baseline after:content-['']">{ta("dashboard.accent")}</em></h1>
-              <Badge tone="neutral" className="max-md:hidden">{ta("shell.platformAdmin")}</Badge>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-              <p className="text-[0.9375rem] text-fg-muted md:text-body">{greetingText(t)}, {context.firstName}</p>
-              <Badge tone="neutral" className="rounded-full border border-accent/30 bg-transparent px-2.5 py-0.5 text-micro font-semibold text-accent-strong md:hidden">{ta("shell.platformAdmin")}</Badge>
-            </div>
-            <p className="mt-1 text-table leading-normal text-fg-subtle md:text-body md:text-fg-muted">{ta("dashboard.greetingFocus")}</p>
-          </div>
-          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-        </div>
-      </div>
-      {quick.length ? (
-        <div className="grid grid-cols-3 gap-2.5 md:flex md:flex-wrap md:items-center md:gap-2" data-testid="dashboard-quick-actions">
-          {quick.map((item) => (
-            <Link
-              key={item.key}
-              href={item.href}
-              className="flex min-h-[84px] min-w-0 flex-col items-center justify-center gap-2 rounded-[18px] border border-line bg-surface px-1 py-3 text-center text-micro font-semibold leading-tight text-fg transition-colors active:border-accent active:bg-accent-soft md:inline-flex md:h-8 md:min-h-0 md:flex-row md:gap-2 md:whitespace-nowrap md:rounded-full md:border-line-strong md:px-3 md:py-0 md:text-table md:font-medium md:hover:bg-hover md:active:bg-surface"
-            >
-              <Plus aria-hidden="true" className="size-[22px] shrink-0 text-accent-strong md:size-4 md:text-current" />
-              <span className="max-w-full break-words">{adminText(ta, `create.new${item.label}`, `New ${item.label.toLowerCase()}`)}</span>
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </>
-  );
+function Empty({ children }: { children: React.ReactNode }) {
+  return <div className="px-4 py-5 text-table text-fg-subtle">{children}</div>;
 }
 
 async function Time({ at }: { at: string }) {
@@ -84,51 +66,79 @@ async function Time({ at }: { at: string }) {
 
 const bytes = (value: number) => value < 1024 ** 2 ? `${Math.round(value / 1024)} KB` : value < 1024 ** 3 ? `${(value / 1024 ** 2).toFixed(1)} MB` : value < 1024 ** 4 ? `${(value / 1024 ** 3).toFixed(1)} GB` : `${(value / 1024 ** 4).toFixed(2)} TB`;
 
-// ── Summary ─────────────────────────────────────────────────────────────────
+// ── Health ──────────────────────────────────────────────────────────────────
 
-function Metric({ label, value, detail, href, icon: Icon, tone }: { label: string; value: React.ReactNode; detail: React.ReactNode; href: string; icon: typeof Info; tone?: "attention" }) {
+const STATE_DOT: Record<string, string> = { HEALTHY: "bg-success", DEGRADED: "bg-warning", DOWN: "bg-danger", UNKNOWN: "bg-fg-subtle" };
+
+/** The eight services in one lined strip, each with its state; the strip opens Health. */
+export async function HealthSection({ context }: { context: PlatformContext }) {
+  const t = await getTranslations("admin");
+  if (!canPlatform(context, "platform.operations.view")) {
+    return (
+      <Panel id="dash-health" number="01" title={t("dashboard.healthTitle")} testId="dashboard-health">
+        <Empty>{t("dashboard.statusNeedsOps")}</Empty>
+      </Panel>
+    );
+  }
+  const checks = await platformHealth(context);
+  const issues = checks.filter((check) => check.state !== "HEALTHY").length;
+  const down = checks.some((check) => check.state === "DOWN");
   return (
-    <Link
-      href={href}
-      className={cn(
-        "nesto-card relative block p-4 transition-colors before:absolute before:left-4 before:top-0 before:h-0.5 before:w-8 before:bg-accent before:content-[''] hover:border-line-strong md:p-5 md:before:left-5",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
-        tone === "attention" && "border-warning/50",
-      )}
-    >
-      <div className="flex items-center gap-2.5 md:gap-3">
-        <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong md:size-9"><Icon className="size-4" /></span>
-        <p className="line-clamp-2 min-w-0 break-words text-table font-medium text-fg-muted">{label}</p>
-      </div>
-      <p className="mt-3 text-display tabular-nums text-fg md:mt-4 font-display">{value}</p>
-      <p className={cn("mt-1 text-meta", tone === "attention" ? "text-warning-strong" : "text-fg-subtle")}>{detail}</p>
+    <Panel id="dash-health" number="01" title={t("dashboard.healthTitle")} href="/admin/system/health" linkLabel={t("dashboard.healthOpen")} testId="dashboard-health" tone={down ? "danger" : undefined}>
+      <p className={cn("border-b border-line px-4 py-2 text-table font-medium", issues ? "text-warning-strong" : "text-fg-muted")} data-testid="dashboard-health-summary">
+        {issues ? t("dashboard.healthIssues", { count: issues }) : t("dashboard.healthAll", { count: checks.length })}
+      </p>
+      <ul className="grid grid-cols-2 gap-px bg-line sm:grid-cols-4 xl:grid-cols-8">
+        {checks.map((check) => (
+          <li key={check.service} className="min-w-0 bg-surface px-4 py-3" data-state={check.state}>
+            <p className="truncate font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-subtle">{adminText(t, `dashboard.service.${check.service}`, check.service)}</p>
+            <p className={cn("mt-1.5 flex items-center gap-2 text-table font-medium", check.state === "HEALTHY" ? "text-fg" : check.state === "DOWN" ? "text-danger-strong" : "text-warning-strong")}>
+              <span aria-hidden="true" className={cn("size-2 shrink-0", STATE_DOT[check.state] ?? "bg-fg-subtle")} />
+              <span className="truncate">{adminText(t, `dashboard.healthState.${check.state}`, check.state)}</span>
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+export function HealthSkeleton() {
+  return <Skeleton aria-hidden="true" className="h-[7.5rem] rounded-none" />;
+}
+
+// ── In numbers ──────────────────────────────────────────────────────────────
+
+type Summary = Awaited<ReturnType<typeof dashboardSummary>>;
+
+function Figure({ label, value, detail, href }: { label: string; value: React.ReactNode; detail: React.ReactNode; href: string }) {
+  return (
+    <Link href={href} className="group block min-w-0 bg-surface px-4 py-4 transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+      <p className="flex items-center justify-between gap-2 font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-subtle">
+        {label}
+        <ArrowRight aria-hidden="true" className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+      </p>
+      <p className="mt-2 font-display text-[2.5rem] leading-none tabular-nums text-fg">{value}</p>
+      <p className="mt-2 truncate text-meta text-fg-muted">{detail}</p>
     </Link>
   );
 }
 
-type Summary = Awaited<ReturnType<typeof dashboardSummary>>;
-
-export async function SummarySection({ context, summary: pending }: { context: PlatformContext; summary: Promise<Summary> }) {
-  const [summary, status, t] = await Promise.all([pending, dashboardPlatformStatus(context), getTranslations("admin")]);
-  const { organizations, projects, users } = summary;
-  const statusText = status.state === "ATTENTION" ? t("dashboard.statusAttention") : status.state === "OPERATIONAL" ? t("dashboard.statusOperational") : t("dashboard.statusUnavailable");
-  const statusDetail = status.state === "ATTENTION"
-    ? status.failing.map((row) => adminText(t, `dashboard.service.${row.service}`, row.service)).join(", ")
-    : status.state === "OPERATIONAL"
-      ? status.unverified.length ? t("dashboard.statusUnverified", { services: status.unverified.map((name) => adminText(t, `dashboard.service.${name}`, name)).join(", ") }) : t("dashboard.statusAllPass")
-      : t("dashboard.statusNeedsOps");
+export async function NumbersSection({ summary: pending }: { summary: Promise<Summary> }) {
+  const [{ organizations, projects, users }, t] = await Promise.all([pending, getTranslations("admin")]);
   return (
-    <section aria-label={t("dashboard.summaryLabel")} className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:gap-4 lg:grid-cols-4 [&>*]:min-w-0" data-testid="dashboard-summary">
-      <Metric label={t("dashboard.organizations")} value={organizations.total} detail={t("dashboard.groupsCompanies", { groups: organizations.groups, companies: organizations.companies })} href="/admin/organizations" icon={Building2} />
-      <Metric label={t("dashboard.projects")} value={projects.total} detail={t("dashboard.projectsDetail", { active: projects.active, pending: projects.pending, finished: projects.finished })} href="/admin/projects" icon={FolderKanban} />
-      <Metric label={t("dashboard.users")} value={users.total} detail={t("dashboard.usersDetail", { active: users.active, inactive: users.inactive + users.suspended })} href="/admin/users" icon={Users} />
-      <Metric label={t("dashboard.platform")} value={<span className="text-[1.625rem] leading-tight">{statusText}</span>} detail={statusDetail} href="/admin/system/health" icon={ShieldCheck} tone={status.state === "ATTENTION" ? "attention" : undefined} />
-    </section>
+    <Panel id="dash-numbers" number="02" title={t("dashboard.numbersTitle")} testId="dashboard-summary">
+      <div className="grid grid-cols-1 gap-px bg-line min-[420px]:grid-cols-3">
+        <Figure label={t("dashboard.organizations")} value={organizations.total} detail={t("dashboard.groupsCompanies", { groups: organizations.groups, companies: organizations.companies })} href="/admin/organizations" />
+        <Figure label={t("dashboard.projects")} value={projects.total} detail={t("dashboard.projectsDetail", { active: projects.active, pending: projects.pending, finished: projects.finished })} href="/admin/projects" />
+        <Figure label={t("dashboard.users")} value={users.total} detail={t("dashboard.usersDetail", { active: users.active, inactive: users.inactive + users.suspended })} href="/admin/users" />
+      </div>
+    </Panel>
   );
 }
 
-export function SummarySkeleton() {
-  return <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:gap-4 lg:grid-cols-4" aria-hidden="true">{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-[132px] rounded-xl" />)}</div>;
+export function NumbersSkeleton() {
+  return <Skeleton aria-hidden="true" className="h-[9.5rem] rounded-none" />;
 }
 
 /** New installation: one restrained way in (§45). */
@@ -137,65 +147,66 @@ export async function FirstRun({ summary }: { summary: Promise<Summary> }) {
   if (organizations.companies > 0) return null;
   const t = await getTranslations("admin");
   return (
-    <section className="nesto-card flex flex-wrap items-center justify-between gap-4 p-5" data-testid="dashboard-first-run">
+    <section className="flex flex-wrap items-center justify-between gap-4 border border-line-strong bg-surface p-5 shadow-[inset_3px_0_0_var(--nesto-accent)]" data-testid="dashboard-first-run">
       <div>
         <h2 className="text-card font-semibold text-fg">{t("dashboard.firstRunTitle")}</h2>
         <p className="mt-1 text-table text-fg-muted">{t("dashboard.firstRunBody")}</p>
       </div>
-      <Link href="/admin/organizations?create=company" className="inline-flex h-9 items-center rounded-lg bg-accent px-3.5 text-table font-medium text-accent-fg hover:bg-accent-strong">{t("dashboard.firstRunAction")}</Link>
+      <Link href="/admin/organizations?create=company" className="inline-flex h-10 items-center bg-primary px-4 text-table font-medium text-primary-fg hover:bg-primary-hover">{t("dashboard.firstRunAction")}</Link>
     </section>
   );
 }
 
 // ── Attention required ──────────────────────────────────────────────────────
 
-const SEVERITY: Record<Severity, { label: "sevCritical" | "sevWarning" | "sevInfo"; icon: typeof Info; circle: string }> = {
-  critical: { label: "sevCritical", icon: AlertOctagon, circle: "bg-danger-soft text-danger-strong" },
-  warning: { label: "sevWarning", icon: AlertTriangle, circle: "bg-warning-soft text-warning-strong" },
-  info: { label: "sevInfo", icon: Info, circle: "bg-info-soft text-info-strong" },
+const SEVERITY: Record<Severity, { label: "sevCritical" | "sevWarning" | "sevInfo"; icon: typeof Info; cell: string }> = {
+  critical: { label: "sevCritical", icon: AlertOctagon, cell: "border-danger/40 bg-danger-soft text-danger-strong" },
+  warning: { label: "sevWarning", icon: AlertTriangle, cell: "border-warning/40 bg-warning-soft text-warning-strong" },
+  info: { label: "sevInfo", icon: Info, cell: "border-line-strong bg-surface text-fg-muted" },
 };
 
 export async function AttentionSection({ context }: { context: PlatformContext }) {
   const [{ items, total }, t] = await Promise.all([dashboardAttention(context), getTranslations("admin")]);
   const critical = items.some((item) => item.severity === "critical");
   return (
-    <section aria-labelledby="dash-attention" className={cn("nesto-card flex min-w-0 flex-col p-5", critical && "border-danger/40")} data-testid="dashboard-attention">
-      <div className="flex items-center gap-2">
-        <SectionHeader id="dash-attention" title={t("dashboard.attentionTitle")} />
-        {items.length > 0 ? <span className="grid h-[26px] min-w-[26px] place-items-center rounded-full bg-accent-soft px-1.5 text-meta font-bold text-accent-strong">{total}</span> : null}
-      </div>
-      <div className="mt-4 min-w-0 flex-1">
-        {items.length === 0 ? (
-          <p className="text-table text-fg-subtle">{t("dashboard.attentionNone")}</p>
-        ) : (
-          <ul className="divide-y divide-line">
-            {items.map((item) => {
-              const severity = SEVERITY[item.severity];
-              const severityLabel = t(`dashboard.${severity.label}`);
-              const values = item.values && typeof item.values.service === "string" ? { ...item.values, service: adminText(t, `dashboard.service.${item.values.service}`, item.values.service) } : item.values;
-              const title = adminText(t, `dashboard.attention.${item.code}`, item.title, values);
-              const body = adminText(t, `dashboard.attention.${item.code}Body`, item.description, item.values);
-              const action = adminText(t, `dashboard.attention.action${item.actionLabel}`, item.actionLabel);
-              return (
-                <li key={item.id} className="first:[&>*]:pt-0 last:[&>*]:pb-0" data-severity={item.severity}>
-                  <Link href={item.href} className="flex min-w-0 items-center gap-3.5 py-3.5 transition-colors hover:bg-row-hover active:bg-accent-soft">
-                    <span aria-hidden="true" className={cn("grid size-10 shrink-0 place-items-center rounded-full", severity.circle)}><severity.icon className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1">
-                      {item.entity ? <span className="block text-micro font-medium text-fg-subtle">{item.entity}</span> : null}
-                      <span className="block text-body font-semibold text-fg"><span className="sr-only">{severityLabel}: </span>{title}</span>
-                      <span className="block text-meta text-fg-muted">{body}</span>
-                      <span className="mt-0.5 block text-meta text-fg-subtle">{item.at ? <Time at={item.at} /> : severityLabel} · <span className="font-medium text-accent-strong">{action}</span></span>
+    <Panel id="dash-attention" number="03" title={t("dashboard.attentionTitle")} count={items.length ? total : undefined} testId="dashboard-attention" tone={critical ? "danger" : undefined}>
+      {items.length === 0 ? (
+        <Empty>{t("dashboard.attentionNone")}</Empty>
+      ) : (
+        <ul>
+          {items.map((item) => {
+            const severity = SEVERITY[item.severity];
+            const severityLabel = t(`dashboard.${severity.label}`);
+            const values = item.values && typeof item.values.service === "string" ? { ...item.values, service: adminText(t, `dashboard.service.${item.values.service}`, item.values.service) } : item.values;
+            const title = adminText(t, `dashboard.attention.${item.code}`, item.title, values);
+            const body = adminText(t, `dashboard.attention.${item.code}Body`, item.description, item.values);
+            const action = adminText(t, `dashboard.attention.action${item.actionLabel}`, item.actionLabel);
+            return (
+              <li key={item.id} className="border-b border-line last:border-b-0" data-severity={item.severity}>
+                <Link href={item.href} className="flex min-w-0 items-center gap-3.5 px-4 py-3 transition-colors hover:bg-hover">
+                  <span aria-hidden="true" className={cn("grid size-9 shrink-0 place-items-center border", severity.cell)}>
+                    <severity.icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    {item.entity ? <span className="block truncate font-mono text-micro uppercase tracking-[0.08em] text-fg-subtle">{item.entity}</span> : null}
+                    <span className="block text-body font-semibold text-fg">
+                      <span className="sr-only">{severityLabel}: </span>
+                      {title}
                     </span>
-                    <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {total > items.length ? <p className="mt-3 text-meta text-fg-subtle">{t("dashboard.attentionMore", { count: total - items.length })}</p> : null}
-      </div>
-    </section>
+                    <span className="block text-meta text-fg-muted">{body}</span>
+                    <span className="mt-0.5 block text-meta text-fg-subtle">
+                      {item.at ? <Time at={item.at} /> : severityLabel} · <span className="font-medium text-fg">{action}</span>
+                    </span>
+                  </span>
+                  <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {total > items.length ? <p className="border-t border-line px-4 py-2 text-meta text-fg-subtle">{t("dashboard.attentionMore", { count: total - items.length })}</p> : null}
+    </Panel>
   );
 }
 
@@ -204,26 +215,28 @@ export async function AttentionSection({ context }: { context: PlatformContext }
 export async function ActivitySection({ context }: { context: PlatformContext }) {
   const [rows, t] = await Promise.all([dashboardActivity(context), getTranslations("admin")]);
   return (
-    <section aria-labelledby="dash-activity" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-activity">
-      <SectionHeader id="dash-activity" title={t("dashboard.activityTitle")} href="/admin/audit" linkLabel={t("dashboard.activityLink")} />
-      <div className="mt-4 min-w-0 flex-1">
-        {rows.length === 0 ? (
-          <p className="text-table text-fg-subtle">{t("dashboard.activityNone")}</p>
-        ) : (
-          <ul className="space-y-3">
-            {rows.map((row) => (
-              <li key={row.id} className="flex gap-3">
-                <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full border border-accent bg-transparent" />
-                <Link href={row.href} className="group min-w-0">
-                  <p className="text-table text-fg transition-colors group-hover:text-accent">{row.actor ? <span className="font-medium">{row.actor} </span> : null}{adminActionLabel(t, row.actionKey, row.label)}{row.entity ? <span className="text-fg-muted"> · {row.entity}</span> : null}</p>
-                  <p className="text-meta text-fg-subtle"><Time at={row.at} /></p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
+    <Panel id="dash-activity" number="04" title={t("dashboard.activityTitle")} href="/admin/audit" linkLabel={t("dashboard.activityLink")} testId="dashboard-activity">
+      {rows.length === 0 ? (
+        <Empty>{t("dashboard.activityNone")}</Empty>
+      ) : (
+        <ul>
+          {rows.map((row) => (
+            <li key={row.id} className="border-b border-line last:border-b-0">
+              <Link href={row.href} className="flex min-w-0 items-baseline gap-3 px-4 py-2.5 transition-colors hover:bg-hover">
+                <span className="min-w-0 flex-1 text-table text-fg">
+                  {row.actor ? <span className="font-medium">{row.actor} </span> : null}
+                  {adminActionLabel(t, row.actionKey, row.label)}
+                  {row.entity ? <span className="text-fg-muted"> · {row.entity}</span> : null}
+                </span>
+                <span className="shrink-0 font-mono text-micro uppercase tracking-[0.06em] text-fg-subtle">
+                  <Time at={row.at} />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
@@ -232,15 +245,14 @@ export async function ActivitySection({ context }: { context: PlatformContext })
 export async function OrganizationsSection({ context }: { context: PlatformContext }) {
   const [rows, t] = await Promise.all([dashboardOrganizations(context), getTranslations("admin")]);
   return (
-    <section aria-labelledby="dash-orgs" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-organizations">
-      <SectionHeader id="dash-orgs" title={t("dashboard.orgsTitle")} href="/admin/organizations" linkLabel={t("dashboard.viewAll")} />
+    <Panel id="dash-orgs" number="05" title={t("dashboard.orgsTitle")} href="/admin/organizations" linkLabel={t("dashboard.viewAll")} testId="dashboard-organizations">
       {rows.length === 0 ? (
-        <div className="mt-4 text-table text-fg-subtle">
+        <Empty>
           <p>{t("dashboard.orgsNone")}</p>
-          <Link href="/admin/organizations?create=company" className="mt-2 inline-block font-medium text-accent-strong hover:underline">{t("dashboard.orgsCreate")}</Link>
-        </div>
+          <Link href="/admin/organizations?create=company" className="mt-2 inline-block font-medium text-fg underline decoration-accent decoration-2 underline-offset-4">{t("dashboard.orgsCreate")}</Link>
+        </Empty>
       ) : (
-        <div className="mt-4 min-w-0 flex-1">
+        <div className="min-w-0 overflow-x-auto">
           <Table stack aria-label={t("dashboard.recentOrgsLabel")}>
             <TableHead><TableRow><TableHeaderCell>{t("dashboard.colOrganization")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("dashboard.colType")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("dashboard.colCompanies")}</TableHeaderCell><TableHeaderCell>{t("dashboard.colProjects")}</TableHeaderCell><TableHeaderCell className="max-md:hidden">{t("dashboard.colUsers")}</TableHeaderCell><TableHeaderCell>{t("dashboard.colStatus")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
@@ -258,22 +270,21 @@ export async function OrganizationsSection({ context }: { context: PlatformConte
           </Table>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }
 
 export async function ProjectsSection({ context, summary }: { context: PlatformContext; summary: Promise<Summary> }) {
   const [rows, canCreate, t] = await Promise.all([dashboardProjects(context), summary.then((value) => value.organizations.companies > 0, () => false), getTranslations("admin")]);
   return (
-    <section aria-labelledby="dash-projects" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-projects">
-      <SectionHeader id="dash-projects" title={t("dashboard.projectsTitle")} href="/admin/projects" linkLabel={t("dashboard.viewAll")} />
+    <Panel id="dash-projects" number="06" title={t("dashboard.projectsTitle")} href="/admin/projects" linkLabel={t("dashboard.viewAll")} testId="dashboard-projects">
       {rows.length === 0 ? (
-        <div className="mt-4 text-table text-fg-subtle">
+        <Empty>
           <p>{t("dashboard.projectsNone")}</p>
-          {canCreate ? <Link href="/admin/projects?create=project" className="mt-2 inline-block font-medium text-accent-strong hover:underline">{t("dashboard.projectsCreate")}</Link> : <p className="mt-1 text-meta text-fg-subtle">{t("dashboard.projectsCompanyFirst")}</p>}
-        </div>
+          {canCreate ? <Link href="/admin/projects?create=project" className="mt-2 inline-block font-medium text-fg underline decoration-accent decoration-2 underline-offset-4">{t("dashboard.projectsCreate")}</Link> : <p className="mt-1 text-meta text-fg-subtle">{t("dashboard.projectsCompanyFirst")}</p>}
+        </Empty>
       ) : (
-        <div className="mt-4 min-w-0 flex-1">
+        <div className="min-w-0 overflow-x-auto">
           <Table stack aria-label={t("dashboard.recentProjectsLabel")}>
             <TableHead><TableRow><TableHeaderCell>{t("dashboard.colProject")}</TableHeaderCell><TableHeaderCell className="max-sm:hidden">{t("dashboard.colCompany")}</TableHeaderCell><TableHeaderCell>{t("dashboard.col3d")}</TableHeaderCell><TableHeaderCell>{t("dashboard.colStatus")}</TableHeaderCell></TableRow></TableHead>
             <TableBody>
@@ -289,7 +300,7 @@ export async function ProjectsSection({ context, summary }: { context: PlatformC
           </Table>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -297,34 +308,45 @@ export { ListSkeleton } from "./list-skeleton";
 
 // ── Usage ───────────────────────────────────────────────────────────────────
 
+function UsageFigure({ label, value, detail, detailClass, href, linkLabel }: { label: string; value: React.ReactNode; detail: React.ReactNode; detailClass?: string; href: string; linkLabel: string }) {
+  return (
+    <div className="min-w-0 bg-surface px-4 py-4">
+      <p className="font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-subtle">{label}</p>
+      <p className="mt-2 font-display text-[1.625rem] leading-tight tabular-nums text-fg">{value}</p>
+      <p className={cn("mt-1 text-meta", detailClass ?? "text-fg-subtle")}>{detail}</p>
+      <Link href={href} className="mt-3 inline-flex items-center gap-1.5 font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-muted transition-colors hover:text-fg">
+        {linkLabel}
+        <ArrowRight aria-hidden="true" className="size-3.5" />
+      </Link>
+    </div>
+  );
+}
+
 export async function UsageSection({ context }: { context: PlatformContext }) {
   const [usage, t] = await Promise.all([dashboardUsage(context), getTranslations("admin")]);
   const { storage, modules, threeD } = usage;
   const share = storage.quotaBytes ? storage.usedBytes / storage.quotaBytes : null;
-  const shareTone = share === null ? "" : share >= STORAGE_CRITICAL ? "text-danger-strong" : share >= STORAGE_WARNING ? "text-warning-strong" : "text-fg-subtle";
+  const shareTone = share === null ? undefined : share >= STORAGE_CRITICAL ? "text-danger-strong" : share >= STORAGE_WARNING ? "text-warning-strong" : undefined;
   return (
-    <section aria-labelledby="dash-usage" className="nesto-card flex min-w-0 flex-col p-5" data-testid="dashboard-usage">
-      <SectionHeader id="dash-usage" title={t("dashboard.usageTitle")} />
-      <div className="mt-4 grid gap-5 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-line">
-        <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
-          <p className="text-table font-medium text-fg-muted">{t("dashboard.storage")}</p>
-          <p className="mt-1 text-[1.625rem] leading-tight text-fg tabular-nums font-display">{storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}</p>
-          {share !== null ? <p className={cn("text-meta", shareTone)}>{t("dashboard.quotaShare", { percent: Math.round(share * 100) })}</p> : <p className="text-meta text-fg-subtle">{t("dashboard.noQuota")}</p>}
-          <Link href="/admin/system/storage" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.storage")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
-        </div>
-        <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
-          <p className="text-table font-medium text-fg-muted">{t("dashboard.moduleProvisioning")}</p>
-          <p className="mt-1 text-[1.625rem] leading-tight text-fg tabular-nums font-display">{modules.assignments}</p>
-          <p className="text-meta text-fg-subtle">{t("dashboard.assignmentsHint", { available: modules.available })}</p>
-          <Link href="/admin/modules" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manageModules")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
-        </div>
-        <div className="min-w-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
-          <p className="text-table font-medium text-fg-muted">{t("dashboard.threeD")}</p>
-          <p className="mt-1 text-[1.625rem] leading-tight text-fg tabular-nums font-display">{threeD.configured}</p>
-          <p className="text-meta text-fg-subtle">{threeD.configured === 0 ? t("dashboard.threeDNone") : t("dashboard.threeDHint", { public: threeD.public, companyOnly: threeD.companyOnly, private: threeD.private, offline: threeD.offline })}</p>
-          <Link href="/admin/3d" className="mt-2 inline-flex items-center gap-1 text-table font-medium text-accent-strong hover:underline">{t("dashboard.manage3d")}<ArrowRight aria-hidden="true" className="size-3.5" /></Link>
-        </div>
+    <Panel id="dash-usage" number="07" title={t("dashboard.usageTitle")} testId="dashboard-usage">
+      <div className="grid gap-px bg-line sm:grid-cols-3">
+        <UsageFigure
+          label={t("dashboard.storage")}
+          value={storage.quotaBytes ? `${bytes(storage.usedBytes)} / ${bytes(storage.quotaBytes)}` : t("dashboard.storageUsed", { used: bytes(storage.usedBytes) })}
+          detail={share !== null ? t("dashboard.quotaShare", { percent: Math.round(share * 100) }) : t("dashboard.noQuota")}
+          detailClass={shareTone}
+          href="/admin/system/storage"
+          linkLabel={t("dashboard.storage")}
+        />
+        <UsageFigure label={t("dashboard.moduleProvisioning")} value={modules.assignments} detail={t("dashboard.assignmentsHint", { available: modules.available })} href="/admin/modules" linkLabel={t("dashboard.manageModules")} />
+        <UsageFigure
+          label={t("dashboard.threeD")}
+          value={threeD.configured}
+          detail={threeD.configured === 0 ? t("dashboard.threeDNone") : t("dashboard.threeDHint", { public: threeD.public, companyOnly: threeD.companyOnly, private: threeD.private, offline: threeD.offline })}
+          href="/admin/3d"
+          linkLabel={t("dashboard.manage3d")}
+        />
       </div>
-    </section>
+    </Panel>
   );
 }

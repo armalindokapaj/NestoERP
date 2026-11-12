@@ -479,13 +479,6 @@
     }
   }
 
-  /* The Admin Console's bar floats 0.875rem above the edge, 68px tall (components/platform/platform-shell.tsx). */
-  @media (max-width: 1023.98px) {
-    html:has([data-mobile-bottom-nav].nesto-bottom-nav) {
-      --nesto-bottom-nav-space: calc(5.5rem + var(--nesto-safe-bottom));
-    }
-  }
-
   /* A hand-made action bar takes the bottom edge: the bar reserves its own room (5.5rem on a phone). */
   html:has([data-mobile-bottom-nav]):has([data-sticky-action-bar]) {
     --nesto-bottom-nav-space: 0px;

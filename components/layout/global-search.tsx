@@ -12,6 +12,7 @@ import type { GlobalSearchCompany, GlobalSearchResponseDTO } from "@/lib/core/se
 import { fetchMenu, menuPathname, QUICK_CREATE_PICK_EVENT } from "@/lib/modules/quick-create/menu-cache";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 import { readSearchHomeCache, removeLegacySearchHomeCache, subscribeMyWork, writeSearchHomeCache } from "@/lib/productivity/client";
+import { DialogScrim } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -248,7 +249,7 @@ export function GlobalSearch({ contextKey, pages = [] }: { contextKey: string; p
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Portal>
           {/* From 640px the page dims behind the palette; a phone's palette is the whole screen. */}
-          <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-[rgb(15_20_26/0.36)] data-[state=open]:animate-[nesto-fade-in_140ms_var(--nesto-ease)] max-sm:hidden" />
+          <DialogScrim className="max-sm:hidden" />
           <DialogPrimitive.Content
             aria-describedby={undefined}
             onOpenAutoFocus={(event) => {

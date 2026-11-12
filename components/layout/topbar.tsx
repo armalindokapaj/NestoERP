@@ -4,9 +4,9 @@ import { HomeLink, ModulesPanel } from "@/components/layout/modules-panel";
 import { PhoneInbox } from "@/components/layout/phone-inbox";
 import { PhoneTitle } from "@/components/layout/phone-title";
 import { QuickCreate } from "@/components/layout/quick-create";
-import { RibbonPanel, RibbonProvider, RibbonTabs } from "@/components/layout/ribbon";
+import { RibbonPanel, RibbonProvider, RibbonTabs, type RibbonModel } from "@/components/layout/ribbon";
 import { AccountPanel } from "@/components/shell/account-panel";
-import type { Navigation } from "@/config/navigation";
+import { isRibbonTab, type Navigation } from "@/config/navigation";
 import { can, canAccessModule } from "@/lib/access/can";
 import { getTranslations } from "@/lib/i18n/server";
 import type { UserContext } from "@/lib/context/types";
@@ -62,6 +62,14 @@ export async function Topbar({
   const roleLabel = roles(`${context.role}.label`);
   // Search's pages (docs/ui/UI-08-search.md): every place this person's navigation offers, once each, with where it sits.
   const pages = [...new Map([...navigation.menu, ...navigation.ribbon].flatMap((group) => group.items).map((item) => [item.href, { key: item.key, label: item.label, href: item.href, icon: item.icon, place: shell(`groups.${item.group}`) }])).values()];
+  // The Ribbon's five tabs, their sets' captions, and the logo panel's modules for where the page is (components/layout/ribbon.tsx).
+  const ribbonTabs = navigation.ribbon.filter((group) => isRibbonTab(group.group));
+  const ribbon: RibbonModel = {
+    tabs: ribbonTabs.map((group) => ({ key: group.group, label: shell(`groups.${group.group}`), items: group.items.map(({ key, href, icon, label, set }) => ({ key, href, icon, label, set })) })),
+    sets: Object.fromEntries([...new Set(ribbonTabs.flatMap((group) => group.items.map((item) => item.set)))].map((set) => [set, shell(`ribbon.sets.${set}`)])),
+    places: navigation.menu.flatMap((group) => group.items.map((item) => ({ key: item.key, href: item.href, label: item.label, module: item.module, tab: isRibbonTab(item.group) ? item.group : null }))),
+    fallback: ribbonTabs.some((group) => group.group === "work") ? "work" : null,
+  };
 
   return (
     // The blur sits on a layer behind the bar, not on the bar: a backdrop filter makes its
@@ -70,7 +78,7 @@ export async function Topbar({
     <header data-shell-region className="sticky top-0 z-[var(--nesto-z-shell-header)] flex h-(--nesto-shell-header-h) flex-col border-b border-fg">
       {/* Glass (UI-05 §9): 82% of the page and a 14px blur under the bar and the ribbon, so the page blurs as it scrolls under them. */}
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-canvas/82 backdrop-blur-[14px] backdrop-saturate-[1.3]" />
-      <RibbonProvider navigation={navigation} folded={ribbonFolded}>
+      <RibbonProvider model={ribbon} folded={ribbonFolded}>
       <div
         data-topbar-row
         className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-stretch pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-x-4 lg:pl-[max(1.5rem,env(safe-area-inset-left))] lg:pr-[max(1.5rem,env(safe-area-inset-right))] xl:gap-x-8 xl:px-8"

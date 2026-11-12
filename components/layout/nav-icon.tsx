@@ -89,6 +89,7 @@ import {
   Wrench,
   Hammer,
   Layers3,
+  Orbit,
   type IconComponent,
 } from "@/components/icons";
 
@@ -111,6 +112,7 @@ import {
  * it explicit means the bundle only contains icons NESTO actually uses.
  */
 const registry: Record<string, IconComponent> = {
+  Orbit,
   NestoApprovals,
   NestoAuditLog,
   NestoFinance,

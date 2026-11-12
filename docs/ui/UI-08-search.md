@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/ui/UI-08-search.md
 > **About:** The redesigned global search — one palette for records, pages and actions, on desktop and phone, with units now findable — what it does, how it looks, where it lives and what it leaves out, for whoever changes search next.
-> **Last updated:** 2026-11-12
+> **Last updated:** 2026-11-13
 
 # UI-08 — Search: one palette for records, pages and actions
 
@@ -86,7 +86,9 @@ The palette keeps the frame's testids (`search-trigger`, `search-input`,
 
 ## 4. Not in scope
 
-- The platform admin's search (`components/platform/platform-search.tsx`)
-  keeps its own glass panel (`components/ui/glass-panel.tsx`).
+- The Admin Console has its own palette in this design
+  (`components/platform/admin-search.tsx`, docs/ui/UI-09-admin-console.md).
+  The Group console's search (`components/platform/platform-search.tsx`)
+  keeps its glass panel (`components/ui/glass-panel.tsx`).
 - Recent searches (what was typed before) and a preview of the record beside
   the list were left out on purpose; they can follow.

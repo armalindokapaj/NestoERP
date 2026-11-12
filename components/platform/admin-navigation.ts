@@ -1,125 +1,122 @@
-import { Boxes, Building2, FolderKanban, History, LayoutDashboard, Orbit, Settings2, Users, type IconComponent } from "@/components/icons";
-
 import type { PlatformPermission } from "@/config/platform";
+import { itemForPath } from "@/config/navigation";
 
 /**
- * The Platform Admin's whole sidebar (Admin IA §5): eight destinations, each
- * opening useful content at once. Secondary pages live as tabs inside a
- * destination (§9, §23), never as nested sidebar rows.
+ * The Admin Console's navigation (docs/ui/UI-09-admin-console.md): every page
+ * once, by what it is for, laid out as the company app lays out its modules.
+ *
+ *   Home        Overview · Help · What's new — the logo's panel and the phone's Menu
+ *   Customers   Organizations, Projects · Entitlements, Plans, Pricing
+ *   People      Accounts, People, Memberships · Roles, Permissions, Grants, Inspector · Sessions, Devices
+ *   Product     Catalog, Templates, Feature flags · Experiences, Models, Publishing, 3D diagnostics
+ *   Operations  Health, Jobs, Storage, Data diagnostics · Email, Notifications, Integrations · Maintenance, Recovery, Support, Settings
+ *   Security    Audit log, Security events, Access changes, Failed sign-ins · Authentication, Security policy, Mobile policy
+ *
+ * The five after Home are the Ribbon's tabs in the top bar; each tab's pages
+ * stand in captioned sets under it (components/layout/ribbon.tsx). A page is
+ * offered only to somebody who holds its permission, and a tab with no page
+ * left is not drawn.
+ *
+ * Labels here are English; the shell puts each in the reader's language
+ * (`admin.nav.page.<key>`, `nav.area.<area>`, `nav.set.<set>`). Icons are
+ * names for `getIcon` (components/layout/nav-icon.tsx).
  */
-export type AdminTab = { label: string; href: string; permission?: PlatformPermission };
-export type AdminDestination = {
-  key: string;
-  label: string;
-  href: string;
-  icon: IconComponent;
-  permission: PlatformPermission;
-  /** Below the separator (§5). */
-  utility?: boolean;
-  /** Pages shown as tabs across the top of this destination's directory pages. */
-  tabs?: AdminTab[];
-};
 
 export const ADMIN_HOME = "/admin";
 
-export const adminDestinations: AdminDestination[] = [
-  { key: "dashboard", label: "Dashboard", href: "/admin", icon: LayoutDashboard, permission: "platform.dashboard.view" },
-  {
-    key: "organizations", label: "Organizations", href: "/admin/organizations", icon: Building2, permission: "platform.group.view",
-    // Its own All / Groups / Companies / Standalone tabs live in the page (Organizations PRD §6).
-  },
-  { key: "projects", label: "Projects", href: "/admin/projects", icon: FolderKanban, permission: "platform.project.view" },
-  {
-    key: "modules", label: "Modules", href: "/admin/modules", icon: Boxes, permission: "platform.module.view",
-    tabs: [
-      { label: "Entitlements", href: "/admin/modules" },
-      { label: "Plans", href: "/admin/modules/plans" },
-      { label: "Catalog", href: "/admin/modules/catalog" },
-      { label: "Templates", href: "/admin/modules/templates" },
-      { label: "Pricing", href: "/admin/modules/pricing", permission: "platform.pricing.view" },
-    ],
-  },
-  {
-    key: "users", label: "Users", href: "/admin/users", icon: Users, permission: "platform.user.view",
-    tabs: [
-      { label: "Accounts", href: "/admin/users" },
-      { label: "People", href: "/admin/users/people", permission: "platform.people.view" },
-      { label: "Memberships", href: "/admin/users/memberships", permission: "platform.membership.view" },
-      { label: "Roles", href: "/admin/users/roles" },
-      { label: "Permissions", href: "/admin/users/permissions" },
-      { label: "Access grants", href: "/admin/users/grants", permission: "platform.membership.view" },
-      { label: "Access inspector", href: "/admin/users/inspector", permission: "platform.access.inspect" },
-      { label: "Sessions", href: "/admin/users/sessions", permission: "platform.session.view" },
-      { label: "Mobile devices", href: "/admin/users/devices", permission: "platform.device.view" },
-    ],
-  },
-  {
-    key: "3d", label: "3D / Rozaris", href: "/admin/3d", icon: Orbit, permission: "platform.3d.view",
-    tabs: [
-      { label: "Experiences", href: "/admin/3d" },
-      { label: "Model library", href: "/admin/3d/models" },
-      { label: "Publishing", href: "/admin/3d/publishing" },
-      { label: "Diagnostics", href: "/admin/3d/diagnostics" },
-    ],
-  },
-  {
-    key: "audit", label: "Audit Log", href: "/admin/audit", icon: History, permission: "platform.audit.view", utility: true,
-    tabs: [
-      { label: "All events", href: "/admin/audit" },
-      { label: "Security", href: "/admin/audit/security", permission: "platform.security.view" },
-      { label: "Access changes", href: "/admin/audit/access-changes", permission: "platform.security.view" },
-      { label: "Failed sign-ins", href: "/admin/audit/failed-logins", permission: "platform.security.view" },
-    ],
-  },
-  {
-    key: "system", label: "System", href: "/admin/system", icon: Settings2, permission: "platform.settings.view", utility: true,
-    tabs: [
-      { label: "General", href: "/admin/system" },
-      { label: "Authentication", href: "/admin/system/authentication" },
-      { label: "Email", href: "/admin/system/email" },
-      { label: "Notifications", href: "/admin/system/notifications", permission: "platform.operations.view" },
-      { label: "Integrations", href: "/admin/system/integrations" },
-      { label: "Security", href: "/admin/system/security", permission: "platform.security.view" },
-      { label: "Mobile policy", href: "/admin/system/mobile-policy", permission: "platform.security.view" },
-      { label: "Feature flags", href: "/admin/system/feature-flags", permission: "platform.feature_flag.view" },
-      { label: "Maintenance", href: "/admin/system/maintenance", permission: "platform.maintenance.manage" },
-      { label: "Health", href: "/admin/system/health", permission: "platform.operations.view" },
-      { label: "Jobs", href: "/admin/system/jobs", permission: "platform.operations.view" },
-      { label: "Storage", href: "/admin/system/storage", permission: "platform.operations.view" },
-      { label: "Recovery", href: "/admin/system/recovery", permission: "platform.recovery.view" },
-      { label: "Data diagnostics", href: "/admin/system/diagnostics", permission: "platform.operations.view" },
-      { label: "Support", href: "/admin/system/support", permission: "platform.support.view" },
-    ],
-  },
+/** The areas in order: Home, then the Ribbon's five tabs. */
+export const ADMIN_AREAS = ["home", "customers", "people", "product", "operations", "security"] as const;
+export type AdminArea = (typeof ADMIN_AREAS)[number];
+export const ADMIN_TABS = ["customers", "people", "product", "operations", "security"] as const satisfies readonly AdminArea[];
+
+export type AdminPage = { key: string; label: string; href: string; icon: string; area: AdminArea; set: string; permission: PlatformPermission };
+
+const page = (area: AdminArea, set: string, key: string, label: string, href: string, icon: string, permission: PlatformPermission): AdminPage => ({ key, label, href, icon, area, set, permission });
+
+export const ADMIN_PAGES: AdminPage[] = [
+  page("home", "home", "overview", "Overview", "/admin", "LayoutDashboard", "platform.dashboard.view"),
+  page("home", "home", "help", "Help", "/admin/help", "CircleHelp", "platform.dashboard.view"),
+  page("home", "home", "whatsNew", "What's new", "/admin/whats-new", "Megaphone", "platform.dashboard.view"),
+
+  page("customers", "organizations", "organizations", "Organizations", "/admin/organizations", "Building2", "platform.group.view"),
+  page("customers", "organizations", "projects", "Projects", "/admin/projects", "FolderKanban", "platform.project.view"),
+  page("customers", "subscriptions", "entitlements", "Entitlements", "/admin/modules", "Boxes", "platform.module.view"),
+  page("customers", "subscriptions", "plans", "Plans", "/admin/modules/plans", "Layers3", "platform.module.view"),
+  page("customers", "subscriptions", "pricing", "Pricing", "/admin/modules/pricing", "CreditCard", "platform.pricing.view"),
+
+  page("people", "accounts", "accounts", "Accounts", "/admin/users", "Users", "platform.user.view"),
+  page("people", "accounts", "people", "People", "/admin/users/people", "UsersRound", "platform.people.view"),
+  page("people", "accounts", "memberships", "Memberships", "/admin/users/memberships", "IdCard", "platform.membership.view"),
+  page("people", "access", "roles", "Roles", "/admin/users/roles", "UserRoundCog", "platform.user.view"),
+  page("people", "access", "permissions", "Permissions", "/admin/users/permissions", "ListChecks", "platform.user.view"),
+  page("people", "access", "grants", "Access grants", "/admin/users/grants", "BadgeCheck", "platform.membership.view"),
+  page("people", "access", "inspector", "Access inspector", "/admin/users/inspector", "Eye", "platform.access.inspect"),
+  page("people", "signins", "sessions", "Sessions", "/admin/users/sessions", "Laptop", "platform.session.view"),
+  page("people", "signins", "devices", "Mobile devices", "/admin/users/devices", "Smartphone", "platform.device.view"),
+
+  page("product", "modules", "catalog", "Catalog", "/admin/modules/catalog", "Package", "platform.module.view"),
+  page("product", "modules", "templates", "Templates", "/admin/modules/templates", "FileStack", "platform.module.view"),
+  page("product", "modules", "featureFlags", "Feature flags", "/admin/system/feature-flags", "ToggleRight", "platform.feature_flag.view"),
+  page("product", "threeD", "experiences", "Experiences", "/admin/3d", "Orbit", "platform.3d.view"),
+  page("product", "threeD", "models", "Model library", "/admin/3d/models", "Boxes", "platform.3d.view"),
+  page("product", "threeD", "publishing", "Publishing", "/admin/3d/publishing", "Send", "platform.3d.view"),
+  page("product", "threeD", "threeDDiagnostics", "3D diagnostics", "/admin/3d/diagnostics", "Gauge", "platform.3d.view"),
+
+  page("operations", "health", "health", "Health", "/admin/system/health", "Gauge", "platform.operations.view"),
+  page("operations", "health", "jobs", "Jobs", "/admin/system/jobs", "RefreshCw", "platform.operations.view"),
+  page("operations", "health", "storage", "Storage", "/admin/system/storage", "HardDrive", "platform.operations.view"),
+  page("operations", "health", "diagnostics", "Data diagnostics", "/admin/system/diagnostics", "Database", "platform.operations.view"),
+  page("operations", "messages", "email", "Email", "/admin/system/email", "Send", "platform.settings.view"),
+  page("operations", "messages", "notifications", "Notifications", "/admin/system/notifications", "BellRing", "platform.operations.view"),
+  page("operations", "messages", "integrations", "Integrations", "/admin/system/integrations", "Network", "platform.settings.view"),
+  page("operations", "care", "maintenance", "Maintenance", "/admin/system/maintenance", "Wrench", "platform.maintenance.manage"),
+  page("operations", "care", "recovery", "Recovery", "/admin/system/recovery", "RotateCcw", "platform.recovery.view"),
+  page("operations", "care", "support", "Support", "/admin/system/support", "LifeBuoy", "platform.support.view"),
+  page("operations", "care", "settings", "Settings", "/admin/system", "Settings", "platform.settings.view"),
+
+  page("security", "audit", "audit", "Audit log", "/admin/audit", "History", "platform.audit.view"),
+  page("security", "audit", "securityEvents", "Security events", "/admin/audit/security", "ShieldCheck", "platform.security.view"),
+  page("security", "audit", "accessChanges", "Access changes", "/admin/audit/access-changes", "ArrowLeftRight", "platform.security.view"),
+  page("security", "audit", "failedLogins", "Failed sign-ins", "/admin/audit/failed-logins", "Ban", "platform.security.view"),
+  page("security", "policy", "authentication", "Authentication", "/admin/system/authentication", "UserCheck", "platform.settings.view"),
+  page("security", "policy", "securityPolicy", "Security policy", "/admin/system/security", "Gavel", "platform.security.view"),
+  page("security", "policy", "mobilePolicy", "Mobile policy", "/admin/system/mobile-policy", "MonitorSmartphone", "platform.security.view"),
 ];
 
-/** The dictionary key of a tab (nav.tab.<key> in the admin namespace), from its href: "/admin/users/roles" → "users_roles". */
-export function adminTabKey(href: string): string {
-  return href.replace(/^\/admin\/?/, "").replaceAll("/", "_").replaceAll("-", "") || "dashboard";
+/** The pages this person may open, in order. */
+export function adminPagesFor(permissions: readonly string[]): AdminPage[] {
+  return ADMIN_PAGES.filter((item) => permissions.includes(item.permission));
 }
 
-/** The one destination a path belongs to, by hierarchy rather than equality (§12). */
-export function activeDestination(pathname: string): AdminDestination | undefined {
+/** The page a path is under, by hierarchy: `/admin/organizations/x/departments` is Organizations. */
+export function adminPageFor(pathname: string, pages: readonly AdminPage[] = ADMIN_PAGES): AdminPage | null {
   const path = pathname.replace(/\/+$/, "") || "/";
-  let best: AdminDestination | undefined;
-  for (const destination of adminDestinations) {
-    const hit = destination.href === ADMIN_HOME ? path === ADMIN_HOME : path === destination.href || path.startsWith(`${destination.href}/`);
-    if (hit && (!best || destination.href.length > best.href.length)) best = destination;
-  }
-  return best;
+  // Overview is the console's root: only the root itself, never everything under it.
+  if (path === ADMIN_HOME) return pages.find((item) => item.href === ADMIN_HOME) ?? null;
+  return itemForPath(pages.filter((item) => item.href !== ADMIN_HOME), path);
 }
 
-/** A tab is current only on its own page; a detail page under it shows no tabs. */
-export function activeTab(pathname: string): { destination: AdminDestination; tab: AdminTab } | undefined {
-  const path = pathname.replace(/\/+$/, "");
-  const destination = activeDestination(path);
-  const tab = destination?.tabs?.find((item) => item.href === path);
-  return destination && tab ? { destination, tab } : undefined;
+/** Menu, the phone bar's last place: every area, and you. */
+export const ADMIN_MENU = "/admin/menu";
+
+/** The phone bar's places (docs/ui/UI-09-admin-console.md §Phone). */
+export type AdminPlace = "home" | "customers" | "people" | "menu";
+
+/** Which of the phone bar's places a path is in: Home is the Overview alone; Customers and People their areas; anything else is reached from Menu. */
+export function adminPlaceOf(pathname: string, pages: readonly AdminPage[] = ADMIN_PAGES): AdminPlace {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === ADMIN_HOME) return "home";
+  const area = adminPageFor(path, pages)?.area;
+  return area === "customers" || area === "people" ? area : "menu";
 }
 
-export function visibleTo<T extends { permission?: PlatformPermission }>(items: readonly T[], permissions: readonly string[]): T[] {
-  return items.filter((item) => !item.permission || permissions.includes(item.permission));
+/**
+ * Where the phone's Back goes from a path: nowhere from a page of the
+ * navigation or Menu, which are first pages; from deeper (an organization, a
+ * user) up to the page it is under; from anywhere else (Account) to Menu.
+ */
+export function adminUp(pathname: string, pages: readonly AdminPage[] = ADMIN_PAGES): string | null {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === ADMIN_HOME || path === ADMIN_MENU || pages.some((item) => item.href === path)) return null;
+  return adminPageFor(path, pages)?.href ?? ADMIN_MENU;
 }
-
-/** Sidebar width, per browser; read by the layout so a refresh renders it at once (§13). */
-export const SIDEBAR_COOKIE = "platformAdmin.sidebar.collapsed";

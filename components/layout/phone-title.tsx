@@ -23,25 +23,24 @@ import { cn } from "@/lib/utils/cn";
  * - Back, in a cell of its own, on any page that is not one of the five
  *   places' first pages: there the bar is the way out.
  */
-export function PhoneTitle() {
+export function PhoneTitle({ up, backLabel }: { /** A shell without record history (the Admin Console): where Back goes, null on a first page. */ up?: string | null; backLabel?: string } = {}) {
   const pathname = usePathname();
   const navigation = useRecordNavigation();
   const t = useTranslations("shell");
   const crumbs = useRegisteredBreadcrumbs();
   const project = projectCrumb(crumbs);
   const pageName = usePageName();
-  const back = navigation?.canGoBack && !isPlaceRoot(pathname);
+  const back = up !== undefined ? Boolean(up) : navigation?.canGoBack && !isPlaceRoot(pathname);
+  const backClass = "grid w-14 shrink-0 place-items-center border-r border-line-strong text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
   return (
     <div className="flex h-full min-w-0 flex-1 items-stretch self-stretch lg:hidden" data-testid="phone-title">
-      {back ? (
-        <button
-          type="button"
-          onClick={() => navigation?.goBack()}
-          aria-label={t("phone.back")}
-          data-testid="phone-back"
-          className="grid w-14 shrink-0 place-items-center border-r border-line-strong text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        >
+      {back && up ? (
+        <Link href={up} navSource="mobile" aria-label={backLabel ?? t("phone.back")} data-testid="phone-back" className={backClass}>
+          <ArrowLeft aria-hidden="true" className="size-5" />
+        </Link>
+      ) : back ? (
+        <button type="button" onClick={() => navigation?.goBack()} aria-label={t("phone.back")} data-testid="phone-back" className={backClass}>
           <ArrowLeft aria-hidden="true" className="size-5" />
         </button>
       ) : null}

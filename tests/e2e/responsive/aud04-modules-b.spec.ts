@@ -214,25 +214,22 @@ test.describe("read-only identity", () => {
 });
 
 test.describe("MW-02 Platform Admin on a phone", () => {
-  test("the navigation is a modal drawer: focus inside, Escape closes, 44px controls", async ({ page }, testInfo) => {
+  test("the phone bar's places and Menu: every area, 44px controls, no overflow", async ({ page }, testInfo) => {
     test.skip(outsideProjects(testInfo, PHONES), "Phone layout.");
     await signIn(page, "PLATFORM_ADMIN", { to: "/admin" });
-    await expectNoPageOverflow(page, "platform dashboard");
-    const open = page.getByRole("button", { name: "Open navigation" });
-    expect((await open.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
-    await open.click();
-    const drawer = page.getByRole("dialog", { name: "Platform administration" });
-    await expect(drawer).toBeVisible();
-    expect(await drawer.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-    await expectTouchTargets(page, drawer);
-    await page.keyboard.press("Escape");
-    await expect(drawer).toBeHidden();
+    await expectNoPageOverflow(page, "platform overview");
+    const bar = page.getByTestId("admin-phone-bar");
+    await expect(bar).toBeVisible();
+    await expectTouchTargets(page, bar);
 
-    // A route change closes it too.
-    await open.click();
-    await drawer.getByRole("link", { name: "Access Inspector" }).click();
-    await expect(page).toHaveURL(/\/admin\/access\/inspector/);
-    await expect(drawer).toBeHidden();
+    // Menu holds every area; an area opens in place and its pages open from it.
+    await bar.getByTestId("admin-place-menu").click();
+    await expect(page).toHaveURL(/\/admin\/menu$/);
+    await expectNoPageOverflow(page, "admin menu");
+    await page.getByTestId("admin-menu-area-people").getByRole("button").click();
+    await page.getByTestId("admin-menu-page-inspector").click();
+    await expect(page).toHaveURL(/\/admin\/users\/inspector/);
+    await expect(bar.getByTestId("admin-place-people")).toHaveAttribute("aria-current", "page");
     await expectNoPageOverflow(page, "access inspector");
   });
 });

@@ -29,6 +29,11 @@ export const Dialog = GuardedRoot;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
+/** The page dimmed behind a panel that floats without DialogContent's frame: the search palettes. */
+export function DialogScrim({ className }: { className?: string }) {
+  return <DialogPrimitive.Overlay className={cn("fixed inset-0 z-[60] bg-[rgb(15_20_26/0.36)] data-[state=open]:animate-[nesto-fade-in_140ms_var(--nesto-ease)]", className)} />;
+}
+
 export function DialogContent({
   className,
   closeClassName,

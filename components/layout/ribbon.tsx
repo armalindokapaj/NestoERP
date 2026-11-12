@@ -8,7 +8,7 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
-import { groupOfPath, isNavigationItemActive, isRibbonTab, itemForPath, type Navigation, type NavigationGroup, type NavigationItem, type RibbonTab } from "@/config/navigation";
+import { itemForPath } from "@/config/navigation";
 import { RIBBON_COOKIE } from "@/lib/layout/nav-layout";
 import { cn } from "@/lib/utils/cn";
 
@@ -33,18 +33,42 @@ import { cn } from "@/lib/utils/cn";
  * (`--nesto-shell-header-h`, styles/globals.css) is right on the first paint.
  *
  * It renders what the one navigation resolver produced for this person, so a
- * tab or a module they cannot open is not here.
+ * tab or a module they cannot open is not here. The same Ribbon draws the
+ * Admin Console's five areas (components/platform/admin-navigation.ts): each
+ * shell hands it a `RibbonModel` with its words already in the reader's
+ * language.
  */
+
+/** One button: a module, a section or a page. `icon` is a name for `getIcon`. */
+export type RibbonItem = { key: string; href: string; icon: string; label: string; set: string };
+
+/** What a shell hands the Ribbon. */
+export type RibbonModel = {
+  /** The tabs in the bar's order, each with its buttons in their sets' order. */
+  tabs: { key: string; label: string; items: RibbonItem[] }[];
+  /** Each set's caption, by its key. */
+  sets: Record<string, string>;
+  /**
+   * Every place the shell names, with the tab it belongs to (none outside the
+   * tabs): which tab holds the page — the buttons' own finer places first —
+   * and what the shell says the page is under (`data-current-*`).
+   */
+  places: { key: string; href: string; label: string; module?: string; tab: string | null }[];
+  /** The tab open where no tab holds the page. */
+  fallback: string | null;
+};
+
 type RibbonState = {
-  tabs: (NavigationGroup & { group: RibbonTab })[];
+  tabs: RibbonModel["tabs"];
+  sets: RibbonModel["sets"];
   /** Every button on every tab, for which one the page is under. */
-  items: NavigationItem[];
-  current: RibbonTab | null;
-  /** The tab holding the module you are in, if one does. */
-  home: RibbonTab | null;
+  items: RibbonItem[];
+  current: string | null;
+  /** The tab holding the place you are in, if one does. */
+  home: string | null;
   folded: boolean;
-  choose: (tab: RibbonTab) => void;
-  show: (tab: RibbonTab) => void;
+  choose: (tab: string) => void;
+  show: (tab: string) => void;
   fold: (next: boolean) => void;
   baseId: string;
 };
@@ -57,23 +81,24 @@ function useRibbon(): RibbonState {
   return state;
 }
 
-export function RibbonProvider({ navigation, folded: foldedAtFirst, children }: { navigation: Navigation; folded: boolean; children: React.ReactNode }) {
+export function RibbonProvider({ model, folded: foldedAtFirst, children }: { model: RibbonModel; folded: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const tabs = navigation.ribbon.filter((group): group is NavigationGroup & { group: RibbonTab } => isRibbonTab(group.group));
+  const { tabs, sets, places } = model;
   const items = tabs.flatMap((tab) => tab.items);
-  const inGroup = groupOfPath(navigation, pathname);
-  const home = inGroup && isRibbonTab(inGroup) ? inGroup : null;
-  const fallback: RibbonTab | null = home ?? (tabs.find((tab) => tab.group === "work") ?? tabs[0])?.group ?? null;
+  // The tab the page is in: the buttons' finer places first (Units is Sales, though it lives under Projects), then the shell's.
+  const located = itemForPath([...tabs.flatMap((tab) => tab.items.map((item) => ({ href: item.href, tab: tab.key }))), ...places], pathname);
+  const home = located?.tab ?? null;
+  const fallback = home ?? model.fallback ?? tabs[0]?.key ?? null;
 
-  const [picked, setPicked] = React.useState<RibbonTab | null>(null);
+  const [picked, setPicked] = React.useState<string | null>(null);
   React.useEffect(() => setPicked(null), [pathname]);
   const [folded, setFolded] = React.useState(foldedAtFirst);
   const baseId = React.useId();
 
-  const current = picked && tabs.some((tab) => tab.group === picked) ? picked : fallback;
-  // The panel's entry the page is under: a module, or Units.
-  const currentItem = itemForPath(navigation.menu.flatMap((group) => group.items), pathname);
+  const current = picked && tabs.some((tab) => tab.key === picked) ? picked : fallback;
+  // The place the page is under: a module, or Units.
+  const currentItem = itemForPath(places, pathname);
 
   function fold(next: boolean) {
     setFolded(next);
@@ -81,19 +106,19 @@ export function RibbonProvider({ navigation, folded: foldedAtFirst, children }: 
     document.documentElement.dataset.ribbon = next ? "folded" : "open";
   }
 
-  function show(tab: RibbonTab) {
+  function show(tab: string) {
     setPicked(tab);
     if (folded) fold(false);
   }
 
   // Click the open tab to fold the ribbon; any other tab opens, on that tab.
-  function choose(tab: RibbonTab) {
+  function choose(tab: string) {
     if (tab === current && !folded) fold(true);
     else show(tab);
   }
 
   return (
-    <RibbonContext.Provider value={{ tabs, items, current, home, folded, choose, show, fold, baseId }}>
+    <RibbonContext.Provider value={{ tabs, sets, items, current, home, folded, choose, show, fold, baseId }}>
       {/* Draws no box of its own: the bar's row and the panel are its children. */}
       <div
         data-ribbon
@@ -110,14 +135,14 @@ export function RibbonProvider({ navigation, folded: foldedAtFirst, children }: 
 }
 
 /**
- * The five tabs, one segmented control: the open tab raised on the track. The
+ * The tabs, one segmented control: the open tab raised on the track. The
  * tab holding the page you are on carries the homepage's small gold square,
  * whichever tab is open, and with the ribbon folded.
  */
 export function RibbonTabs({ className }: { className?: string }) {
   const t = useTranslations("shell");
   const { tabs, current, home, folded, choose, show, baseId } = useRibbon();
-  const tabRefs = React.useRef(new Map<RibbonTab, HTMLButtonElement>());
+  const tabRefs = React.useRef(new Map<string, HTMLButtonElement>());
 
   // A tab list behaves like one (AUD-11 §3): one Tab stop, the arrow keys move between tabs and show them.
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -125,8 +150,8 @@ export function RibbonTabs({ className }: { className?: string }) {
     const edge = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : undefined;
     if (step === undefined && edge === undefined) return;
     event.preventDefault();
-    const index = tabs.findIndex((tab) => tab.group === current);
-    const next = tabs[edge ?? (index + step! + tabs.length) % tabs.length]!.group;
+    const index = tabs.findIndex((tab) => tab.key === current);
+    const next = tabs[edge ?? (index + step! + tabs.length) % tabs.length]!.key;
     show(next);
     tabRefs.current.get(next)?.focus();
   }
@@ -141,26 +166,26 @@ export function RibbonTabs({ className }: { className?: string }) {
       className={cn("flex h-10 items-stretch border border-line-strong bg-surface max-lg:hidden", className)}
     >
       {tabs.map((tab) => {
-        const selected = tab.group === current;
+        const selected = tab.key === current;
         const raised = selected && !folded;
         return (
           <button
-            key={tab.group}
+            key={tab.key}
             ref={(node) => {
-              if (node) tabRefs.current.set(tab.group, node);
-              else tabRefs.current.delete(tab.group);
+              if (node) tabRefs.current.set(tab.key, node);
+              else tabRefs.current.delete(tab.key);
             }}
             type="button"
             role="tab"
-            id={`${baseId}-${tab.group}`}
+            id={`${baseId}-${tab.key}`}
             aria-selected={selected}
             aria-expanded={selected ? !folded : undefined}
             aria-controls={raised ? `${baseId}-panel` : undefined}
             tabIndex={selected ? 0 : -1}
             title={raised ? t("ribbon.fold") : undefined}
-            onClick={() => choose(tab.group)}
-            data-testid={`ribbon-tab-${tab.group}`}
-            data-here={home === tab.group || undefined}
+            onClick={() => choose(tab.key)}
+            data-testid={`ribbon-tab-${tab.key}`}
+            data-here={home === tab.key || undefined}
             className={cn(
               "relative inline-flex items-center whitespace-nowrap border-r border-line-strong px-3 text-body font-medium transition-colors last:border-r-0",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -169,7 +194,7 @@ export function RibbonTabs({ className }: { className?: string }) {
               "data-here:after:absolute data-here:after:bottom-[3px] data-here:after:left-1/2 data-here:after:size-[3px] data-here:after:-translate-x-1/2 data-here:after:bg-accent",
             )}
           >
-            {t(`groups.${tab.group}`)}
+            {tab.label}
           </button>
         );
       })}
@@ -181,12 +206,12 @@ export function RibbonTabs({ className }: { className?: string }) {
 export function RibbonPanel() {
   const t = useTranslations("shell");
   const pathname = usePathname();
-  const { tabs, items, current, folded, fold, baseId } = useRibbon();
-  const group = tabs.find((tab) => tab.group === current) ?? null;
+  const { tabs, sets: captions, items, current, folded, fold, baseId } = useRibbon();
+  const group = tabs.find((tab) => tab.key === current) ?? null;
   if (folded || !current || !group) return null;
 
-  // The sets in the layout's order, each with the modules this person has.
-  const sets: { key: NavigationItem["set"]; items: NavigationItem[] }[] = [];
+  // The sets in the layout's order, each with the buttons this person has.
+  const sets: { key: string; items: RibbonItem[] }[] = [];
   for (const item of group.items) {
     const last = sets[sets.length - 1];
     if (last && last.key === item.set) last.items.push(item);
@@ -208,9 +233,9 @@ export function RibbonPanel() {
       <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
         <div className="mx-auto flex h-full w-max items-stretch pb-1.5 pt-2">
           {sets.map((set) => (
-            <RibbonGroup key={set.key} caption={t(`ribbon.sets.${set.key}`)}>
+            <RibbonGroup key={set.key} caption={captions[set.key] ?? set.key}>
               {set.items.map((item) => (
-                <RibbonButton key={item.key} item={item} active={isNavigationItemActive(item, pathname, items)} />
+                <RibbonButton key={item.key} item={item} active={itemForPath(items, pathname)?.key === item.key} />
               ))}
             </RibbonGroup>
           ))}
@@ -243,7 +268,7 @@ function RibbonGroup({ caption, children }: { caption: string; children: React.R
 }
 
 /** A module or a section: its icon over its name, the whole button the target. The one the page is under is marked. */
-function RibbonButton({ item, active }: { item: NavigationItem; active: boolean }) {
+function RibbonButton({ item, active }: { item: RibbonItem; active: boolean }) {
   const Icon = getIcon(item.icon);
   const pending = usePendingDestination(item.href);
   return (
