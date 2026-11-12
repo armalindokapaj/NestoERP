@@ -78,13 +78,12 @@ const nextConfig: NextConfig = {
    */
   async redirects() {
     return [
-      { source: "/legal", destination: "/contracts", permanent: true },
+      // `:path*` also matches `/legal` itself, so one entry covers both.
       { source: "/legal/:path*", destination: "/contracts/:path*", permanent: true },
       // Platform Admin moved to /admin (Admin IA §6, §49, §50). Temporary, so a
       // later rework can re-home these without browsers holding stale 308s.
       ...[
-        ["/platform-admin/overview", "/admin"],
-        ["/platform-admin/dashboard", "/admin"],
+        ["/platform-admin/:page(overview|dashboard)", "/admin"],
         ["/platform-admin/groups/:id/departments", "/admin/organizations/:id/departments"],
         ["/platform-admin/groups/:id", "/admin/organizations/:id"],
         ["/platform-admin/organizations/groups", "/admin/organizations?type=group"],
@@ -108,13 +107,11 @@ const nextConfig: NextConfig = {
         ["/platform-admin/data/:path*", "/admin/system/:path*"],
         ["/platform-admin/support", "/admin/system/support"],
         ["/platform-admin/demo", "/admin/system/demo"],
-        ["/platform-admin", "/admin"],
         ["/platform-admin/:path*", "/admin/:path*"],
         ["/admin/organizations/companies", "/admin/organizations?type=company"],
         ["/admin/organizations/implementations", "/admin/organizations?type=group&status=IMPLEMENTING"],
         ["/admin/modules/feature-flags", "/admin/system/feature-flags"],
-        ["/admin/overview", "/admin"],
-        ["/admin/dashboard", "/admin"],
+        ["/admin/:page(overview|dashboard)", "/admin"],
       ].map(([source, destination]) => ({ source, destination, permanent: false })),
     ];
   },
