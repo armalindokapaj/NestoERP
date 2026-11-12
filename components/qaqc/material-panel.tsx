@@ -180,7 +180,7 @@ export function MaterialPanel({
       {release ? (
         <div className="nesto-card space-y-2 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-card font-semibold text-fg">{t("material.release")}</h3>
+            <h3 className="nesto-section-head">{t("material.release")}</h3>
             <ReleaseBadge status={release.status} />
           </div>
           <p className="text-table text-fg-muted">
@@ -204,7 +204,7 @@ export function MaterialPanel({
         </div>
       ) : canRelease ? (
         <div className="nesto-card space-y-3 p-5">
-          <h3 className="text-card font-semibold text-fg">{t("material.releaseToStock")}</h3>
+          <h3 className="nesto-section-head">{t("material.releaseToStock")}</h3>
           <p className="text-table text-fg-muted">
             {t("material.releaseBody")}
           </p>
@@ -325,7 +325,7 @@ function DecisionForm({
   return (
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <div>
-        <h3 className="text-card font-semibold text-fg">{t("material.recordTitle")}</h3>
+        <h3 className="nesto-section-head">{t("material.recordTitle")}</h3>
         <p className="mt-1 text-meta text-fg-subtle">
           {t("material.recordHint")}
         </p>

@@ -227,7 +227,7 @@ export function SectionHeader({
   return (
     <div className={cn("flex flex-wrap items-end justify-between gap-3", className)}>
       <div className="min-w-0">
-        <h2 className="text-card font-semibold text-fg [overflow-wrap:anywhere]">{title}</h2>
+        <h2 className="nesto-section-head [overflow-wrap:anywhere]">{title}</h2>
         {description ? <p className="mt-0.5 text-table text-fg-muted">{description}</p> : null}
       </div>
       {actions ? <div className={headerActionsClass}>{actions}</div> : null}

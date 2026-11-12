@@ -88,7 +88,7 @@ export default async function OpportunityPage({ params }: Params) {
 
       {opportunity.stage === "WON" ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("detail.won")}</h2>
+          <h2 className="nesto-section-head">{t("detail.won")}</h2>
           {opportunity.wonReason ? (
             <p className="mt-1 text-table text-fg-muted">{opportunity.wonReason}</p>
           ) : null}
@@ -132,7 +132,7 @@ export default async function OpportunityPage({ params }: Params) {
 
       {opportunity.stage === "LOST" && opportunity.lostReason ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">
+          <h2 className="nesto-section-head">
             {t("detail.lostTitle", { reason: salesLabel(t, "lostReason", opportunity.lostReason, lostReasonLabels[opportunity.lostReason]) })}
           </h2>
           {opportunity.lostNote ? (
@@ -143,7 +143,7 @@ export default async function OpportunityPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+          <h2 className="nesto-section-head">{t("detail.details")}</h2>
 
           {opportunity.nextStep ? (
             <div className="mt-4">
@@ -195,7 +195,7 @@ export default async function OpportunityPage({ params }: Params) {
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
+          <h2 className="nesto-section-head">{t("detail.documents")}</h2>
           <div className="mt-4">
             <Suspense fallback={<SkeletonTable rows={2} />}>
               <SalesRecordDocuments
@@ -218,7 +218,7 @@ export default async function OpportunityPage({ params }: Params) {
       {can(context, "sales.proposal.view") ? (
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-card font-semibold text-fg">{t("detail.proposals")}</h2>
+            <h2 className="nesto-section-head">{t("detail.proposals")}</h2>
             {opportunity.capabilities.canCreateProposal ? (
               <Button asChild size="sm">
                 <Link href={`/sales/proposals/new?opportunityId=${opportunityId}`}>
@@ -246,7 +246,7 @@ export default async function OpportunityPage({ params }: Params) {
 
       {opportunity.capabilities.canViewActivity ? (
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+          <h2 className="nesto-section-head">{t("detail.activity")}</h2>
           <Suspense fallback={<SkeletonTable rows={3} />}>
             <SalesActivityFeed
               context={context}

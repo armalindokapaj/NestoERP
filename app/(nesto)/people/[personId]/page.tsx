@@ -182,12 +182,12 @@ function Overview({ profile, t, tr }: { profile: WorkProfileDTO; t: Translate<"p
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="about-heading">
-        <h2 id="about-heading" className="text-card font-semibold text-fg">
+        <h2 id="about-heading" className="nesto-section-head">
           {t("profile.about")}
         </h2>
         <p className="mt-2 whitespace-pre-line text-table text-fg-muted">{profile.professionalBio ?? t("profile.nothingWritten")}</p>
 
-        <h2 className="mt-6 text-card font-semibold text-fg">{t("profile.organization")}</h2>
+        <h2 className="mt-6 nesto-section-head">{t("profile.organization")}</h2>
         <DetailGrid
           className="mt-3"
           items={[
@@ -206,7 +206,7 @@ function Overview({ profile, t, tr }: { profile: WorkProfileDTO; t: Translate<"p
 
       {profile.departments.length > 0 ? (
         <section className="nesto-card p-5" aria-labelledby="departments-heading">
-          <h2 id="departments-heading" className="text-card font-semibold text-fg">
+          <h2 id="departments-heading" className="nesto-section-head">
             {t("profile.departments")}
           </h2>
           <ul className="mt-3 space-y-1.5" data-testid="person-departments">
@@ -229,7 +229,7 @@ function Overview({ profile, t, tr }: { profile: WorkProfileDTO; t: Translate<"p
 
       {profile.directReports.length > 0 ? (
         <section className="nesto-card p-5" aria-labelledby="reports-heading" data-testid="direct-reports">
-          <h2 id="reports-heading" className="text-card font-semibold text-fg">
+          <h2 id="reports-heading" className="nesto-section-head">
             {t("profile.directReports")}
           </h2>
           <ul className="mt-3 space-y-1.5">
@@ -249,7 +249,7 @@ function Overview({ profile, t, tr }: { profile: WorkProfileDTO; t: Translate<"p
       ) : null}
 
       <section className="nesto-card p-5" aria-labelledby="companies-heading">
-        <h2 id="companies-heading" className="text-card font-semibold text-fg">
+        <h2 id="companies-heading" className="nesto-section-head">
           {t("profile.whereTheyWork")}
         </h2>
         {profile.companies.length === 0 ? (
@@ -280,7 +280,7 @@ function Former({ profile, t }: { profile: WorkProfileDTO; t: Translate<"people"
   const body = company && title ? t("profile.formerBodyBoth", { name: profile.name, company, title }) : company ? t("profile.formerBodyCompany", { name: profile.name, company }) : title ? t("profile.formerBodyTitle", { name: profile.name, title }) : t("profile.formerBody", { name: profile.name });
   return (
     <section className="nesto-card p-5" aria-labelledby="former-heading" data-testid="former-profile">
-      <h2 id="former-heading" className="text-card font-semibold text-fg">
+      <h2 id="former-heading" className="nesto-section-head">
         {t("profile.formerTitle")}
       </h2>
       <p className="mt-2 text-table text-fg-muted">
@@ -387,7 +387,7 @@ async function Employment({ context, personId, withHistory, t }: { context: User
     <div className="space-y-4">
       {history ? (
         <section className="nesto-card p-5" aria-labelledby="organization-history" data-testid="organization-history">
-          <h2 id="organization-history" className="text-card font-semibold text-fg">
+          <h2 id="organization-history" className="nesto-section-head">
             {t("employment.history")}
           </h2>
           <p className="mt-1 text-meta text-fg-subtle">
@@ -401,7 +401,7 @@ async function Employment({ context, personId, withHistory, t }: { context: User
       {employments.map((employment) => (
         <section key={employment.id} className="nesto-card p-5" data-testid="employment-record">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-card font-semibold text-fg">{employment.company.legalName ?? employment.company.name}</h2>
+            <h2 className="nesto-section-head">{employment.company.legalName ?? employment.company.name}</h2>
             <StatusBadge status={employment.status} />
           </div>
           <DetailGrid
@@ -468,7 +468,7 @@ async function Private({ context, personId, t }: { context: UserContext; personI
   const details = await getPrivateProfile(context, personId);
   return (
     <section className="nesto-card p-5" aria-labelledby="private-heading">
-      <h2 id="private-heading" className="text-card font-semibold text-fg">
+      <h2 id="private-heading" className="nesto-section-head">
         {t("private.title")}
       </h2>
       <p className="mt-1 text-meta text-fg-subtle">{t("private.note")}</p>
@@ -508,7 +508,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
   return (
     <div className="grid gap-4 lg:grid-cols-3" data-testid="person-access">
       <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="account-heading">
-        <h2 id="account-heading" className="text-card font-semibold text-fg">
+        <h2 id="account-heading" className="nesto-section-head">
           {t("access.accountTitle")}
         </h2>
         {access.account ? (
@@ -537,7 +537,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
           </p>
         )}
 
-        <h2 className="mt-6 text-card font-semibold text-fg">{t("access.companiesRoles")}</h2>
+        <h2 className="mt-6 nesto-section-head">{t("access.companiesRoles")}</h2>
         {access.memberships.length === 0 ? (
           <p className="mt-2 text-table text-fg-subtle">{t("access.noCompany")}</p>
         ) : (
@@ -567,7 +567,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
           </Table>
         )}
 
-        <h2 className="mt-6 text-card font-semibold text-fg">{t("access.projectAccess")}</h2>
+        <h2 className="mt-6 nesto-section-head">{t("access.projectAccess")}</h2>
         {access.projects.length === 0 ? (
           <p className="mt-2 text-table text-fg-subtle">{t("access.noProject")}</p>
         ) : (
@@ -586,7 +586,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
 
       <div className="space-y-4">
         <section className="nesto-card p-5" aria-labelledby="completeness-heading">
-          <h2 id="completeness-heading" className="text-card font-semibold text-fg">
+          <h2 id="completeness-heading" className="nesto-section-head">
             {t("access.record")}
           </h2>
           <ul className="mt-3 space-y-1 text-table" data-testid="profile-completeness">
@@ -598,7 +598,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
           </ul>
         </section>
         <section className="nesto-card p-5" aria-labelledby="positions-heading">
-          <h2 id="positions-heading" className="text-card font-semibold text-fg">
+          <h2 id="positions-heading" className="nesto-section-head">
             {t("access.positions")}
           </h2>
           {access.positions.length === 0 ? (
@@ -612,7 +612,7 @@ async function Access({ context, personId, t }: { context: UserContext; personId
               ))}
             </ul>
           )}
-          <h2 className="mt-5 text-card font-semibold text-fg">{t("access.delegated")}</h2>
+          <h2 className="mt-5 nesto-section-head">{t("access.delegated")}</h2>
           {access.grants.length === 0 ? (
             <p className="mt-2 text-table text-fg-subtle">{t("access.noGrants")}</p>
           ) : (

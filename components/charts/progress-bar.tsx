@@ -23,10 +23,10 @@ export function ProgressBar({
       aria-valuemax={100}
       aria-label={label}
       // Forced colours: an outlined track and a Highlight fill (AUD-11 AV-15).
-      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-hover forced-colors:outline forced-colors:outline-1 forced-colors:outline-[CanvasText]", className)}
+      className={cn("h-1.5 w-full overflow-hidden bg-hover forced-colors:outline forced-colors:outline-1 forced-colors:outline-[CanvasText]", className)}
     >
       <div
-        className="h-full rounded-full transition-[width] forced-colors:bg-[Highlight]!"
+        className="h-full transition-[width] forced-colors:bg-[Highlight]!"
         style={{ width: `${clamped}%`, backgroundColor: TONE_COLOR[tone] }}
       />
     </div>

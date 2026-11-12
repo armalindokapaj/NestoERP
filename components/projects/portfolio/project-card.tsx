@@ -47,7 +47,7 @@ export function ProjectCard({
         className={cn(
           COVER_ASPECT,
           // The reference's plate — 10px corners, no border, the long lift under it, deeper on hover.
-          "relative overflow-hidden rounded-[10px] border border-transparent bg-surface-muted transition-[border-color,box-shadow,transform] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "relative overflow-hidden border border-transparent bg-surface-muted transition-[border-color,box-shadow,transform] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
           "shadow-[0_0_0_1px_rgb(15_20_26/0.06),0_18px_40px_-18px_rgb(15_20_26/0.35),0_40px_80px_-40px_rgb(15_20_26/0.25)]",
           "group-hover:-translate-y-0.5 group-hover:shadow-[0_0_0_1px_rgb(15_20_26/0.08),0_26px_50px_-18px_rgb(15_20_26/0.45),0_50px_90px_-40px_rgb(15_20_26/0.3)]",
           "group-has-[a:focus-visible]:ring-2 group-has-[a:focus-visible]:ring-ring group-has-[a:focus-visible]:ring-offset-2 group-has-[a:focus-visible]:ring-offset-canvas",

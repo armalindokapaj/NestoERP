@@ -44,7 +44,7 @@ export default async function SettingsPage() {
             <Languages aria-hidden="true" className="size-4" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-card font-semibold text-fg">{t("language.title")}</h2>
+            <h2 className="nesto-section-head">{t("language.title")}</h2>
             <p className="mt-1 text-table text-fg-muted">{t("language.description")}</p>
             {partialNote ? (
               <p className="mt-1 text-meta text-fg-subtle">{partialNote}</p>

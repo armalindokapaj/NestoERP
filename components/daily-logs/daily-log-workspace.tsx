@@ -324,10 +324,10 @@ export function DailyLogWorkspace({ initial, discussion, zone, favorite }: { ini
         <span className="text-fg-subtle" aria-hidden="true">
           {icon}
         </span>
-        <h2 id={`title-${key}`} className="min-w-0 text-card font-semibold text-fg">
+        <h2 id={`title-${key}`} className="min-w-0 nesto-section-head">
           {title}
         </h2>
-        {count !== undefined ? <span className="rounded-full bg-hover px-1.5 text-micro font-medium tabular-nums text-fg-muted">{count}</span> : null}
+        {count !== undefined ? <span className="bg-hover px-1.5 text-micro font-medium tabular-nums text-fg-muted">{count}</span> : null}
         <span className="flex-1" />
         <ChevronDown className={cn("size-4 text-fg-subtle transition-transform motion-reduce:transition-none md:hidden", open[key] && "rotate-180")} aria-hidden="true" />
         <button type="button" className="absolute inset-0 rounded-md md:hidden" onClick={() => toggle(key)} aria-expanded={Boolean(open[key])} aria-controls={`body-${key}`} aria-labelledby={`title-${key}`} />

@@ -210,7 +210,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
             </Link>
           </Button>
         </div>
-        <h2 className="text-section font-semibold text-fg" data-testid="timesheet-week-label">
+        <h2 className="nesto-section-head" data-testid="timesheet-week-label">
           {weekLabel(week.periodStart, locale)}
         </h2>
         <TimesheetStatusBadge status={week.status} />
@@ -271,7 +271,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
         </dl>
         {week.totals.projects.length ? (
           <div className="mt-4 border-t border-line pt-3">
-            <div className="flex h-2 overflow-hidden rounded-full bg-hover" aria-hidden="true">
+            <div className="flex h-2 overflow-hidden bg-hover" aria-hidden="true">
               {week.totals.projects.map((project, index) => (
                 <span key={project.projectId ?? "internal"} className={cn("h-full", index % 3 === 0 ? "bg-accent" : index % 3 === 1 ? "bg-accent/60" : "bg-accent/30", !project.projectId && "bg-line-strong")} style={{ width: `${(project.minutes / Math.max(1, week.totals.totalMinutes)) * 100}%` }} />
               ))}
@@ -314,7 +314,7 @@ export function TimesheetWeek({ initial, options, basePath = "/timesheets" }: { 
           return (
             <section key={day.date} className={cn("nesto-card px-4 py-3", day.date === week.today && "ring-1 ring-accent/30")} aria-label={`${label.weekday} ${label.day}`} data-testid="timesheet-day">
               <header className="flex items-center gap-2">
-                <h3 className="text-card font-semibold text-fg">
+                <h3 className="nesto-section-head">
                   {label.weekday} <span className="font-normal text-fg-muted">{label.day}</span>
                 </h3>
                 {day.date === week.today ? <span className="text-micro font-medium uppercase tracking-wide text-accent-strong">{t("week.today")}</span> : null}

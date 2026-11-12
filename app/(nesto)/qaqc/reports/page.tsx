@@ -64,7 +64,7 @@ export default async function QaqcReportsPage() {
     >
       <div className="space-y-6">
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("reports.passRate")}</h2>
+          <h2 className="nesto-section-head">{t("reports.passRate")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">{t("reports.passRateBody")}</p>
 
           <div className="mt-4 flex flex-wrap items-baseline gap-3">
@@ -101,7 +101,7 @@ export default async function QaqcReportsPage() {
 
         {reports.passRateByProject.length > 0 ? (
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("reports.byProject")}</h2>
+            <h2 className="nesto-section-head">{t("reports.byProject")}</h2>
             {/* Long project names wrap instead of being cut (AUD-04 §8, D-04-05, MW-17). */}
             <dl className="mt-4 space-y-2.5">
               {reports.passRateByProject.map((row) => (
@@ -164,7 +164,7 @@ export default async function QaqcReportsPage() {
           />
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("reports.reinspections")}</h2>
+            <h2 className="nesto-section-head">{t("reports.reinspections")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">{t("reports.reinspectionsBody")}</p>
             <div className="mt-4 flex flex-wrap items-baseline gap-3">
               <span className="text-page font-semibold tabular-nums text-fg">
@@ -181,7 +181,7 @@ export default async function QaqcReportsPage() {
 
         {reports.supplierQuality && reports.supplierQuality.length > 0 ? (
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("reports.bySupplier")}</h2>
+            <h2 className="nesto-section-head">{t("reports.bySupplier")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">{t("reports.bySupplierBody")}</p>
 
             <ScrollRegion label={t("reports.bySupplier")} className="mt-4">
@@ -221,7 +221,7 @@ export default async function QaqcReportsPage() {
 
         {reports.materialReleases ? (
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("reports.materialDecisions")}</h2>
+            <h2 className="nesto-section-head">{t("reports.materialDecisions")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">{t("reports.materialBody")}</p>
             <dl className="mt-4 space-y-2.5">
               <Row label={t("reports.accepted")} value={reports.materialReleases.released} />
@@ -261,7 +261,7 @@ function AgingPanel({
 
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       {total === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">{emptyLabel}</p>
       ) : (
@@ -289,7 +289,7 @@ function CountPanel({
 }) {
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       {rows.length === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">{emptyLabel}</p>
       ) : (

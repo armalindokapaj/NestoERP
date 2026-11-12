@@ -81,7 +81,7 @@ export default async function SupplierDetailPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("common.details")}</h2>
+            <h2 className="nesto-section-head">{t("common.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -154,7 +154,7 @@ export default async function SupplierDetailPage({ params }: Params) {
 
           {recentOrders.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("suppliers.orders")}</h2>
+              <h2 className="nesto-section-head">{t("suppliers.orders")}</h2>
               {(recentOrders.total ?? recentOrders.length) > recentOrders.length ? (
                 <p className="text-meta text-fg-subtle" data-testid="supplier-orders-scope">
                   {t("common.mostRecentOrders", { shown: recentOrders.length, total: recentOrders.total ?? recentOrders.length })}
@@ -172,7 +172,7 @@ export default async function SupplierDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("suppliers.activity")}</h2>
+            <h2 className="nesto-section-head">{t("suppliers.activity")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("suppliers.orders")} value={String(supplier.counts.orders)} />
               <Meta label={t("suppliers.quotes")} value={String(supplier.counts.quotes)} />
@@ -181,7 +181,7 @@ export default async function SupplierDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
+            <h2 className="nesto-section-head">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("suppliers.added")} value={formatDateTime(supplier.createdAt, locale)} />
               <Meta label={t("common.updated")} value={formatDateTime(supplier.updatedAt, locale)} />

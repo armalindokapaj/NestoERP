@@ -34,7 +34,7 @@ export function SitesManager({ projectId, sites, canManage }: { projectId: strin
   return (
     <section className="nesto-card p-0" aria-labelledby="sites-heading" data-testid="project-sites">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
-        <h2 id="sites-heading" className="text-card font-semibold text-fg">
+        <h2 id="sites-heading" className="nesto-section-head">
           {t("sites.sites")}
         </h2>
         {canManage ? (

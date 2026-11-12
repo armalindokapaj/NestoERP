@@ -49,7 +49,7 @@ function Heading({ title, description, action }: { title: string; description: s
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 className="text-section font-semibold text-fg">{title}</h2>
+        <h2 className="nesto-section-head">{title}</h2>
         <p className="mt-0.5 text-table text-fg-muted">{description}</p>
       </div>
       {action}

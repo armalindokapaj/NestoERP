@@ -101,7 +101,7 @@ export function RevisionPanel({
     <section className="nesto-card min-w-0 p-5" aria-labelledby="revisions-title" data-testid="revision-panel">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="revisions-title" className="flex items-center gap-2 text-card font-semibold text-fg">
+          <h2 id="revisions-title" className="flex items-center gap-2 nesto-section-head">
             <History aria-hidden="true" className="size-4 text-fg-subtle" />
             {t("revisions.title")}
           </h2>

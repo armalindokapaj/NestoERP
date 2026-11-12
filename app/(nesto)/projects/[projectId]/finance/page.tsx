@@ -92,7 +92,7 @@ export default async function ProjectFinancePage({ params }: Params) {
         summary.hasApprovedBudget ? (
           <section className="nesto-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">{t("financeTab.budgetVsActual")}</h2>
+              <h2 className="nesto-section-head">{t("financeTab.budgetVsActual")}</h2>
               <BudgetRiskBadge
                 risk={summary.risk}
                 utilizationPercent={summary.utilizationPercent}
@@ -229,7 +229,7 @@ async function Panel({
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{title}</h2>
+        <h2 className="nesto-section-head">{title}</h2>
         <span className="flex items-center gap-3">
           <span className="text-table text-fg-muted" data-testid="preview-count">
             {shown < total ? (

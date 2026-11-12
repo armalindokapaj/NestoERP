@@ -32,7 +32,7 @@ const joined = (...parts: Array<string | number | null | undefined | false>) => 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="break-inside-avoid border-t border-line pt-3">
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       <div className="mt-1.5 text-table text-fg">{children}</div>
     </section>
   );

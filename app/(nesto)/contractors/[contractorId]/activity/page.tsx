@@ -30,7 +30,7 @@ export default async function ContractorActivityPage({ params }: Params) {
   ]);
   return (
     <section className="space-y-3">
-      <h2 className="text-section font-semibold text-fg">{t("activity.title")}</h2>
+      <h2 className="nesto-section-head">{t("activity.title")}</h2>
       {rows.length === 0 ? (
         <EmptyNote>{t("activity.empty")}</EmptyNote>
       ) : (

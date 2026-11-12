@@ -108,7 +108,7 @@ export function PricedLineItems({
     <section className="nesto-card p-5" aria-describedby={errors.list ? listErrorId : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-card font-semibold text-fg">{t("lines.lineItems")}</h2>
+          <h2 className="nesto-section-head">{t("lines.lineItems")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
             {t("lines.lineItemsHint")}
           </p>
@@ -282,7 +282,7 @@ export function BudgetLineItems({
     <section className="nesto-card p-5" aria-describedby={errors.list ? listErrorId : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-card font-semibold text-fg">{t("lines.budgetLines")}</h2>
+          <h2 className="nesto-section-head">{t("lines.budgetLines")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
             {t("lines.budgetLinesHint")}
           </p>

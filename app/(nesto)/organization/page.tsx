@@ -60,14 +60,14 @@ export default async function OrganizationPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-meta text-fg-subtle">{t("overview.parentGroup")}</p>
-              <h2 className="text-section font-semibold text-fg">{overview.parentGroup.name}</h2>
+              <h2 className="nesto-section-head">{overview.parentGroup.name}</h2>
             </div>
             <StatusBadge status={overview.parentGroup.status} />
           </div>
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="organization-companies">
-          <h2 id="organization-companies" className="text-card font-semibold text-fg">
+          <h2 id="organization-companies" className="nesto-section-head">
             {overview.reach === "GROUP" ? t("overview.companiesInGroup") : t("overview.yourCompany")}
           </h2>
           <ul className="mt-3 divide-y divide-line">
@@ -85,7 +85,7 @@ export default async function OrganizationPage() {
 
         {overview.departments ? (
           <section className="nesto-card p-5" aria-labelledby="organization-departments">
-            <h2 id="organization-departments" className="text-card font-semibold text-fg">
+            <h2 id="organization-departments" className="nesto-section-head">
               {t("common.departments")}
             </h2>
             <Table stack flush className="mt-3" aria-labelledby="organization-departments">

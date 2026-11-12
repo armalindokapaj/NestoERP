@@ -179,7 +179,7 @@ export function PlanningTimeline({
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
         <p className="text-table font-medium text-fg">{t("timeline.timeline")}</p>
         <span className="flex items-center gap-3 text-meta text-fg-muted" aria-hidden="true">
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-5 rounded-full bg-line" /> {t("timeline.phase")}</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-5 bg-line" /> {t("timeline.phase")}</span>
           <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] bg-accent" /> {t("timeline.milestone")}</span>
           <span className="flex items-center gap-1.5"><span className="inline-block size-2.5 rotate-45 rounded-[2px] border-[1.5px] border-fg-subtle bg-surface" /> {t("timeline.baseline")}</span>
           <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-px bg-accent" /> {t("timeline.today")}</span>
@@ -273,7 +273,7 @@ export function PlanningTimeline({
                       <button
                         type="button"
                         onClick={() => onOpenPhase(phase.id)}
-                        className="absolute top-1/2 h-3.5 -translate-y-1/2 overflow-hidden rounded-full border border-line-strong/60 bg-line/70 hover:border-line-strong"
+                        className="absolute top-1/2 h-3.5 -translate-y-1/2 overflow-hidden border border-line-strong/60 bg-line/70 hover:border-line-strong"
                         style={{ left: x(span.start), width: Math.max(8, (daysBetween(span.start, span.end) + 1) * perDay) }}
                         title={`${phase.name}: ${dateLabel(span.start, locale)} – ${dateLabel(span.end, locale)} · ${t(`milestoneStatus.${phase.status}`)} · ${progress}%`}
                         aria-hidden="true"

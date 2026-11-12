@@ -69,7 +69,7 @@ export default async function ApprovalsPage({
     >
       <div className="space-y-6">
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">{t("approvals.waiting")}</h2>
+          <h2 className="nesto-section-head">{t("approvals.waiting")}</h2>
           {pending.data.length === 0 ? (
             <EmptyState
               icon={<CheckCheck />}
@@ -86,7 +86,7 @@ export default async function ApprovalsPage({
 
         {decided.data.length > 0 ? (
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">{t("approvals.recentlyDecided")}</h2>
+            <h2 className="nesto-section-head">{t("approvals.recentlyDecided")}</h2>
             <p className="text-meta text-fg-subtle" data-testid="decided-scope">
               {t("approvals.decidedScope", { shown: decided.data.length, total: decided.pagination.total })}
             </p>

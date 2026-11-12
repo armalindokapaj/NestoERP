@@ -103,7 +103,7 @@ export default async function NcrPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("ncrPage.whatFailed")}</h2>
+            <h2 className="nesto-section-head">{t("ncrPage.whatFailed")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{ncr.description}</p>
 
             <DetailGrid
@@ -169,7 +169,7 @@ export default async function NcrPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("ncrPage.investigation")}</h2>
+            <h2 className="nesto-section-head">{t("ncrPage.investigation")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
               {t("ncrPage.investigationBody")}
             </p>
@@ -184,7 +184,7 @@ export default async function NcrPage({ params }: Params) {
 
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.correctiveActions")}</h2>
+              <h2 className="nesto-section-head">{t("detail.correctiveActions")}</h2>
               <p className="text-meta text-fg-subtle">
                 {t("ncrPage.actionsNote")}
               </p>
@@ -204,7 +204,7 @@ export default async function NcrPage({ params }: Params) {
 
           {ncr.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
+              <h2 className="nesto-section-head">{t("detail.documents")}</h2>
               <QaqcRecordDocuments
                 context={context}
                 entityType="non_conformance_report"
@@ -217,7 +217,7 @@ export default async function NcrPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("detail.raisedBy")}
@@ -273,7 +273,7 @@ export default async function NcrPage({ params }: Params) {
 
           {ncr.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+              <h2 className="nesto-section-head">{t("detail.activity")}</h2>
               <QaqcActivityFeed
                 context={context}
                 entityType="NonConformanceReport"

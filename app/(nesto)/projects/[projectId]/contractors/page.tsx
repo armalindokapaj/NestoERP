@@ -64,7 +64,7 @@ export default async function ProjectContractorsPage({ params }: Params) {
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-section font-semibold text-fg">{t("contractorsTab.contractors")}</h2>
+            <h2 className="nesto-section-head">{t("contractorsTab.contractors")}</h2>
             <p className="mt-0.5 text-table text-fg-muted">{t("contractorsTab.contractorsBody")}</p>
           </div>
           {!archived && can(context, "project_contractor.manage") ? <AssignContractorButton projectId={project.id} /> : null}
@@ -76,7 +76,7 @@ export default async function ProjectContractorsPage({ params }: Params) {
         <section className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-section font-semibold text-fg">{t("contractorsTab.workPackages")}</h2>
+              <h2 className="nesto-section-head">{t("contractorsTab.workPackages")}</h2>
               <p className="mt-0.5 text-table text-fg-muted">{t("contractorsTab.workPackagesBody")}</p>
             </div>
             <div className="flex gap-2">
@@ -93,7 +93,7 @@ export default async function ProjectContractorsPage({ params }: Params) {
       {contractorsOpen(context, "contractor_compliance.view") ? (
         <section className="space-y-3">
           <div>
-            <h2 className="text-section font-semibold text-fg">{t("contractorsTab.complianceAlerts")}</h2>
+            <h2 className="nesto-section-head">{t("contractorsTab.complianceAlerts")}</h2>
             <p className="mt-0.5 text-table text-fg-muted">{t("contractorsTab.complianceBody")}</p>
           </div>
           <CompliancePanel contractorId={null} items={compliance} canManage={false} canUpload={false} showContractor />

@@ -123,7 +123,7 @@ export function SheetLinkDialog({
             <ol className="mt-2 space-y-1.5 text-table text-fg-muted" data-testid="sheet-how-to">
               {[t("unitSheet.link.how1"), t("unitSheet.link.how2"), t("unitSheet.link.how3")].map((step, index) => (
                 <li key={index} className="flex gap-2.5">
-                  <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-surface text-micro font-semibold text-fg ring-1 ring-line-strong">
+                  <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center bg-surface text-micro font-semibold text-fg ring-1 ring-line-strong">
                     {index + 1}
                   </span>
                   <span className="min-w-0">{step}</span>

@@ -50,7 +50,7 @@ export default async function RolesSettingsPage() {
             <section key={role.key} className="nesto-card p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                  <h2 className="text-card font-semibold text-fg">{tRoles(`${role.key}.label`)}</h2>
+                  <h2 className="nesto-section-head">{tRoles(`${role.key}.label`)}</h2>
                   <p className="mt-0.5 text-table text-fg-muted">
                     {tRoles(`${role.key}.description`)}
                   </p>

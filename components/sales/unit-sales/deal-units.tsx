@@ -21,7 +21,7 @@ export async function DealUnits({ context, opportunityId, canEdit }: { context: 
   const t = await getTranslations("sales");
   return (
     <section className="nesto-card p-5" aria-labelledby="deal-units" data-testid="deal-units">
-      <h2 id="deal-units" className="text-card font-semibold text-fg">
+      <h2 id="deal-units" className="nesto-section-head">
         {t("unitSales.units")}
       </h2>
       {units.length === 0 ? (

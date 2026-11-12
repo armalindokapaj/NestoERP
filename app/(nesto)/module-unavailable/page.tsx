@@ -23,7 +23,7 @@ export default async function ModuleUnavailablePage() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
       <div className="max-w-sm text-center">
-        <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full border border-line bg-surface text-fg-subtle">
+        <div className="mx-auto mb-4 grid size-11 place-items-center border border-line bg-surface text-fg-subtle">
           <ToggleRight className="size-5" />
         </div>
         <h1 className="text-section font-semibold text-fg">{t("moduleUnavailable.title")}</h1>

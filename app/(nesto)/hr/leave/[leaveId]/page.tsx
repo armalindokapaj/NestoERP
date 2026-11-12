@@ -66,7 +66,7 @@ export default async function LeaveDetailPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("history.reason")}</h2>
+          <h2 className="nesto-section-head">{t("history.reason")}</h2>
           {reasonWithheld ? (
             <p className="mt-2 text-table text-fg-subtle">
               {t("leave.reasonWithheld")}
@@ -79,7 +79,7 @@ export default async function LeaveDetailPage({ params }: Params) {
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("leave.details")}</h2>
+          <h2 className="nesto-section-head">{t("leave.details")}</h2>
           <DetailGrid
             className="mt-4"
             items={[
@@ -116,7 +116,7 @@ export default async function LeaveDetailPage({ params }: Params) {
 
       {request.capabilities.canViewDocuments ? (
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">{t("tabs.documents")}</h2>
+          <h2 className="nesto-section-head">{t("tabs.documents")}</h2>
           <HrRecordDocuments
             context={context}
             entityType="leave_request"

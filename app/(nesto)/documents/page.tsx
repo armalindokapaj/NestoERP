@@ -144,7 +144,7 @@ async function DocumentPanel({
     // sideways. Version 1 keeps the 7px it has today; the 14px table text of version 2 would make it 27px (UI-02 §6.2).
     <section className="nesto-card p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{title}</h2>
+        <h2 className="nesto-section-head">{title}</h2>
         <Link
           href={href}
           className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"

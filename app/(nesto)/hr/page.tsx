@@ -139,7 +139,7 @@ export default async function HrOverviewPage() {
           {myLeave && myLeave.data.length > 0 ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("overview.myLeave")}</h2>
+                <h2 className="nesto-section-head">{t("overview.myLeave")}</h2>
                 <Link
                   href="/hr/leave?mine=1"
                   className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
@@ -167,7 +167,7 @@ export default async function HrOverviewPage() {
           {overview.visible.employees && overview.byEmploymentType.length > 0 ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("overview.headcountByType")}</h2>
+                <h2 className="nesto-section-head">{t("overview.headcountByType")}</h2>
                 <Link
                   href="/hr/reports?report=headcount"
                   className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
@@ -224,7 +224,7 @@ async function AttentionPanel({
   const locale = await getLocale();
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       {rows.length === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">{emptyLabel}</p>
       ) : (

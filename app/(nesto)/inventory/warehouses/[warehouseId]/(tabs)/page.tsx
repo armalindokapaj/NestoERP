@@ -38,7 +38,7 @@ export default async function WarehousePage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+            <h2 className="nesto-section-head">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -75,7 +75,7 @@ export default async function WarehousePage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.holding")}</h2>
+            <h2 className="nesto-section-head">{t("detail.holding")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("columns.locations")} value={String(warehouse.locationCount)} />
               <Meta label={t("detail.distinctItems")} value={String(warehouse.distinctItems)} />
@@ -83,7 +83,7 @@ export default async function WarehousePage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.addedBy")} value={warehouse.createdBy ? <PersonLink memberId={warehouse.createdBy.memberId} name={warehouse.createdBy.fullName} /> : "—"} />
               <Meta label={t("detail.added")} value={formatDateTime(warehouse.createdAt, locale)} />

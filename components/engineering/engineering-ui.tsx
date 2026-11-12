@@ -99,7 +99,7 @@ export function Panel({ title, description, actions, children, className, testId
     <section className={cn("nesto-card min-w-0 p-5", className)} data-testid={testId} aria-labelledby={testId ? `${testId}-title` : undefined}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={testId ? `${testId}-title` : undefined} className="text-card font-semibold text-fg">
+          <h2 id={testId ? `${testId}-title` : undefined} className="nesto-section-head">
             {title}
           </h2>
           {description ? <p className="mt-0.5 text-table text-fg-muted">{description}</p> : null}

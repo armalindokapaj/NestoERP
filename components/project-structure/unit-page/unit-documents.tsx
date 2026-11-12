@@ -156,7 +156,7 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
       <section className="nesto-card p-5" aria-labelledby="sales-plan-heading" data-testid="sales-plan">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 id="sales-plan-heading" className="text-card font-semibold text-fg">
+            <h2 id="sales-plan-heading" className="nesto-section-head">
               {t("unitFiles.salesPlan")}
             </h2>
             <p className="mt-1 text-meta text-fg-muted">{t("unitFiles.planBody")}</p>
@@ -188,7 +188,7 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
 
       <section className="nesto-card p-5" aria-labelledby="unit-documents-heading">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 id="unit-documents-heading" className="text-card font-semibold text-fg">
+          <h2 id="unit-documents-heading" className="nesto-section-head">
             {t("unitFiles.technical")}
           </h2>
           {can.canManageDocuments ? (
@@ -233,7 +233,7 @@ export function UnitDocuments({ unitId, unitCode, files }: { unitId: string; uni
 
       {files.unfiled.length ? (
         <section className="nesto-card p-5" aria-labelledby="unit-unfiled-heading">
-          <h2 id="unit-unfiled-heading" className="text-card font-semibold text-fg">
+          <h2 id="unit-unfiled-heading" className="nesto-section-head">
             {t("unitFiles.otherFiles")}
           </h2>
           <p className="mt-1 text-meta text-fg-muted">{t("unitFiles.otherFilesBody")}</p>

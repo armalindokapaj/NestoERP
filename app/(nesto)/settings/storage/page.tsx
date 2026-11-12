@@ -61,7 +61,7 @@ export default async function StorageSettingsPage() {
       </div>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("storage.allowance")}</h2>
+        <h2 className="nesto-section-head">{t("storage.allowance")}</h2>
 
         {summary.percentUsed === null ? (
           <p className="mt-3 text-body text-fg-muted">
@@ -75,10 +75,10 @@ export default async function StorageSettingsPage() {
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label={t("storage.storageUsed")}
-              className="h-2 w-full overflow-hidden rounded-full bg-surface-3"
+              className="h-2 w-full overflow-hidden bg-surface-3"
             >
               <div
-                className={`h-full rounded-full ${summary.percentUsed >= 90 ? "bg-danger" : "bg-accent"}`}
+                className={`h-full ${summary.percentUsed >= 90 ? "bg-danger" : "bg-accent"}`}
                 style={{ width: `${summary.percentUsed}%` }}
               />
             </div>
@@ -100,7 +100,7 @@ export default async function StorageSettingsPage() {
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("storage.largestFiles")}</h2>
+        <h2 className="nesto-section-head">{t("storage.largestFiles")}</h2>
 
         {largest.length === 0 ? (
           <EmptyState

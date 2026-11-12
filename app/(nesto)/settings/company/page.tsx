@@ -65,7 +65,7 @@ export default async function CompanySettingsPage() {
 
       {/* D-01 §6: who owns the company, kept with its details. */}
       <section className="nesto-card p-6" aria-labelledby="company-ownership">
-        <h2 id="company-ownership" className="text-card font-semibold text-fg">{t("company.ownership")}</h2>
+        <h2 id="company-ownership" className="nesto-section-head">{t("company.ownership")}</h2>
         <p className="mt-0.5 text-meta text-fg-subtle">{t("company.ownershipDescription")}</p>
         {owners.length ? (
           <ul className="mt-4 divide-y divide-line" data-testid="company-owners">

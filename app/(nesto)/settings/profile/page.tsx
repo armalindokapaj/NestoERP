@@ -65,7 +65,7 @@ export default async function ProfileSettingsPage() {
       </section>
 
       <section className="nesto-card p-6">
-        <h2 className="text-card font-semibold text-fg">{t("profile.details")}</h2>
+        <h2 className="nesto-section-head">{t("profile.details")}</h2>
         <div className="mt-4">
           <ProfileForm
             initial={{ firstName: profile.firstName, lastName: profile.lastName, phone: profile.phone }}
@@ -85,7 +85,7 @@ export default async function ProfileSettingsPage() {
       </section>
 
       <section className="nesto-card p-6">
-        <h2 className="text-card font-semibold text-fg">{t("profile.password.title")}</h2>
+        <h2 className="nesto-section-head">{t("profile.password.title")}</h2>
         <p className="mt-1 text-table text-fg-muted">{t("profile.password.description")}</p>
         <div className="mt-4">
           <PasswordForm />
@@ -93,7 +93,7 @@ export default async function ProfileSettingsPage() {
       </section>
 
       <section className="nesto-card p-6">
-        <h2 className="text-card font-semibold text-fg">{t("profile.sessions.title")}</h2>
+        <h2 className="nesto-section-head">{t("profile.sessions.title")}</h2>
         <p className="mt-1 text-table text-fg-muted">{t("profile.sessions.description")}</p>
         <div className="mt-4">
           <SessionList

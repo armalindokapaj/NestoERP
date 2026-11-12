@@ -142,7 +142,7 @@ async function Overview({ context, department }: { context: UserContext; departm
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <section className="nesto-card space-y-3 p-5 lg:col-span-2" aria-labelledby="department-head">
-        <h2 id="department-head" className="text-card font-semibold text-fg">
+        <h2 id="department-head" className="nesto-section-head">
           {t("department.groupHead")}
         </h2>
         <div className="flex flex-wrap items-center gap-3" data-testid="department-head">
@@ -284,7 +284,7 @@ async function Team({ context, department, query }: { context: UserContext; depa
         ) : (
           <ul className="flex flex-wrap gap-1.5" aria-label={t("department.coverageLabel", { person: member.person.name, department: department.name })}>
             {member.coverage.map((place) => (
-              <li key={place.assignmentId} className="inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-0.5 text-meta" data-testid="coverage">
+              <li key={place.assignmentId} className="inline-flex items-center gap-1.5 border border-line px-2 py-0.5 text-meta" data-testid="coverage">
                 {place.company.name}
                 {place.position === "COMPANY_MANAGER" ? <span className="text-fg-subtle">{t("department.coverageManager")}</span> : null}
                 {!place.hasAccess ? <span className="text-warning-strong">{t("department.coverageNoAccess")}</span> : null}

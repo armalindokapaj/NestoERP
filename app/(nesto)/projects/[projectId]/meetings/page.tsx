@@ -61,7 +61,7 @@ export default async function ProjectMeetingsPage({ params }: Params) {
       />
 
       <section aria-labelledby="project-meetings-upcoming" className="space-y-3">
-        <h2 id="project-meetings-upcoming" className="text-section font-semibold text-fg">
+        <h2 id="project-meetings-upcoming" className="nesto-section-head">
           {t("tabPages.upcoming")}
         </h2>
         {upcoming.data.length === 0 ? (
@@ -90,7 +90,7 @@ export default async function ProjectMeetingsPage({ params }: Params) {
       {past.data.length > 0 ? (
         <section aria-labelledby="project-meetings-past" className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 id="project-meetings-past" className="text-section font-semibold text-fg">
+            <h2 id="project-meetings-past" className="nesto-section-head">
               {t("tabPages.recent")}
             </h2>
             <Link href={`/meetings/past?projectId=${project.id}`} className="text-table font-medium text-accent-strong">

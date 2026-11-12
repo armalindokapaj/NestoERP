@@ -86,7 +86,7 @@ export default async function RfqDetailPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card overflow-hidden">
             <div className="p-5">
-              <h2 className="text-card font-semibold text-fg">{t("rfqs.asked")}</h2>
+              <h2 className="nesto-section-head">{t("rfqs.asked")}</h2>
               <p className="mt-1 text-meta text-fg-subtle">
                 {t("rfqs.askedNote")}
               </p>
@@ -123,7 +123,7 @@ export default async function RfqDetailPage({ params }: Params) {
 
           <section className="nesto-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">{t("rfqs.suppliersAsked")}</h2>
+              <h2 className="nesto-section-head">{t("rfqs.suppliersAsked")}</h2>
               <div className="flex items-center gap-3">
                 {rfq.capabilities.canViewQuotes ? (
                   <Link
@@ -178,7 +178,7 @@ export default async function RfqDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("common.whereItBelongs")}</h2>
+            <h2 className="nesto-section-head">{t("common.whereItBelongs")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
@@ -217,7 +217,7 @@ export default async function RfqDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
+            <h2 className="nesto-section-head">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
               <div>
                 <dt className="nesto-eyebrow text-fg-subtle">{t("common.created")}</dt>

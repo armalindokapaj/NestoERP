@@ -358,7 +358,7 @@ export function FilterChips({
           type="button"
           onClick={() => onChange(chip.clear())}
           // 44px tall on a touch screen, like every chip (AUD-04 §3, MW-06).
-          className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-line bg-surface pl-2.5 pr-1.5 text-meta font-medium text-fg transition-colors hover:border-line-strong touch:h-11 touch:pl-3.5 touch:pr-2.5"
+          className="inline-flex h-7 max-w-full items-center gap-1 border border-line bg-surface pl-2.5 pr-1.5 text-meta font-medium text-fg transition-colors hover:border-line-strong touch:h-11 touch:pl-3.5 touch:pr-2.5"
           aria-label={t("filters.remove", { label: chip.label })}
         >
           <span className="min-w-0 truncate">{chip.label}</span>

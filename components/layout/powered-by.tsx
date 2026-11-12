@@ -25,7 +25,7 @@ export function PoweredBy({ isDemo, version = false }: { isDemo: boolean; versio
           title={t("demoDisclaimer")}
           aria-label={t("demoDisclaimer")}
           data-testid="demo-notice"
-          className="inline-flex shrink-0 rounded-full border border-line px-2 py-px text-micro font-medium text-fg-muted"
+          className="inline-flex shrink-0 border border-line px-2 py-px text-micro font-medium text-fg-muted"
         >
           {t("demoData")}
         </span>

@@ -96,7 +96,7 @@ export default async function DashboardPage() {
                 data-testid="open-my-day"
                 className={cn(
                   "group relative flex items-center justify-between gap-3 overflow-hidden border border-accent/30 bg-hero p-5 text-hero-fg",
-                  "rounded-[22px] before:absolute before:left-5 before:top-0 before:h-0.5 before:w-9 before:bg-hero-accent before:content-['']",
+                  " before:absolute before:left-5 before:top-0 before:h-0.5 before:w-9 before:bg-hero-accent before:content-['']",
                   "md:min-h-14 md:rounded-lg md:border-line md:bg-surface md:px-4 md:py-3 md:text-fg md:before:hidden md:hover:bg-row-hover",
                   // Beside the heading it is one slim row, so Pending Approvals keeps most of the heading's height.
                   "lg:min-h-0 lg:shrink-0 lg:py-2",
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
                   <span className="nesto-eyebrow block text-hero-accent md:text-body md:font-semibold md:normal-case md:tracking-normal md:text-fg lg:shrink-0">{misc("myDay.title")}</span>
                   <span className="mt-1.5 block text-[1.375rem] leading-tight md:mt-0 md:truncate md:text-meta md:leading-normal md:text-fg-muted lg:min-w-0 font-display">{misc("myDay.openMyDayHint")}</span>
                 </span>
-                <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-hero-accent text-hero md:size-auto md:bg-transparent md:text-fg-subtle">
+                <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center bg-hero-accent text-hero md:size-auto md:bg-transparent md:text-fg-subtle">
                   <ArrowRight className="size-[18px] md:hidden" />
                   <ChevronRight className="hidden size-4 md:block" />
                 </span>
@@ -257,7 +257,7 @@ function WidgetSkeleton({ title }: { title: string }) {
       className="nesto-card flex min-h-48 flex-1 flex-col p-5"
       data-testid="section-skeleton"
     >
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       <div aria-hidden="true" className="mt-4 space-y-3">
         <Skeleton className="h-3.5 w-3/4" />
         <Skeleton className="h-3.5 w-2/3" />

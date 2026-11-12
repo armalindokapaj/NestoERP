@@ -857,7 +857,7 @@ export function StructureWorkspace({
       <section className={cn("min-w-0 space-y-4", !structure.buildings.length && "lg:col-span-2")} aria-labelledby="structure-heading">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 id="structure-heading" className="text-section font-semibold text-fg" data-testid="structure-heading">
+            <h2 id="structure-heading" className="nesto-section-head" data-testid="structure-heading">
               {title}
             </h2>
             {structure.buildings.length ? (
@@ -1006,7 +1006,7 @@ export function StructureWorkspace({
 function Empty({ icon, title, description, children, testId }: { icon: React.ReactNode; title: string; description: string; children?: React.ReactNode; testId: string }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line-strong bg-surface-muted px-6 py-14 text-center" data-testid={testId}>
-      <div className="mb-3 flex size-10 items-center justify-center rounded-full border border-line bg-surface text-fg-subtle [&_svg]:size-5">{icon}</div>
+      <div className="mb-3 flex size-10 items-center justify-center border border-line bg-surface text-fg-subtle [&_svg]:size-5">{icon}</div>
       <p className="text-card font-semibold text-fg">{title}</p>
       <p className="mt-1 max-w-sm text-table text-fg-muted">{description}</p>
       {children ? <div className="mt-4 flex flex-wrap justify-center gap-2">{children}</div> : null}

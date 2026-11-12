@@ -67,7 +67,7 @@ export function PersonQualifications({ data, name }: { data: PersonQualification
     <section className="space-y-4" aria-labelledby="qualifications-heading" data-testid="person-qualifications">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="qualifications-heading" className="text-card font-semibold text-fg">
+          <h2 id="qualifications-heading" className="nesto-section-head">
             {t("qualifications.heading")}
           </h2>
           <p className="mt-0.5 text-meta text-fg-subtle">

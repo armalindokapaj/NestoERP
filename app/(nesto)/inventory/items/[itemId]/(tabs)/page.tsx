@@ -39,7 +39,7 @@ export default async function ItemPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+            <h2 className="nesto-section-head">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -85,7 +85,7 @@ export default async function ItemPage({ params }: Params) {
 
           {item.capabilities.canViewStock ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("warehouseForm.whereItIs")}</h2>
+              <h2 className="nesto-section-head">{t("warehouseForm.whereItIs")}</h2>
               {item.byLocation.length === 0 ? (
                 <p className="nesto-card p-5 text-table text-fg-subtle">
                   {t("detail.itemNowhere")}
@@ -104,7 +104,7 @@ export default async function ItemPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.addedBy")} value={item.createdBy ? <PersonLink memberId={item.createdBy.memberId} name={item.createdBy.fullName} /> : "—"} />
               <Meta label={t("detail.added")} value={formatDateTime(item.createdAt, locale)} />

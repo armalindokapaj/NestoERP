@@ -131,7 +131,7 @@ async function PriorityWork({
   return (
     <section className="nesto-card p-5" data-section="primary">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{t("overview.priorityWork")}</h2>
+        <h2 className="nesto-section-head">{t("overview.priorityWork")}</h2>
         <Link href="/tasks/all?priority=HIGH,CRITICAL" className="inline-flex items-center gap-1 text-table font-medium text-accent-strong touch:min-h-11">
           {t("overview.allTasks")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -194,7 +194,7 @@ async function YourWeek({ stats }: { stats: Overview }) {
   const t = await getTranslations("tasks");
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{t("overview.yourWeek")}</h2>
+      <h2 className="nesto-section-head">{t("overview.yourWeek")}</h2>
       <dl className="mt-4 divide-y divide-line">
         <Row label={t("overview.assignedOpen")} value={value.mine} href="/tasks/my-tasks" />
         <Row label={t("overview.completedThisWeek")} value={value.completedThisWeek} href="/tasks/completed" />

@@ -38,7 +38,7 @@ export function FilterChips({
           aria-label={t("removeFilter", { label: chip.label, value: chip.valueLabel })}
           className="group inline-flex min-h-11 min-w-11 max-w-full items-center focus-visible:outline-none"
         >
-          <span className="inline-flex min-h-8 max-w-full items-center gap-1 rounded-full border border-line bg-surface py-1 pl-3 pr-2 text-meta font-medium text-fg transition-colors group-hover:border-line-strong group-focus-visible:ring-2 group-focus-visible:ring-ring/40">
+          <span className="inline-flex min-h-8 max-w-full items-center gap-1 border border-line bg-surface py-1 pl-3 pr-2 text-meta font-medium text-fg transition-colors group-hover:border-line-strong group-focus-visible:ring-2 group-focus-visible:ring-ring/40">
             <span className="min-w-0 [overflow-wrap:anywhere]">
               <span className="text-fg-subtle">{chip.label}:</span> {chip.valueLabel}
             </span>

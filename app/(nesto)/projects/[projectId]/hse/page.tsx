@@ -176,7 +176,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {stopWorkRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.stopWork")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.stopWork")}</h2>
               <StopWorkTable
                 records={stopWorkRows}
                 caption={t("hseTab.stopWorkOn", { name: project.name })}
@@ -187,7 +187,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {hazardRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.hazards")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.hazards")}</h2>
               <HazardTable
                 hazards={hazardRows.data}
                 caption={t("hseTab.hazardsOn", { name: project.name })}
@@ -204,7 +204,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {incidentRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.incidents")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.incidents")}</h2>
               <IncidentTable
                 incidents={incidentRows.data}
                 caption={t("hseTab.incidentsOn", { name: project.name })}
@@ -221,7 +221,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {inspectionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.inspectionsHeading")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.inspectionsHeading")}</h2>
               <InspectionTable
                 inspections={inspectionRows.data}
                 caption={t("hseTab.inspectionsOn", { name: project.name })}
@@ -238,7 +238,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {actionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.actions")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.actions")}</h2>
               <ActionTable
                 actions={actionRows.data}
                 caption={t("hseTab.actionsOn", { name: project.name })}
@@ -255,7 +255,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {permitRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.permits")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.permits")}</h2>
               <PermitTable
                 permits={permitRows.data}
                 caption={t("hseTab.permitsOn", { name: project.name })}
@@ -272,7 +272,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {toolboxRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.toolbox")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.toolbox")}</h2>
               <ToolboxTable
                 talks={toolboxRows.data}
                 caption={t("hseTab.toolboxOn", { name: project.name })}
@@ -289,7 +289,7 @@ export default async function ProjectHsePage({ params }: Params) {
 
           {observationRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("hseTab.environmental")}</h2>
+              <h2 className="nesto-section-head">{t("hseTab.environmental")}</h2>
               <ObservationTable
                 observations={observationRows.data}
                 caption={t("hseTab.environmentalOn", { name: project.name })}

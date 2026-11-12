@@ -69,7 +69,7 @@ export function SaleContract({ unitId, unitCode, files }: { unitId: string; unit
     <section className="nesto-card p-5" aria-labelledby="sale-contract-heading" data-testid="sale-contract">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="sale-contract-heading" className="text-card font-semibold text-fg">
+          <h2 id="sale-contract-heading" className="nesto-section-head">
             {t("salesUnit.contractTitle")}
           </h2>
           <p className="mt-1 text-meta text-fg-muted">{t("salesUnit.contractBody")}</p>

@@ -39,7 +39,7 @@ export default async function UnitPublishingPage({ params }: Params) {
         <div className="space-y-4">
           <section className="nesto-card p-5" aria-labelledby="publishing-state" data-testid="publishing-state">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 id="publishing-state" className="text-card font-semibold text-fg">
+              <h2 id="publishing-state" className="nesto-section-head">
                 {t("unitPage.publishing")}
               </h2>
               <PublicationBadge status={publishing.status} versionNumber={current?.versionNumber} />
@@ -66,7 +66,7 @@ export default async function UnitPublishingPage({ params }: Params) {
 
           {history ? (
             <section className="nesto-card p-5" aria-labelledby="publication-history">
-              <h2 id="publication-history" className="text-card font-semibold text-fg">
+              <h2 id="publication-history" className="nesto-section-head">
                 {t("unitPage.history")}
               </h2>
               {history.length === 0 ? (

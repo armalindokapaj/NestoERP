@@ -106,21 +106,21 @@ export default async function ClientSalesPage({ params }: Params) {
 
           {openDeals.data.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("salesPage.inPlay")}</h2>
+              <h2 className="nesto-section-head">{t("salesPage.inPlay")}</h2>
               <OpportunityTable opportunities={openDeals.data} showClient={false} />
             </section>
           ) : null}
 
           {closedDeals.data.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("salesPage.wonAndLost")}</h2>
+              <h2 className="nesto-section-head">{t("salesPage.wonAndLost")}</h2>
               <OpportunityTable opportunities={closedDeals.data} showClient={false} />
             </section>
           ) : null}
 
           {clientProposals && clientProposals.data.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("salesPage.proposals")}</h2>
+              <h2 className="nesto-section-head">{t("salesPage.proposals")}</h2>
               <ProposalTable proposals={clientProposals.data} />
             </section>
           ) : null}

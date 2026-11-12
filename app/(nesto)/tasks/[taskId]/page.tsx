@@ -147,7 +147,7 @@ export default async function TaskDetailPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("fields.description")}</h2>
+          <h2 className="nesto-section-head">{t("fields.description")}</h2>
           {/* A pasted URL or code wraps inside the card instead of widening the page on a phone (AUD-04 §3, MW-01). */}
           {task.description ? (
             <p className="mt-3 whitespace-pre-wrap text-body text-fg-muted [overflow-wrap:anywhere]">{task.description}</p>
@@ -179,7 +179,7 @@ export default async function TaskDetailPage({ params }: Params) {
           {showDocuments ? (
             <section className="nesto-card p-5" aria-labelledby="task-documents-heading">
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 id="task-documents-heading" className="text-card font-semibold text-fg">
+                <h2 id="task-documents-heading" className="nesto-section-head">
                   {t("detail.attachments")}
                 </h2>
                 <Link href={`/tasks/${task.id}/documents`} className="text-table font-medium text-accent-strong">
@@ -203,7 +203,7 @@ export default async function TaskDetailPage({ params }: Params) {
 
         <div className="space-y-4 lg:col-start-3 lg:row-start-1">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+            <h2 className="nesto-section-head">{t("detail.details")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.createdBy")} value={task.creator ? <PersonLink memberId={task.creator.memberId} name={task.creator.fullName} /> : "—"} />
               <Meta label={t("detail.created")} value={formatDateTime(task.createdAt, locale)} />
@@ -217,7 +217,7 @@ export default async function TaskDetailPage({ params }: Params) {
           {activity ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("common.activity")}</h2>
+                <h2 className="nesto-section-head">{t("common.activity")}</h2>
                 <Link
                   href={`/tasks/${task.id}/activity`}
                   className="text-table font-medium text-accent-strong"

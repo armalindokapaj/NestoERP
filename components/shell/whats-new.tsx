@@ -17,7 +17,7 @@ export async function WhatsNewPage() {
         RELEASE_NOTES.map((note) => (
           <article key={note.id} className="nesto-card space-y-2 p-5" aria-labelledby={`note-${note.id}`}>
             <p className="text-meta text-fg-subtle"><time dateTime={note.date}>{formatDate(note.date, locale)}</time></p>
-            <h2 id={`note-${note.id}`} className="text-card font-semibold text-fg">{note.title[locale]}</h2>
+            <h2 id={`note-${note.id}`} className="nesto-section-head">{note.title[locale]}</h2>
             {note.body[locale].map((paragraph) => <p key={paragraph} className="text-body text-fg-muted">{paragraph}</p>)}
           </article>
         ))

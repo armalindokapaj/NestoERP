@@ -67,7 +67,7 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
                     <p className="font-medium text-fg">{item.title}</p>
                     {item.description ? <p className="mt-1 line-clamp-2 text-table text-fg-muted">{item.description}</p> : null}
                   </div>
-                  {durationLabel(item.durationSeconds) ? <span className="shrink-0 rounded-full bg-surface-muted px-2 py-1 text-meta tabular-nums text-fg-muted">{durationLabel(item.durationSeconds)}</span> : null}
+                  {durationLabel(item.durationSeconds) ? <span className="shrink-0 bg-surface-muted px-2 py-1 text-meta tabular-nums text-fg-muted">{durationLabel(item.durationSeconds)}</span> : null}
                 </div>
               </div>
             )}
@@ -106,5 +106,5 @@ export function ProjectMediaGallery({ items, type }: { items: ProjectMediaDTO[];
 }
 
 export function AnimationPreviewIcon() {
-  return <span className="grid size-11 place-items-center rounded-full bg-black/60 text-white"><Play className="ml-0.5 size-5 fill-current" aria-hidden="true" /></span>;
+  return <span className="grid size-11 place-items-center bg-black/60 text-white"><Play className="ml-0.5 size-5 fill-current" aria-hidden="true" /></span>;
 }

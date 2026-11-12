@@ -182,7 +182,7 @@ export function DelegationDialog({ open, onOpenChange, providers }: { open: bool
 
             {listing.canManage ? (
               <form onSubmit={create} className="space-y-4 rounded-xl border border-line bg-surface-muted/50 p-4" aria-labelledby="new-delegation-heading">
-                <h3 id="new-delegation-heading" className="text-card font-semibold text-fg">
+                <h3 id="new-delegation-heading" className="nesto-section-head">
                   {t("delegation.newTitle")}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">

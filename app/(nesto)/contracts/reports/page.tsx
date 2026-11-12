@@ -281,7 +281,7 @@ function Panel({
 }) {
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       {description ? <p className="mt-1 text-meta text-fg-subtle">{description}</p> : null}
       <div className="mt-4">{children}</div>
     </section>

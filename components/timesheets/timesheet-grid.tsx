@@ -399,7 +399,7 @@ function AddRow({ options, recent, existing, onAdd }: { options: TimesheetFormOp
               key={keyOf(row.workType, row.project?.id, row.task?.id)}
               type="button"
               onClick={() => onAdd({ key: keyOf(row.workType, row.project?.id, row.task?.id), workType: row.workType, project: row.project, task: row.task })}
-              className="max-w-[16rem] truncate rounded-full border border-line px-2.5 py-1 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg"
+              className="max-w-[16rem] truncate border border-line px-2.5 py-1 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg"
             >
               {row.project?.name ?? timesheetsLabel(t, "workType", row.workType, WORK_LOG_TYPE_LABELS[row.workType])}
               {row.task ? ` · ${row.task.title}` : ""}

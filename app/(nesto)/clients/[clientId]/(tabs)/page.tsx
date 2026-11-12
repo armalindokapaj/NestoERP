@@ -54,7 +54,7 @@ export default async function ClientOverviewPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("detail.clientDetails")}</h2>
+          <h2 className="nesto-section-head">{t("detail.clientDetails")}</h2>
           <DetailGrid
             className="mt-4"
             items={[
@@ -118,7 +118,7 @@ export default async function ClientOverviewPage({ params }: Params) {
           {may.canViewContacts ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("detail.primaryContact")}</h2>
+                <h2 className="nesto-section-head">{t("detail.primaryContact")}</h2>
                 <Link
                   href={`/clients/${client.id}/contacts`}
                   className="text-table font-medium text-accent-strong"
@@ -158,7 +158,7 @@ export default async function ClientOverviewPage({ params }: Params) {
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.created")} value={formatDateTime(client.createdAt, locale)} />
               <Meta label={t("detail.updated")} value={formatDateTime(client.updatedAt, locale)} />
@@ -171,7 +171,7 @@ export default async function ClientOverviewPage({ params }: Params) {
           {activity ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+                <h2 className="nesto-section-head">{t("detail.activity")}</h2>
                 <Link
                   href={`/clients/${client.id}/activity`}
                   className="text-table font-medium text-accent-strong"

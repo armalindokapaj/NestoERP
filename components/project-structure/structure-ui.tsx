@@ -71,7 +71,7 @@ export function Steps({ steps, current }: { steps: string[]; current: number }) 
     <ol className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta" aria-label={t("bulk.steps")}>
       {steps.map((step, index) => (
         <li key={step} className="flex items-center gap-2" aria-current={index === current ? "step" : undefined}>
-          <span className={cn("inline-flex size-5 items-center justify-center rounded-full border text-micro tabular-nums", index === current ? "border-accent bg-accent text-accent-fg" : index < current ? "border-line-strong bg-hover text-fg" : "border-line text-fg-subtle")}>{index + 1}</span>
+          <span className={cn("inline-flex size-5 items-center justify-center border text-micro tabular-nums", index === current ? "border-accent bg-accent text-accent-fg" : index < current ? "border-line-strong bg-hover text-fg" : "border-line text-fg-subtle")}>{index + 1}</span>
           <span className={index === current ? "font-medium text-fg" : "text-fg-muted"}>{step}</span>
           {index < steps.length - 1 ? <span aria-hidden="true" className="text-fg-subtle">·</span> : null}
         </li>

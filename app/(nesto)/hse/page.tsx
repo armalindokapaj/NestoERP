@@ -79,7 +79,7 @@ export default async function HsePage() {
           {data.openCriticalHazards.length > 0 ? (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("overview.criticalHazards")}</h2>
+                <h2 className="nesto-section-head">{t("overview.criticalHazards")}</h2>
                 <Link href="/hse/hazards?view=critical" className="text-meta text-accent">
                   {t("overview.allCriticalHazards")}
                 </Link>
@@ -91,7 +91,7 @@ export default async function HsePage() {
           {data.recentIncidents.length > 0 ? (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("overview.openIncidents")}</h2>
+                <h2 className="nesto-section-head">{t("overview.openIncidents")}</h2>
                 <Link href="/hse/incidents?view=open" className="text-meta text-accent">
                   {t("overview.allIncidents")}
                 </Link>
@@ -103,7 +103,7 @@ export default async function HsePage() {
           {data.expiringPermits.length > 0 ? (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("overview.permitsRunningOut")}</h2>
+                <h2 className="nesto-section-head">{t("overview.permitsRunningOut")}</h2>
                 <Link href="/hse/permits?view=expiring" className="text-meta text-accent">
                   {t("overview.allPermits")}
                 </Link>

@@ -41,7 +41,7 @@ export default async function EmploymentTabPage({ params }: Params) {
   return (
     <div className="space-y-5">
       <section className="nesto-card p-5" aria-labelledby="current-assignment">
-        <h2 id="current-assignment" className="text-card font-semibold text-fg">
+        <h2 id="current-assignment" className="nesto-section-head">
           {t("employment.currentAssignment")}
         </h2>
         <DetailGrid
@@ -68,7 +68,7 @@ export default async function EmploymentTabPage({ params }: Params) {
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("employment.terms")}</h2>
+        <h2 className="nesto-section-head">{t("employment.terms")}</h2>
         <DetailGrid
           className="mt-4"
           columns={3}
@@ -83,7 +83,7 @@ export default async function EmploymentTabPage({ params }: Params) {
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("employment.accessInNesto")}</h2>
+        <h2 className="nesto-section-head">{t("employment.accessInNesto")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
           {t("employment.accessNote")}
         </p>

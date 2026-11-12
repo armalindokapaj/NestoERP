@@ -56,7 +56,7 @@ export function StartHereCard({
       data-testid="start-here"
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 id={headingId} className="text-card font-semibold text-fg">
+        <h2 id={headingId} className="nesto-section-head">
           {t("startHere")}
         </h2>
         <button
@@ -81,7 +81,7 @@ export function StartHereCard({
                 <span className="flex items-center gap-2 text-body font-medium text-fg">
                   <span
                     aria-hidden="true"
-                    className="grid size-5 shrink-0 place-items-center rounded-full bg-accent-soft text-meta text-accent-strong"
+                    className="grid size-5 shrink-0 place-items-center bg-accent-soft text-meta text-accent-strong"
                   >
                     {index + 1}
                   </span>

@@ -87,7 +87,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
     <div className="space-y-4">
       <section className="nesto-card p-5" aria-labelledby="unit-finance-summary" data-testid="unit-finance-summary">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id="unit-finance-summary" className="text-card font-semibold text-fg">
+          <h2 id="unit-finance-summary" className="nesto-section-head">
             {t("panel.title")}
           </h2>
           <FinancialStatusBadge status={summary.financialStatus} />
@@ -115,8 +115,8 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
               <div>
                 <p className="nesto-eyebrow text-fg-subtle">{t("panel.progress")}</p>
                 <div className="mt-2 flex items-center gap-3">
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(summary.progressPercent ?? 0)} aria-label={t("panel.progress")}>
-                    <div className="h-full rounded-full bg-success" style={{ width: `${Math.min(100, Number(summary.progressPercent ?? 0))}%` }} />
+                  <div className="h-2 flex-1 overflow-hidden bg-surface-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(summary.progressPercent ?? 0)} aria-label={t("panel.progress")}>
+                    <div className="h-full bg-success" style={{ width: `${Math.min(100, Number(summary.progressPercent ?? 0))}%` }} />
                   </div>
                   <span className="tabular-nums text-table text-fg" data-testid="finance-progress">
                     {summary.progressPercent ?? "0.0"}%
@@ -152,7 +152,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
       {live || finance.schedules.length ? (
         <section className="nesto-card p-5" aria-labelledby="payment-schedule" data-testid="payment-schedule">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 id="payment-schedule" className="text-card font-semibold text-fg">
+            <h2 id="payment-schedule" className="nesto-section-head">
               {t("panel.schedule")}
             </h2>
             {current ? <ScheduleStatusBadge status={current.status} /> : null}
@@ -225,7 +225,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
 
       {caps.canSeePayments && (live || finance.payments.length) ? (
         <section className="nesto-card p-5" aria-labelledby="unit-payments" data-testid="unit-payments">
-          <h2 id="unit-payments" className="text-card font-semibold text-fg">
+          <h2 id="unit-payments" className="nesto-section-head">
             {t("panel.payments")}
           </h2>
           {finance.payments.length === 0 ? (
@@ -275,7 +275,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
 
       {caps.canSeeInvoices && finance.invoices.length ? (
         <section className="nesto-card p-5" aria-labelledby="unit-invoices" data-testid="unit-invoices">
-          <h2 id="unit-invoices" className="text-card font-semibold text-fg">
+          <h2 id="unit-invoices" className="nesto-section-head">
             {t("panel.invoices")}
           </h2>
           <ul className="mt-3 divide-y divide-line">
@@ -298,7 +298,7 @@ export function UnitFinancePanel({ finance }: { finance: UnitFinanceDTO }) {
 
       {caps.canSeeDocuments && finance.payments.length ? (
         <section className="nesto-card p-5" aria-labelledby="finance-documents" data-testid="finance-documents">
-          <h2 id="finance-documents" className="text-card font-semibold text-fg">
+          <h2 id="finance-documents" className="nesto-section-head">
             {t("panel.proof")}
           </h2>
           {finance.documents.length === 0 ? (

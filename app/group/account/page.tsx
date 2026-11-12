@@ -21,7 +21,7 @@ export default async function GroupAccountPage() {
         <p className="mt-1 text-body text-fg-muted">{context.fullName} · <span className="font-mono text-meta">{context.username}</span></p>
       </div>
       <section className="nesto-card p-6" aria-labelledby="password-title">
-        <h2 id="password-title" className="text-card font-semibold text-fg">{t("account.passwordHeading")}</h2>
+        <h2 id="password-title" className="nesto-section-head">{t("account.passwordHeading")}</h2>
         <p className="mt-1 text-table text-fg-muted">{t("account.passwordNote")}</p>
         <div className="mt-4"><PasswordForm action={changeGroupPasswordAction} /></div>
       </section>

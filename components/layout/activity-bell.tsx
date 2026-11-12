@@ -124,7 +124,7 @@ function BellControl({ contextKey, canManageAnnouncements }: { contextKey: strin
       role="dialog"
       aria-label={t("title")}
       className={cn(
-        "nesto-popup-glass fixed z-50 flex flex-col border border-line bg-surface shadow-lg rounded-[14px] shadow-menu",
+        "nesto-popup-glass fixed z-50 flex flex-col border border-line bg-surface shadow-lg shadow-menu",
         "right-[max(0.75rem,env(safe-area-inset-right))] top-[var(--nesto-shell-header-h)] max-h-[calc(100dvh-var(--nesto-shell-header-h)-1.5rem)] w-[min(26rem,calc(100vw-1.5rem))] touch:mt-3 md:right-[max(1.5rem,env(safe-area-inset-right))] xl:right-8",
       )}
       data-testid="activity-panel"
@@ -135,7 +135,7 @@ function BellControl({ contextKey, canManageAnnouncements }: { contextKey: strin
       ) : (
         <>
           <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
-            <h2 className="text-card font-semibold text-fg">{t("title")}</h2>
+            <h2 className="nesto-section-head">{t("title")}</h2>
             <button type="button" onClick={() => close(true)} aria-label={t("close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
               <X aria-hidden="true" className="size-4" />
             </button>

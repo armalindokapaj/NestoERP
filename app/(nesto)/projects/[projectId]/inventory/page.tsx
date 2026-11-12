@@ -173,7 +173,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
           {consumption.length > 0 ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">{t("inventoryTab.consumption")}</h2>
+                <h2 className="nesto-section-head">{t("inventoryTab.consumption")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">{t("inventoryTab.consumptionBody")}</p>
               </div>
               <DataTable
@@ -188,7 +188,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
 
           {issueRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.issued")}</h2>
+              <h2 className="nesto-section-head">{t("inventoryTab.issued")}</h2>
               <IssueTable
                 issues={issueRows}
                 showProject={false}
@@ -199,7 +199,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
 
           {returnRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.returned")}</h2>
+              <h2 className="nesto-section-head">{t("inventoryTab.returned")}</h2>
               <ReturnTable returns={returnRows} caption={t("inventoryTab.returnsFrom", { name: project.name })} />
               <PreviewCount shown={returnRows.length} total={returnList.total} />
             </section>
@@ -207,7 +207,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
 
           {reservationRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.reserved")}</h2>
+              <h2 className="nesto-section-head">{t("inventoryTab.reserved")}</h2>
               <ReservationTable
                 reservations={reservationRows}
                 caption={t("inventoryTab.heldFor", { name: project.name })}
@@ -218,7 +218,7 @@ export default async function ProjectInventoryPage({ params }: Params) {
 
           {movementRows.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("inventoryTab.movements")}</h2>
+              <h2 className="nesto-section-head">{t("inventoryTab.movements")}</h2>
               <MovementTable
                 movements={movementRows}
                 caption={t("inventoryTab.movementsOn", { name: project.name })}

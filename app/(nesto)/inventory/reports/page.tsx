@@ -138,7 +138,7 @@ export default async function InventoryReportsPage() {
       <div className="space-y-6">
         <section className="space-y-3">
           <div>
-            <h2 className="text-card font-semibold text-fg">{t("reports.byWarehouse")}</h2>
+            <h2 className="nesto-section-head">{t("reports.byWarehouse")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
               {t("reports.byWarehouseHint")}
             </p>
@@ -159,7 +159,7 @@ export default async function InventoryReportsPage() {
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-card font-semibold text-fg">{t("reports.mostHeld")}</h2>
+            <h2 className="nesto-section-head">{t("reports.mostHeld")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
               {t("reports.mostHeldHint")}
             </p>
@@ -232,7 +232,7 @@ async function CountPanel({
 
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       {rows.length === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">{emptyLabel}</p>
       ) : (

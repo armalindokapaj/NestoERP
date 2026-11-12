@@ -96,7 +96,7 @@ export function EmployeeImport({ template }: { template: string }) {
     <div className="space-y-4">
       <section className="nesto-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-card font-semibold text-fg">{t("import.chooseCsv")}</h2>
+          <h2 className="nesto-section-head">{t("import.chooseCsv")}</h2>
           <p className="mt-1 text-table text-fg-muted">
             {t("import.columnsHelp")}
           </p>
@@ -123,7 +123,7 @@ export function EmployeeImport({ template }: { template: string }) {
 
       {result ? (
         <section className="nesto-card space-y-2 p-5" data-testid="import-result">
-          <h2 className="text-card font-semibold text-fg">
+          <h2 className="nesto-section-head">
             {t("import.imported", { count: result.createdCount })}
           </h2>
           <p className="text-table text-fg-muted">
@@ -151,7 +151,7 @@ export function EmployeeImport({ template }: { template: string }) {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
             <div className="min-w-0">
               {/* An unspaced file name breaks instead of widening the card (AUD-04 §3, D-07-16, MW-01). */}
-              <h2 className="text-card font-semibold text-fg [overflow-wrap:anywhere]">{batch.fileName}</h2>
+              <h2 className="nesto-section-head [overflow-wrap:anywhere]">{batch.fileName}</h2>
               <p className="text-meta text-fg-subtle" data-testid="import-summary">
                 {t("import.summary", { rows: batch.rowCount, ready: batch.validCount, errors: batch.errorCount, warnings: batch.warningCount })}
                 {batch.ignoredColumns.length ? t("import.notRead", { columns: batch.ignoredColumns.join(", ") }) : ""}
@@ -173,7 +173,7 @@ export function EmployeeImport({ template }: { template: string }) {
                 type="button"
                 onClick={() => setFilter(value)}
                 aria-pressed={filter === value}
-                className={cn("inline-flex items-center rounded-full border px-3 py-1 text-table touch:min-h-11", filter === value ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:text-fg")}
+                className={cn("inline-flex items-center border px-3 py-1 text-table touch:min-h-11", filter === value ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:text-fg")}
               >
                 {value === "all" ? t("import.allRows") : value === "errors" ? t("import.errors") : t("import.toCheck")}
               </button>

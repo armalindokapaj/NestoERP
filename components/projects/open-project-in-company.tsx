@@ -42,7 +42,7 @@ export function OpenProjectInCompany({
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center py-24 text-center" data-testid="open-project-in-company">
-      <div className="mb-4 flex size-12 items-center justify-center rounded-full border border-line bg-surface text-fg-subtle">
+      <div className="mb-4 flex size-12 items-center justify-center border border-line bg-surface text-fg-subtle">
         {error ? <Building2 aria-hidden="true" className="size-5" /> : <Loader2 aria-hidden="true" className="size-5 animate-spin motion-reduce:animate-none" />}
       </div>
       {error ? (

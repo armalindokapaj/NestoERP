@@ -80,7 +80,7 @@ export default async function TeamTimesheetsPage({ searchParams }: { searchParam
               </Link>
             </Button>
           </div>
-          <h2 className="text-section font-semibold text-fg">{list.weekLabel}</h2>
+          <h2 className="nesto-section-head">{list.weekLabel}</h2>
           <p className="text-table text-fg-muted">
             {t("team.people", { count: list.rows.length })}
             {waiting ? t("team.waitingDecision", { count: waiting }) : ""}

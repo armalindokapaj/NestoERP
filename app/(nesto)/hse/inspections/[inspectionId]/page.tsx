@@ -113,7 +113,7 @@ export default async function InspectionPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="space-y-3">
             <div>
-              <h2 className="text-card font-semibold text-fg">{t("inspection.detail.checklist")}</h2>
+              <h2 className="nesto-section-head">{t("inspection.detail.checklist")}</h2>
               {inspection.template ? (
                 <p className="mt-1 text-meta text-fg-subtle">
                   {t("inspection.detail.copiedFrom", { code: inspection.template.code, name: inspection.template.name, version: inspection.template.version })}
@@ -129,7 +129,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.summary ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("inspection.detail.summary")}</h2>
+              <h2 className="nesto-section-head">{t("inspection.detail.summary")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {inspection.summary}
               </p>
@@ -138,7 +138,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.hazards.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("inspection.detail.hazardsFound")}</h2>
+              <h2 className="nesto-section-head">{t("inspection.detail.hazardsFound")}</h2>
               <HazardTable
                 hazards={inspection.hazards}
                 caption={t("inspection.detail.hazardsFrom", { number: inspection.inspectionNumber })}
@@ -148,7 +148,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
+              <h2 className="nesto-section-head">{t("record.actions")}</h2>
               <ActionTable
                 actions={inspection.actions}
                 caption={t("inspection.detail.actionsFrom", { number: inspection.inspectionNumber })}
@@ -158,7 +158,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
+              <h2 className="nesto-section-head">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="hse_inspection"
@@ -171,7 +171,7 @@ export default async function InspectionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
+            <h2 className="nesto-section-head">{t("record.record")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
@@ -221,7 +221,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseInspection"

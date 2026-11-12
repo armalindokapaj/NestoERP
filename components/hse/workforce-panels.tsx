@@ -28,7 +28,7 @@ export function IncidentPeople({ incidentId, people, canEdit, employees }: { inc
   return (
     <section className="nesto-card p-5" aria-labelledby="incident-people-heading" data-testid="incident-people">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="incident-people-heading" className="text-card font-semibold text-fg">
+        <h2 id="incident-people-heading" className="nesto-section-head">
           {t("people.heading")}
         </h2>
         {canEdit ? (
@@ -92,7 +92,7 @@ export function PermitWorkers({ permitId, workers, canEdit, employees, crews }: 
   return (
     <section className="nesto-card p-5" aria-labelledby="permit-workers-heading" data-testid="permit-workers">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="permit-workers-heading" className="text-card font-semibold text-fg">
+        <h2 id="permit-workers-heading" className="nesto-section-head">
           {t("workers.heading")}
         </h2>
         {canEdit ? (

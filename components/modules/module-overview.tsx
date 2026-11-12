@@ -73,7 +73,7 @@ export async function ModuleOverview({
           .map(({ section, rows }) => (
             <section key={section.section} className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{supportShellText(t, section.plural)}</h2>
+                <h2 className="nesto-section-head">{supportShellText(t, section.plural)}</h2>
                 <Link
                   href={sectionRoute(moduleKey, section.section)}
                   className="tap-target-lg text-table font-medium text-accent-strong"

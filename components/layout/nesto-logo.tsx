@@ -51,7 +51,7 @@ export function NestoLogo({
         <span
           aria-hidden="true"
           className={cn(
-            "grid shrink-0 place-items-center rounded-[10px] border border-accent bg-transparent leading-none text-accent-strong font-display",
+            "grid shrink-0 place-items-center border border-accent bg-transparent leading-none text-accent-strong font-display",
             markSizes[size],
           )}
         >

@@ -228,7 +228,7 @@ function AttentionPanel({
   return (
     <section className="nesto-card p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{title}</h2>
+        <h2 className="nesto-section-head">{title}</h2>
         {showAll ? (
           <Link
             href={href}

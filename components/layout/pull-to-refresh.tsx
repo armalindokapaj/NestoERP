@@ -243,7 +243,7 @@ export function PullToRefresh() {
       data-pull-indicator={phase}
       data-armed={armed || undefined}
       className={cn(
-        "pointer-events-none fixed left-1/2 top-(--nesto-sticky-stack) z-[29] grid size-10 place-items-center rounded-full border border-line bg-surface text-fg-muted opacity-0 shadow-menu lg:hidden print:hidden",
+        "pointer-events-none fixed left-1/2 top-(--nesto-sticky-stack) z-[29] grid size-10 place-items-center border border-line bg-surface text-fg-muted opacity-0 shadow-menu lg:hidden print:hidden",
         "data-armed:border-accent/40 data-armed:text-accent-strong",
       )}
       style={{ transform: `translate(-50%, ${-SIZE}px)` }}

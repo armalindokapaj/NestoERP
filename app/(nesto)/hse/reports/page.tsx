@@ -143,8 +143,8 @@ export default async function HseReportsPage({
               aria-current={report.key === active?.key ? "page" : undefined}
               className={
                 report.key === active?.key
-                  ? "inline-flex items-center rounded-full border border-line-strong bg-surface-muted px-3 py-1.5 text-meta font-medium text-fg touch:min-h-11"
-                  : "inline-flex items-center rounded-full border border-line px-3 py-1.5 text-meta text-fg-muted hover:border-line-strong touch:min-h-11"
+                  ? "inline-flex items-center border border-line-strong bg-surface-muted px-3 py-1.5 text-meta font-medium text-fg touch:min-h-11"
+                  : "inline-flex items-center border border-line px-3 py-1.5 text-meta text-fg-muted hover:border-line-strong touch:min-h-11"
               }
             >
               {known(t, `pages.reports.names.${report.key}`, report.label)}
@@ -154,7 +154,7 @@ export default async function HseReportsPage({
 
         {result ? (
           <section className="space-y-4">
-            <h2 className="text-card font-semibold text-fg">{known(t, `pages.reports.names.${result.key}`, result.label)}</h2>
+            <h2 className="nesto-section-head">{known(t, `pages.reports.names.${result.key}`, result.label)}</h2>
 
             {/* The 5x5 grid, with every cell carrying its score in text (§358). */}
             {result.matrix ? (

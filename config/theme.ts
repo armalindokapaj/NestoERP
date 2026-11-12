@@ -69,15 +69,15 @@ export const theme = {
   /** 8px base scale (§8). */
   spacing: [4, 8, 12, 16, 24, 32, 40, 48, 64] as const,
 
-  /** §9 — moderate corners, never fully rounded surfaces. */
+  /** §9 — square everywhere (UI-07): only avatars, status dots and the Create dial are round. */
   radius: {
-    small: 6,
-    button: 8,
-    input: 8,
-    smallCard: 10,
-    dashboardCard: 10,
-    dialog: 14,
-    featureCard: 16,
+    small: 0,
+    button: 0,
+    input: 0,
+    smallCard: 0,
+    dashboardCard: 0,
+    dialog: 0,
+    featureCard: 0,
   },
 
   /** §7 — the full type scale in px, mirroring the --text-* steps. */

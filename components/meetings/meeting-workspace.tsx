@@ -402,7 +402,7 @@ export function MeetingWorkspace({
                   )}
                 >
                   {t(`workspace.tabs.${key}`)}
-                  {counts[key] ? <span className="ml-1.5 rounded-full bg-surface-muted px-1.5 text-micro text-fg-muted">{counts[key]}</span> : null}
+                  {counts[key] ? <span className="ml-1.5 bg-surface-muted px-1.5 text-micro text-fg-muted">{counts[key]}</span> : null}
                 </button>
               ))}
             </div>
@@ -412,7 +412,7 @@ export function MeetingWorkspace({
               {tab === "overview" ? (
                 <div className="space-y-5">
                   <section className="nesto-card space-y-3 p-5">
-                    <h2 className="text-card font-semibold text-fg">{t("workspace.purpose")}</h2>
+                    <h2 className="nesto-section-head">{t("workspace.purpose")}</h2>
                     {meeting.description ? <PlainText text={meeting.description} className="text-body text-fg-muted" /> : <p className="text-table text-fg-subtle">{t("workspace.noPurpose")}</p>}
                   </section>
                   <div className="grid gap-5 xl:grid-cols-2">
@@ -426,7 +426,7 @@ export function MeetingWorkspace({
                   {meeting.agenda.length > 0 ? (
                     <section className="nesto-card p-5">
                       <div className="flex items-center justify-between">
-                        <h2 className="text-card font-semibold text-fg">{t("workspace.agenda")}</h2>
+                        <h2 className="nesto-section-head">{t("workspace.agenda")}</h2>
                         <button type="button" onClick={() => selectTab("agenda")} className="text-table font-medium text-accent-strong">
                           {t("workspace.viewAll")}
                         </button>
@@ -468,7 +468,7 @@ export function MeetingWorkspace({
               {tab === "documents" ? <div className="nesto-card p-5">{documents}</div> : null}
               {tab === "activity" ? (
                 <section className="nesto-card p-5">
-                  <h2 className="text-card font-semibold text-fg">{t("workspace.activity")}</h2>
+                  <h2 className="nesto-section-head">{t("workspace.activity")}</h2>
                   {activity.length === 0 ? (
                     <p className="mt-3 text-table text-fg-subtle">{t("workspace.nothingRecorded")}</p>
                   ) : (
@@ -493,7 +493,7 @@ export function MeetingWorkspace({
           <aside className="space-y-5" aria-label={t("workspace.context")}>
             <ParticipantsPanel meeting={meeting} onChange={change} />
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("workspace.details")}</h2>
+              <h2 className="nesto-section-head">{t("workspace.details")}</h2>
               <dl className="mt-3 space-y-3 text-table">
                 <Detail label={t("workspace.organizer")} value={<PersonLink memberId={meeting.organizer.memberId} name={meeting.organizer.fullName} />} />
                 {meeting.project ? (

@@ -177,7 +177,7 @@ export function ProjectMediaManager({ projectId, initial }: { projectId: string;
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-surface-muted px-2 py-1 text-meta font-medium text-fg-muted">{item.type === "RENDER" ? t("mediaManager.render") : t("mediaManager.animation")}</span>
+                  <span className="bg-surface-muted px-2 py-1 text-meta font-medium text-fg-muted">{item.type === "RENDER" ? t("mediaManager.render") : t("mediaManager.animation")}</span>
                   {item.isCover ? <span className="inline-flex items-center gap-1 text-meta font-medium text-accent-strong"><Star className="size-3 fill-current" /> {t("mediaManager.cover")}</span> : null}
                   {item.isFeatured ? <span className="text-meta text-fg-muted">{t("mediaManager.featured")}</span> : null}
                 </div>

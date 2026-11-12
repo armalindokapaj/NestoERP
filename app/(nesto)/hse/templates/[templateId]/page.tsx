@@ -93,7 +93,7 @@ export default async function TemplatePage({ params }: Params) {
       ) : null}
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("risk.detail.about")}</h2>
+        <h2 className="nesto-section-head">{t("risk.detail.about")}</h2>
         <DetailGrid
           className="mt-4"
           items={[
@@ -112,7 +112,7 @@ export default async function TemplatePage({ params }: Params) {
       </section>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("template.detail.checks")}</h2>
+        <h2 className="nesto-section-head">{t("template.detail.checks")}</h2>
         <ol className="mt-4 divide-y divide-line">
           {template.items.map((item) => (
             <li key={item.id} className="py-3 first:pt-0 last:pb-0">

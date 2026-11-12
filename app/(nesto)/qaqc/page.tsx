@@ -155,7 +155,7 @@ async function AttentionPanel({
   return (
     <section className="nesto-card p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{title}</h2>
+        <h2 className="nesto-section-head">{title}</h2>
         <Link
           href={href}
           className="inline-flex shrink-0 items-center gap-1 text-table font-medium text-accent-strong touch:min-h-11"

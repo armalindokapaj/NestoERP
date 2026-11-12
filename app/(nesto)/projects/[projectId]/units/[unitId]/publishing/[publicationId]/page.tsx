@@ -42,7 +42,7 @@ export default async function PublicationDetailPage({ params }: Params) {
     <UnitShell page={page} active="publishing">
       <section className="nesto-card p-5" aria-labelledby="publication-detail" data-testid="publication-detail">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="publication-detail" className="text-card font-semibold text-fg">
+          <h2 id="publication-detail" className="nesto-section-head">
             {t("unitPage.version", { version: publication.versionNumber })}
             {publication.isCurrent ? <span className="ml-2 text-meta font-medium text-success-strong">{t("unitPage.current")}</span> : null}
           </h2>

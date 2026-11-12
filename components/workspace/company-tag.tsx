@@ -11,7 +11,7 @@ export function CompanyTag({ name, className }: { name: string; className?: stri
   return (
     <span
       data-testid="company-tag"
-      className={cn("inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-surface-muted px-2 py-0.5 text-micro font-medium text-fg-muted", className)}
+      className={cn("inline-flex max-w-full items-center gap-1 border border-line bg-surface-muted px-2 py-0.5 text-micro font-medium text-fg-muted", className)}
     >
       <Building2 aria-hidden="true" className="size-3 shrink-0" />
       <span className="truncate">{name}</span>

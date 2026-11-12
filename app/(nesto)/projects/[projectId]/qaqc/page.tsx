@@ -126,7 +126,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
           {inspectionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.inspections")}</h2>
+              <h2 className="nesto-section-head">{t("qaqcTab.inspections")}</h2>
               <InspectionTable
                 inspections={inspectionRows.data}
                 caption={t("qaqcTab.inspectionsOn", { name: project.name })}
@@ -143,7 +143,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
           {defectRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.defects")}</h2>
+              <h2 className="nesto-section-head">{t("qaqcTab.defects")}</h2>
               <DefectTable
                 defects={defectRows.data}
                 showProject={false}
@@ -161,7 +161,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
           {ncrRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.ncrs")}</h2>
+              <h2 className="nesto-section-head">{t("qaqcTab.ncrs")}</h2>
               <NcrTable
                 ncrs={ncrRows.data}
                 showProject={false}
@@ -179,7 +179,7 @@ export default async function ProjectQaqcPage({ params }: Params) {
 
           {actionRows.total > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("qaqcTab.corrective")}</h2>
+              <h2 className="nesto-section-head">{t("qaqcTab.corrective")}</h2>
               <CorrectiveActionTable
                 actions={actionRows.data}
                 caption={t("qaqcTab.correctiveOn", { name: project.name })}

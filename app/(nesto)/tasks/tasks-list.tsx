@@ -157,7 +157,7 @@ export async function TasksList({
                 key={view.key}
                 href={view.due ? `${basePath}?due=${view.due}` : basePath}
                 aria-current={current ? "page" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-full px-4 text-table font-medium ${current ? "bg-primary text-primary-fg" : "border border-line bg-surface text-fg-muted hover:bg-row-hover"}`}
+                className={`inline-flex min-h-11 items-center px-4 text-table font-medium ${current ? "bg-primary text-primary-fg" : "border border-line bg-surface text-fg-muted hover:bg-row-hover"}`}
               >
                 {t(`list.views.${view.key}`)}
               </Link>

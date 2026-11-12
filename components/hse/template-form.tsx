@@ -158,7 +158,7 @@ export function TemplateForm({
       </FormSection>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("template.detail.checks")}</h2>
+        <h2 className="nesto-section-head">{t("template.detail.checks")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">{t("forms.checksIntro")}</p>
 
         {itemError ? <p className="mt-3 text-meta text-danger-strong">{itemError}</p> : null}

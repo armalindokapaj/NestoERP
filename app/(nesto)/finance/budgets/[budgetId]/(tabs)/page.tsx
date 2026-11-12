@@ -57,7 +57,7 @@ export default async function BudgetDetailPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("lines.budgetLines")}</h2>
+          <h2 className="nesto-section-head">{t("lines.budgetLines")}</h2>
 
           <ScrollRegion label={t("lines.budgetLines")} className="mt-4">
             <table className="w-full text-table" data-stack="" data-flush="">
@@ -120,7 +120,7 @@ export default async function BudgetDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+            <h2 className="nesto-section-head">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -156,7 +156,7 @@ export default async function BudgetDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.approvals")}</h2>
+            <h2 className="nesto-section-head">{t("detail.approvals")}</h2>
             <ApprovalHistory approvals={budget.approvals} />
           </section>
         </div>

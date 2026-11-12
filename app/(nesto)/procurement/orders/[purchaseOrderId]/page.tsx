@@ -117,7 +117,7 @@ export default async function OrderDetailPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card overflow-hidden">
             <div className="flex items-center justify-between gap-3 p-5">
-              <h2 className="text-card font-semibold text-fg">{t("common.ordered")}</h2>
+              <h2 className="nesto-section-head">{t("common.ordered")}</h2>
               <span className="text-meta text-fg-subtle">
                 {receivedLabel(t, order.receivedFraction)}
               </span>
@@ -219,20 +219,20 @@ export default async function OrderDetailPage({ params }: Params) {
 
           {order.notes ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("common.notes")}</h2>
+              <h2 className="nesto-section-head">{t("common.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{order.notes}</p>
             </section>
           ) : null}
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">{t("common.approvalHistory")}</h2>
+            <h2 className="nesto-section-head">{t("common.approvalHistory")}</h2>
             <ProcurementApprovalHistory approvals={order.approvals} />
           </section>
         </div>
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("orders.whereFrom")}</h2>
+            <h2 className="nesto-section-head">{t("orders.whereFrom")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
@@ -248,7 +248,7 @@ export default async function OrderDetailPage({ params }: Params) {
           {/* Absent without `procurement.commitment.view` (PRD #19 §262). */}
           {order.commitment ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("orders.commitment")}</h2>
+              <h2 className="nesto-section-head">{t("orders.commitment")}</h2>
               <p className="mt-3 text-table text-fg">{money(order.commitment.amount)}</p>
               <p className="mt-1 text-meta text-fg-subtle">
                 {t("orders.commitmentNote")}
@@ -266,7 +266,7 @@ export default async function OrderDetailPage({ params }: Params) {
 
           <section className="nesto-card p-5">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-card font-semibold text-fg">{t("orders.deliveries")}</h2>
+              <h2 className="nesto-section-head">{t("orders.deliveries")}</h2>
               {order.capabilities.canViewReceipts ? (
                 <Link
                   href={`/procurement/orders/${order.id}/receipts`}
@@ -283,7 +283,7 @@ export default async function OrderDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
+            <h2 className="nesto-section-head">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("common.created")} value={formatDateTime(order.createdAt, locale)} />
               {order.dates.approvedAt ? (

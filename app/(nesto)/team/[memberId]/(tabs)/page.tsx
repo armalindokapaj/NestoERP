@@ -79,7 +79,7 @@ export default async function MemberOverviewPage({ params }: Params) {
               size="lg"
             />
             <div className="min-w-0">
-              <h2 className="text-card font-semibold text-fg">{t("member.membership")}</h2>
+              <h2 className="nesto-section-head">{t("member.membership")}</h2>
               <p className="text-meta text-fg-subtle">
                 {t("member.membershipDescription")}
               </p>
@@ -145,7 +145,7 @@ export default async function MemberOverviewPage({ params }: Params) {
 
         <section className="nesto-card p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-card font-semibold text-fg">{t("member.recentActivity")}</h2>
+            <h2 className="nesto-section-head">{t("member.recentActivity")}</h2>
             {may.canViewActivity ? (
               <Link
                 href={`/team/${member.id}/activity`}

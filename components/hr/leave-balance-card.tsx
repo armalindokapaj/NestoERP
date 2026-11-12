@@ -24,7 +24,7 @@ export async function LeaveBalanceCard({
   return (
     <section className="nesto-card p-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{title ?? t("balance.title")}</h2>
+        <h2 className="nesto-section-head">{title ?? t("balance.title")}</h2>
         <span className="text-meta text-fg-subtle">{year}</span>
       </div>
 

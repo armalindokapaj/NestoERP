@@ -49,7 +49,7 @@ export default async function ProjectDailyLogsPage({ params, searchParams }: Par
   if (list.page !== query.page) redirect(listPageRedirect(base, search, list.page));
   const today = localDate(new Date(), settings.timezone);
   const canCreate = can(context, "daily_log.create") && list.today?.canCreate;
-  const chip = (active: boolean) => cn("rounded-full border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+  const chip = (active: boolean) => cn("border px-3 py-1 text-table transition-colors", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
   return (
     <div className="space-y-5">

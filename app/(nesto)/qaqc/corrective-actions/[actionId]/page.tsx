@@ -92,7 +92,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("actionPage.whatNeedsDoing")}</h2>
+            <h2 className="nesto-section-head">{t("actionPage.whatNeedsDoing")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {action.description}
             </p>
@@ -127,7 +127,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
           {action.completionNote ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("detail.whatWasDone")}</h2>
+              <h2 className="nesto-section-head">{t("detail.whatWasDone")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {action.completionNote}
               </p>
@@ -145,7 +145,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
           {action.verificationNote || action.verifiedAt ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("actionPage.verification")}</h2>
+              <h2 className="nesto-section-head">{t("actionPage.verification")}</h2>
               {action.verificationNote ? (
                 <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                   {action.verificationNote}
@@ -165,7 +165,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
           {action.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
+              <h2 className="nesto-section-head">{t("detail.documents")}</h2>
               <QaqcRecordDocuments
                 context={context}
                 entityType="corrective_action"
@@ -178,7 +178,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("detail.raisedBy")}
@@ -199,7 +199,7 @@ export default async function CorrectiveActionPage({ params }: Params) {
 
           {action.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+              <h2 className="nesto-section-head">{t("detail.activity")}</h2>
               <QaqcActivityFeed
                 context={context}
                 entityType="CorrectiveAction"

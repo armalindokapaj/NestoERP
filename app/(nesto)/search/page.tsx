@@ -107,7 +107,7 @@ export default async function SearchPage({ searchParams }: Params) {
                 href={filterHref(company.id)}
                 aria-current={current ? "true" : undefined}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-meta font-medium transition-colors",
+                  "border px-3 py-1 text-meta font-medium transition-colors",
                   current ? "border-accent bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
@@ -154,7 +154,7 @@ export default async function SearchPage({ searchParams }: Params) {
 
             return (
               <section key={group.moduleKey} className="space-y-2">
-                <h2 className="text-section font-semibold text-fg">
+                <h2 className="nesto-section-head">
                   {moduleLabel(group.moduleKey)}
                   <span className="ml-2 text-body font-normal text-fg-subtle">{group.count}</span>
                 </h2>

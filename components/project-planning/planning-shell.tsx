@@ -258,7 +258,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
         /* Empty plan (§241, §242) */
         <section className="nesto-card px-5 py-8" data-testid="planning-empty">
           <div className="mx-auto max-w-3xl text-center">
-            <span className="mx-auto flex size-11 items-center justify-center rounded-full border border-line bg-surface-muted text-fg-subtle">
+            <span className="mx-auto flex size-11 items-center justify-center border border-line bg-surface-muted text-fg-subtle">
               <CalendarRange className="size-5" />
             </span>
             <p className="mt-3 text-card font-semibold text-fg">{t("planning.emptyTitle")}</p>
@@ -342,7 +342,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                 </label>
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("planning.quickFilters")}>
                   {QUICK.map((entry) => (
-                    <button key={entry.key} type="button" aria-pressed={quick === entry.key} onClick={() => { const next = quick === entry.key ? null : entry.key; setQuick(next); writeUrl({ filter: next }); }} className={cn("rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", quick === entry.key ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}>
+                    <button key={entry.key} type="button" aria-pressed={quick === entry.key} onClick={() => { const next = quick === entry.key ? null : entry.key; setQuick(next); writeUrl({ filter: next }); }} className={cn("border px-3 py-1 text-table transition-colors touch:min-h-11", quick === entry.key ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}>
                       {t(`planning.quick.${entry.key}`)}
                     </button>
                   ))}
@@ -438,7 +438,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                 {/* Upcoming (§237) */}
                 <section className="nesto-card overflow-hidden" aria-labelledby="upcoming-title">
                   <header className="flex items-center justify-between border-b border-line px-4 py-3">
-                    <h3 id="upcoming-title" className="text-card font-semibold text-fg">{t("planning.upcoming")}</h3>
+                    <h3 id="upcoming-title" className="nesto-section-head">{t("planning.upcoming")}</h3>
                     <button type="button" className="text-table font-medium text-accent-strong" onClick={() => { setQuick("upcoming"); chooseView("milestones"); }}>
                       {t("planning.viewAll")}
                     </button>
@@ -469,7 +469,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
                 {/* Delayed and at risk (§238) */}
                 <section className="nesto-card overflow-hidden" aria-labelledby="late-title">
                   <header className="flex items-center justify-between border-b border-line px-4 py-3">
-                    <h3 id="late-title" className="text-card font-semibold text-fg">{t("planning.delayedAtRisk")}</h3>
+                    <h3 id="late-title" className="nesto-section-head">{t("planning.delayedAtRisk")}</h3>
                     <button type="button" className="text-table font-medium text-accent-strong" onClick={() => { setQuick("delayed"); chooseView("milestones"); }}>
                       {t("planning.viewDelayed")}
                     </button>
@@ -501,7 +501,7 @@ export function PlanningShell({ initial, initialView, initialMilestone, initialQ
               {/* Phases (§26, §28, §114, §131) */}
               <section className="nesto-card overflow-hidden" aria-labelledby="phases-title">
                 <header className="flex items-center justify-between border-b border-line px-4 py-3">
-                  <h3 id="phases-title" className="text-card font-semibold text-fg">{t("planning.phases")}</h3>
+                  <h3 id="phases-title" className="nesto-section-head">{t("planning.phases")}</h3>
                   {caps.canEditPhase && plan.phases.length > 1 ? <span className="hidden text-meta text-fg-subtle sm:inline">{t("planning.dragHint")}</span> : null}
                 </header>
                 {plan.phases.length ? (

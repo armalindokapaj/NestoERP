@@ -107,7 +107,7 @@ function SheetPanel({ title, description, footer, hideTitle, className, children
       }}
       className={cn(
         "fixed inset-x-0 bottom-0 z-[55] mx-auto flex w-full max-w-xl flex-col bg-surface outline-none",
-        "max-h-[min(85dvh,calc(100dvh-var(--nesto-safe-top)-1rem))] rounded-t-[var(--nesto-radius-sheet)] border border-b-0 border-line shadow-dialog",
+        "max-h-[min(85dvh,calc(100dvh-var(--nesto-safe-top)-1rem))] border border-b-0 border-line shadow-dialog",
         "transition-transform duration-200",
         "data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)]",
         "data-[state=closed]:animate-[nesto-slide-out-bottom_180ms_var(--nesto-ease)]",
@@ -126,7 +126,7 @@ function SheetPanel({ title, description, footer, hideTitle, className, children
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <span className="h-1 w-10 rounded-full bg-line-strong" />
+        <span className="h-1 w-10 bg-line-strong" />
       </div>
 
       <div className={cn("flex shrink-0 items-start justify-between gap-3 px-4 pb-2", hideTitle && "sr-only")}>

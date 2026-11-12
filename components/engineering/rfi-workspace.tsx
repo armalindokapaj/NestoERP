@@ -159,7 +159,7 @@ export function RfiWorkspace({ rfi, zone, assignees }: { rfi: RfiDetailDTO; zone
       <section className="nesto-card p-5" aria-labelledby="rfi-references-title" data-testid="rfi-references">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 id="rfi-references-title" className="text-card font-semibold text-fg">
+            <h2 id="rfi-references-title" className="nesto-section-head">
               {t("rfi.references")}
             </h2>
             <p className="mt-0.5 text-table text-fg-muted">{t("rfi.referencesBody")}</p>

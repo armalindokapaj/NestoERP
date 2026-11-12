@@ -78,7 +78,7 @@ async function Pipeline({ context, companyParam }: { context: UserContext; compa
       {grouped ? <GroupSalesScope companies={companies} included={includedCompanies(companies, companyParam)} /> : null}
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("pipeline.openPipeline")}</h2>
+        <h2 className="nesto-section-head">{t("pipeline.openPipeline")}</h2>
         {/* Grouped by currency, never summed across them (PRD #17 §31, §103). */}
         <p className="mt-2 text-page font-semibold tabular-nums text-fg">
           {totalsLabel(pipeline.totals, locale)}

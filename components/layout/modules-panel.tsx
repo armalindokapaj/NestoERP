@@ -68,8 +68,8 @@ export function ModulesPanel({ navigation }: { navigation: Navigation }) {
         data-testid="modules-panel-trigger"
         className="relative grid size-10 shrink-0 place-items-center rounded-none transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:size-11"
       >
-        <OrganizationMark name={activeWorkspace.label} logoUrl={organization.logoUrl} size="sm" className="size-9! rounded-[9px]! text-[0.8125rem]! border border-accent bg-surface text-accent-strong" />
-        <span aria-hidden="true" className="absolute -bottom-px -right-px grid grid-cols-3 gap-[1.5px] rounded-[4px] bg-fg p-[2.5px]">
+        <OrganizationMark name={activeWorkspace.label} logoUrl={organization.logoUrl} size="sm" className="size-9! text-[0.8125rem]! border border-accent bg-surface text-accent-strong" />
+        <span aria-hidden="true" className="absolute -bottom-px -right-px grid grid-cols-3 gap-[1.5px] bg-fg p-[2.5px]">
           {Array.from({ length: 9 }, (_, index) => (
             <i key={index} className="block size-[3px] bg-canvas" />
           ))}

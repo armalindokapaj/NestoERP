@@ -33,7 +33,7 @@ export default async function GroupOverviewPage() {
         <div className="nesto-card p-5"><dt className="text-meta text-fg-subtle">{t("overview.users")}</dt><dd className="mt-1 text-page font-semibold tabular-nums text-fg">{overview.seats}</dd></div>
       </dl>
       <section className="nesto-card p-5" aria-label={t("overview.setup")}>
-        <h2 className="text-card font-semibold text-fg">{t("overview.setup")}</h2>
+        <h2 className="nesto-section-head">{t("overview.setup")}</h2>
         <ul className="mt-3 space-y-2">
           {steps.map((step) => (
             <li key={step.key} className="flex items-center gap-2 text-body text-fg">

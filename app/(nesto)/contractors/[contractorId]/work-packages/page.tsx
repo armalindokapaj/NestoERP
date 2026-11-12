@@ -34,7 +34,7 @@ export default async function ContractorWorkPackagesPage({ params, searchParams 
   keepPageInRange(base, search, query.page, result);
   return (
     <section className="space-y-3">
-      <h2 className="text-section font-semibold text-fg">{t("workPackagesTab.title")}</h2>
+      <h2 className="nesto-section-head">{t("workPackagesTab.title")}</h2>
       <WorkPackageTable items={result.items} showProject emptyText={t("workPackagesTab.empty")} />
       <Pagination meta={registerMeta(result)} buildHref={(page) => pageHref(base, search, page)} />
     </section>

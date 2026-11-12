@@ -114,7 +114,7 @@ export function UnitMediaGallery({ unitId, unitCode, files }: { unitId: string; 
     <section className="nesto-card p-5" aria-labelledby="unit-media-heading" data-testid="unit-media">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="unit-media-heading" className="text-card font-semibold text-fg">
+          <h2 id="unit-media-heading" className="nesto-section-head">
             {t("unitMedia.media")}
           </h2>
           <p className="mt-1 text-meta text-fg-muted" id="unit-media-rules" data-testid="unit-media-rules">

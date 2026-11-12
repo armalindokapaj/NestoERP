@@ -185,7 +185,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
     <section aria-labelledby={`agenda-${variant}`} className={cn(variant === "full" && "space-y-4")} data-testid="agenda-panel">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 id={`agenda-${variant}`} className="text-card font-semibold text-fg">
+          <h2 id={`agenda-${variant}`} className="nesto-section-head">
             {t("agenda.title")}
           </h2>
           {items.length > 0 ? (
@@ -277,7 +277,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                     ) : null}
                     <span
                       className={cn(
-                        "flex size-6 shrink-0 items-center justify-center rounded-full text-meta font-semibold tabular-nums",
+                        "flex size-6 shrink-0 items-center justify-center text-meta font-semibold tabular-nums",
                         item.status === "DISCUSSED" ? "bg-success-soft text-success-strong" : isCurrent ? "bg-accent text-accent-fg" : "bg-surface-muted text-fg-muted",
                       )}
                     >
@@ -312,7 +312,7 @@ export function AgendaPanel({ meeting, onChange, variant = "full" }: { meeting: 
                               disabled={pending === item.id}
                               onClick={() => void call(item.id, `/api/meetings/${meeting.id}/agenda/${item.id}`, { method: "PATCH", body: { status: item.status === status ? "PENDING" : status } })}
                               className={cn(
-                                "inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-meta transition-colors",
+                                "inline-flex h-8 items-center gap-1 border px-2.5 text-meta transition-colors",
                                 item.status === status ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
                               )}
                             >

@@ -361,10 +361,10 @@ export function UploadQueueList({
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label={t("queue.uploadingFile", { name: item.file.name })}
-                className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-3"
+                className="mt-2 h-1.5 w-full overflow-hidden bg-surface-3"
               >
                 <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-200 motion-reduce:transition-none"
+                  className="h-full bg-accent transition-[width] duration-200 motion-reduce:transition-none"
                   style={{ width: `${item.progress}%` }}
                 />
               </div>

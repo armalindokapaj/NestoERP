@@ -66,7 +66,7 @@ export async function SalesContractHandoff({
     <section className="nesto-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-card font-semibold text-fg">{t("handoff.title")}</h2>
+          <h2 className="nesto-section-head">{t("handoff.title")}</h2>
           <p className="mt-1 text-table text-fg-muted">
             {existing.length === 0
               ? t("handoff.intro")

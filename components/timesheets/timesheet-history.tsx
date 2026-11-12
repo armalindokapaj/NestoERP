@@ -30,7 +30,7 @@ export function TimesheetHistory({ history, zone, className }: { history: Timesh
   };
   return (
     <section aria-labelledby="timesheet-history-title" className={cn("nesto-card px-5 py-4", className)} data-testid="timesheet-history">
-      <h2 id="timesheet-history-title" className="text-card font-semibold text-fg">
+      <h2 id="timesheet-history-title" className="nesto-section-head">
         <TimesheetsText k="common.history" />
       </h2>
       <ol className="mt-3 space-y-3">

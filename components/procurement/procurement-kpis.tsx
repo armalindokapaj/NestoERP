@@ -129,7 +129,7 @@ export async function ProcurementCompanyBreakdown({ companies }: { companies: Pr
 
   return (
     <section className="nesto-card p-5" data-testid="procurement-company-breakdown">
-      <h2 className="text-card font-semibold text-fg">{t("kpis.byCompany")}</h2>
+      <h2 className="nesto-section-head">{t("kpis.byCompany")}</h2>
       <ScrollRegion label={t("kpis.figuresByCompany")} className="mt-3">
         {/* A card per company on a phone, each figure labelled (mobile audit 2b). */}
         <table className="w-full text-table" data-stack="" data-flush="">

@@ -107,8 +107,8 @@ export default async function PeoplePage({ searchParams }: Props) {
               aria-current={query.view === view.key ? "page" : undefined}
               className={
                 query.view === view.key
-                  ? "inline-flex items-center rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-table font-medium text-accent-strong touch:min-h-11"
-                  : "inline-flex items-center rounded-full border border-line px-3 py-1 text-table text-fg-muted hover:border-line-strong hover:text-fg touch:min-h-11"
+                  ? "inline-flex items-center border border-accent/40 bg-accent-soft px-3 py-1 text-table font-medium text-accent-strong touch:min-h-11"
+                  : "inline-flex items-center border border-line px-3 py-1 text-table text-fg-muted hover:border-line-strong hover:text-fg touch:min-h-11"
               }
             >
               {view.label}

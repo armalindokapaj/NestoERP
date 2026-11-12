@@ -74,14 +74,14 @@ export default async function AmendmentDetailPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("amendments.summary")}</h2>
+            <h2 className="nesto-section-head">{t("amendments.summary")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg">{amendment.summary}</p>
           </section>
 
           {/* What changes, before and after (PRD #18 §167, §168, §332). */}
           {amendment.commercial || amendment.newExpiryDate ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("amendments.changes")}</h2>
+              <h2 className="nesto-section-head">{t("amendments.changes")}</h2>
               <DetailGrid
                 className="mt-4"
                 columns={3}
@@ -127,7 +127,7 @@ export default async function AmendmentDetailPage({ params }: Params) {
           ) : null}
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">{t("amendments.approvalHistory")}</h2>
+            <h2 className="nesto-section-head">{t("amendments.approvalHistory")}</h2>
             <ContractApprovalHistory
               approvals={amendment.approvals}
               emptyLabel={t("approvalHistory.amendmentEmpty")}
@@ -136,7 +136,7 @@ export default async function AmendmentDetailPage({ params }: Params) {
 
           {contract.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("amendments.documents")}</h2>
+              <h2 className="nesto-section-head">{t("amendments.documents")}</h2>
               <Suspense fallback={<SkeletonTable rows={2} />}>
                 <ContractRecordDocuments
                   context={context}
@@ -151,7 +151,7 @@ export default async function AmendmentDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("amendments.dates")}</h2>
+            <h2 className="nesto-section-head">{t("amendments.dates")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("amendments.effectiveLabel")}

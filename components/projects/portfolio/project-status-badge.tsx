@@ -22,7 +22,7 @@ export function ProjectStatusBadge({ status, className }: { status: ProjectStatu
     <span
       className={cn(
         // Mono capitals with the status mark before them. On a render, the card makes it the reference's dark glass chip.
-        "inline-flex items-center gap-1.5 rounded-full border border-line bg-surface/95 px-2 py-0.5 font-mono text-[0.625rem] leading-(--nesto-leading-micro) font-medium uppercase tracking-[0.1em] text-fg backdrop-blur-sm",
+        "inline-flex items-center gap-1.5 border border-line bg-surface/95 px-2 py-0.5 font-mono text-[0.625rem] leading-(--nesto-leading-micro) font-medium uppercase tracking-[0.1em] text-fg backdrop-blur-sm",
         className,
       )}
       data-testid="project-status"

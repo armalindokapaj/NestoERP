@@ -264,7 +264,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onListKey}>
           <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
             {step.kind === "menu" ? (
-              <h2 id={headingId} className="text-card font-semibold text-fg">{phone ? t("phone.new") : t("quickCreate.create")}</h2>
+              <h2 id={headingId} className="nesto-section-head">{phone ? t("phone.new") : t("quickCreate.create")}</h2>
             ) : (
               <button type="button" id={headingId} onClick={backToMenu} className="inline-flex items-center gap-1.5 text-table font-medium text-fg">
                 <ArrowLeft aria-hidden="true" className="size-4" />

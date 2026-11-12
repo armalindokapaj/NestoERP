@@ -186,7 +186,7 @@ export function ActivityPanelBody({
   return (
     <div ref={panelRef} className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
-        <h2 className="text-card font-semibold text-fg">{t("title")}</h2>
+        <h2 className="nesto-section-head">{t("title")}</h2>
         <div className="flex items-center gap-1">
           {total > 0 ? (
             <button type="button" onClick={() => void markAll()} className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-table font-medium text-accent-strong hover:bg-hover touch:h-11" data-testid="activity-mark-all">

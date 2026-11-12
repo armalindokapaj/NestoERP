@@ -37,7 +37,7 @@ export default async function ProjectEngineeringOverviewPage({ params }: Params)
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-section font-semibold text-fg">{t("engineering.overview")}</h2>
+        <h2 className="nesto-section-head">{t("engineering.overview")}</h2>
         <div className="flex flex-wrap gap-2">
           {can(context, "rfi.create") ? <NewRfiButton projectId={projectId} /> : null}
           {can(context, "submittal.create") ? <NewSubmittalButton projectId={projectId} /> : null}

@@ -455,13 +455,13 @@ export function EventFormDrawer({
                   {state.participants.length > 0 ? (
                     <ul className="flex flex-wrap gap-1.5">
                       {state.participants.map((person) => (
-                        <li key={person.memberId} className="flex items-center gap-1 rounded-full border border-line bg-surface-muted py-0.5 pl-2.5 pr-1 text-table">
+                        <li key={person.memberId} className="flex items-center gap-1 border border-line bg-surface-muted py-0.5 pl-2.5 pr-1 text-table">
                           {person.fullName}
                           <button
                             type="button"
                             aria-label={t("form.remove", { name: person.fullName })}
                             onClick={() => set("participants", state.participants.filter((row) => row.memberId !== person.memberId))}
-                            className="rounded-full p-0.5 text-fg-subtle hover:bg-hover hover:text-fg"
+                            className="p-0.5 text-fg-subtle hover:bg-hover hover:text-fg"
                           >
                             <X aria-hidden="true" className="size-3" />
                           </button>

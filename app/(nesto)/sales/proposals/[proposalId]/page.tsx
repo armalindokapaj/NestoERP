@@ -96,7 +96,7 @@ export default async function ProposalPage({ params }: Params) {
 
       <section className="nesto-card overflow-hidden">
         <div className="p-5 pb-0">
-          <h2 className="text-card font-semibold text-fg">{t("detail.lineItems")}</h2>
+          <h2 className="nesto-section-head">{t("detail.lineItems")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
             {t("detail.lineItemsHint")}
           </p>
@@ -175,12 +175,12 @@ export default async function ProposalPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">{t("detail.approval")}</h2>
+          <h2 className="nesto-section-head">{t("detail.approval")}</h2>
           <ApprovalHistory approvals={proposal.approvals} />
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
+          <h2 className="nesto-section-head">{t("detail.documents")}</h2>
           <Suspense fallback={<SkeletonTable rows={2} />}>
             <SalesRecordDocuments
               context={context}
@@ -194,14 +194,14 @@ export default async function ProposalPage({ params }: Params) {
 
       {proposal.notes ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("detail.notes")}</h2>
+          <h2 className="nesto-section-head">{t("detail.notes")}</h2>
           <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{proposal.notes}</p>
         </section>
       ) : null}
 
       {proposal.capabilities.canViewActivity ? (
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+          <h2 className="nesto-section-head">{t("detail.activity")}</h2>
           <Suspense fallback={<SkeletonTable rows={3} />}>
             <SalesActivityFeed context={context} entityType="Proposal" entityId={proposal.id} />
           </Suspense>

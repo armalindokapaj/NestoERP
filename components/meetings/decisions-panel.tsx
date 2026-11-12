@@ -87,7 +87,7 @@ export function DecisionsPanel({ meeting, onChange, limit }: { meeting: MeetingD
   return (
     <section aria-labelledby="decisions-heading" className="space-y-3" data-testid="decisions-panel">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="decisions-heading" className="text-card font-semibold text-fg">
+        <h2 id="decisions-heading" className="nesto-section-head">
           {t("decisions.title")} <span className="ml-1 text-table font-normal text-fg-subtle">{meeting.decisions.length}</span>
         </h2>
         {canRecord && !open ? (

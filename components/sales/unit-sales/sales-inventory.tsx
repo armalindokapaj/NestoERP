@@ -275,7 +275,7 @@ export function SalesInventory({
                 data-testid="sales-quick-filter"
                 data-status={status || "ALL"}
                 onClick={() => setFilter({ commercialStatus: status })}
-                className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
+                className={cn("inline-flex h-8 items-center gap-1.5 border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
               >
                 {status ? salesLabel(t, "commercialStatus", status, UNIT_SALE_STATUS_LABELS[status]) : t("inventory.all")}
                 <span className={cn("tabular-nums", pressed ? "opacity-90" : "text-fg-subtle")}>{list.counts[status || "ALL"]}</span>

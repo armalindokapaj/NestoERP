@@ -219,7 +219,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
         <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start" aria-label={t("detail.manageLabel")} data-testid="announcement-manage">
           <section className="nesto-card space-y-3 px-4 py-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-card font-semibold text-fg">{t("detail.manage")}</h2>
+              <h2 className="nesto-section-head">{t("detail.manage")}</h2>
               <AnnouncementStatusBadge status={item.status} />
             </div>
             <div className="flex flex-wrap gap-2">
@@ -278,7 +278,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
 
           {caps.canViewMetrics && metrics ? (
             <section className="nesto-card px-4 py-4" aria-labelledby="metrics-title" data-testid="announcement-metrics">
-              <h2 id="metrics-title" className="text-card font-semibold text-fg">
+              <h2 id="metrics-title" className="nesto-section-head">
                 {t("detail.reach")}
               </h2>
               <dl className="mt-3 grid grid-cols-2 gap-3">
@@ -299,7 +299,7 @@ export function AnnouncementDetail({ initial, zone }: { initial: AnnouncementDet
                 <div className="mt-4">
                   <div className="flex gap-1" role="group" aria-label={t("detail.acknowledgments")}>
                     {[true, false].map((pendingView) => (
-                      <button key={String(pendingView)} type="button" aria-pressed={showPending === pendingView} onClick={() => setShowPending(pendingView)} className={cn("rounded-full border px-2.5 py-0.5 text-meta", showPending === pendingView ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted")}>
+                      <button key={String(pendingView)} type="button" aria-pressed={showPending === pendingView} onClick={() => setShowPending(pendingView)} className={cn("border px-2.5 py-0.5 text-meta", showPending === pendingView ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted")}>
                         {pendingView ? t("detail.pendingCount", { count: people.filter((row) => !row.acknowledgedAt).length }) : t("detail.acknowledgedCount", { count: people.filter((row) => row.acknowledgedAt).length })}
                       </button>
                     ))}

@@ -16,7 +16,7 @@ export default async function AppNotFound() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center" data-testid="not-found">
       <div className="max-w-sm text-center">
-        <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full border border-line bg-surface text-fg-subtle">
+        <div className="mx-auto mb-4 grid size-11 place-items-center border border-line bg-surface text-fg-subtle">
           <SearchX className="size-5" />
         </div>
         <p className="text-micro font-semibold uppercase tracking-[0.18em] text-fg-subtle">404</p>

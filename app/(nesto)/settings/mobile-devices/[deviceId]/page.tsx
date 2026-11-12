@@ -57,7 +57,7 @@ export default async function MobileDevicePage({ params }: Params) {
       <SettingsPageHeader title={device.name} description={device.user.fullName} />
       <section className="nesto-card p-6" aria-labelledby="device-detail-title">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id="device-detail-title" className="text-card font-semibold text-fg">{device.name}</h2>
+          <h2 id="device-detail-title" className="nesto-section-head">{device.name}</h2>
           <Badge tone={STATUS_TONE[device.status]}>{t(`devices.status.${device.status}`)}</Badge>
           {device.protected ? <Badge data-testid="device-owner-protected">{t("admin.devices.ownerProtected")}</Badge> : null}
           {device.revokedAt ? <span className="text-meta text-fg-subtle">{t("admin.devices.detail.revokedBy", { date: formatDateTime(device.revokedAt, locale) })}</span> : null}
@@ -83,7 +83,7 @@ export default async function MobileDevicePage({ params }: Params) {
       </section>
 
       <section className="nesto-card p-6" aria-labelledby="device-actions-title">
-        <h2 id="device-actions-title" className="text-card font-semibold text-fg">{t("admin.devices.detail.actions")}</h2>
+        <h2 id="device-actions-title" className="nesto-section-head">{t("admin.devices.detail.actions")}</h2>
         <div className="mt-4">
           {/* A group owner's device is read-only to everyone but an Owner (the user, 2026-11-10); the server refuses the rest. */}
           {device.protected ? (

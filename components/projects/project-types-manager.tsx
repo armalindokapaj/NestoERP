@@ -201,7 +201,7 @@ export function ProjectTypesManager({ initial }: { initial: ProjectTypeDTO[] }) 
 
       <section className="nesto-card p-0" aria-labelledby="project-types-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
-          <h2 id="project-types-heading" className="text-card font-semibold text-fg">
+          <h2 id="project-types-heading" className="nesto-section-head">
             {t("types.yours")}
           </h2>
           <p className="text-meta text-fg-subtle">

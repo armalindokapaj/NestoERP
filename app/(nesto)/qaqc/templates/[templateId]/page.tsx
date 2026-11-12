@@ -69,7 +69,7 @@ export default async function TemplatePage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("templatePage.checks")}</h2>
+            <h2 className="nesto-section-head">{t("templatePage.checks")}</h2>
             <ol className="mt-4 divide-y divide-line">
               {template.items.map((item, index) => (
                 <li key={item.id} className="py-3 first:pt-0">
@@ -108,7 +108,7 @@ export default async function TemplatePage({ params }: Params) {
 
           {template.description ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("templatePage.description")}</h2>
+              <h2 className="nesto-section-head">{t("templatePage.description")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {template.description}
               </p>
@@ -118,7 +118,7 @@ export default async function TemplatePage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <DetailGrid
               className="mt-4"
               items={[

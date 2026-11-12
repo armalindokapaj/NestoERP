@@ -81,7 +81,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("toolbox.detail.theTalk")}</h2>
+            <h2 className="nesto-section-head">{t("toolbox.detail.theTalk")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -107,7 +107,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("toolbox.detail.whoWasThere")}</h2>
+            <h2 className="nesto-section-head">{t("toolbox.detail.whoWasThere")}</h2>
             {talk.participants.length === 0 ? (
               <p className="mt-2 text-table text-fg-subtle">{t("toolbox.detail.nobody")}</p>
             ) : (
@@ -155,7 +155,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
+              <h2 className="nesto-section-head">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="toolbox_talk"
@@ -168,7 +168,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
+            <h2 className="nesto-section-head">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("action.detail.recordedBy")}
@@ -192,7 +192,7 @@ export default async function ToolboxTalkPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed context={context} entityType="ToolboxTalk" entityId={talk.id} />
             </section>
           ) : null}

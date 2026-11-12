@@ -28,12 +28,12 @@ export function DepartmentMemberProjects({ member }: { member: TeamMemberDTO }) 
     <div className="flex flex-wrap items-center gap-1.5" data-testid="member-projects">
       {member.projects.length === 0 ? <span className="text-meta text-fg-subtle">{t("memberProjects.none")}</span> : null}
       {member.projects.map((project) => (
-        <span key={project.projectMemberId} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-muted px-2 py-0.5 text-meta text-fg" data-testid="member-project">
+        <span key={project.projectMemberId} className="inline-flex items-center gap-1 border border-line bg-surface-muted px-2 py-0.5 text-meta text-fg" data-testid="member-project">
           {project.name}
           {member.canUnassignProjects ? (
             <button
               type="button"
-              className="rounded-full p-0.5 text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-50"
+              className="p-0.5 text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-50"
               aria-label={t("memberProjects.takeOff", { name, project: project.name })}
               disabled={pending === project.projectMemberId}
               onClick={() => void run(project.projectMemberId, () => engineeringApi(`/api/projects/${project.projectId}/members/${project.projectMemberId}`, { method: "DELETE" }), t("memberProjects.isOff", { name, project: project.name }))}

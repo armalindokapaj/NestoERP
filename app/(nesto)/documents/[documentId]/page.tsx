@@ -103,7 +103,7 @@ export default async function DocumentDetailPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("detail.description")}</h2>
+          <h2 className="nesto-section-head">{t("detail.description")}</h2>
           {document.description ? (
             <p className="mt-3 whitespace-pre-wrap text-body text-fg-muted">
               {document.description}
@@ -132,7 +132,7 @@ export default async function DocumentDetailPage({ params }: Params) {
 
         <div className="space-y-4 lg:col-start-3 lg:row-span-2 lg:row-start-1">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.file")}</h2>
+            <h2 className="nesto-section-head">{t("detail.file")}</h2>
             <DetailGrid
               className="mt-4 sm:grid-cols-1"
               items={[
@@ -167,7 +167,7 @@ export default async function DocumentDetailPage({ params }: Params) {
           {activity ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+                <h2 className="nesto-section-head">{t("detail.activity")}</h2>
                 <Link
                   href={`/documents/${document.id}/activity`}
                   className="text-table font-medium text-accent-strong"

@@ -199,7 +199,7 @@ export function TradesManager({ initial }: { initial: TradeDTO[] }) {
 
       <section className="nesto-card p-0" aria-labelledby="trades-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
-          <h2 id="trades-heading" className="text-card font-semibold text-fg">
+          <h2 id="trades-heading" className="nesto-section-head">
             {t("trades.yourTrades")}
           </h2>
           <p className="text-meta text-fg-subtle">

@@ -23,7 +23,7 @@ export function StatCardsSkeleton({ count }: { count: number }) {
 export function ListSectionSkeleton({ title, rows = 5 }: { title?: string; rows?: number }) {
   return (
     <section className="nesto-card p-5" aria-busy="true" data-testid="section-skeleton">
-      {title ? <h2 className="text-card font-semibold text-fg">{title}</h2> : <Skeleton className="h-4 w-32" />}
+      {title ? <h2 className="nesto-section-head">{title}</h2> : <Skeleton className="h-4 w-32" />}
       <div aria-hidden="true" className="mt-4 space-y-3">
         {Array.from({ length: rows }, (_, index) => (
           <div key={index} className="flex items-center justify-between gap-3">
@@ -31,7 +31,7 @@ export function ListSectionSkeleton({ title, rows = 5 }: { title?: string; rows?
               <Skeleton className="h-3.5 w-2/3" />
               <Skeleton className="h-3 w-1/3" />
             </div>
-            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-16" />
           </div>
         ))}
       </div>

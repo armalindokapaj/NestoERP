@@ -91,7 +91,7 @@ export function MonthView({
                   onClick={() => onSelectDate(day)}
                   aria-label={t("month.open", { day: dayHeading(day, zone, today, words) })}
                   className={cn(
-                    "grid size-7 place-items-center self-start rounded-full text-table tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                    "grid size-7 place-items-center self-start text-table tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                     outside ? "text-fg-subtle" : "text-fg",
                     day === today ? "bg-accent font-semibold text-accent-fg" : "hover:bg-hover",
                   )}

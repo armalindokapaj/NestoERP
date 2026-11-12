@@ -92,7 +92,7 @@ export default async function DefectPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("defectPage.whatWrong")}</h2>
+            <h2 className="nesto-section-head">{t("defectPage.whatWrong")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {defect.description}
             </p>
@@ -128,7 +128,7 @@ export default async function DefectPage({ params }: Params) {
 
           {defect.resolutionNote ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("detail.whatWasDone")}</h2>
+              <h2 className="nesto-section-head">{t("detail.whatWasDone")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {defect.resolutionNote}
               </p>
@@ -147,7 +147,7 @@ export default async function DefectPage({ params }: Params) {
           {defect.ncrs.length > 0 ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">{t("defectPage.escalatedTo")}</h2>
+                <h2 className="nesto-section-head">{t("defectPage.escalatedTo")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">
                   {t("defectPage.escalatedBody")}
                 </p>
@@ -158,7 +158,7 @@ export default async function DefectPage({ params }: Params) {
 
           {defect.correctiveActions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.correctiveActions")}</h2>
+              <h2 className="nesto-section-head">{t("detail.correctiveActions")}</h2>
               <CorrectiveActionTable
                 actions={defect.correctiveActions}
                 showParent={false}
@@ -169,7 +169,7 @@ export default async function DefectPage({ params }: Params) {
 
           {defect.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
+              <h2 className="nesto-section-head">{t("detail.documents")}</h2>
               <QaqcRecordDocuments
                 context={context}
                 entityType="quality_defect"
@@ -182,7 +182,7 @@ export default async function DefectPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("detail.raisedBy")}
@@ -219,7 +219,7 @@ export default async function DefectPage({ params }: Params) {
 
           {defect.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+              <h2 className="nesto-section-head">{t("detail.activity")}</h2>
               <QaqcActivityFeed
                 context={context}
                 entityType="QualityDefect"

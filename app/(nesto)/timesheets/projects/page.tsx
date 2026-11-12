@@ -39,8 +39,8 @@ function Bars({ items, total, testId }: { items: Array<{ key: string; label: Rea
               {item.sub ? <span className="ml-1.5 font-normal text-fg-muted">{item.sub}</span> : null}
             </span>
           </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover" aria-hidden="true">
-            <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(2, (item.minutes / Math.max(1, total)) * 100)}%` }} />
+          <div className="mt-1 h-1.5 overflow-hidden bg-hover" aria-hidden="true">
+            <div className="h-full bg-accent" style={{ width: `${Math.max(2, (item.minutes / Math.max(1, total)) * 100)}%` }} />
           </div>
         </li>
       ))}
@@ -143,7 +143,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
 
         <section aria-label={t("projects.totals")} className="nesto-card px-5 py-4">
           <div className="flex flex-wrap items-baseline gap-2">
-            <h2 className="text-section font-semibold text-fg">{summary.project ? summary.project.name : t("projects.allProjects")}</h2>
+            <h2 className="nesto-section-head">{summary.project ? summary.project.name : t("projects.allProjects")}</h2>
             <span className="text-table text-fg-muted">
               {dayLabel(summary.from, locale).day} – {dayLabel(summary.to, locale).day} {summary.to.slice(0, 4)} · {summary.approvedOnly ? t("projects.approvedWeeks") : t("projects.allLoggedTime")}
             </span>
@@ -175,20 +175,20 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
             <div className="grid gap-5 lg:grid-cols-3">
               {!summary.project ? (
                 <section className="nesto-card px-5 py-4" aria-labelledby="by-project">
-                  <h2 id="by-project" className="text-card font-semibold text-fg">{t("projects.byProject")}</h2>
+                  <h2 id="by-project" className="nesto-section-head">{t("projects.byProject")}</h2>
                   <div className="mt-3">
                     <Bars testId="by-project" total={totals.totalMinutes} items={summary.byProject.map((row) => ({ key: row.projectId, label: row.name, minutes: row.minutes }))} />
                   </div>
                 </section>
               ) : null}
               <section className="nesto-card px-5 py-4" aria-labelledby="by-member">
-                <h2 id="by-member" className="text-card font-semibold text-fg">{t("projects.byPerson")}</h2>
+                <h2 id="by-member" className="nesto-section-head">{t("projects.byPerson")}</h2>
                 <div className="mt-3">
                   <Bars testId="by-member" total={totals.totalMinutes} items={summary.byMember.map((row) => ({ key: row.memberId, label: <PersonLink memberId={row.memberId} name={row.name} />, minutes: row.minutes, sub: row.billableMinutes ? t("projects.billableSub", { time: formatMinutes(row.billableMinutes) }) : undefined }))} />
                 </div>
               </section>
               <section className="nesto-card px-5 py-4" aria-labelledby="by-task">
-                <h2 id="by-task" className="text-card font-semibold text-fg">{t("projects.byTask")}</h2>
+                <h2 id="by-task" className="nesto-section-head">{t("projects.byTask")}</h2>
                 {/* The ten tasks with most hours, said as such when there are more (AUD-08 §4: no unlabelled cut). */}
                 {summary.byTaskCount > 10 ? <p className="text-meta text-fg-muted" data-testid="by-task-scope">{t("projects.topTasks", { count: summary.byTaskCount })}</p> : null}
                 <div className="mt-3">
@@ -196,7 +196,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
                 </div>
               </section>
               <section className={cn("nesto-card px-5 py-4", summary.project && "lg:col-span-1")} aria-labelledby="by-week">
-                <h2 id="by-week" className="text-card font-semibold text-fg">{t("projects.byWeek")}</h2>
+                <h2 id="by-week" className="nesto-section-head">{t("projects.byWeek")}</h2>
                 <div className="mt-3">
                   <Bars testId="by-week" total={Math.max(...summary.byWeek.map((row) => row.minutes))} items={summary.byWeek.map((row) => ({ key: row.weekStart, label: weekLabel(row.weekStart, locale), minutes: row.minutes }))} />
                 </div>
@@ -205,7 +205,7 @@ export default async function ProjectTimePage({ searchParams }: { searchParams: 
 
             <section className="nesto-card" aria-labelledby="entries-title">
               <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
-                <h2 id="entries-title" className="text-card font-semibold text-fg">{t("common.entries")}</h2>
+                <h2 id="entries-title" className="nesto-section-head">{t("common.entries")}</h2>
                 {!summary.showsDescriptions ? <p className="text-meta text-fg-muted">{t("projects.descriptionsHidden")}</p> : null}
               </div>
               {/* The entries pan in a labelled region, the heading stays put (AUD-04 §5, D-07-15, MW-19). */}

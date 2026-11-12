@@ -29,12 +29,12 @@ type DrawerSide = "left" | "right" | "bottom";
  * control. A caller's own padding on that edge replaces it.
  */
 const sideClasses: Record<DrawerSide, string> = {
-  left: "w-[88vw] max-w-[340px] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] data-[state=open]:animate-[nesto-slide-in-left_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-slide-out-left_180ms_var(--nesto-ease)] inset-y-2 left-2 rounded-[20px] border",
+  left: "w-[88vw] max-w-[340px] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] data-[state=open]:animate-[nesto-slide-in-left_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-slide-out-left_180ms_var(--nesto-ease)] inset-y-2 left-2 border",
   /* §67: desktop drawers stay between 420 and 520px. */
   right:
-    "w-[88vw] max-w-[340px] sm:max-w-[480px] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] data-[state=open]:animate-[nesto-slide-in-right_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-slide-out-right_180ms_var(--nesto-ease)] inset-y-2 right-2 rounded-[20px] border",
+    "w-[88vw] max-w-[340px] sm:max-w-[480px] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] data-[state=open]:animate-[nesto-slide-in-right_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-slide-out-right_180ms_var(--nesto-ease)] inset-y-2 right-2 border",
   bottom:
-    "inset-x-0 bottom-0 max-h-[85dvh] border-t pb-[env(safe-area-inset-bottom)] data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-slide-out-bottom_180ms_var(--nesto-ease)] rounded-t-[20px]",
+    "inset-x-0 bottom-0 max-h-[85dvh] border-t pb-[env(safe-area-inset-bottom)] data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-slide-out-bottom_180ms_var(--nesto-ease)]",
 };
 
 export function DrawerContent({

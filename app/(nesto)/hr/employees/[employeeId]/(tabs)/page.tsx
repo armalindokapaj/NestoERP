@@ -80,7 +80,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("tabs.employment")}</h2>
+          <h2 className="nesto-section-head">{t("tabs.employment")}</h2>
           <DetailGrid
             className="mt-4"
             columns={3}
@@ -123,7 +123,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("employee.contact")}</h2>
+            <h2 className="nesto-section-head">{t("employee.contact")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -141,7 +141,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5" aria-labelledby="account-heading" data-testid="employee-account">
-            <h2 id="account-heading" className="text-card font-semibold text-fg">
+            <h2 id="account-heading" className="nesto-section-head">
               {t("columns.nestoAccount")}
             </h2>
             <DetailGrid
@@ -178,7 +178,7 @@ export default async function EmployeeDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("employee.readiness")}</h2>
+            <h2 className="nesto-section-head">{t("employee.readiness")}</h2>
             <DetailGrid
               className="mt-4"
               items={[

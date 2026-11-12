@@ -170,7 +170,7 @@ export function DocumentVersions({ documentId }: { documentId: string }) {
   return (
     <section className="nesto-card p-5" aria-labelledby="document-versions-heading">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="document-versions-heading" className="flex items-center gap-2 text-card font-semibold text-fg">
+        <h2 id="document-versions-heading" className="flex items-center gap-2 nesto-section-head">
           <History aria-hidden="true" className="size-4 text-fg-subtle" />
           {t("versions.heading")}
         </h2>
@@ -504,7 +504,7 @@ function UploadVersionForm({
       {progress !== null ? (
         <div aria-live="polite" className="text-table text-fg-muted">
           {t("versions.uploadingProgress", { progress })}
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover">
+          <div className="mt-1 h-1.5 overflow-hidden bg-hover">
             <div className="h-full bg-accent transition-[width] motion-reduce:transition-none" style={{ width: `${progress}%` }} />
           </div>
         </div>

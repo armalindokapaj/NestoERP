@@ -78,7 +78,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
         ) : (
           <section className="nesto-card p-5" aria-labelledby="unit-legal" data-testid="unit-legal-empty">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 id="unit-legal" className="text-card font-semibold text-fg">
+              <h2 id="unit-legal" className="nesto-section-head">
                 {t("unitLegal.contract")}
               </h2>
               {request ? <Badge tone="warning">{t("unitLegal.requested")}</Badge> : <Badge>{t("unitLegal.noContract")}</Badge>}
@@ -128,7 +128,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
 
         {legal.history.length ? (
           <section className="nesto-card p-5" aria-labelledby="contract-history">
-            <h2 id="contract-history" className="text-card font-semibold text-fg">
+            <h2 id="contract-history" className="nesto-section-head">
               {t("unitLegal.earlier")}
             </h2>
             <ul className="mt-3 divide-y divide-line" data-testid="contract-history">
@@ -158,7 +158,7 @@ export function UnitLegalPanel({ legal, documents, initialAction }: { legal: Uni
 
       <div className="space-y-4 lg:self-start">
         <section className="nesto-card p-5" aria-labelledby="contract-requests">
-          <h2 id="contract-requests" className="text-card font-semibold text-fg">
+          <h2 id="contract-requests" className="nesto-section-head">
             {t("unitLegal.requests")}
           </h2>
           {legal.requests.length === 0 ? (
@@ -234,7 +234,7 @@ function ContractCard({ contract, legal, onAction, onValue }: { contract: UnitCo
   return (
     <section className="nesto-card p-5" aria-labelledby="unit-contract" data-testid="unit-contract">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 id="unit-contract" className="text-card font-semibold text-fg">
+        <h2 id="unit-contract" className="nesto-section-head">
           {t("unitLegal.contract")}
         </h2>
         <UnitContractStatusBadge status={contract.status} />

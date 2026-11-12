@@ -118,7 +118,7 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
           {visible.cashflow ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("overview.cashThisMonth")}</h2>
+                <h2 className="nesto-section-head">{t("overview.cashThisMonth")}</h2>
                 <Link href="/finance/reports?report=cashflow" className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong">
                   {t("overview.cashflow")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -135,7 +135,7 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
           {visible.projectBudgets && budgets.length > 0 ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("overview.projectBudgets")}</h2>
+                <h2 className="nesto-section-head">{t("overview.projectBudgets")}</h2>
                 <Link href="/finance/reports?report=budget-vs-actual" className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong">
                   {t("overview.budgetVsActual")}
                   <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -159,7 +159,7 @@ export async function GroupFinanceOverview({ context }: { context: UserContext }
         </div>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("overview.attention")}</h2>
+          <h2 className="nesto-section-head">{t("overview.attention")}</h2>
           <dl className="mt-4 divide-y divide-line">
             {canInvoices ? <Count label={t("overview.draftInvoices")} value={overview.counts.draftInvoices} href="/finance/invoices?status=DRAFT" /> : null}
             {/* Approvals are decided in one company's queue: counted here, opened there. */}

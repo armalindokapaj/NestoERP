@@ -65,7 +65,7 @@ export function LocationList({
     <section className="nesto-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-card font-semibold text-fg">{t("locations.title")}</h2>
+          <h2 className="nesto-section-head">{t("locations.title")}</h2>
           <p className="mt-1 text-meta text-fg-subtle">
             {t("locations.subtitle")}
           </p>

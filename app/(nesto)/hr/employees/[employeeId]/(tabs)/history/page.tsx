@@ -60,7 +60,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
     <div className="space-y-5">
       {hr && scheduled.length > 0 ? (
         <section className="nesto-card p-5" aria-labelledby="scheduled-changes">
-          <h2 id="scheduled-changes" className="text-card font-semibold text-fg">
+          <h2 id="scheduled-changes" className="nesto-section-head">
             {t("history.scheduledChanges")}
           </h2>
           <ul className="mt-3 divide-y divide-line">
@@ -87,7 +87,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
       ) : null}
 
       <section className="nesto-card p-5" aria-labelledby="timeline">
-        <h2 id="timeline" className="text-card font-semibold text-fg">
+        <h2 id="timeline" className="nesto-section-head">
           {t("history.timeline")}
         </h2>
         <p className="mt-1 text-meta text-fg-subtle">{hr ? t("history.timelineHr") : t("history.timelineSelf")}</p>
@@ -97,7 +97,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
       </section>
 
       <section className="nesto-card p-5" aria-labelledby="assignments">
-        <h2 id="assignments" className="text-card font-semibold text-fg">
+        <h2 id="assignments" className="nesto-section-head">
           {t("history.positions")}
         </h2>
         {/* The tables pan in labelled regions; headings stay put (AUD-04 §5, D-07-15, MW-19). */}
@@ -161,7 +161,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
       </section>
 
       <section className="nesto-card p-5" aria-labelledby="statuses">
-        <h2 id="statuses" className="text-card font-semibold text-fg">
+        <h2 id="statuses" className="nesto-section-head">
           {t("columns.status")}
         </h2>
         <ScrollRegion label={t("history.statusHistory")} className="mt-3">
@@ -206,7 +206,7 @@ export default async function EmploymentHistoryPage({ params }: Params) {
 
       {hr && history.scheduled.some((row) => row.status === "APPLIED" || row.status === "CANCELLED") ? (
         <section className="nesto-card p-5" aria-labelledby="past-schedule">
-          <h2 id="past-schedule" className="text-card font-semibold text-fg">
+          <h2 id="past-schedule" className="nesto-section-head">
             {t("history.pastScheduled")}
           </h2>
           <ul className="mt-3 space-y-1 text-table text-fg-muted">

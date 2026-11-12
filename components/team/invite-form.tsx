@@ -54,8 +54,8 @@ export function InviteForm({
             aria-hidden="true"
             className={
               sent.delivered
-                ? "mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-success-soft text-success-strong"
-                : "mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-warning-soft text-warning-strong"
+                ? "mt-0.5 grid size-9 shrink-0 place-items-center bg-success-soft text-success-strong"
+                : "mt-0.5 grid size-9 shrink-0 place-items-center bg-warning-soft text-warning-strong"
             }
           >
             {sent.delivered ? (

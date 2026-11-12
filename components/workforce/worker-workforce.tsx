@@ -49,7 +49,7 @@ export async function WorkerWorkforce({ context, personId }: { context: UserCont
 
       <section className="nesto-card p-0" aria-labelledby="crew-heading">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
-          <h2 id="crew-heading" className="text-card font-semibold text-fg">
+          <h2 id="crew-heading" className="nesto-section-head">
             {t("worker.crew")}
           </h2>
           {canAssignCrew && crews.length ? <AssignCrewButton employeeId={worker.employeeId} crews={crews} name={worker.name} label={worker.crews.length ? t("worker.moveCrew") : t("worker.putInCrew")} /> : null}
@@ -59,7 +59,7 @@ export async function WorkerWorkforce({ context, personId }: { context: UserCont
 
       <section className="nesto-card p-0" aria-labelledby="projects-heading">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
-          <h2 id="projects-heading" className="text-card font-semibold text-fg">
+          <h2 id="projects-heading" className="nesto-section-head">
             {t("worker.whereTheyWork")}
           </h2>
           {canAssignProject && projects.length ? <AssignProjectButton employeeId={worker.employeeId} projects={projects} sites={sites} trades={trades} moveFrom={moveFrom} name={worker.name} label={worker.assignments.length ? t("worker.assignOrMove") : t("worker.assignToProject")} /> : null}
@@ -71,7 +71,7 @@ export async function WorkerWorkforce({ context, personId }: { context: UserCont
 
       {worker.crewHistory.length || worker.assignmentHistory.length ? (
         <section className="nesto-card p-0" aria-labelledby="workforce-history-heading">
-          <h2 id="workforce-history-heading" className="border-b border-line px-5 py-3.5 text-card font-semibold text-fg">
+          <h2 id="workforce-history-heading" className="border-b border-line px-5 py-3.5 nesto-section-head">
             {t("worker.history")}
           </h2>
           {worker.assignmentHistory.length ? <Assignments t={t} rows={worker.assignmentHistory} employeeId={worker.employeeId} name={worker.name} /> : null}
@@ -86,7 +86,7 @@ function Safety({ t, summary }: { t: Translate<"workforce">; summary: WorkerHseS
   const valid = summary.inductions.filter((row) => row.valid);
   return (
     <section className="nesto-card p-0" aria-labelledby="worker-safety-heading" data-testid="worker-safety">
-      <h2 id="worker-safety-heading" className="border-b border-line px-5 py-3.5 text-card font-semibold text-fg">
+      <h2 id="worker-safety-heading" className="border-b border-line px-5 py-3.5 nesto-section-head">
         {t("worker.safety")}
       </h2>
       <dl className="grid gap-4 px-5 py-4 sm:grid-cols-4">

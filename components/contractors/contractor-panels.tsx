@@ -49,7 +49,7 @@ export function ContactsPanel({ contractorId, contacts, canManage }: { contracto
     <section className="space-y-4" data-testid="contacts-panel">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-section font-semibold text-fg">{t("contacts.title")}</h2>
+          <h2 className="nesto-section-head">{t("contacts.title")}</h2>
           <p className="mt-0.5 text-table text-fg-muted">{t("contacts.description")}</p>
         </div>
         {canManage ? (
@@ -207,7 +207,7 @@ export function CompliancePanel({ contractorId, items, canManage, canUpload, hig
       {contractorId ? (
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-section font-semibold text-fg">{t("compliance.title")}</h2>
+            <h2 className="nesto-section-head">{t("compliance.title")}</h2>
             <p className="mt-0.5 text-table text-fg-muted">{t("compliance.description")}</p>
           </div>
           {canManage ? (

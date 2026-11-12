@@ -158,7 +158,8 @@
   --nesto-shadow-card-color: light-dark(rgb(15 20 26 / 0.2), rgb(0 0 0 / 0.5));
   --nesto-shadow-menu-color: light-dark(rgb(15 20 26 / 0.36), rgb(0 0 0 / 0.6));
   --nesto-shadow-dialog-color: light-dark(rgb(15 20 26 / 0.48), rgb(0 0 0 / 0.7));
-  --nesto-shadow-card: 0 14px 30px -22px var(--nesto-shadow-card-color);
+  /* Lines, not cards: a card is a 1px line on the page, with no shadow. Menus and dialogs, which float, keep theirs. */
+  --nesto-shadow-card: none;
   --nesto-shadow-menu: 0 0 0 1px light-dark(rgb(15 20 26 / 0.08), rgb(255 255 255 / 0.08)), 0 20px 40px -18px var(--nesto-shadow-menu-color);
   --nesto-shadow-dialog: 0 0 0 1px light-dark(rgb(15 20 26 / 0.08), rgb(255 255 255 / 0.08)), 0 50px 120px -40px var(--nesto-shadow-dialog-color), 0 20px 40px -24px var(--nesto-shadow-menu-color);
 
@@ -242,12 +243,18 @@
   --nesto-text-tick: 0.625rem;
   --nesto-leading-tick: calc(14 / 10);
 
-  --nesto-radius-sm: 6px;
-  --nesto-radius-md: 8px; /* buttons, inputs */
-  --nesto-radius-lg: 10px; /* small cards */
-  --nesto-radius-xl: 10px; /* dashboard cards */
-  --nesto-radius-2xl: 14px; /* dialogs */
-  --nesto-radius-3xl: 16px; /* large feature cards */
+  /*
+   * Square, everywhere (2026-11-12, the drawing set of UI-05 §9 brought into
+   * the platform): every step is 0. Only what is round by nature keeps its
+   * circle — avatars, status dots, the Create dial — and those use
+   * `rounded-full`, which these steps do not touch.
+   */
+  --nesto-radius-sm: 0px;
+  --nesto-radius-md: 0px;
+  --nesto-radius-lg: 0px;
+  --nesto-radius-xl: 0px;
+  --nesto-radius-2xl: 0px;
+  --nesto-radius-3xl: 0px;
 }
 
 /*
@@ -303,11 +310,11 @@
   --nesto-size-action-icon: 1rem;
   --nesto-touch-target-min: 2.75rem;
 
-  --nesto-radius-control: 8px;
-  /* A button is square, on the site and in the platform (UI-05 §9, getartcraft.com's buttons). */
+  /* Square, like the steps above: controls, buttons, cards and sheets (UI-05 §9). */
+  --nesto-radius-control: 0px;
   --nesto-radius-button: 0px;
-  --nesto-radius-card: 10px;
-  --nesto-radius-sheet: 16px;
+  --nesto-radius-card: 0px;
+  --nesto-radius-sheet: 0px;
   /*
    * Two names only version 2 spends (styles/tokens-v2.css): the corners of a
    * floating overlay — a menu, a popover, a select's list, each of which keeps
@@ -315,7 +322,7 @@
    * content, which today is none: the row's height holds the text (UI-02
    * §6.3, §6.4).
    */
-  --nesto-radius-overlay: 14px;
+  --nesto-radius-overlay: 0px;
   --nesto-space-cell-y: 0px;
 
   --nesto-content-max-width: 1600px;

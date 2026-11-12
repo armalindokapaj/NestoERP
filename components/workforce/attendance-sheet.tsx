@@ -149,7 +149,7 @@ export function AttendanceSheet({ sheet }: { sheet: AttendanceSheetDTO }) {
   return (
     <section className="nesto-card p-0" aria-labelledby="sheet-heading" data-testid="attendance-sheet">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
-        <h2 id="sheet-heading" className="text-card font-semibold text-fg">
+        <h2 id="sheet-heading" className="nesto-section-head">
           {t("sheet.heading", { count: sheet.rows.length, date: sheet.date })}
         </h2>
         {editable.length > 0 ? (

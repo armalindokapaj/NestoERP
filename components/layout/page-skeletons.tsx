@@ -190,13 +190,13 @@ export function FeedPageSkeleton() {
       <Heading />
       <div className="flex flex-wrap gap-2">
         {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="h-8 w-24 rounded-full" />
+          <Skeleton key={index} className="h-8 w-24" />
         ))}
       </div>
       <div className="nesto-card divide-y divide-line">
         {Array.from({ length: 6 }, (_, index) => (
           <div key={index} className="flex items-start gap-3 p-4">
-            <Skeleton className="size-9 shrink-0 rounded-full" />
+            <Skeleton className="size-9 shrink-0" />
             <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-3.5 w-3/5" />
               <Skeleton className="h-3 w-2/5" />
@@ -226,7 +226,7 @@ export function DetailPageSkeleton() {
           <Skeleton className="h-7 w-64 max-w-full" />
           <Skeleton className="mt-2 h-3 w-40" />
         </div>
-        <Skeleton className="h-6 w-20 shrink-0 rounded-full" />
+        <Skeleton className="h-6 w-20 shrink-0" />
       </div>
       <Tabs />
       <div className="grid gap-5 lg:grid-cols-3">

@@ -83,7 +83,7 @@ export function SalesSettingsForm({ settings }: { settings: SalesSettingsDTO }) 
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("sales.reservationSection")}</h2>
+        <h2 className="nesto-section-head">{t("sales.reservationSection")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">{t("sales.reservationSectionDescription")}</p>
         <div className="mt-4 max-w-xs space-y-1.5">
           <Label htmlFor="unitReservationDays">{t("sales.reservationDays")}</Label>

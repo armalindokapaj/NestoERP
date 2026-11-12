@@ -103,7 +103,7 @@ export function ApprovalList({
                 selected ? "bg-accent-soft/60" : "hover:bg-hover",
               )}
             >
-              {selected ? <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-accent" /> : null}
+              {selected ? <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 bg-accent" /> : null}
               {density === "comfortable" ? <SourceIcon provider={item.providerKey} className="mt-0.5 hidden sm:flex" /> : null}
               <RowMain item={item} tab={tab} density={density} />
               <RowBadges item={item} tab={tab} />
@@ -271,7 +271,7 @@ export function ListSkeleton({ rows = 6 }: { rows?: number }) {
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
           </div>
-          <Skeleton className="h-5 w-14 rounded-full" />
+          <Skeleton className="h-5 w-14" />
         </li>
       ))}
     </ul>

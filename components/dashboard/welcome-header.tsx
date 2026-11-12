@@ -69,7 +69,7 @@ export async function WelcomeHeader({
               {/* The name takes the heading's accent: the serif in gold italic, like "overview" above. */}
               {greetingText(t)}, <em className="font-serif text-[1.15em] italic leading-none text-accent-strong font-light tracking-normal">{context.firstName}</em>
             </p>
-            <Badge tone="neutral" className="rounded-full border border-accent/30 bg-transparent px-2.5 py-0.5 text-micro font-semibold text-accent-strong md:hidden">
+            <Badge tone="neutral" className="border border-accent/30 bg-transparent px-2.5 py-0.5 text-micro font-semibold text-accent-strong md:hidden">
               {roleLabel}
             </Badge>
           </div>

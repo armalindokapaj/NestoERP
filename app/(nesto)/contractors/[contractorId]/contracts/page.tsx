@@ -123,7 +123,7 @@ export default async function ContractorContractsPage({ params }: Params) {
       </div>
       {contractor.capabilities.canViewCompliance ? (
         <div className="space-y-2">
-          <h2 className="text-section font-semibold text-fg">{t("contractsPage.guarantees")}</h2>
+          <h2 className="nesto-section-head">{t("contractsPage.guarantees")}</h2>
           <CompliancePanel contractorId={null} items={guarantees} canManage={false} canUpload={false} />
         </div>
       ) : null}

@@ -129,7 +129,7 @@ export function EmployeeDocuments({ data, heading = true, focusId }: { data: Emp
       <div className="flex flex-wrap items-start justify-between gap-3">
         {heading ? (
           <div>
-            <h2 id="employee-documents-heading" className="text-card font-semibold text-fg">
+            <h2 id="employee-documents-heading" className="nesto-section-head">
               {t("tabs.documents")}
             </h2>
             <p className="mt-0.5 text-meta text-fg-subtle">{data.isSelf ? t("employeeDocs.selfNote") : t("employeeDocs.othersNote")}</p>

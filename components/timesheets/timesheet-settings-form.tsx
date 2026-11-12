@@ -234,7 +234,7 @@ export function ApproverAssignments({ assignments, options }: { assignments: App
     <section className="nesto-card" aria-labelledby="approvers-title">
       <div className="flex flex-wrap items-center gap-3 px-5 pt-4">
         <div className="min-w-0 flex-1">
-          <h2 id="approvers-title" className="text-card font-semibold text-fg">
+          <h2 id="approvers-title" className="nesto-section-head">
             {t("settings.approvers")}
           </h2>
           <p className="text-meta text-fg-muted">{t("settings.approversHint")}</p>

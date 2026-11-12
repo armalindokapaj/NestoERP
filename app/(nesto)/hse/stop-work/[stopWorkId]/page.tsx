@@ -102,7 +102,7 @@ export default async function StopWorkPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("stopWork.detail.whyStopped")}</h2>
+            <h2 className="nesto-section-head">{t("stopWork.detail.whyStopped")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">{record.reason}</p>
 
             <DetailGrid
@@ -151,7 +151,7 @@ export default async function StopWorkPage({ params }: Params) {
 
           {record.releaseReason ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("stopWork.detail.releasedHeading")}</h2>
+              <h2 className="nesto-section-head">{t("stopWork.detail.releasedHeading")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {record.releaseReason}
               </p>
@@ -169,7 +169,7 @@ export default async function StopWorkPage({ params }: Params) {
 
           {record.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
+              <h2 className="nesto-section-head">{t("record.actions")}</h2>
               <ActionTable
                 actions={record.actions}
                 caption={t("record.actionsOn", { number: record.stopWorkNumber })}
@@ -180,7 +180,7 @@ export default async function StopWorkPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
+            <h2 className="nesto-section-head">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("stopWork.detail.issuedBy")}
@@ -201,7 +201,7 @@ export default async function StopWorkPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="StopWorkRecord"

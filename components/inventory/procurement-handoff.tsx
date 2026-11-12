@@ -169,7 +169,7 @@ function HandoffForm({
   return (
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <div>
-        <h3 className="text-card font-semibold text-fg">
+        <h3 className="nesto-section-head">
           {t("handoff.title", { number: receiptNumber })}
         </h3>
         <p className="mt-1 text-meta text-fg-subtle">

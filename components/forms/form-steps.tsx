@@ -58,8 +58,8 @@ export function FormSteps({ steps, initial = 0, className }: { steps: FormStep[]
         <p ref={heading} tabIndex={-1} aria-live="polite" className="text-body font-semibold text-fg outline-none" data-step-heading>
           {t("mob04StepOf", { current: index + 1, total: steps.length })} · {step.title}
         </p>
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-hover" role="presentation">
-          <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
+        <div className="mt-2 h-1 overflow-hidden bg-hover" role="presentation">
+          <div className="h-full bg-accent transition-[width]" style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
         </div>
       </div>
 

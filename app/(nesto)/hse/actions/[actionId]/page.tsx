@@ -103,7 +103,7 @@ export default async function HseActionPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("action.detail.whatNeedsDoing")}</h2>
+            <h2 className="nesto-section-head">{t("action.detail.whatNeedsDoing")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {action.description}
             </p>
@@ -141,7 +141,7 @@ export default async function HseActionPage({ params }: Params) {
 
           {action.completionNote ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("action.detail.whatWasDone")}</h2>
+              <h2 className="nesto-section-head">{t("action.detail.whatWasDone")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {action.completionNote}
               </p>
@@ -159,7 +159,7 @@ export default async function HseActionPage({ params }: Params) {
 
           {action.verificationNote || action.verifiedAt ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">
+              <h2 className="nesto-section-head">
                 {action.status === "REJECTED" ? t("action.detail.sentBack") : t("action.detail.verification")}
               </h2>
               {action.verificationNote ? (
@@ -183,7 +183,7 @@ export default async function HseActionPage({ params }: Params) {
               verification. They are not the same thing (PRD #22 §128). */}
           {action.tasks.length > 0 ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("action.detail.tasks")}</h2>
+              <h2 className="nesto-section-head">{t("action.detail.tasks")}</h2>
               <p className="mt-1 text-meta text-fg-subtle">
                 {t("action.detail.tasksHint")}
               </p>
@@ -202,7 +202,7 @@ export default async function HseActionPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
+              <h2 className="nesto-section-head">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="hse_action"
@@ -215,7 +215,7 @@ export default async function HseActionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
+            <h2 className="nesto-section-head">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("action.detail.raisedBy")}
@@ -236,7 +236,7 @@ export default async function HseActionPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed context={context} entityType="HseAction" entityId={action.id} />
             </section>
           ) : null}

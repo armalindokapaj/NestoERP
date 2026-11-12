@@ -105,7 +105,7 @@ export default async function HazardPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("hazard.detail.whatWasSeen")}</h2>
+            <h2 className="nesto-section-head">{t("hazard.detail.whatWasSeen")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {hazard.description}
             </p>
@@ -146,7 +146,7 @@ export default async function HazardPage({ params }: Params) {
           {/* Initial and residual side by side: the point of controlling a
               hazard is the difference between them (PRD #22 §71, §315). */}
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("hazard.detail.risk")}</h2>
+            <h2 className="nesto-section-head">{t("hazard.detail.risk")}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="rounded-md border border-line p-4">
                 <p className="nesto-eyebrow text-fg-subtle">{t("hazard.detail.beforeControls")}</p>
@@ -177,7 +177,7 @@ export default async function HazardPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("hazard.detail.controls")}</h2>
+            <h2 className="nesto-section-head">{t("hazard.detail.controls")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
@@ -190,7 +190,7 @@ export default async function HazardPage({ params }: Params) {
 
           {hazard.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
+              <h2 className="nesto-section-head">{t("record.actions")}</h2>
               <ActionTable
                 actions={hazard.actions}
                 caption={t("record.actionsOn", { number: hazard.hazardNumber })}
@@ -200,7 +200,7 @@ export default async function HazardPage({ params }: Params) {
 
           {hazard.stopWorks.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.stopWork")}</h2>
+              <h2 className="nesto-section-head">{t("record.stopWork")}</h2>
               <StopWorkTable
                 records={hazard.stopWorks}
                 caption={t("hazard.detail.stopWorkFrom", { number: hazard.hazardNumber })}
@@ -210,7 +210,7 @@ export default async function HazardPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
+              <h2 className="nesto-section-head">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="hazard"
@@ -223,7 +223,7 @@ export default async function HazardPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
+            <h2 className="nesto-section-head">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("record.reportedBy")}
@@ -263,7 +263,7 @@ export default async function HazardPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseHazard"

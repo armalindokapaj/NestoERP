@@ -218,7 +218,7 @@ export async function GroupCategoryReport({ context }: { context: UserContext })
   return (
     <div className="space-y-3">
       <DataTable caption={t("reports.categoryByCompany")} columns={columns} records={rows} rowKey={(row) => `${row.company.id}-${row.category}-${row.currency}`} />
-      <h2 className="text-card font-semibold text-fg">{t("reports.allCompanies")}</h2>
+      <h2 className="nesto-section-head">{t("reports.allCompanies")}</h2>
       <DataTable caption={t("reports.categoryAll")} columns={totalColumns} records={totals} rowKey={(row) => `${row.category}-${row.currency}`} />
       <p className="text-meta text-fg-subtle">{t("reports.currencyNote")}</p>
     </div>

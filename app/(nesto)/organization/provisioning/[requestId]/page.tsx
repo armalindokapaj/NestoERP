@@ -75,7 +75,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="nesto-card p-5" aria-labelledby="request-hr">
-          <h2 id="request-hr" className="text-card font-semibold text-fg">
+          <h2 id="request-hr" className="nesto-section-head">
             {t("provisioning.fromHr")}
           </h2>
           <p className="mt-1 text-meta text-fg-subtle">{t("provisioning.readOnly")}</p>
@@ -95,7 +95,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="request-account">
-          <h2 id="request-account" className="text-card font-semibold text-fg">
+          <h2 id="request-account" className="nesto-section-head">
             {t("provisioning.account")}
           </h2>
           <dl className="mt-3" data-testid="request-account">
@@ -112,7 +112,7 @@ export default async function ProvisioningRequestPage({ params }: Props) {
         </section>
 
         <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="request-history">
-          <h2 id="request-history" className="text-card font-semibold text-fg">
+          <h2 id="request-history" className="nesto-section-head">
             {t("provisioning.history")}
           </h2>
           <dl className="mt-3" data-testid="request-history">

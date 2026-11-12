@@ -56,7 +56,7 @@ export function ErrorState({
         className,
       )}
     >
-      <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-danger-soft text-danger-strong">
+      <div className="mb-3 flex size-10 items-center justify-center bg-danger-soft text-danger-strong">
         {icon ?? <TriangleAlert aria-hidden="true" className="size-5" />}
       </div>
       <p className="text-card font-semibold text-fg [overflow-wrap:anywhere]">{title}</p>

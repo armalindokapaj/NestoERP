@@ -27,8 +27,8 @@ function Bars({ rows, empty }: { rows: Breakdown; empty: string }) {
         <li key={row.key} className="grid grid-cols-[minmax(0,10rem)_1fr_2.5rem] items-center gap-3 text-table">
           {/* The whole name, on two lines at most, instead of a cut label (AUD-04 §8, D-09-10, MW-17). */}
           <span className="line-clamp-2 text-fg [overflow-wrap:anywhere]" title={row.label}>{row.label}</span>
-          <span className="h-2 overflow-hidden rounded-full bg-line" aria-hidden="true">
-            <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(4, (row.count / max) * 100)}%` }} />
+          <span className="h-2 overflow-hidden bg-line" aria-hidden="true">
+            <span className="block h-full bg-accent" style={{ width: `${Math.max(4, (row.count / max) * 100)}%` }} />
           </span>
           <span className="text-right tabular-nums text-fg-muted">{row.count}</span>
         </li>

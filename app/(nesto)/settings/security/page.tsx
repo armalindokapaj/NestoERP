@@ -59,7 +59,7 @@ export default async function SecuritySettingsPage() {
       <SettingsPageHeader title={t("title")} description={t("description")} />
 
       <section className="nesto-card p-6" aria-labelledby="my-devices-title">
-        <h2 id="my-devices-title" className="text-card font-semibold text-fg">{t("devices.title")}</h2>
+        <h2 id="my-devices-title" className="nesto-section-head">{t("devices.title")}</h2>
         <p className="mt-1 text-table text-fg-muted">{t("devices.description")}</p>
         <div className="mt-4">
           <DeviceList devices={rows} />
@@ -69,7 +69,7 @@ export default async function SecuritySettingsPage() {
       <NativeDeviceCard />
 
       <section className="nesto-card p-6" aria-labelledby="security-sessions-title">
-        <h2 id="security-sessions-title" className="text-card font-semibold text-fg">{(await getTranslations("settings"))("profile.sessions.title")}</h2>
+        <h2 id="security-sessions-title" className="nesto-section-head">{(await getTranslations("settings"))("profile.sessions.title")}</h2>
         <div className="mt-4">
           <SessionList
             sessions={sessions.map((session) => ({
@@ -87,7 +87,7 @@ export default async function SecuritySettingsPage() {
       </section>
 
       <section className="nesto-card p-6" aria-labelledby="security-events-title">
-        <h2 id="security-events-title" className="text-card font-semibold text-fg">{t("events.title")}</h2>
+        <h2 id="security-events-title" className="nesto-section-head">{t("events.title")}</h2>
         {events.length === 0 ? (
           <p className="mt-3 text-meta text-fg-subtle">{t("events.none")}</p>
         ) : (

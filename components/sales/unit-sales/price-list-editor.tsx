@@ -397,7 +397,7 @@ export function PriceListEditor({ initial, canEditUnits = false }: { initial: Pr
         <section className="rounded-md border border-line bg-surface" data-testid="price-parking">
           <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line px-4 py-3">
             <div>
-              <h2 className="flex items-center gap-2 text-section font-semibold text-fg">
+              <h2 className="flex items-center gap-2 nesto-section-head">
                 <Car aria-hidden="true" className="size-4 text-fg-muted" />
                 {t("priceList.parking")}
               </h2>
@@ -440,7 +440,7 @@ export function PriceListEditor({ initial, canEditUnits = false }: { initial: Pr
         if (!floors.length) return null;
         return (
           <section key={building.id} className="space-y-3" data-testid="price-building">
-            {list.buildings.length > 1 ? <h2 className="text-section font-semibold text-fg">{building.name}</h2> : null}
+            {list.buildings.length > 1 ? <h2 className="nesto-section-head">{building.name}</h2> : null}
             {floors.map((floor) => {
               const located = floor.units.map((unit) => ({ ...unit, building: building.name, floor: floor.name }));
               const current = prevailingRate(floor.units);

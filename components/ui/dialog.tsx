@@ -66,13 +66,13 @@ export function DialogContent({
           "max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain",
           "rounded-2xl border border-line bg-surface p-6 shadow-dialog outline-none",
           // The reference's glass sheet — frosted, 24px corners, a white edge catching the light.
-          "rounded-[24px] border-[light-dark(rgb(255_255_255/0.75),rgb(255_255_255/0.1))] bg-surface/[0.94] backdrop-blur-[24px] backdrop-saturate-[1.4]",
+          " border-[light-dark(rgb(255_255_255/0.75),rgb(255_255_255/0.1))] bg-surface/[0.94] backdrop-blur-[24px] backdrop-saturate-[1.4]",
           phone === null && "data-[state=open]:animate-[nesto-zoom-in_180ms_var(--nesto-ease)] data-[state=closed]:animate-[nesto-zoom-out_150ms_var(--nesto-ease)]",
           phone && "sm:data-[state=open]:animate-[nesto-zoom-in_180ms_var(--nesto-ease)] sm:data-[state=closed]:animate-[nesto-zoom-out_150ms_var(--nesto-ease)]",
           phone === "fullscreen-phone" &&
             "max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0 max-sm:pt-[max(1.5rem,var(--nesto-safe-top))] max-sm:pb-[max(1.5rem,var(--nesto-safe-bottom))] max-sm:data-[state=open]:animate-[nesto-fade-in_180ms_var(--nesto-ease)] max-sm:data-[state=closed]:animate-[nesto-fade-out_150ms_var(--nesto-ease)]",
           phone === "sheet-phone" &&
-            "max-sm:inset-x-0 max-sm:bottom-0 max-sm:left-0 max-sm:top-auto max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-[var(--nesto-radius-sheet)] max-sm:pb-[max(1.5rem,var(--nesto-safe-bottom))] max-sm:data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)] max-sm:data-[state=closed]:animate-[nesto-slide-out-bottom_180ms_var(--nesto-ease)]",
+            "max-sm:inset-x-0 max-sm:bottom-0 max-sm:left-0 max-sm:top-auto max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:pb-[max(1.5rem,var(--nesto-safe-bottom))] max-sm:data-[state=open]:animate-[nesto-slide-in-bottom_180ms_var(--nesto-ease)] max-sm:data-[state=closed]:animate-[nesto-slide-out-bottom_180ms_var(--nesto-ease)]",
           className,
         )}
         data-phone-sheet={phone === "sheet-phone" ? "dock" : phone === "fullscreen-phone" ? "full" : undefined}

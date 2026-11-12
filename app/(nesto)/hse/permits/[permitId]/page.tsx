@@ -109,7 +109,7 @@ export default async function PermitPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("permit.detail.theWork")}</h2>
+            <h2 className="nesto-section-head">{t("permit.detail.theWork")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -161,7 +161,7 @@ export default async function PermitPage({ params }: Params) {
           <PermitWorkers permitId={permit.id} workers={workers} canEdit={may.canEdit} employees={options.employees} crews={options.crews} />
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("permit.detail.hazardsAndControls")}</h2>
+            <h2 className="nesto-section-head">{t("permit.detail.hazardsAndControls")}</h2>
             <dl className="mt-4 space-y-4">
               <Block label={t("permit.detail.hazards")} value={permit.hazardsSummary} />
               <Block label={t("hazard.detail.controls")} value={permit.controlsSummary} />
@@ -172,7 +172,7 @@ export default async function PermitPage({ params }: Params) {
 
           {permit.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
+              <h2 className="nesto-section-head">{t("record.actions")}</h2>
               <ActionTable
                 actions={permit.actions}
                 caption={t("record.actionsOn", { number: permit.permitNumber })}
@@ -182,7 +182,7 @@ export default async function PermitPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
+              <h2 className="nesto-section-head">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="work_permit"
@@ -195,7 +195,7 @@ export default async function PermitPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("permit.detail.history")}</h2>
+            <h2 className="nesto-section-head">{t("permit.detail.history")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("incident.detail.raised")} value={formatDateTime(permit.createdAt, locale)} />
               {permit.submittedAt ? (
@@ -234,7 +234,7 @@ export default async function PermitPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseWorkPermit"

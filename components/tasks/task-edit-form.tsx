@@ -243,7 +243,7 @@ export function TaskEditForm({
 
       {recovery.kind === "conflict" || recovery.kind === "unconfirmed" ? (
         <>
-          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
+          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 nesto-section-head outline-none">
             {recovery.kind === "conflict" ? t("conflict.notSavedTitle") : t("conflict.unconfirmedTitle")}
           </h2>
           <p role="alert" className="text-table text-fg">
@@ -278,7 +278,7 @@ export function TaskEditForm({
 
       {recovery.kind === "archived" ? (
         <>
-          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
+          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 nesto-section-head outline-none">
             {t("conflict.noLongerEditable")}
           </h2>
           <p role="alert" className="text-table text-fg">
@@ -302,7 +302,7 @@ export function TaskEditForm({
 
       {recovery.kind === "lost" ? (
         <>
-          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
+          <h2 id="task-conflict-heading" ref={heading} tabIndex={-1} className="scroll-mt-24 nesto-section-head outline-none">
             {t("conflict.lostTitle")}
           </h2>
           <p role="alert" className="text-table text-fg">
@@ -373,7 +373,7 @@ function ReviewLatest({
   const changed = FIELDS.filter(({ key }) => key in choices);
   return (
     <>
-      <h2 id="task-conflict-heading" ref={headingRef} tabIndex={-1} className="scroll-mt-24 text-card font-semibold text-fg outline-none">
+      <h2 id="task-conflict-heading" ref={headingRef} tabIndex={-1} className="scroll-mt-24 nesto-section-head outline-none">
         {t("conflict.reviewTitle")}
       </h2>
       <p role="status" className="text-table text-fg">

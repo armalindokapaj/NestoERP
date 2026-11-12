@@ -79,7 +79,7 @@ export default async function ActivityPage({ searchParams }: Params) {
       </header>
       {attention.length ? (
         <section className="nesto-card px-5 py-2" aria-label={t("needsAttention")} data-testid="activity-attention">
-          <h2 className="pt-3 text-card font-semibold text-fg">{t("needsAttention")}</h2>
+          <h2 className="pt-3 nesto-section-head">{t("needsAttention")}</h2>
           <AttentionList initial={attention} />
         </section>
       ) : null}

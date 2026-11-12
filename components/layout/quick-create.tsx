@@ -745,7 +745,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           ) : (
             <>
               <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
-                <h2 id={headingId} className="text-card font-semibold text-fg">{t("quickCreate.create")}</h2>
+                <h2 id={headingId} className="nesto-section-head">{t("quickCreate.create")}</h2>
                 <button type="button" onClick={close} aria-label={t("quickCreate.close")} className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-hover touch:size-11">
                   <X aria-hidden="true" className="size-4" />
                 </button>

@@ -137,7 +137,7 @@ export async function HelpIndex({ modules: keys, embedded = false }: { modules: 
 function HelpSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-section font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       {children}
     </section>
   );

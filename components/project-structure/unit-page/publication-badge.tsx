@@ -62,7 +62,7 @@ export function ReadinessPanel({ readiness, className }: { readiness: Readiness;
   const t = useTranslations("projects");
   return (
     <section className={cn("nesto-card p-5", className)} aria-labelledby="unit-readiness" data-testid="readiness-panel">
-      <h2 id="unit-readiness" className="text-card font-semibold text-fg">
+      <h2 id="unit-readiness" className="nesto-section-head">
         {t("publishing.readiness")}
       </h2>
       <p className={cn("mt-0.5 text-meta tabular-nums", readiness.ready ? "text-success-strong" : "text-fg-muted")}>

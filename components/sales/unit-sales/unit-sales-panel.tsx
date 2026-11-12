@@ -94,7 +94,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
       <div className="space-y-4">
         <section className="nesto-card p-5" aria-labelledby="unit-sales-summary" data-testid="unit-sales-summary">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 id="unit-sales-summary" className="text-card font-semibold text-fg">
+            <h2 id="unit-sales-summary" className="nesto-section-head">
               {t("unitSales.sales")}
             </h2>
             <CommercialStatusBadge status={sales.saleStatus} />
@@ -211,7 +211,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
         {reservation ? <ActiveReservation reservation={reservation} /> : null}
 
         <section className="nesto-card p-5" aria-labelledby="reservation-history">
-          <h2 id="reservation-history" className="text-card font-semibold text-fg">
+          <h2 id="reservation-history" className="nesto-section-head">
             {t("unitSales.reservations")}
           </h2>
           {sales.reservations.length === 0 ? (
@@ -247,7 +247,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
       <div className="space-y-4 lg:self-start">
         {sales.deals.length ? (
           <section className="nesto-card p-5" aria-labelledby="unit-deals">
-            <h2 id="unit-deals" className="text-card font-semibold text-fg">
+            <h2 id="unit-deals" className="nesto-section-head">
               {t("unitSales.deals")}
             </h2>
             <ul className="mt-3 space-y-2" data-testid="unit-deals">
@@ -264,7 +264,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
         ) : null}
 
         <section className="nesto-card p-5" aria-labelledby="price-history">
-          <h2 id="price-history" className="text-card font-semibold text-fg">
+          <h2 id="price-history" className="nesto-section-head">
             {t("unitSales.priceHistory")}
           </h2>
           {sales.priceHistory.length === 0 ? (
@@ -294,7 +294,7 @@ export function UnitSalesPanel({ sales, initialAction }: { sales: UnitSalesDTO; 
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="status-history">
-          <h2 id="status-history" className="text-card font-semibold text-fg">
+          <h2 id="status-history" className="nesto-section-head">
             {t("unitSales.statusHistory")}
           </h2>
           {sales.statusHistory.length === 0 ? (
@@ -367,7 +367,7 @@ function ActiveReservation({ reservation }: { reservation: ReservationDTO }) {
   return (
     <section className="nesto-card p-5" aria-labelledby="active-reservation" data-testid="active-reservation">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 id="active-reservation" className="text-card font-semibold text-fg">
+        <h2 id="active-reservation" className="nesto-section-head">
           {t("unitSales.reservation")}
         </h2>
         {/* Past its date and not yet closed by the expiry job, which runs every few minutes (§25). */}

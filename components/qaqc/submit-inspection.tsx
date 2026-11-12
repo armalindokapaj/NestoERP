@@ -40,7 +40,7 @@ export function SubmitInspection({
   if (blockers.length > 0) {
     return (
       <div className="nesto-card space-y-2 p-5">
-        <h3 className="text-card font-semibold text-fg"><QaqcText k="submit.blockers" /></h3>
+        <h3 className="nesto-section-head"><QaqcText k="submit.blockers" /></h3>
         <ul className="space-y-1">
           {blockers.map((blocker) => (
             <li key={blocker} className="text-table text-fg-muted">
@@ -105,7 +105,7 @@ function SubmitInspectionForm({
   return (
     <form ref={formRef} onSubmit={save.onSubmit} className="nesto-card space-y-4 p-5">
       <div>
-        <h3 className="text-card font-semibold text-fg">{t("submit.title")}</h3>
+        <h3 className="nesto-section-head">{t("submit.title")}</h3>
         <p className="mt-1 text-meta text-fg-subtle">
           {passBlocked
             ? t("submit.passBlocked")

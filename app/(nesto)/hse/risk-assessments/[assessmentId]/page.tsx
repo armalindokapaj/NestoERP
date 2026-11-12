@@ -117,7 +117,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("risk.detail.about")}</h2>
+            <h2 className="nesto-section-head">{t("risk.detail.about")}</h2>
             {assessment.description ? (
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {assessment.description}
@@ -147,7 +147,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">{t("permit.detail.hazards")}</h2>
+            <h2 className="nesto-section-head">{t("permit.detail.hazards")}</h2>
             <ol className="space-y-3">
               {assessment.items.map((item, index) => (
                 <li key={item.id} className="nesto-card p-4">
@@ -196,7 +196,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
 
           {assessment.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
+              <h2 className="nesto-section-head">{t("record.actions")}</h2>
               <ActionTable
                 actions={assessment.actions}
                 caption={t("inspection.detail.actionsFrom", { number: assessment.assessmentNumber })}
@@ -206,7 +206,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
+              <h2 className="nesto-section-head">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="risk_assessment"
@@ -219,7 +219,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
+            <h2 className="nesto-section-head">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("record.createdBy")}
@@ -259,7 +259,7 @@ export default async function RiskAssessmentPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseRiskAssessment"

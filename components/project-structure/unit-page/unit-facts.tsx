@@ -67,7 +67,7 @@ export async function UnitFacts({
 
       <div className="space-y-4 lg:col-start-1 lg:row-span-2 lg:row-start-1">
         <section className="nesto-card p-5" aria-labelledby="unit-technical">
-          <h2 id="unit-technical" className="text-card font-semibold text-fg">
+          <h2 id="unit-technical" className="nesto-section-head">
             {t("unitPage.technicalData")}
           </h2>
           <DetailGrid
@@ -93,7 +93,7 @@ export async function UnitFacts({
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="unit-areas">
-          <h2 id="unit-areas" className="text-card font-semibold text-fg">
+          <h2 id="unit-areas" className="nesto-section-head">
             {t("unitPage.areas")}
           </h2>
           <DetailGrid className="mt-4" columns={3} items={areas.map((field) => ({ label: t(`area.${field}`), value: <span className="tabular-nums">{area(unit.areas[field], locale)}</span> }))} />
@@ -103,7 +103,7 @@ export async function UnitFacts({
       <div className="space-y-4 lg:col-start-2 lg:self-start">
         {files ? (
           <section className="nesto-card p-5" aria-labelledby="unit-sales-plan">
-            <h2 id="unit-sales-plan" className="text-card font-semibold text-fg">
+            <h2 id="unit-sales-plan" className="nesto-section-head">
               {t("unitPage.salesPlan")}
             </h2>
             {files.salesPlan ? (

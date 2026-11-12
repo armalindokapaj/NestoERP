@@ -229,7 +229,7 @@ function WorkspacePopupContent({
   if (options.status === "failed") {
     return (
       <div data-testid="workspace-options-failed">
-        <h2 id={titleId} className="px-1 text-card font-semibold text-fg">{t("title")}</h2>
+        <h2 id={titleId} className="px-1 nesto-section-head">{t("title")}</h2>
         <p role="alert" className="px-1 pt-3 text-table text-fg-muted">{t("loadFailed")}</p>
         <div className="mt-3 flex gap-3 px-1">
           <button type="button" onClick={retry} disabled={retrying} className="text-table font-medium text-accent-strong hover:underline disabled:opacity-50" data-testid="workspace-options-retry">
@@ -247,7 +247,7 @@ function WorkspacePopupContent({
 
   return (
     <>
-      <h2 id={titleId} className="px-1 text-card font-semibold text-fg">{t("title")}</h2>
+      <h2 id={titleId} className="px-1 nesto-section-head">{t("title")}</h2>
       {code.status === "failed" ? (
         <PanelFailure kind="code" reloadAdvised={code.reloadAdvised} onRetry={retryCode} onClose={close} />
       ) : (

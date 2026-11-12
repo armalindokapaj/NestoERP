@@ -72,7 +72,7 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
     <section aria-labelledby="minutes-heading" className="space-y-4" data-testid="minutes-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="minutes-heading" className="flex items-center gap-2 text-card font-semibold text-fg">
+          <h2 id="minutes-heading" className="flex items-center gap-2 nesto-section-head">
             {t("minutes.title")}
             {final ? (
               <Badge tone="success" data-testid="minutes-status">
@@ -136,7 +136,7 @@ export function MinutesPanel({ meeting, onChange, compact = false }: { meeting: 
                 type="button"
                 disabled={pending !== null}
                 onClick={() => void call(`add-${title}`, `/api/meetings/${meeting.id}/minutes/sections`, { body: { title: titled(title === "Other" ? "Notes" : title), body: "" } })}
-                className="inline-flex h-8 items-center gap-1 rounded-full border border-line px-2.5 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg disabled:opacity-50"
+                className="inline-flex h-8 items-center gap-1 border border-line px-2.5 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg disabled:opacity-50"
               >
                 {pending === `add-${title}` ? <Loader2 aria-hidden="true" className="size-3 animate-spin" /> : <Plus aria-hidden="true" className="size-3" />}
                 {titled(title)}

@@ -70,7 +70,7 @@ export function SkeletonTable({
         <div className="divide-y divide-line">
           {Array.from({ length: rows }).map((_, index) => (
             <div key={index} className="flex items-center gap-4 px-4 py-3.5">
-              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="size-8" />
               <Skeleton className="h-3 flex-1 max-w-56" />
               <Skeleton className="hidden h-3 w-32 sm:block" />
               <Skeleton className="hidden h-3 w-20 md:block" />
@@ -131,7 +131,7 @@ export function SkeletonList({ rows = 5, className, label, announce }: { rows?: 
       <div aria-hidden="true" data-testid="skeleton-list" className={cn("nesto-card divide-y divide-line", className)}>
         {Array.from({ length: rows }).map((_, index) => (
           <div key={index} className="flex items-center gap-3 px-4 py-3">
-            <Skeleton className="size-10 shrink-0 rounded-full" />
+            <Skeleton className="size-10 shrink-0" />
             <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-3 w-3/5" />
               <Skeleton className="h-3 w-2/5" />

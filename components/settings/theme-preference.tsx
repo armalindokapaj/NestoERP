@@ -74,7 +74,7 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
       role="radiogroup"
       aria-label={t("appearance.colourScheme")}
       onKeyDown={onKeyDown}
-      className="inline-flex shrink-0 gap-0.5 border rounded-full border-transparent bg-surface p-[3px] shadow-[0_0_0_1px_var(--nesto-border)]"
+      className="inline-flex shrink-0 gap-0.5 border border-transparent bg-surface p-[3px] shadow-[0_0_0_1px_var(--nesto-border)]"
     >
       {THEME_CHOICES.map((value) => {
         const active = choice === value;
@@ -90,7 +90,7 @@ export function ThemePreference({ initial }: { initial: ThemeChoice }) {
             onClick={() => select(value)}
             data-testid={`theme-${value}`}
             className={cn(
-              "inline-flex items-center gap-1.5 py-1.5 text-table font-medium transition-colors rounded-full px-3.5",
+              "inline-flex items-center gap-1.5 py-1.5 text-table font-medium transition-colors px-3.5",
               active ? "bg-primary text-primary-fg" : "text-fg-muted hover:text-fg",
             )}
           >

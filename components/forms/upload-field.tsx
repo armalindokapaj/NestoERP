@@ -182,8 +182,8 @@ export function UploadProgress({ items, onRetry, onRemove }: { items: UploadRowS
               </span>
             </div>
             {item.status === "uploading" ? (
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-hover" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={item.fileName}>
-                <div className="h-full rounded-full bg-accent" style={{ width: `${percent}%` }} />
+              <div className="mt-2 h-1 overflow-hidden bg-hover" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={item.fileName}>
+                <div className="h-full bg-accent" style={{ width: `${percent}%` }} />
               </div>
             ) : null}
             {item.status === "failed" ? (

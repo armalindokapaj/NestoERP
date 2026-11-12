@@ -301,7 +301,7 @@ export function DocumentForm({
       </FormSection>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{t("documentForm.lines")}</h2>
+        <h2 className="nesto-section-head">{t("documentForm.lines")}</h2>
         <p className="mt-1 text-meta text-fg-subtle">
           {kind === "adjustments"
             ? t("documentForm.linesAdjustment")

@@ -171,7 +171,7 @@ export function TimeGridView({
               </span>
               <span
                 className={cn(
-                  "grid h-7 min-w-7 place-items-center rounded-full px-1 text-[15px] tabular-nums",
+                  "grid h-7 min-w-7 place-items-center px-1 text-[15px] tabular-nums",
                   isToday ? "bg-accent font-semibold text-accent-fg" : "text-fg",
                 )}
               >
@@ -272,7 +272,7 @@ export function TimeGridView({
                         <span
                           aria-hidden="true"
                           // Visible on touch, and it takes the drag instead of scrolling (AUD-04 §8, D-08-16).
-                          className="absolute inset-x-2 bottom-0 h-2 cursor-ns-resize touch-none rounded-full opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100 touch:h-3 touch:bg-fg-subtle/40 touch:opacity-100"
+                          className="absolute inset-x-2 bottom-0 h-2 cursor-ns-resize touch-none opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100 touch:h-3 touch:bg-fg-subtle/40 touch:opacity-100"
                           onPointerDown={(pointer) => beginDrag(pointer, event, day, "resize")}
                         />
                       ) : null}
@@ -283,7 +283,7 @@ export function TimeGridView({
                 {/* The drag ghost, snapped, with its live time. */}
                 {drag?.moved && preview(drag).day === day ? (
                   <div
-                    className="pointer-events-none absolute inset-x-1 z-20 rounded-[9px] border border-dashed border-[var(--cal)] bg-[color-mix(in_oklab,var(--cal)_14%,var(--nesto-surface))] px-2 py-1 shadow-menu"
+                    className="pointer-events-none absolute inset-x-1 z-20 border border-dashed border-[var(--cal)] bg-[color-mix(in_oklab,var(--cal)_14%,var(--nesto-surface))] px-2 py-1 shadow-menu"
                     style={{ ...categoryStyle(drag.event), top: preview(drag).start * MINUTE, height: Math.max(18, preview(drag).duration * MINUTE) }}
                   >
                     <span className="text-micro font-medium tabular-nums text-fg">

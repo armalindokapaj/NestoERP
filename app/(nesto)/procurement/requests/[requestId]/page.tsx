@@ -125,7 +125,7 @@ export default async function RequestDetailPage({ params }: Params) {
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card overflow-hidden">
             <div className="flex items-center justify-between gap-3 p-5">
-              <h2 className="text-card font-semibold text-fg">{t("requests.asked")}</h2>
+              <h2 className="nesto-section-head">{t("requests.asked")}</h2>
               <span className="text-meta text-fg-subtle">
                 {t("common.lineCount", { count: request.items.length })}
               </span>
@@ -204,7 +204,7 @@ export default async function RequestDetailPage({ params }: Params) {
 
           {request.description ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("common.notes")}</h2>
+              <h2 className="nesto-section-head">{t("common.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {request.description}
               </p>
@@ -212,14 +212,14 @@ export default async function RequestDetailPage({ params }: Params) {
           ) : null}
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">{t("common.approvalHistory")}</h2>
+            <h2 className="nesto-section-head">{t("common.approvalHistory")}</h2>
             <ProcurementApprovalHistory approvals={request.approvals} />
           </section>
         </div>
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("common.whereItBelongs")}</h2>
+            <h2 className="nesto-section-head">{t("common.whereItBelongs")}</h2>
             <DetailGrid
               className="mt-4"
               columns={2}
@@ -246,7 +246,7 @@ export default async function RequestDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("requests.sourcing")}</h2>
+            <h2 className="nesto-section-head">{t("requests.sourcing")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("requests.enquiries")} value={String(request.sourcing.rfqs)} />
               <Meta label={t("requests.ordersRaised")} value={String(request.sourcing.orders)} />
@@ -257,7 +257,7 @@ export default async function RequestDetailPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("suppliers.record")}</h2>
+            <h2 className="nesto-section-head">{t("suppliers.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("common.created")} value={formatDateTime(request.createdAt, locale)} />
               <Meta label={t("common.updated")} value={formatDateTime(request.updatedAt, locale)} />

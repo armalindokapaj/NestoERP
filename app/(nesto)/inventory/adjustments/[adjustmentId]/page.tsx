@@ -91,7 +91,7 @@ export default async function AdjustmentPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">{t("documentForm.lines")}</h2>
+            <h2 className="nesto-section-head">{t("documentForm.lines")}</h2>
             <AdjustmentLinesTable
               lines={adjustment.lines}
               caption={t("detail.linesOn", { number: adjustment.adjustmentNumber })}
@@ -100,7 +100,7 @@ export default async function AdjustmentPage({ params }: Params) {
 
           {adjustment.notes ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("fields.notes")}</h2>
+              <h2 className="nesto-section-head">{t("fields.notes")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {adjustment.notes}
               </p>
@@ -109,7 +109,7 @@ export default async function AdjustmentPage({ params }: Params) {
 
           {adjustment.capabilities.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("meta.documents")}</h2>
+              <h2 className="nesto-section-head">{t("meta.documents")}</h2>
               <InventoryRecordDocuments
                 context={context}
                 entityType="stock_adjustment"
@@ -122,7 +122,7 @@ export default async function AdjustmentPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -137,7 +137,7 @@ export default async function AdjustmentPage({ params }: Params) {
 
           {adjustment.capabilities.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("meta.activity")}</h2>
+              <h2 className="nesto-section-head">{t("meta.activity")}</h2>
               <InventoryActivityFeed
                 context={context}
                 entityType="StockAdjustment"

@@ -52,7 +52,7 @@ export default async function ReportsPage() {
     <ModulePage experience={experience} activeSection="reports">
       <div className="space-y-5">
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("reports.openOrders")}</h2>
+          <h2 className="nesto-section-head">{t("reports.openOrders")}</h2>
           <p className="mt-1 text-page font-semibold text-fg">
             {totalsLabel(reports.openOrders.totals, locale)}
           </p>
@@ -71,7 +71,7 @@ export default async function ReportsPage() {
           <SpendPanel t={t} title={t("reports.spendByCategory")} rows={reports.spendByCategory} kind="category" />
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("reports.deliveryPerformance")}</h2>
+            <h2 className="nesto-section-head">{t("reports.deliveryPerformance")}</h2>
             <p className="mt-1 text-meta text-fg-subtle">
               {t("reports.deliveryNote")}
             </p>
@@ -113,7 +113,7 @@ export default async function ReportsPage() {
 
           {reports.rfqSummary.length > 0 ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("reports.enquiries")}</h2>
+              <h2 className="nesto-section-head">{t("reports.enquiries")}</h2>
               <dl className="mt-4 space-y-2">
                 {reports.rfqSummary.map((row) => (
                   <div key={row.status} className="flex items-baseline justify-between gap-3">
@@ -150,7 +150,7 @@ async function SpendPanel({
   const locale = await getLocale();
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{title}</h2>
+      <h2 className="nesto-section-head">{title}</h2>
       {rows.length === 0 ? (
         <p className="mt-4 text-table text-fg-subtle">{t("reports.nothingCommitted")}</p>
       ) : (

@@ -104,7 +104,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
 
         <div className="grid gap-5 lg:grid-cols-3">
           <section className="nesto-card px-5 py-4" aria-labelledby="by-trade">
-            <h2 id="by-trade" className="text-card font-semibold text-fg">{t("reports.byTrade")}</h2>
+            <h2 id="by-trade" className="nesto-section-head">{t("reports.byTrade")}</h2>
             <p className="text-meta text-fg-muted">{t("reports.byTradeHint")}</p>
             <ul className="mt-3 space-y-2.5">
               {report.workforceByTrade.length === 0 ? <li className="text-table text-fg-muted">{t("reports.noWorkforce")}</li> : null}
@@ -114,15 +114,15 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
                     <span className="text-fg">{row.trade}</span>
                     <span className="font-medium tabular-nums text-fg">{row.headcount}</span>
                   </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover" aria-hidden="true">
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${(row.headcount / maxTrade) * 100}%` }} />
+                  <div className="mt-1 h-1.5 overflow-hidden bg-hover" aria-hidden="true">
+                    <div className="h-full bg-accent" style={{ width: `${(row.headcount / maxTrade) * 100}%` }} />
                   </div>
                 </li>
               ))}
             </ul>
           </section>
           <section className="nesto-card px-5 py-4" aria-labelledby="by-delay">
-            <h2 id="by-delay" className="text-card font-semibold text-fg">{t("reports.byDelay")}</h2>
+            <h2 id="by-delay" className="nesto-section-head">{t("reports.byDelay")}</h2>
             <ul className="mt-3 divide-y divide-line">
               {report.delaysByCategory.length === 0 ? <li className="py-2 text-table text-fg-muted">{t("reports.noDelays")}</li> : null}
               {report.delaysByCategory.map((row) => (
@@ -139,7 +139,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
             ) : null}
           </section>
           <section className="nesto-card px-5 py-4" aria-labelledby="missing">
-            <h2 id="missing" className="text-card font-semibold text-fg">{t("reports.missingLogs")}</h2>
+            <h2 id="missing" className="nesto-section-head">{t("reports.missingLogs")}</h2>
             <p className="text-meta text-fg-muted">{t("reports.missingHint")}</p>
             <ul className="mt-3 divide-y divide-line">
               {report.missingDays.length === 0 ? <li className="py-2 text-table text-fg-muted">{t("reports.none")}</li> : null}
@@ -156,7 +156,7 @@ export default async function DailyLogReportsPage({ searchParams }: { searchPara
         </div>
 
         <section className="nesto-card overflow-x-auto" aria-labelledby="by-project">
-          <h2 id="by-project" className="px-5 pt-4 text-card font-semibold text-fg">{t("reports.byProject")}</h2>
+          <h2 id="by-project" className="px-5 pt-4 nesto-section-head">{t("reports.byProject")}</h2>
           {/* A card per project on a phone, each figure labelled (mobile audit 2b). */}
           <table className="mt-2 w-full min-w-[640px] border-collapse text-table" data-stack="">
             <thead>

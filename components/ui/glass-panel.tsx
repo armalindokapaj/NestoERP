@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils/cn";
 
 const EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 /** The slab's corner radius and the width of the rim that bends the page, in px. */
-const RADIUS = 26;
+const RADIUS = 0;
 const BEZEL = 18;
 /** How far, at most, the rim reaches into the page for what it shows, in px. */
 const BEND = 84;

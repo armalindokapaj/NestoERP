@@ -184,7 +184,7 @@ async function Cashflow({ cash, base, primary }: { cash: Domains["cash"]; base: 
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{t("overview.cashThisMonth")}</h2>
+        <h2 className="nesto-section-head">{t("overview.cashThisMonth")}</h2>
         <Link href="/finance/reports?report=cashflow" className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong">
           {t("overview.cashflow")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -204,7 +204,7 @@ async function ProjectBudgets({ budgets, primary }: { budgets: ReturnType<typeof
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-card font-semibold text-fg">{t("overview.projectBudgets")}</h2>
+        <h2 className="nesto-section-head">{t("overview.projectBudgets")}</h2>
         <Link href="/finance/reports?report=budget-vs-actual" className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong">
           {t("overview.budgetVsActual")}
           <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -232,7 +232,7 @@ async function AttentionCounts({ counts, invoices, approvals, expenses, primary 
   const [value, t] = await Promise.all([counts, getTranslations("finance")]);
   return (
     <section className="nesto-card p-5" data-section={primary ? "primary" : undefined}>
-      <h2 className="text-card font-semibold text-fg">{t("overview.attention")}</h2>
+      <h2 className="nesto-section-head">{t("overview.attention")}</h2>
       <dl className="mt-4 divide-y divide-line">
         {invoices ? <Count label={t("overview.draftInvoices")} value={value.draftInvoices} href="/finance/invoices?status=DRAFT" /> : null}
         {approvals ? <Count label={t("overview.waiting")} value={value.pendingApprovals} href="/finance/approvals" /> : null}

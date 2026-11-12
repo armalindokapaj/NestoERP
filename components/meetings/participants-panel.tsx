@@ -106,7 +106,7 @@ export function ParticipantsPanel({
   return (
     <section aria-labelledby={`participants-${variant}`} className={cn(variant === "rail" && "nesto-card p-5")} data-testid="participants-panel">
       <div className="flex items-center justify-between gap-2">
-        <h2 id={`participants-${variant}`} className="text-card font-semibold text-fg">
+        <h2 id={`participants-${variant}`} className="nesto-section-head">
           {variant === "attendance" ? t("participants.attendance") : t("participants.participants")}
           <span className="ml-1.5 text-table font-normal text-fg-subtle">{meeting.participants.length}</span>
         </h2>

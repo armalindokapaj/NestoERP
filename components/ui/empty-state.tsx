@@ -37,7 +37,7 @@ export function EmptyState({ title, description, icon, action, className }: Empt
     >
       <div
         aria-hidden="true"
-        className="mb-3 flex size-10 items-center justify-center rounded-full border border-line bg-surface text-fg-subtle [&_svg]:size-5"
+        className="mb-3 flex size-10 items-center justify-center border border-line bg-surface text-fg-subtle [&_svg]:size-5"
       >
         {icon ?? <Inbox />}
       </div>

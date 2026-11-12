@@ -161,7 +161,7 @@ export function CollaborationPanel({
       data-testid="collaboration-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={`discussion-${parentType}-${parentId}`} className="flex items-center gap-2 text-card font-semibold text-fg">
+        <h2 id={`discussion-${parentType}-${parentId}`} className="flex items-center gap-2 nesto-section-head">
           <MessageSquare aria-hidden="true" className="size-4 text-fg-subtle" />
           {title ?? t("discussion.title")}
           {thread && thread.commentCount > 0 ? (

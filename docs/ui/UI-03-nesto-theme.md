@@ -1,7 +1,7 @@
 > **Chat:** Nesto — adapting the 7F "Tirana Vertical" design
 > **File:** `docs/ui/UI-03-nesto-theme.md`
 > **About:** The Nesto theme — the Tirana Vertical reference taken apart, the concept Nesto draws from it, how each of the reference's patterns lands on Nesto's screens, the icon system, Day and Night, what was removed (Theme 1, UI-02), and what comes next.
-> **Last updated:** 2026-11-12 (the phone's navigation row brought up to date)
+> **Last updated:** 2026-11-12 (square everywhere and cards as lines: UI-07 supersedes the corners and card shadows below)
 
 # UI-03 — The Nesto theme
 
@@ -92,8 +92,8 @@ These were measured from the live page's computed styles, not estimated.
 | Body | IBM Plex Sans 15/23; controls 12.5/500 | |
 | Labels | IBM Plex Mono 10.5px, weight 500, uppercase, tracking 0.10–0.14em | |
 | Controls | Pills (999px), white with a 1px ink-10% ring. The active segment is an ink pill that slides | 34px high |
-| Cards | 10px radius; shadow `0 0 0 1px ink/6%, 0 18px 40px -18px ink/35%, 0 40px 80px -40px ink/25%` | The shadow is pulled in under the card |
-| Overlays | Menu: 14px radius, 9px rows. Detail sheet: 24px radius, frosted (`blur(24px) saturate(1.4)`) | |
+| Cards | Square, a 1px line, no shadow (UI-07; was 10px and a pulled-in shadow) | Lines, not cards |
+| Overlays | Square (UI-07; were 14px and 24px), 9px rows; the detail sheet frosted (`blur(24px) saturate(1.4)`) | |
 | Icons | Custom, on a 20px grid; stroke 1.6–1.8, round caps | Their own drawings; not copied (§6) |
 | Motion | `cubic-bezier(.25,.46,.45,.94)` for colour, `cubic-bezier(.16,1,.3,1)` for movement. Entrance is a 10px rise with an 8px blur over 0.9s | Honours reduced motion |
 | Layout | 1320px column | |
@@ -146,10 +146,10 @@ Day and Night are declared together with `light-dark()`, one line per token.
 | `primary` | ink `#0f141a` / gold `#c9a961` |
 | `accent` | gold `#8f6c2c` / `#c9a961` |
 | `success` / `warning` / `info` / `danger` (fills) | `#1e6a4e` / `#b06f12` / `#2d5a8a` / `#b0251f` by Day |
-| `shadow-card` | `0 14px 30px -22px`, pulled in under the card |
+| `shadow-card` | none (UI-07) |
 | `shadow-menu`, `shadow-dialog` | ink hairline + under-pulled drop |
-| `radius-xl`, `radius-card` | 10px |
-| `radius-overlay` | 14px |
+| `radius-xl`, `radius-card` | 0 (UI-07) |
+| `radius-overlay` | 0 (UI-07) |
 | `ease` | `(.25,.46,.45,.94)` |
 | `space-page-x` | 20px on a phone, 24px from `md`, 32px from `xl` |
 

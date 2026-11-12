@@ -21,7 +21,7 @@ export default async function ContractorProjectsPage({ params }: Params) {
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-section font-semibold text-fg">{t("projectsPage.title")}</h2>
+        <h2 className="nesto-section-head">{t("projectsPage.title")}</h2>
         <p className="mt-0.5 text-table text-fg-muted">{t("projectsPage.description")}</p>
       </div>
       <AssignmentTable items={assignments} view="contractor" />

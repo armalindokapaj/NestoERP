@@ -103,12 +103,12 @@ export async function DashboardWidget({ widget, fill = false }: { widget: Resolv
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 id={`widget-${definition.key}`} data-numbered-title="" className="text-card font-semibold text-fg">
+            <h2 id={`widget-${definition.key}`} data-numbered-title="" className="nesto-section-head">
               {widgetText(t, definition.key, "title", definition.title)}
               
             </h2>
             {payload.kind === "alerts" && payload.items.length > 0 ? (
-              <span className="grid h-[26px] min-w-[26px] place-items-center rounded-full bg-accent-soft px-1.5 text-meta font-bold text-accent-strong" data-testid="alerts-count">
+              <span className="grid h-[26px] min-w-[26px] place-items-center bg-accent-soft px-1.5 text-meta font-bold text-accent-strong" data-testid="alerts-count">
                 {payload.items.length}
               </span>
             ) : null}
@@ -212,9 +212,9 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
                   {item.display ? rowText(t, item.display) : item.value}
                 </span>
               </div>
-              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-hover">
+              <div className="mt-1.5 h-1 overflow-hidden bg-hover">
                 <div
-                  className="h-full rounded-full bg-accent"
+                  className="h-full bg-accent"
                   style={{ width: `${Math.round((item.value / max) * 100)}%` }}
                 />
               </div>
@@ -235,7 +235,7 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
             const split = splitFigure(item.title);
             const content = (
               <div className="flex min-w-0 items-center gap-3.5 py-3.5">
-                <span aria-hidden="true" className={cn("grid size-10 shrink-0 place-items-center rounded-full", tone.circle)}>
+                <span aria-hidden="true" className={cn("grid size-10 shrink-0 place-items-center", tone.circle)}>
                   <ToneIcon className="size-[18px]" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -340,7 +340,7 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
                   {project.tags.length ? (
                     <ul className="flex flex-wrap gap-1" aria-label={t("type")}>
                       {project.tags.map((tag) => (
-                        <li key={tag} className="rounded-full bg-hover px-2 py-0.5 text-meta text-fg-muted">
+                        <li key={tag} className="bg-hover px-2 py-0.5 text-meta text-fg-muted">
                           {tag}
                         </li>
                       ))}
@@ -352,8 +352,8 @@ function WidgetBody({ payload, t, locale }: { payload: ResolvedWidget["payload"]
                         <span className="text-fg-muted">{t("progress")}</span>
                         <span className="font-medium tabular-nums text-fg">{project.progress}%</span>
                       </div>
-                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-hover" role="progressbar" aria-label={t("progressOf", { name: project.name })} aria-valuenow={project.progress} aria-valuemin={0} aria-valuemax={100}>
-                        <div className="h-full rounded-full bg-accent" style={{ width: `${project.progress}%` }} />
+                      <div className="mt-1 h-1 overflow-hidden bg-hover" role="progressbar" aria-label={t("progressOf", { name: project.name })} aria-valuenow={project.progress} aria-valuemin={0} aria-valuemax={100}>
+                        <div className="h-full bg-accent" style={{ width: `${project.progress}%` }} />
                       </div>
                     </div>
                   ) : null}

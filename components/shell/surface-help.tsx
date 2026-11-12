@@ -15,7 +15,7 @@ export async function SurfaceHelpPage({ accountHref }: { accountHref: string }) 
       <PageHeader title={t("account.help")} description={t("account.helpIntro")} />
       {sections.map((key) => (
         <section key={key} className="nesto-card space-y-1.5 p-5" aria-labelledby={`help-${key}`}>
-          <h2 id={`help-${key}`} className="text-card font-semibold text-fg">{t(`account.helpSections.${key}.title`)}</h2>
+          <h2 id={`help-${key}`} className="nesto-section-head">{t(`account.helpSections.${key}.title`)}</h2>
           <p className="text-body text-fg-muted">{t(`account.helpSections.${key}.body`)}</p>
         </section>
       ))}

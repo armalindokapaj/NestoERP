@@ -575,13 +575,13 @@ export function ApprovalsShell({
                 else void unsaved.requestDeparture(intent).then((approval) => (approval?.run(apply) ? approval.release() : undefined));
               }}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-table font-medium transition-colors touch:h-11",
+                "inline-flex h-9 shrink-0 items-center gap-2 px-3.5 text-table font-medium transition-colors touch:h-11",
                 active ? "bg-primary text-primary-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
               )}
             >
               {t(`tabs.${tab.key}`)}
               {tab.key === "waiting" && (counts.waiting > 0 || partial) ? (
-                <span className={cn("rounded-full px-1.5 text-micro tabular-nums", active ? "bg-primary-fg/15" : "bg-surface-muted text-fg")}>
+                <span className={cn("px-1.5 text-micro tabular-nums", active ? "bg-primary-fg/15" : "bg-surface-muted text-fg")}>
                   {/* A span's aria-label is not read; the partial count is spoken as text (AUD-11 §5, AV-06). */}
                   <span aria-hidden={partial ? true : undefined}>{waitingText}</span>
                   {partial ? <span className="sr-only">{t("shell.partialCount", { count: counts.waiting > 0 ? t("shell.atLeast", { count: counts.waiting }) : t("shell.unknownNumber") })}</span> : null}
@@ -630,7 +630,7 @@ export function ApprovalsShell({
         <Button type="button" variant="secondary" onClick={() => setFiltersOpen(true)} aria-label={filterCount ? t("shell.filtersActive", { count: filterCount }) : t("shell.filters")}>
           <SlidersHorizontal aria-hidden="true" />
           {t("shell.filters")}
-          {filterCount > 0 ? <span className="rounded-full bg-primary px-1.5 text-micro tabular-nums text-primary-fg">{filterCount}</span> : null}
+          {filterCount > 0 ? <span className="bg-primary px-1.5 text-micro tabular-nums text-primary-fg">{filterCount}</span> : null}
         </Button>
         <div className="hidden items-center rounded-md border border-line p-0.5 sm:flex" role="group" aria-label={t("shell.density")}>
           {(["comfortable", "compact"] as const).map((value) => (
@@ -689,7 +689,7 @@ export function ApprovalsShell({
             <ListSkeleton />
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center px-6 py-16 text-center" data-testid="approvals-empty">
-              <span className="flex size-12 items-center justify-center rounded-full border border-line bg-surface-muted text-fg-subtle">
+              <span className="flex size-12 items-center justify-center border border-line bg-surface-muted text-fg-subtle">
                 {filterCount || state.q ? <ListFilter aria-hidden="true" className="size-5" /> : <Inbox aria-hidden="true" className="size-5" />}
               </span>
               <p className="mt-3 text-body font-semibold text-fg">{filterCount || state.q ? t("empty.filtered.title") : empty.title}</p>

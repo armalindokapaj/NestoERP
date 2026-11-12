@@ -46,7 +46,7 @@ export async function CompanyOverview({ context }: { context: UserContext }) {
       </div>
 
       <section className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{company.name}</h2>
+        <h2 className="nesto-section-head">{company.name}</h2>
         <DetailGrid
           className="mt-4"
           items={[
@@ -70,7 +70,7 @@ export async function CompanyDetails({ context }: { context: UserContext }) {
 
   return (
     <section className="nesto-card p-5">
-      <h2 className="text-card font-semibold text-fg">{m("company.details")}</h2>
+      <h2 className="nesto-section-head">{m("company.details")}</h2>
       <DetailGrid
         className="mt-4"
         items={[

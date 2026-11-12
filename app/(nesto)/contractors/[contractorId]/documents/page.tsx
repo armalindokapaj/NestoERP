@@ -22,7 +22,7 @@ export default async function ContractorDocumentsPage({ params }: Params) {
   const t = await getTranslations("contractors");
   return (
     <section className="space-y-3">
-      <h2 className="text-section font-semibold text-fg">{t("documentsPage.title")}</h2>
+      <h2 className="nesto-section-head">{t("documentsPage.title")}</h2>
       <RecordDocuments context={context} entityType="contractor" entityId={contractor.id} canAttach={contractor.capabilities.canUploadDocuments} emptyTitle={t("documentsPage.emptyTitle")} emptyDescription={t("documentsPage.emptyDescription")} />
     </section>
   );

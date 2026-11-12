@@ -35,7 +35,7 @@ export function DetailSection({
   children?: React.ReactNode;
 }) {
   const body = empty ? <p className="text-table text-fg-subtle">{emptyLabel ?? "—"}</p> : children;
-  const heading = <h2 className="text-card font-semibold text-fg [overflow-wrap:anywhere]">{title}</h2>;
+  const heading = <h2 className="nesto-section-head [overflow-wrap:anywhere]">{title}</h2>;
 
   if (collapsible) {
     return (

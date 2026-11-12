@@ -98,7 +98,7 @@ export default async function ReceiptsPage({ params }: Params) {
       {order.capabilities.canReceive ? <ReceiptForm order={order} /> : null}
 
       <section className="space-y-3">
-        <h2 className="text-card font-semibold text-fg">{t("receipts.recorded")}</h2>
+        <h2 className="nesto-section-head">{t("receipts.recorded")}</h2>
         {recorded.length === 0 ? (
           <EmptyState
             icon={<Truck />}

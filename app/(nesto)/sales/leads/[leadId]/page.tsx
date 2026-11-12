@@ -69,7 +69,7 @@ export default async function LeadPage({ params }: Params) {
 
       {lead.status === "CONVERTED" ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("detail.converted")}</h2>
+          <h2 className="nesto-section-head">{t("detail.converted")}</h2>
           <p className="mt-1 text-table text-fg-muted">
             {t("detail.convertedOn", { date: lead.convertedAt ? formatDate(lead.convertedAt, locale) : "—" })}
           </p>
@@ -96,7 +96,7 @@ export default async function LeadPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("detail.contact")}</h2>
+          <h2 className="nesto-section-head">{t("detail.contact")}</h2>
           <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
             <Detail label={t("detail.email")} value={lead.email} href={lead.email ? `mailto:${lead.email}` : null} />
             <Detail label={t("detail.phone")} value={lead.phone} href={lead.phone ? `tel:${lead.phone}` : null} />
@@ -120,7 +120,7 @@ export default async function LeadPage({ params }: Params) {
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("detail.documents")}</h2>
+          <h2 className="nesto-section-head">{t("detail.documents")}</h2>
           <div className="mt-4">
             <Suspense fallback={<SkeletonTable rows={2} />}>
               <SalesRecordDocuments context={context} entityType="lead" entityId={lead.id} />
@@ -137,7 +137,7 @@ export default async function LeadPage({ params }: Params) {
 
       {lead.capabilities.canViewActivity ? (
         <section className="space-y-3">
-          <h2 className="text-card font-semibold text-fg">{t("detail.activity")}</h2>
+          <h2 className="nesto-section-head">{t("detail.activity")}</h2>
           <Suspense fallback={<SkeletonTable rows={3} />}>
             <SalesActivityFeed context={context} entityType="Lead" entityId={lead.id} />
           </Suspense>

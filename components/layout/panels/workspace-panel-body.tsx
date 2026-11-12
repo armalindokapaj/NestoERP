@@ -171,7 +171,7 @@ export function WorkspacePanelBody({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <h2 id={titleId} className="px-1 text-card font-semibold text-fg">
+      <h2 id={titleId} className="px-1 nesto-section-head">
         {t("title")}
       </h2>
 

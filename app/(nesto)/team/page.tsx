@@ -97,7 +97,7 @@ export default async function TeamOverviewPage() {
             {canSeeDepartments ? (
               <section className="nesto-card p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-card font-semibold text-fg">{t("overview.byDepartment")}</h2>
+                  <h2 className="nesto-section-head">{t("overview.byDepartment")}</h2>
                   <Link
                     href="/team/departments"
                     className="tap-target-lg inline-flex items-center gap-1 text-table font-medium text-accent-strong"
@@ -135,7 +135,7 @@ export default async function TeamOverviewPage() {
             ) : null}
 
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("overview.access")}</h2>
+              <h2 className="nesto-section-head">{t("overview.access")}</h2>
               <dl className="mt-4 divide-y divide-line">
                 <Row label={t("overview.activeMembers")} value={stats.activeMembers} href="/team/people?status=ACTIVE" />
                 {canSeeInvitations ? (

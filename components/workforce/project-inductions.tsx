@@ -45,7 +45,7 @@ export function ProjectInductions({
   return (
     <section className="nesto-card p-0" aria-labelledby="inductions-heading" data-testid="project-inductions">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
-        <h2 id="inductions-heading" className="text-card font-semibold text-fg">
+        <h2 id="inductions-heading" className="nesto-section-head">
           {t("inductions.heading")}
         </h2>
         {canRecord ? (

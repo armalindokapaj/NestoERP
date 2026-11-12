@@ -70,7 +70,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           {/* Commercial — omitted entirely without the grant (PRD #18 §22, §255). */}
           {contract.commercial ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("detail.commercial")}</h2>
+              <h2 className="nesto-section-head">{t("detail.commercial")}</h2>
               <DetailGrid
                 className="mt-4"
                 items={[
@@ -97,7 +97,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.dates")}</h2>
+            <h2 className="nesto-section-head">{t("detail.dates")}</h2>
             <DetailGrid
               className="mt-4"
               columns={3}
@@ -119,7 +119,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.renewal")}</h2>
+            <h2 className="nesto-section-head">{t("detail.renewal")}</h2>
             <DetailGrid
               className="mt-4"
               columns={3}
@@ -148,7 +148,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           </section>
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.legalTerms")}</h2>
+            <h2 className="nesto-section-head">{t("detail.legalTerms")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -184,14 +184,14 @@ export default async function ContractOverviewPage({ params }: Params) {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-card font-semibold text-fg">{t("detail.approvalHistory")}</h2>
+            <h2 className="nesto-section-head">{t("detail.approvalHistory")}</h2>
             <ContractApprovalHistory approvals={contract.approvals} />
           </section>
         </div>
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.clientProject")}</h2>
+            <h2 className="nesto-section-head">{t("detail.clientProject")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("detail.client")}
@@ -207,7 +207,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           {/* Null without `legal.sales_source.view` plus the Sales grant (PRD #18 §252). */}
           {contract.salesSource ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("detail.salesSource")}</h2>
+              <h2 className="nesto-section-head">{t("detail.salesSource")}</h2>
               <dl className="mt-4 space-y-3">
                 <Meta
                   label={t("detail.opportunity")}
@@ -224,7 +224,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.thisContract")}</h2>
+            <h2 className="nesto-section-head">{t("detail.thisContract")}</h2>
             <dl className="mt-4 space-y-3">
               {may.canViewParties ? (
                 <Meta
@@ -284,7 +284,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           {contract.activeAmendment ? (
             <section className="nesto-card p-5">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card font-semibold text-fg">{t("detail.currentAmendment")}</h2>
+                <h2 className="nesto-section-head">{t("detail.currentAmendment")}</h2>
                 <Link
                   href={`/contracts/${contract.id}/amendments/${contract.activeAmendment.id}`}
                   className="text-table font-medium text-accent-strong"
@@ -305,7 +305,7 @@ export default async function ContractOverviewPage({ params }: Params) {
           ) : null}
 
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.created")} value={formatDateTime(contract.createdAt, locale)} />
               <Meta label={t("detail.updated")} value={formatDateTime(contract.updatedAt, locale)} />

@@ -8,6 +8,7 @@ import { readThemeChoice, THEME_COOKIE } from "@/lib/layout/theme-state";
 import { ButtonEntry, IconButtonEntry } from "./_catalog/buttons";
 import { CardEntry, MetricStripEntry } from "./_catalog/cards";
 import { FieldEntry } from "./_catalog/fields";
+import { PanelEntry } from "./_catalog/panels";
 import { BadgeEntry, TagEntry } from "./_catalog/status";
 import { TableEntry } from "./_catalog/tables";
 import { CatalogToolbar } from "./_catalog/toolbar";
@@ -26,6 +27,7 @@ const ENTRIES = [
   ["metrics", "MetricStrip"],
   ["tables", "Table"],
   ["fields", "Inputs"],
+  ["panels", "Page and panels"],
 ] as const;
 
 /**
@@ -82,6 +84,7 @@ export default async function ComponentCatalogPage() {
           <MetricStripEntry />
           <TableEntry />
           <FieldEntry />
+          <PanelEntry />
       </main>
     </div>
   );

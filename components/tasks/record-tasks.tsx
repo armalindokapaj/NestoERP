@@ -65,7 +65,7 @@ export async function RecordTasks({
   return (
     <section className="space-y-3" aria-labelledby={`tasks-${parentId}`} data-testid="record-tasks">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={`tasks-${parentId}`} className="text-card font-semibold text-fg">
+        <h2 id={`tasks-${parentId}`} className="nesto-section-head">
           {title ?? t("common.tasks")}
         </h2>
         {mayCreate && result.data.length > 0 ? (

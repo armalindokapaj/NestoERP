@@ -138,7 +138,7 @@ export function TimesheetReview({ week, discussion }: { week: TimesheetWeekDTO; 
 
       {week.logs.some((log) => log.description) ? (
         <section className="nesto-card px-5 py-4" aria-labelledby="timesheet-entries-title">
-          <h2 id="timesheet-entries-title" className="text-card font-semibold text-fg">
+          <h2 id="timesheet-entries-title" className="nesto-section-head">
             {t("common.entries")}
           </h2>
           <ul className="mt-3 divide-y divide-line">

@@ -74,7 +74,7 @@ export function FilterSheet({
         {t("filters")}
         {activeCount > 0 ? (
           <>
-            <span aria-hidden="true" className="rounded-full bg-accent px-1.5 text-micro text-accent-fg tabular-nums">
+            <span aria-hidden="true" className="bg-accent px-1.5 text-micro text-accent-fg tabular-nums">
               {activeCount}
             </span>
             <span className="sr-only">{t("filtersApplied", { count: activeCount })}</span>

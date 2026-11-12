@@ -112,7 +112,7 @@ export default async function ReservationPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+            <h2 className="nesto-section-head">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -159,7 +159,7 @@ export default async function ReservationPage({ params }: Params) {
 
           {recent.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.recentMovements")}</h2>
+              <h2 className="nesto-section-head">{t("detail.recentMovements")}</h2>
               <MovementTable
                 movements={recent}
                 showItem={false}
@@ -172,7 +172,7 @@ export default async function ReservationPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta label={t("detail.reservedBy")} value={reservation.createdBy ? <PersonLink memberId={reservation.createdBy.memberId} name={reservation.createdBy.fullName} /> : "—"} />
               <Meta label={t("detail.created")} value={formatDateTime(reservation.createdAt, locale)} />

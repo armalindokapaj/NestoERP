@@ -80,7 +80,7 @@ export async function ProjectMobileOverview({
       ) : null}
 
       <section aria-labelledby="pm-attention" className="nesto-card p-4">
-        <h2 id="pm-attention" className="text-card font-semibold text-fg">{t("mobile.attentionTitle")}</h2>
+        <h2 id="pm-attention" className="nesto-section-head">{t("mobile.attentionTitle")}</h2>
         {attention.length ? (
           <ul className="mt-2 divide-y divide-line" data-testid="project-attention">
             {attention.map((item) => (

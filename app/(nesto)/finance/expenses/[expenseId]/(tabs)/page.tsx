@@ -48,7 +48,7 @@ export default async function ExpenseDetailPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="nesto-card p-5 lg:col-span-2">
-          <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+          <h2 className="nesto-section-head">{t("detail.details")}</h2>
           <DetailGrid
             className="mt-4"
             items={[
@@ -117,14 +117,14 @@ export default async function ExpenseDetailPage({ params }: Params) {
         </section>
 
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("detail.approvals")}</h2>
+          <h2 className="nesto-section-head">{t("detail.approvals")}</h2>
           <ApprovalHistory approvals={expense.approvals} />
         </section>
       </div>
 
       <section className="nesto-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-card font-semibold text-fg">{t("captions.payments")}</h2>
+          <h2 className="nesto-section-head">{t("captions.payments")}</h2>
           {may.canRecordPayment ? (
             <Button asChild size="sm">
               <Link href={`/finance/payments/new?expenseId=${expense.id}`}>{t("panel.recordPayment")}</Link>

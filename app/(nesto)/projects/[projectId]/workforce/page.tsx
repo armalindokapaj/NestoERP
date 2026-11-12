@@ -71,7 +71,7 @@ export default async function ProjectWorkforcePage({ params }: Params) {
 
       <section className="nesto-card p-0" aria-labelledby="assigned-heading">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3.5">
-          <h2 id="assigned-heading" className="text-card font-semibold text-fg">
+          <h2 id="assigned-heading" className="nesto-section-head">
             {t("workforceTab.workingHere")}
           </h2>
           <Link href={`/workforce/attendance?projectId=${project.id}`} className="text-table font-medium text-accent-strong hover:underline">
@@ -132,7 +132,7 @@ export default async function ProjectWorkforcePage({ params }: Params) {
       <SitesManager projectId={project.id} sites={sites} canManage={canManageSites && project.status !== "ARCHIVED"} />
 
       <section className="space-y-2" aria-labelledby="crews-heading">
-        <h2 id="crews-heading" className="text-card font-semibold text-fg">
+        <h2 id="crews-heading" className="nesto-section-head">
           {t("workforceTab.crews")}
         </h2>
         {crews.length === 0 ? <p className="nesto-card px-5 py-6 text-table text-fg-muted">{t("workforceTab.noCrews")}</p> : <CrewTable crews={crews} />}

@@ -34,7 +34,7 @@ export default async function WorkspaceUnavailablePage({
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 text-center">
       <NestoLogo className="mb-8" />
-      <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full border border-line bg-surface text-fg-subtle">
+      <div className="mx-auto mb-4 grid size-11 place-items-center border border-line bg-surface text-fg-subtle">
         <Building2 className="size-5" />
       </div>
       <h1 className="text-section font-semibold text-fg">{m(message.title)}</h1>

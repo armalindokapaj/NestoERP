@@ -116,7 +116,7 @@ export default async function IncidentPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("incident.detail.whatHappened")}</h2>
+            <h2 className="nesto-section-head">{t("incident.detail.whatHappened")}</h2>
             <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
               {incident.description}
             </p>
@@ -147,7 +147,7 @@ export default async function IncidentPage({ params }: Params) {
            */}
           {incident.injury ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("incident.detail.whatResulted")}</h2>
+              <h2 className="nesto-section-head">{t("incident.detail.whatResulted")}</h2>
               <div className="mt-3">
                 <InjuryFlags flags={incident.injury} />
               </div>
@@ -161,7 +161,7 @@ export default async function IncidentPage({ params }: Params) {
 
           {incident.immediateAction ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("incident.detail.immediateAction")}</h2>
+              <h2 className="nesto-section-head">{t("incident.detail.immediateAction")}</h2>
               <p className="mt-2 whitespace-pre-wrap text-table text-fg-muted">
                 {incident.immediateAction}
               </p>
@@ -170,7 +170,7 @@ export default async function IncidentPage({ params }: Params) {
 
           {incident.investigationSummary || incident.rootCause || incident.lessonsLearned ? (
             <section className="nesto-card p-5">
-              <h2 className="text-card font-semibold text-fg">{t("incident.detail.investigation")}</h2>
+              <h2 className="nesto-section-head">{t("incident.detail.investigation")}</h2>
               <dl className="mt-4 space-y-4">
                 {incident.investigationSummary ? (
                   <Block label={t("incident.detail.whatWasFound")} value={incident.investigationSummary} />
@@ -187,7 +187,7 @@ export default async function IncidentPage({ params }: Params) {
 
           {incident.actions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.actions")}</h2>
+              <h2 className="nesto-section-head">{t("record.actions")}</h2>
               <ActionTable
                 actions={incident.actions}
                 caption={t("record.actionsOn", { number: incident.incidentNumber })}
@@ -197,7 +197,7 @@ export default async function IncidentPage({ params }: Params) {
 
           {incident.stopWorks.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.stopWork")}</h2>
+              <h2 className="nesto-section-head">{t("record.stopWork")}</h2>
               <StopWorkTable
                 records={incident.stopWorks}
                 caption={t("hazard.detail.stopWorkFrom", { number: incident.incidentNumber })}
@@ -207,7 +207,7 @@ export default async function IncidentPage({ params }: Params) {
 
           {may.canViewDocuments ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.documents")}</h2>
+              <h2 className="nesto-section-head">{t("record.documents")}</h2>
               <HseRecordDocuments
                 context={context}
                 entityType="incident"
@@ -220,7 +220,7 @@ export default async function IncidentPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("record.record")}</h2>
+            <h2 className="nesto-section-head">{t("record.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("record.reportedBy")}
@@ -269,7 +269,7 @@ export default async function IncidentPage({ params }: Params) {
 
           {may.canViewActivity ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("record.activity")}</h2>
+              <h2 className="nesto-section-head">{t("record.activity")}</h2>
               <HseActivityFeed
                 context={context}
                 entityType="HseIncident"

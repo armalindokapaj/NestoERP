@@ -416,7 +416,7 @@ export function MeetingForm(props: MeetingFormProps) {
         </section>
 
         <section className="nesto-card space-y-4 p-5 sm:p-6" aria-labelledby="meeting-when">
-          <h2 id="meeting-when" className="flex items-center gap-2 text-card font-semibold text-fg">
+          <h2 id="meeting-when" className="flex items-center gap-2 nesto-section-head">
             <CalendarClock aria-hidden="true" className="size-4 text-fg-subtle" /> {t("form.when")}
           </h2>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
@@ -452,7 +452,7 @@ export function MeetingForm(props: MeetingFormProps) {
                 aria-pressed={duration === minutes}
                 onClick={() => set("endTime", addMinutes(state.startTime, minutes))}
                 className={cn(
-                  "rounded-full border px-2.5 py-1 text-meta transition-colors",
+                  "border px-2.5 py-1 text-meta transition-colors",
                   duration === minutes ? "border-accent/40 bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
                 )}
               >
@@ -479,7 +479,7 @@ export function MeetingForm(props: MeetingFormProps) {
 
         {!editing ? (
           <section className="nesto-card space-y-4 p-5 sm:p-6" aria-labelledby="meeting-people">
-            <h2 id="meeting-people" className="flex items-center gap-2 text-card font-semibold text-fg">
+            <h2 id="meeting-people" className="flex items-center gap-2 nesto-section-head">
               <Users aria-hidden="true" className="size-4 text-fg-subtle" /> {t("form.people")}
             </h2>
             <ul className="divide-y divide-line rounded-lg border border-line">
@@ -549,7 +549,7 @@ export function MeetingForm(props: MeetingFormProps) {
         ) : null}
 
         <section className="nesto-card space-y-4 p-5 sm:p-6" aria-labelledby="meeting-where">
-          <h2 id="meeting-where" className="flex items-center gap-2 text-card font-semibold text-fg">
+          <h2 id="meeting-where" className="flex items-center gap-2 nesto-section-head">
             <MapPin aria-hidden="true" className="size-4 text-fg-subtle" /> {t("form.where")}
           </h2>
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("form.locationType")}>
@@ -711,7 +711,7 @@ export function MeetingForm(props: MeetingFormProps) {
                             disabled={!on && state.reminders.length >= 3}
                             onClick={() => set("reminders", on ? state.reminders.filter((value) => value !== choice) : [...state.reminders, choice])}
                             className={cn(
-                              "rounded-full border px-2.5 py-1 text-meta transition-colors disabled:opacity-40",
+                              "border px-2.5 py-1 text-meta transition-colors disabled:opacity-40",
                               on ? "border-accent/40 bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg",
                             )}
                           >

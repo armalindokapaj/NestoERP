@@ -85,7 +85,7 @@ export function ApprovalDetailView({
           </>
         ) : (
           <>
-            <span className="flex size-12 items-center justify-center rounded-full border border-line bg-surface-muted text-fg-subtle">
+            <span className="flex size-12 items-center justify-center border border-line bg-surface-muted text-fg-subtle">
               <FileText aria-hidden="true" className="size-5" />
             </span>
             <p className="text-body font-medium text-fg">{t("detail.selectTitle")}</p>
@@ -127,7 +127,7 @@ export function ApprovalDetailView({
             <SourceIcon provider={item.providerKey} className="mt-0.5" />
             <div className="min-w-0 flex-1">
               <p className="text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t("detail.sourceApproval", { source: word(item.sourceLabel) })}</p>
-              <h2 className="mt-1 text-section font-semibold leading-snug tracking-[-0.01em] text-fg [overflow-wrap:anywhere]" data-testid="approval-title">
+              <h2 className="mt-1 nesto-section-head leading-snug tracking-[-0.01em] text-fg [overflow-wrap:anywhere]" data-testid="approval-title">
                 {item.title}
               </h2>
               {item.subtitle ? <p className="mt-0.5 text-table text-fg-muted">{item.subtitle}</p> : null}
@@ -314,7 +314,7 @@ function Steps({ steps, mode }: { steps: ApprovalStepDTO[]; mode: UnifiedApprova
             <span
               aria-hidden="true"
               className={cn(
-                "flex size-6 shrink-0 items-center justify-center rounded-full text-micro font-semibold",
+                "flex size-6 shrink-0 items-center justify-center text-micro font-semibold",
                 step.status === "APPROVED"
                   ? "bg-success-soft text-success-strong"
                   : step.status === "REJECTED"

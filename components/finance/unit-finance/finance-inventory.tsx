@@ -167,7 +167,7 @@ export function FinanceInventory({ projectId, initial, initialFilters, buildings
                 data-testid="finance-quick-filter"
                 data-status={status || "ALL"}
                 onClick={() => setFilter({ financialStatus: status })}
-                className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
+                className={cn("inline-flex h-8 items-center gap-1.5 border px-3 text-table font-medium transition-colors touch:h-11", pressed ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg")}
               >
                 {status ? t(`unitStatus.${status}`) : t("inventory.all")}
                 <span className={cn("tabular-nums", pressed ? "opacity-90" : "text-fg-subtle")}>{list.counts[status || "ALL"]}</span>

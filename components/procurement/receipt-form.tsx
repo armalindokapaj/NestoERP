@@ -111,7 +111,7 @@ function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecor
 
         <fieldset disabled={pending || Boolean(save.saved)} className="m-0 min-w-0 space-y-5 border-0 p-0">
           <section className="nesto-card space-y-4 p-5">
-            <h2 className="text-card font-semibold text-fg">{t("receipts.delivery")}</h2>
+            <h2 className="nesto-section-head">{t("receipts.delivery")}</h2>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("receipts.dateReceived")} name="receiptDate" required>
@@ -130,7 +130,7 @@ function ReceiptFormBody({ order, onRecorded }: { order: OrderDetailDTO; onRecor
 
           <section className="nesto-card overflow-hidden">
             <div className="p-5">
-              <h2 className="text-card font-semibold text-fg">{t("receipts.arrived")}</h2>
+              <h2 className="nesto-section-head">{t("receipts.arrived")}</h2>
               <p className="mt-1 text-meta text-fg-subtle">
                 {t("receipts.arrivedNote")}
               </p>

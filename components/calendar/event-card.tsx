@@ -66,7 +66,7 @@ export const EventCard = React.forwardRef<
       }}
       style={{ ...categoryStyle(event), ...style }}
       className={cn(
-        "group relative flex w-full min-w-0 items-start gap-1.5 overflow-hidden rounded-[9px] border text-left outline-none",
+        "group relative flex w-full min-w-0 items-start gap-1.5 overflow-hidden border text-left outline-none",
         "border-line bg-[color-mix(in_oklab,var(--cal)_7%,var(--nesto-surface))] text-fg",
         "transition-[box-shadow,border-color,transform] duration-150 ease-nesto hover:border-line-strong hover:shadow-card",
         "focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",

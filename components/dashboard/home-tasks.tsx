@@ -46,7 +46,7 @@ export async function HomeTasks({ context }: { context: UserContext }) {
       <h2 id="home-tasks-title" className="nesto-eyebrow mb-1.5 px-1 text-accent-strong">
         {t("homeTasks.title")}
       </h2>
-      <ul className="overflow-hidden rounded-[18px] border border-line bg-surface">
+      <ul className="overflow-hidden border border-line bg-surface">
         {rows.map((entry) => (
           <li key={entry.key} className="border-b border-line">
             <Link href={entry.href} navSource="dashboard" className={cn(row, "text-fg")} data-testid={`home-tasks-${entry.key}`}>
@@ -71,7 +71,7 @@ export async function HomeTasks({ context }: { context: UserContext }) {
   );
 }
 
-const countClass = "grid h-6 min-w-7 shrink-0 place-items-center rounded-full px-2 text-meta font-semibold tabular-nums";
+const countClass = "grid h-6 min-w-7 shrink-0 place-items-center px-2 text-meta font-semibold tabular-nums";
 
 async function TaskCount({ stats, count, urgent = false, unavailable }: { stats: Promise<TaskOverviewStats | null>; count: Counted; urgent?: boolean; unavailable: string }) {
   const value = await stats;

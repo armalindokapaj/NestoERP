@@ -54,7 +54,7 @@ export default async function ClientFinancePage({ params }: Params) {
     <div className="space-y-5">
       {can(context, "finance.receivables.view") ? (
         <section className="nesto-card p-5">
-          <h2 className="text-card font-semibold text-fg">{t("financePage.outstanding")}</h2>
+          <h2 className="nesto-section-head">{t("financePage.outstanding")}</h2>
           <CurrencyTotals
             totals={[...outstanding.entries()]
               .sort(([a], [b]) => a.localeCompare(b))

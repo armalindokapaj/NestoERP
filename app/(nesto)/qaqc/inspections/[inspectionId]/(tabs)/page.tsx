@@ -59,7 +59,7 @@ export default async function InspectionPage({ params }: Params) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.details")}</h2>
+            <h2 className="nesto-section-head">{t("detail.details")}</h2>
             <DetailGrid
               className="mt-4"
               items={[
@@ -130,7 +130,7 @@ export default async function InspectionPage({ params }: Params) {
           {showMaterial ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">{t("inspectionPage.material")}</h2>
+                <h2 className="nesto-section-head">{t("inspectionPage.material")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">
                   {t("inspectionPage.materialBody")}
                 </p>
@@ -148,7 +148,7 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.defects.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("inspectionPage.defectsRaised")}</h2>
+              <h2 className="nesto-section-head">{t("inspectionPage.defectsRaised")}</h2>
               <DefectTable
                 defects={inspection.defects}
                 caption={t("inspectionPage.defectsCaption", { number: inspection.inspectionNumber })}
@@ -158,14 +158,14 @@ export default async function InspectionPage({ params }: Params) {
 
           {inspection.ncrs.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("inspectionPage.nonConformances")}</h2>
+              <h2 className="nesto-section-head">{t("inspectionPage.nonConformances")}</h2>
               <NcrTable ncrs={inspection.ncrs} caption={t("inspectionPage.ncrsCaption", { number: inspection.inspectionNumber })} />
             </section>
           ) : null}
 
           {inspection.correctiveActions.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-card font-semibold text-fg">{t("detail.correctiveActions")}</h2>
+              <h2 className="nesto-section-head">{t("detail.correctiveActions")}</h2>
               <CorrectiveActionTable
                 actions={inspection.correctiveActions}
                 showParent={false}
@@ -177,7 +177,7 @@ export default async function InspectionPage({ params }: Params) {
           {inspection.reinspections.length > 0 ? (
             <section className="space-y-3">
               <div>
-                <h2 className="text-card font-semibold text-fg">{t("inspectionPage.reinspections")}</h2>
+                <h2 className="nesto-section-head">{t("inspectionPage.reinspections")}</h2>
                 <p className="mt-1 text-meta text-fg-subtle">
                   {t("inspectionPage.reinspectionsBody")}
                 </p>
@@ -213,7 +213,7 @@ export default async function InspectionPage({ params }: Params) {
 
         <div className="space-y-4">
           <section className="nesto-card p-5">
-            <h2 className="text-card font-semibold text-fg">{t("detail.record")}</h2>
+            <h2 className="nesto-section-head">{t("detail.record")}</h2>
             <dl className="mt-4 space-y-3">
               <Meta
                 label={t("detail.createdBy")}

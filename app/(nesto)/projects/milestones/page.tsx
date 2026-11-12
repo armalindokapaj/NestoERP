@@ -246,7 +246,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
 
         <div className="grid gap-5 lg:grid-cols-3">
           <section className="nesto-card px-5 py-4" aria-labelledby="by-status">
-            <h2 id="by-status" className="text-card font-semibold text-fg">{t("report.byStatus")}</h2>
+            <h2 id="by-status" className="nesto-section-head">{t("report.byStatus")}</h2>
             <p className="text-meta text-fg-muted">{t("report.byStatusBody")}</p>
             <ul className="mt-3 space-y-2.5">
               {report.byStatus.map((row) => (
@@ -255,15 +255,15 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
                     <span className="text-fg">{t(`milestoneStatus.${row.status}`)}</span>
                     <span className="font-medium tabular-nums text-fg">{row.count}</span>
                   </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hover" aria-hidden="true">
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${(row.count / maxStatus) * 100}%` }} />
+                  <div className="mt-1 h-1.5 overflow-hidden bg-hover" aria-hidden="true">
+                    <div className="h-full bg-accent" style={{ width: `${(row.count / maxStatus) * 100}%` }} />
                   </div>
                 </li>
               ))}
             </ul>
           </section>
           <section className="nesto-card min-w-0 lg:col-span-2" aria-labelledby="portfolio">
-            <h2 id="portfolio" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.portfolio")}</h2>
+            <h2 id="portfolio" className="px-5 pt-4 nesto-section-head">{t("report.portfolio")}</h2>
             <p className="px-5 text-meta text-fg-muted">{t("report.portfolioBody")}</p>
             <ScrollRegion label={t("report.portfolio")} className="mt-2">
             {/* This and the two summaries below are a card per project (phase) on a phone (mobile audit 2b). */}
@@ -311,14 +311,14 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
         </div>
 
         <section className="nesto-card" aria-labelledby="overdue">
-          <h2 id="overdue" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.overdue")}</h2>
+          <h2 id="overdue" className="px-5 pt-4 nesto-section-head">{t("report.overdue")}</h2>
           <ListScope shown={report.overdue.length} total={report.listTotals.overdue} order={t("report.mostOverdue")} />
           <MilestoneTable rows={report.overdue} caption={t("report.overdue")} empty={t("report.nothingOverdue")} testId="report-overdue" />
           <div className="h-2" />
         </section>
 
         <section className="nesto-card" aria-labelledby="variance">
-          <h2 id="variance" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.forecastVariance")}</h2>
+          <h2 id="variance" className="px-5 pt-4 nesto-section-head">{t("report.forecastVariance")}</h2>
           <p className="px-5 text-meta text-fg-muted">{t("report.varianceBody")}</p>
           <ListScope shown={report.variance.length} total={report.listTotals.variance} order={t("report.largestSlips")} />
           <MilestoneTable rows={report.variance} caption={t("report.forecastVariance")} empty={t("report.noBaseline")} testId="report-variance" />
@@ -326,7 +326,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
         </section>
 
         <section className="nesto-card" aria-labelledby="critical">
-          <h2 id="critical" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.criticalMilestones")}</h2>
+          <h2 id="critical" className="px-5 pt-4 nesto-section-head">{t("report.criticalMilestones")}</h2>
           <ListScope shown={report.critical.length} total={report.listTotals.critical} order={t("report.lateFirst")} />
           <MilestoneTable rows={report.critical} caption={t("report.criticalMilestones")} empty={t("report.noCritical")} testId="report-critical" />
           <div className="h-2" />
@@ -335,7 +335,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
         {report.byProject.length > 1 || report.byPhase.length ? (
           <div className="grid gap-5 lg:grid-cols-2">
             <section className="nesto-card min-w-0" aria-labelledby="by-project">
-              <h2 id="by-project" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.byProject")}</h2>
+              <h2 id="by-project" className="px-5 pt-4 nesto-section-head">{t("report.byProject")}</h2>
               <ScrollRegion label={t("report.byProject")} className="mt-2">
               <table className="w-full min-w-[480px] border-collapse text-table" data-stack="">
                 <thead>
@@ -369,7 +369,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
             </section>
             {report.byPhase.length ? (
               <section className="nesto-card min-w-0" aria-labelledby="by-phase">
-                <h2 id="by-phase" className="px-5 pt-4 text-card font-semibold text-fg">{t("report.byPhase")}</h2>
+                <h2 id="by-phase" className="px-5 pt-4 nesto-section-head">{t("report.byPhase")}</h2>
                 <ScrollRegion label={t("report.byPhase")} className="mt-2">
                 <table className="w-full min-w-[400px] border-collapse text-table" data-stack="">
                   <thead>
@@ -401,7 +401,7 @@ export default async function MilestonesPage({ searchParams }: { searchParams: P
 
         {settings ? (
           <section aria-labelledby="planning-settings" className="max-w-2xl space-y-2">
-            <h2 id="planning-settings" className="text-card font-semibold text-fg">{t("report.settings")}</h2>
+            <h2 id="planning-settings" className="nesto-section-head">{t("report.settings")}</h2>
             {/* A filter change asked first and replaces the form, as the full reload it once was did (AUD-03 §4). */}
             <PlanningSettingsForm key={JSON.stringify(query)} initial={settings} />
           </section>

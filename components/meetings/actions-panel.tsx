@@ -104,7 +104,7 @@ export function ActionsPanel({ meeting, onChange, openOnly = false, limit }: { m
   return (
     <section aria-labelledby={`actions-heading-${openOnly ? "open" : "all"}`} className="space-y-3" data-testid="actions-panel">
       <div className="flex items-center justify-between gap-2">
-        <h2 id={`actions-heading-${openOnly ? "open" : "all"}`} className="text-card font-semibold text-fg">
+        <h2 id={`actions-heading-${openOnly ? "open" : "all"}`} className="nesto-section-head">
           {openOnly ? t("actions.next") : t("actions.items")} <span className="ml-1 text-table font-normal text-fg-subtle">{openOnly ? openCount : meeting.actions.length}</span>
         </h2>
         {caps.canCreateAction && !open && !openOnly ? (

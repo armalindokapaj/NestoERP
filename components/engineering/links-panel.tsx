@@ -81,7 +81,7 @@ export function LinksPanel({
     <section className="nesto-card min-w-0 p-5" aria-labelledby={`${apiBase}-links`} data-testid="links-panel">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={`${apiBase}-links`} className="text-card font-semibold text-fg">
+          <h2 id={`${apiBase}-links`} className="nesto-section-head">
             {title ?? t("links.title")}
           </h2>
           <p className="mt-0.5 text-table text-fg-muted">{description ?? t("links.description")}</p>

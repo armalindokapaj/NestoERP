@@ -242,7 +242,7 @@ export function AnnouncementEditor({
               <button
                 key={template.key}
                 type="button"
-                className="rounded-full border border-line px-2.5 py-0.5 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg"
+                className="border border-line px-2.5 py-0.5 text-meta text-fg-muted transition-colors hover:border-line-strong hover:text-fg"
                 onClick={() => setValues((current) => ({ ...current, title: current.title || t(`templates.${template.key}.title`), body: t(`templates.${template.key}.body`), priority: template.priority ?? current.priority, audienceType: template.audienceType ?? current.audienceType, requiresAcknowledgment: template.requiresAcknowledgment ?? current.requiresAcknowledgment }))}
               >
                 {t(`templates.${template.key}.label`)}
@@ -423,7 +423,7 @@ export function AnnouncementEditor({
       <aside className={cn("space-y-3 lg:sticky lg:top-24 lg:self-start", !preview && "hidden lg:block")} aria-label={t("editor.preview")}>
         <p className="text-meta font-medium uppercase tracking-[0.08em] text-fg-subtle">{t("editor.preview")}</p>
         <article className="rounded-xl border border-line bg-surface px-6 py-5">
-          <h2 className="text-section font-semibold tracking-tight text-fg">{values.title || t("editor.untitled")}</h2>
+          <h2 className="nesto-section-head tracking-tight text-fg">{values.title || t("editor.untitled")}</h2>
           <div className="mt-4">{values.body.trim() ? <AnnouncementBody body={values.body} /> : <p className="text-table text-fg-subtle">{t("editor.previewEmpty")}</p>}</div>
         </article>
       </aside>

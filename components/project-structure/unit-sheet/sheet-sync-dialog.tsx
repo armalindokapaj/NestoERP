@@ -173,7 +173,7 @@ function ReadFailure({ message, code, onRetry, onDownload, words }: { message: s
         <ol className="space-y-1.5 text-table text-fg-muted">
           {[t("unitSheet.link.how1"), t("unitSheet.link.how2"), t("unitSheet.link.how3")].map((step, index) => (
             <li key={index} className="flex gap-2.5">
-              <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full text-micro font-semibold text-fg ring-1 ring-line-strong">
+              <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center text-micro font-semibold text-fg ring-1 ring-line-strong">
                 {index + 1}
               </span>
               <span className="min-w-0">{step}</span>
@@ -259,7 +259,7 @@ function PreviewBody({
                   data-testid={`sheet-count-${chip.key}`}
                   data-count={chip.count}
                   className={cn(
-                    "inline-flex h-7 items-center rounded-full border px-2.5 text-meta font-medium tabular-nums transition-colors touch:h-9 disabled:cursor-default",
+                    "inline-flex h-7 items-center border px-2.5 text-meta font-medium tabular-nums transition-colors touch:h-9 disabled:cursor-default",
                     chip.count === 0 || chip.tone === "muted"
                       ? "border-line bg-surface text-fg-muted"
                       : chip.tone === "warning"

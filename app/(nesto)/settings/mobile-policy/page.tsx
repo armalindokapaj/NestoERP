@@ -27,7 +27,7 @@ export default async function MobilePolicyPage() {
       {view.group ? (
         <section className="nesto-card p-6" aria-labelledby="policy-group-title" data-testid="policy-group">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="policy-group-title" className="text-card font-semibold text-fg">{t("admin.policy.levels.group")} · {view.group.label}</h2>
+            <h2 id="policy-group-title" className="nesto-section-head">{t("admin.policy.levels.group")} · {view.group.label}</h2>
             {view.group.version ? <span className="text-meta text-fg-subtle">{t("admin.policy.version", { version: view.group.version })}</span> : null}
           </div>
           <div className="mt-4">
@@ -39,7 +39,7 @@ export default async function MobilePolicyPage() {
       {view.companies.map((company) => (
         <section key={company.target.scope === "COMPANY" ? company.target.id : "company"} className="nesto-card p-6" data-testid="policy-company">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-card font-semibold text-fg">{t("admin.policy.levels.company")} · {company.label}</h2>
+            <h2 className="nesto-section-head">{t("admin.policy.levels.company")} · {company.label}</h2>
             {company.version ? <span className="text-meta text-fg-subtle">{t("admin.policy.version", { version: company.version })}</span> : null}
           </div>
           {!view.companyOverrideAllowed ? <p className="mt-2 text-meta text-fg-muted">{t("admin.policy.lockedByGroup")}</p> : null}

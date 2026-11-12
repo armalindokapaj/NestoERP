@@ -363,7 +363,7 @@ function EntryForm({
                 key={value}
                 type="button"
                 onClick={() => setDuration(formatMinutes(value))}
-                className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-meta tabular-nums transition-colors touch:min-h-11 touch:px-3.5", minutes === value ? "border-accent/40 bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}
+                className={cn("inline-flex items-center border px-2.5 py-1 text-meta tabular-nums transition-colors touch:min-h-11 touch:px-3.5", minutes === value ? "border-accent/40 bg-accent-soft text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg")}
               >
                 {formatMinutes(value)}
               </button>

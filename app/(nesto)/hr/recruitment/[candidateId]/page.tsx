@@ -71,7 +71,7 @@ export default async function CandidatePage({ params }: Props) {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="nesto-card p-5" aria-labelledby="candidate-identity">
-          <h2 id="candidate-identity" className="text-card font-semibold text-fg">
+          <h2 id="candidate-identity" className="nesto-section-head">
             {t("recruitment.identity")}
           </h2>
           <dl className="mt-3">
@@ -85,7 +85,7 @@ export default async function CandidatePage({ params }: Props) {
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="candidate-position">
-          <h2 id="candidate-position" className="text-card font-semibold text-fg">
+          <h2 id="candidate-position" className="nesto-section-head">
             {t("recruitment.companyDepartment")}
           </h2>
           <dl className="mt-3">
@@ -100,7 +100,7 @@ export default async function CandidatePage({ params }: Props) {
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="candidate-employment">
-          <h2 id="candidate-employment" className="text-card font-semibold text-fg">
+          <h2 id="candidate-employment" className="nesto-section-head">
             {t("tabs.employment")}
           </h2>
           {candidate.employment ? (
@@ -115,7 +115,7 @@ export default async function CandidatePage({ params }: Props) {
         </section>
 
         <section className="nesto-card p-5" aria-labelledby="candidate-account">
-          <h2 id="candidate-account" className="text-card font-semibold text-fg">
+          <h2 id="candidate-account" className="nesto-section-head">
             {t("columns.nestoAccount")}
           </h2>
           <dl className="mt-3" data-testid="candidate-account">
@@ -139,7 +139,7 @@ export default async function CandidatePage({ params }: Props) {
 
         {candidate.notes ? (
           <section className="nesto-card p-5 lg:col-span-2" aria-labelledby="candidate-notes">
-            <h2 id="candidate-notes" className="text-card font-semibold text-fg">
+            <h2 id="candidate-notes" className="nesto-section-head">
               {t("attendance.notes")}
             </h2>
             <p className="mt-3 whitespace-pre-line text-table text-fg">{candidate.notes}</p>

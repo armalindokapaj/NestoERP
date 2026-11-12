@@ -78,7 +78,7 @@ export default async function AccessPage({ searchParams }: Props) {
   const requested = one(params.view);
   const view = keeps && (requested === "roles" || requested === "check") ? requested : "grants";
   const tab = (active: boolean) =>
-    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
 
   return (
     <ModulePage
@@ -119,7 +119,7 @@ async function GrantsView({ context, status }: { context: UserContext; status: s
   const query = grantListQuerySchema.parse({ status: status === "all" ? "all" : "live" });
   const [grants, options, t, modules] = await Promise.all([listAccessGrants(context, query), grantOptions(context), getTranslations("organization"), getTranslations("modules")]);
   const chip = (active: boolean) =>
-    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
   return (
     <section className="space-y-3" aria-label={t("access.delegated")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -223,7 +223,7 @@ async function RolesView({ role: requested, t }: { role: string | undefined; t: 
   };
   const role: RoleKey = requested && isMembershipRoleKey(requested) ? requested : "OWNER";
   const chip = (active: boolean) =>
-    cn("inline-flex items-center rounded-full border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
+    cn("inline-flex items-center border px-3 py-1 text-table transition-colors touch:min-h-11", active ? "border-accent/40 bg-accent-soft font-medium text-accent-strong" : "border-line text-fg-muted hover:border-line-strong hover:text-fg");
   const rows = MODULE_KEYS.filter((key) => key !== "dashboard")
     .map((key) => ({ key, label: moduleName(modules, key, moduleRegistry[key].label), member: defaultAccessFor(role, key, "MEMBER"), manager: defaultAccessFor(role, key, "COMPANY_MANAGER"), head: defaultAccessFor(role, key, "GROUP_HEAD") }))
     .filter((row) => row.member.accessLevel !== "NONE" || row.manager.accessLevel !== "NONE" || row.head.accessLevel !== "NONE");
@@ -237,7 +237,7 @@ async function RolesView({ role: requested, t }: { role: string | undefined; t: 
         ))}
       </nav>
       <div className="nesto-card p-5">
-        <h2 className="text-card font-semibold text-fg">{roleName(role)}</h2>
+        <h2 className="nesto-section-head">{roleName(role)}</h2>
         <p className="mt-1 text-table text-fg-muted">{roleDescription(role)}</p>
         <p className="mt-2 text-meta text-fg-subtle">
           {t("access.positionNote", { role: roleName(role) })}

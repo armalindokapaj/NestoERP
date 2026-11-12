@@ -94,7 +94,7 @@ export default async function CrewPage({ params }: { params: Promise<{ crewId: s
 function Members({ t, accountLabel, title, members, manage, empty }: { t: Translate<"workforce">; accountLabel: (status: CrewMemberDTO["accountStatus"]) => string; title: string; members: CrewMemberDTO[]; manage: boolean; empty: string }) {
   return (
     <section className="nesto-card p-0" aria-label={title}>
-      <h2 className="border-b border-line px-5 py-3.5 text-card font-semibold text-fg">{title}</h2>
+      <h2 className="border-b border-line px-5 py-3.5 nesto-section-head">{title}</h2>
       {members.length === 0 ? (
         <p className="px-5 py-6 text-table text-fg-muted">{empty}</p>
       ) : (

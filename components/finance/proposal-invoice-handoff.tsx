@@ -48,7 +48,7 @@ export async function ProposalInvoiceHandoff({
     <section className="nesto-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-card font-semibold text-fg">{t("proposal.title")}</h2>
+          <h2 className="nesto-section-head">{t("proposal.title")}</h2>
           <p className="mt-1 text-table text-fg-muted">
             {existing.length === 0
               ? t("proposal.none")

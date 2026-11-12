@@ -65,7 +65,7 @@ export function MiniCalendar({
             aria-label={dayHeading(day, zone, today, words)}
             aria-current={day === date ? "date" : undefined}
             className={cn(
-              "relative mx-auto grid size-8 place-items-center rounded-full text-meta tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+              "relative mx-auto grid size-8 place-items-center text-meta tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
               day.slice(0, 7) !== month.slice(0, 7) ? "text-fg-subtle/70" : "text-fg",
               day === date ? "bg-primary text-primary-fg" : day === today ? "font-semibold text-accent-strong" : "hover:bg-hover",
             )}

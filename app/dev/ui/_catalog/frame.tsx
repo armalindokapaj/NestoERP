@@ -62,7 +62,7 @@ export function CatalogEntry({
     <section id={id} aria-labelledby={`${id}-title`} className="border-t border-line py-8 first-of-type:border-t-0 first-of-type:pt-0">
       <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
         <div className="min-w-0">
-          <h2 id={`${id}-title`} className="text-section font-semibold text-fg">
+          <h2 id={`${id}-title`} className="nesto-section-head">
             {title}
             {/* The entry's `id` is the section's own, on <section>; the registry's anchor is its heading. */}
           </h2>
@@ -87,7 +87,7 @@ export function CatalogEntry({
 export function SpecimenGroup({ title, hint, children, className }: { title: string; hint?: string; children: React.ReactNode; className?: string }) {
   return (
     <div className="min-w-0">
-      <h3 className="text-card font-semibold text-fg">{title}</h3>
+      <h3 className="nesto-section-head">{title}</h3>
       {hint ? <p className="mt-0.5 text-meta text-fg-muted">{hint}</p> : null}
       <div className={cn("mt-3 flex flex-wrap items-start gap-x-6 gap-y-4", className)}>{children}</div>
     </div>

@@ -98,8 +98,8 @@ export function Variance({ days, short = false, className }: { days: number | nu
 export function ProgressBar({ value, label, className }: { value: number | null; label: string; className?: string }) {
   const width = Math.max(0, Math.min(100, value ?? 0));
   return (
-    <span className={cn("block h-1.5 w-full overflow-hidden rounded-full bg-line", className)} role="progressbar" aria-label={label} aria-valuenow={value ?? undefined} aria-valuemin={0} aria-valuemax={100}>
-      <span className="block h-full rounded-full bg-accent transition-[width]" style={{ width: `${width}%` }} />
+    <span className={cn("block h-1.5 w-full overflow-hidden bg-line", className)} role="progressbar" aria-label={label} aria-valuenow={value ?? undefined} aria-valuemin={0} aria-valuemax={100}>
+      <span className="block h-full bg-accent transition-[width]" style={{ width: `${width}%` }} />
     </span>
   );
 }
