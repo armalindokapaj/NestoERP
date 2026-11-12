@@ -1041,7 +1041,6 @@ export const projectsEn = {
     actions: "Actions",
     inactive: "Inactive",
     bed: " · {count} bed",
-    grossSuffix: "{area} gross",
     pagination: "Pagination",
     of: "of",
     previous: "Previous",

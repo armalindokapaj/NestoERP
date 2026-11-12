@@ -1,6 +1,13 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// A record with an address draws the app's link, which asks the router for itself.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined, back: () => undefined, forward: () => undefined, prefetch: () => undefined }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/projects/p/units",
+}));
 
 import { MobileRecordCard, MobileRecordRow } from "@/components/data/mobile-record";
 import {
@@ -150,6 +157,14 @@ describe("mobile record presentation (MOB-03 §9-§13)", () => {
     expect(out).toContain("ARVELA Group");
     expect(out).toContain("min-h-14");
     expect(out).not.toContain("<dt");
+  });
+
+  it("a row ends on its chevron, or on its own actions in the chevron's place (2026-11-12)", () => {
+    const plain = html(React.createElement(MobileRecordRow, { href: "/projects/p/units/u", title: "A-101" }));
+    expect(plain).toContain("data-card-chevron");
+    const withActions = html(React.createElement(MobileRecordRow, { href: "/projects/p/units/u", title: "A-101", actions: React.createElement("button", { type: "button" }, "⋯") }));
+    expect(withActions).toContain("data-card-actions");
+    expect(withActions).not.toContain("data-card-chevron");
   });
 
   it("passes hook attributes to the root for tests and analytics", () => {

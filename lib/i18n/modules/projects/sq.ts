@@ -1022,7 +1022,6 @@ export const projectsSq: typeof projectsEn = {
     actions: "Veprimet",
     inactive: "Joaktive",
     bed: " · {count} dhoma gjumi",
-    grossSuffix: "{area} bruto",
     pagination: "Faqosja",
     of: "nga",
     previous: "E mëparshme",

@@ -244,8 +244,13 @@ choice on the right: its title (*Floor 9 — Block A*), its counts, its actions,
 then search, filters (type, orientation, position, bedrooms, bathrooms, area
 ranges), sort, the unit table and 50 per page. Inside one floor the Building and
 Floor columns are left out. Phone and tablet: Building and Floor dropdowns in
-place of the tree, units as cards. The URL holds the choice (`?floor=` or
-`?building=`) and the filters.
+place of the tree; from md the table, and on a phone the units as Sales units
+lists them (2026-11-12) — compact lines in one lined block: the code with its
+gross area, the floor and type under it, the price over the status badge at the
+right, then the unit's ⋯. A line opens the unit in its panel. Tick boxes come
+with **Select** (or by themselves once a unit on the page is ticked, as Fill in
+does), so a line keeps its room for the unit. The URL holds the choice
+(`?floor=` or `?building=`) and the filters.
 
 - **Empty project:** *Set up project structure — Start by adding the first
   building.* with **Add building** for somebody who may.
@@ -301,7 +306,7 @@ replaces all three.
 | `tests/api/company/company-bootstrap.test.ts` | A new company starts with the default unit types; a rerun does not restore a removed one |
 | `tests/security/*` | The new routes are swept by discovery (Company A ↔ B, project isolation); `buildingId`, `floorId`, `unitId`, `unitTypeId` resolve to real rows. The harness now knows the shape of `ids`, `floors`, `units`, `defaults` and a floor `number` (`tests/security/harness/routes.ts`), so batch, copy and reorder requests get past validation and reach the lookup they attack — before, seven of these routes stopped at a 422 and proved nothing |
 | `tests/e2e/modules/project-structure.spec.ts` | A Project Manager builds a building, floors by range, units by pattern and a copied floor, opens a unit, moves it, changes its code; Sales reads without actions; a Company B unit is not found |
-| `tests/e2e/responsive/project-structure-mobile.spec.ts` | Building and floor dropdowns and unit cards on a phone |
+| `tests/e2e/responsive/project-structure-mobile.spec.ts` | Building and floor dropdowns and the units' compact lines on a phone |
 | `tests/perf/project-structure.perf.test.ts` | Opt-in (`NESTO_PERF=1`): 10 buildings × 25 floors × 40 units = 10,000. P95 locally: tree 10 ms, one floor 7 ms, filtered and sorted 30 ms, first page 157 ms, page 150 182 ms, search 183 ms (target 500). The tree takes as many queries at 10,000 units as at 126; a page as many at 100 rows as at 5 |
 
 ## Limits

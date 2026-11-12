@@ -21,7 +21,7 @@ import { AddUnitsDialog, splitFloors } from "./add-units-dialog";
 import { failureMessage, structureApi } from "./structure-ui";
 import { UnitDialog } from "./unit-dialog";
 import { activeCount, EMPTY_FILTERS, filterParams, type UnitFilters } from "./unit-filters";
-import { UnitActionSheet, UnitRowMenu, type UnitRowActions } from "./unit-table";
+import { hasActions, UnitActionSheet, UnitRowMenu, type UnitRowActions } from "./unit-table";
 import { canChangeTogether, fetchSelection, SelectionHelp, useUnitBulk } from "./unit-list/unit-bulk";
 import { rowFromUnit, selectedFromRow, type UnitListRow } from "./unit-list/unit-list-row";
 import { UnitListTable } from "./unit-list/unit-list-table";
@@ -685,10 +685,15 @@ export function StructureWorkspace({
                 const unit = units.items.find((item) => item.id === row.id);
                 return unit ? <UnitRowMenu unit={unit} href={`/projects/${projectId}/units/${unit.id}`} index={index} count={units.items.length} actions={unitActions} /> : null;
               }}
-              cardActions={(row, index) => {
-                const unit = units.items.find((item) => item.id === row.id);
-                return unit ? <UnitActionSheet unit={unit} href={`/projects/${projectId}/units/${unit.id}`} index={index} count={units.items.length} actions={unitActions} /> : null;
-              }}
+              // Only for somebody with a unit action: a phone line without one keeps its chevron.
+              cardActions={
+                hasActions(unitActions)
+                  ? (row, index) => {
+                      const unit = units.items.find((item) => item.id === row.id);
+                      return unit ? <UnitActionSheet unit={unit} href={`/projects/${projectId}/units/${unit.id}`} index={index} count={units.items.length} actions={unitActions} /> : null;
+                    }
+                  : undefined
+              }
             />
             {bulk.bar}
           </div>

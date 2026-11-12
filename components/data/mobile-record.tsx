@@ -164,10 +164,11 @@ export function MobileRecordCard({ href, title, subtitle, status, value, leading
 }
 
 /**
- * The compact pattern: one tight block, identity first, a trailing chevron.
+ * The compact pattern: one tight block, identity first, a trailing chevron —
+ * or, on a row with its own actions, the actions' ⋯ in the chevron's place.
  * At least 56px tall so the whole row is a comfortable target.
  */
-export function MobileRecordRow({ href, title, subtitle, status, value, leading, facts = [], actions, selection, label, selected, className, data }: MobileRecordProps) {
+export function MobileRecordRow({ href, title, subtitle, status, value, leading, facts = [], actions, selection, label, selected, className, data, onOpen }: MobileRecordProps) {
   const meta = facts.map((fact) => fact.value).filter(Boolean);
   return (
     <li
@@ -187,7 +188,7 @@ export function MobileRecordRow({ href, title, subtitle, status, value, leading,
       <div className="min-w-0 flex-1 leading-tight">
         <div className="text-body font-medium text-fg [overflow-wrap:anywhere] [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal">
           {href ? (
-            <Link href={href} data-card-link aria-label={label} className={stretchedLink}>
+            <Link href={href} data-card-link aria-label={label} className={stretchedLink} onClick={onOpen}>
               {title}
             </Link>
           ) : (
@@ -208,8 +209,8 @@ export function MobileRecordRow({ href, title, subtitle, status, value, leading,
       </div>
       {status ? <div className="relative z-10 shrink-0">{status}</div> : null}
       {value ? <div className="shrink-0 text-body font-semibold tabular-nums text-fg">{value}</div> : null}
-      {actions ? <div data-card-actions className="relative z-10 shrink-0 empty:hidden">{actions}</div> : null}
-      {href ? <ChevronRight aria-hidden="true" data-card-chevron="" className="size-4 shrink-0 text-fg-subtle" /> : null}
+      {actions ? <div data-card-actions className="relative z-10 -mr-2 shrink-0 empty:hidden">{actions}</div> : null}
+      {href && !actions ? <ChevronRight aria-hidden="true" data-card-chevron="" className="size-4 shrink-0 text-fg-subtle" /> : null}
     </li>
   );
 }

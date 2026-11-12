@@ -188,12 +188,12 @@ test.describe("projects (D-01-*)", () => {
     await expectNoPageOverflow(page, "planning milestones");
   });
 
-  test("MW-05 a unit card carries its gross area and price (D-01-07)", async ({ page }, testInfo) => {
-    test.skip(outsideProjects(testInfo, PHONE), "phone cards only");
+  test("MW-05 a unit's phone line carries its gross area and price (D-01-07)", async ({ page }, testInfo) => {
+    test.skip(outsideProjects(testInfo, PHONE), "phone lines only");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a/units" });
     const card = mainRegion(page).getByTestId("unit-card").first();
     await expect(card).toBeVisible();
-    await expect(mainRegion(page).getByTestId("unit-card-more").first()).toBeVisible();
+    await expect(mainRegion(page).getByTestId(/^unit-card-(area|price)$/).first()).toBeVisible();
     await expectTouchTargets(page, card);
     await expectNoPageOverflow(page, "units");
   });

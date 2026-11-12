@@ -4,7 +4,7 @@ import * as React from "react";
 import { ChevronLeft, ChevronRight } from "@/components/icons";
 
 import { useLocale, useTranslations } from "@/components/i18n/i18n-provider";
-import { MobileRecordCard } from "@/components/data/mobile-record";
+import { MobileRecordCard, MobileRecordRow } from "@/components/data/mobile-record";
 import Link from "@/components/navigation/nav-link";
 import { useFeedbackRouter } from "@/components/navigation/navigation-feedback";
 import { SalesLabel } from "@/components/sales/sales-text";
@@ -29,8 +29,10 @@ import type { UnitListRow } from "./unit-list-row";
  * columns — Units: Unit, Type, Floor, Bedrooms, Gross, Total price; Sales:
  * Unit (its type under it), Floor, Bedrooms, Area, Status, Total price, price
  * per m², and Client, Deal and Expires once a unit on screen is reserved or
- * sold — but the same code ("T-501"), the same words, the same row tints, the
- * same tick boxes and the same phone and tablet cards.
+ * sold — but the same code ("T-501"), the same words, the same row tints and
+ * the same tick boxes. Below the table Units is a phone's compact lines, as
+ * Sales units draws its list (2026-11-12), and Sales its record cards, which
+ * carry the reservation and its actions.
  *
  * The whole row opens the unit; the tick box and the menu at the row's ends do
  * not. With `onOpen` (2026-11-09) a click — or Enter on the code — opens the
@@ -75,10 +77,10 @@ function StatusWords({ row }: { row: UnitListRow }) {
 }
 
 /** One line under the Units table naming the row colours (2026-11-09): For sale, Reserved, Sold. Other rows stay plain. */
-export function ColourKey() {
+export function ColourKey({ className }: { className?: string }) {
   const t = useTranslations("projects");
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-fg-muted" data-testid="unit-colour-key">
+    <p className={cn("mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-fg-muted", className)} data-testid="unit-colour-key">
       <span className="sr-only">{t("unitTable.colourKey")}</span>
       {COMMERCIAL_KEY.map((entry) => (
         <span key={entry.status} className="inline-flex items-center gap-1.5">
@@ -175,6 +177,12 @@ export function UnitListTable({
       : undefined;
   /** The cell's value, or its "Add" while it is empty and the reader may fill it in. */
   const orAdd = (row: UnitListRow, field: PanelField, value: React.ReactNode) => (onOpen && offersAdd(row, field, addable) ? <AddCell row={row} field={field} onOpen={onOpen} /> : value);
+  // Units on a phone ticks as the shared phone lists do (components/data/selection.tsx): the boxes come with
+  // Select, or by themselves once a unit on the page is ticked (Fill in, Select all), so a line keeps its room.
+  const tUi = useTranslations("ui");
+  const [choosing, setChoosing] = React.useState(false);
+  const pageTicked = selection ? rows.some((row) => selection.isSelected(row.id)) : false;
+  const boxes = Boolean(selection) && (choosing || pageTicked);
 
   return (
     <div className={loading ? "opacity-60 transition-opacity" : undefined} aria-busy={loading}>
@@ -305,60 +313,104 @@ export function UnitListTable({
         </Table>
       </div>
 
-      {/* Phone and tablet (MOB-03 §45): the shared record card, with its tick box. The unit opens from the whole card. */}
-      <ul className={cn("space-y-2", cardsShown)} data-testid={ids.cards}>
-        {rows.map((row, index) => {
-          const more = sales
-            ? [areaText(row.saleArea, locale) + (areaWord(row) ? ` ${areaWord(row)}` : ""), row.pricePerSqm !== null ? perSqmLabel(row.pricePerSqm, row.currency, locale) : null].filter(Boolean)
-            : [row.grossArea !== null ? t("unitTable.grossSuffix", { area: areaText(row.grossArea, locale) }) : null, row.askingPrice ? price(row) : null].filter(Boolean);
-          const reservation = sales && (row.client || row.reservationExpiresAt) ? [row.client?.name ?? null, row.reservationExpiresAt ? t("unitTable.expiresOn", { date: formatDate(row.reservationExpiresAt, locale) }) : null].filter(Boolean).join(" · ") : null;
-          return (
-            <MobileRecordCard
-              key={row.id}
-              data={{ "data-testid": ids.card, "data-unit-code": row.unitCode, "data-status": sales ? row.saleStatus : row.status }}
-              href={href(row)}
-              onOpen={openFromLink(row)}
-              selection={selection ? <span className="grid size-11 place-items-center"><RowTick row={row} selection={selection} /></span> : undefined}
-              selected={selection?.isSelected(row.id)}
-              title={
-                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-body font-semibold text-fg">
-                    {row.label}
-                    {sales ? null : <StatusWords row={row} />}
+      {sales ? (
+        // The Sales tab on a phone and tablet (MOB-03 §45): the shared record card, with its tick box. The unit opens from the whole card.
+        <ul className={cn("space-y-2", cardsShown)} data-testid={ids.cards}>
+          {rows.map((row, index) => {
+            const more = [areaText(row.saleArea, locale) + (areaWord(row) ? ` ${areaWord(row)}` : ""), row.pricePerSqm !== null ? perSqmLabel(row.pricePerSqm, row.currency, locale) : null].filter(Boolean);
+            const reservation = row.client || row.reservationExpiresAt ? [row.client?.name ?? null, row.reservationExpiresAt ? t("unitTable.expiresOn", { date: formatDate(row.reservationExpiresAt, locale) }) : null].filter(Boolean).join(" · ") : null;
+            return (
+              <MobileRecordCard
+                key={row.id}
+                data={{ "data-testid": ids.card, "data-unit-code": row.unitCode, "data-status": row.saleStatus }}
+                href={href(row)}
+                onOpen={openFromLink(row)}
+                selection={selection ? <span className="grid size-11 place-items-center"><RowTick row={row} selection={selection} /></span> : undefined}
+                selected={selection?.isSelected(row.id)}
+                title={
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-body font-semibold text-fg">{row.label}</span>
+                    <span className="text-table font-normal text-fg-muted">{unitTypeName(row.typeName, locale)}</span>
+                    {row.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
+                    {row.archived ? <Badge data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
                   </span>
-                  <span className="text-table font-normal text-fg-muted">{unitTypeName(row.typeName, locale)}</span>
-                  {row.isActive ? null : <Badge>{t("unitTable.inactive")}</Badge>}
-                  {row.archived ? <Badge data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
-                </span>
-              }
-              status={sales ? <CommercialStatusBadge status={row.saleStatus} /> : undefined}
-              subtitle={
-                <span className="text-meta text-fg-subtle">
-                  {floorName(row.floorName, locale)}
-                  {row.bedrooms !== null ? t("unitTable.bed", { count: row.bedrooms }) : ""}
-                  {sales && row.askingPrice ? ` · ${price(row)}` : ""}
-                </span>
-              }
-              extra={
-                more.length > 0 || reservation ? (
+                }
+                status={<CommercialStatusBadge status={row.saleStatus} />}
+                subtitle={
+                  <span className="text-meta text-fg-subtle">
+                    {floorName(row.floorName, locale)}
+                    {row.bedrooms !== null ? t("unitTable.bed", { count: row.bedrooms }) : ""}
+                    {row.askingPrice ? ` · ${price(row)}` : ""}
+                  </span>
+                }
+                extra={
+                  more.length > 0 || reservation ? (
+                    <>
+                      {more.length > 0 ? (
+                        <p className="mt-1 text-meta text-fg-subtle" data-testid="sales-card-more">
+                          {more.join(" · ")}
+                        </p>
+                      ) : null}
+                      {reservation ? <p className="mt-1 text-meta text-fg-muted">{reservation}</p> : null}
+                    </>
+                  ) : null
+                }
+                actions={cardActions?.(row, index)}
+                className={cn("p-3", COMMERCIAL_CARD_TINT[row.status])}
+              />
+            );
+          })}
+        </ul>
+      ) : (
+        // Units on a phone (2026-11-12): Sales units' compact lines in one lined block — the code with its gross
+        // area, the floor and type under it, the price over the status at the right, the unit's ⋯, and the tick
+        // box while ticking. The whole line opens the unit; the status is said by its badge, not a tint.
+        <>
+          {selection && !pageTicked ? (
+            <div className={cn("mb-2 flex justify-end", cardsShown)}>
+              <Button type="button" variant="secondary" size="sm" aria-pressed={choosing} onClick={() => setChoosing(!choosing)} data-testid="unit-select-mode">
+                {choosing ? tUi("doneSelecting") : tUi("select")}
+              </Button>
+            </div>
+          ) : null}
+          <ul className={cn("nesto-card overflow-hidden", cardsShown)} data-testid={ids.cards}>
+            {rows.map((row, index) => (
+              <MobileRecordRow
+                key={row.id}
+                data={{ "data-testid": ids.card, "data-unit-code": row.unitCode, "data-status": row.status }}
+                href={href(row)}
+                onOpen={openFromLink(row)}
+                label={[row.label, floorName(row.floorName, locale), unitTypeName(row.typeName, locale)].join(", ")}
+                selection={boxes && selection ? <span className="-ml-3 grid size-11 place-items-center"><RowTick row={row} selection={selection} /></span> : undefined}
+                selected={selection?.isSelected(row.id)}
+                title={
                   <>
-                    {more.length > 0 ? (
-                      <p className="mt-1 text-meta text-fg-subtle" data-testid={sales ? "sales-card-more" : "unit-card-more"}>
-                        {more.join(" · ")}
-                      </p>
+                    <span className="whitespace-nowrap tabular-nums">{row.label}</span>
+                    {row.grossArea !== null ? (
+                      <span className="ml-2 whitespace-nowrap text-table font-normal tabular-nums text-fg-subtle" data-testid="unit-card-area">
+                        {areaText(row.grossArea, locale)}
+                      </span>
                     ) : null}
-                    {reservation ? <p className="mt-1 text-meta text-fg-muted">{reservation}</p> : null}
+                    {row.isActive ? null : <Badge className="ml-2">{t("unitTable.inactive")}</Badge>}
+                    {row.archived ? <Badge className="ml-2" data-testid="unit-archived">{t("publication.ARCHIVED")}</Badge> : null}
                   </>
-                ) : null
-              }
-              actions={cardActions?.(row, index)}
-              className={cn("p-3", COMMERCIAL_CARD_TINT[row.status])}
-            />
-          );
-        })}
-      </ul>
+                }
+                subtitle={`${floorName(row.floorName, locale)} · ${unitTypeName(row.typeName, locale)}`}
+                value={
+                  <span className="flex flex-col items-end gap-1">
+                    {row.askingPrice ? <span data-testid="unit-card-price">{price(row)}</span> : null}
+                    <CommercialStatusBadge status={row.saleStatus} />
+                  </span>
+                }
+                actions={cardActions?.(row, index)}
+              />
+            ))}
+          </ul>
+        </>
+      )}
 
-      {sales ? null : <ColourKey />}
+      {/* The row colours, where rows are tinted: the Units table from md (a phone line says its status with a badge). */}
+      {sales ? null : <ColourKey className="max-md:hidden" />}
 
       {range.totalPages > 1 ? (
         <nav aria-label={t("unitTable.pagination")} className="mt-3 flex flex-wrap items-center justify-between gap-3">

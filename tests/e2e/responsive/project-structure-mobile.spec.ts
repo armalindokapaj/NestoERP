@@ -5,7 +5,7 @@ import { STRUCTURE_SEED } from "../structure-fixtures";
 
 /**
  * Project structure on a phone (E-05B §33): no tree, a Building and a Floor
- * dropdown, units as cards, search, and a card opening the unit in a
+ * dropdown, units as compact lines, search, and a line opening the unit in a
  * full-height sheet, and from there its page. Reads
  * only, so nothing needs putting back.
  */
