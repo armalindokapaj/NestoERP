@@ -63,6 +63,8 @@ export const sq: Messages = {
       companySettings: "Cilësimet e kompanisë",
       platformAdmin: "Administrimi i platformës",
       appearance: "Pamja",
+      theme: "Tema",
+      support: "Ndihmë",
       light: "E çelët",
       dark: "E errët",
       system: "Sistemi",

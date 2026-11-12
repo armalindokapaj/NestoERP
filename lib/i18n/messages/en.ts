@@ -74,6 +74,8 @@ export const en = {
       companySettings: "Company Settings",
       platformAdmin: "Platform Admin",
       appearance: "Appearance",
+      theme: "Theme",
+      support: "Help",
       light: "Light",
       dark: "Dark",
       system: "System",

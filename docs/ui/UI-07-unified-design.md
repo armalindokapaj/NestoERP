@@ -1,7 +1,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/ui/UI-07-unified-design.md
 > **About:** Bringing every module and page, on desktop and phone, to the one design of My Day, the dashboard and the public site — the rules decided with the owner, what each wave changed, and what is left — for whoever builds or reviews a page next.
-> **Last updated:** 2026-11-12 (wave 2: the app-wide sweep — shared lines, mono labels, display titles)
+> **Last updated:** 2026-11-12 (the account panel redrawn, §4)
 
 # UI-07 — One design across the app
 
@@ -79,7 +79,25 @@ someone, which this environment cannot render (no database).
   page's hero loses its decorative circle and shadow, its title in the
   display face.
 
-## 4. Not in scope
+## 4. The account panel
+
+The panel the avatar at the top right opens (`components/shell/account-panel.tsx`),
+redrawn in the drawing set, 352px wide:
+
+- **You, at the top:** the same gold disc as the button that opened it, your
+  name in the display face, your role in mono capitals beside the workspace.
+  The whole block opens your profile; a chevron says so.
+- **Three lined sections under mono captions** — Account (settings, company
+  or group settings, platform admin), Appearance, Help — then Sign out alone
+  at the foot, in red.
+- **Rows that leave the panel carry a chevron;** controls that change
+  something in place are square segmented choices that show their state:
+  Theme `LIGHT | DARK` and Language `EN | SQ`. The language was a flag that
+  cycled on a click; it is now both languages, the current one filled, so
+  nobody has to guess what a click will do. Both are radio groups: arrow
+  keys move the choice.
+
+## 5. Not in scope
 
 - The public site (`app/(public)`, `components/marketing`), which is the
   reference.
