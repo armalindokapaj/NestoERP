@@ -3,13 +3,16 @@
 import { OPEN_QUICK_CREATE_EVENT } from "@/components/layout/phone-bar";
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Plus, X } from "@/components/icons";
+import { Loader2, Plus, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";
 import { useFeedbackRouter, useNavigationFeedback } from "@/components/navigation/navigation-feedback";
 import { useToast } from "@/components/ui/toast";
+import { QUICK_CREATE_BY_KEY } from "@/config/quick-create";
 import { WORKSPACE_CHANGED, type WorkspaceChange } from "@/config/workspace";
+import { CREATE_ICONS } from "@/components/layout/create-icons";
+import { cn } from "@/lib/utils/cn";
 import type { QuickCreateShellDTO } from "@/lib/modules/quick-create/context-key";
 import {
   createMenuCache,
@@ -28,10 +31,18 @@ import { aimPointer, PanelPointer } from "@/components/ui/popup-pointer";
 import { createPanelLoader, usePanelModule, usePanelOpen, useWarmIntent } from "@/lib/navigation/panel-host";
 
 /**
- * `+ Create` (Quick Create PRD §4-§7, §13-§20, §34, §37-§50, §69-§71, §129, §150-§156;
+ * Create (Quick Create PRD §4-§7, §13-§20, §34, §37-§50, §69-§71, §129, §150-§156;
  * NAV-01 QC-01..QC-12).
  *
- * The button and the `C` shortcut come from the shell's summary — whether this
+ * From lg it is the Create dial (docs/ui/UI-06-create-dial.md), after
+ * tirana.7fstudio.com's section dial: a round + floating at the bottom right.
+ * A pointer resting on it, or focus, fans out the person's five above it — their
+ * role's (config/create-dial.ts), each a round button with its name beside it —
+ * and one of them opens its create flow at once. A click on the + opens the whole
+ * menu above it, as `C` does. Below lg there is no dial: New in the phone's bar
+ * opens the menu as a sheet.
+ *
+ * The dial and the `C` shortcut come from the shell's summary — whether this
  * person may create anything here — so nothing is fetched to draw them. The
  * menu is asked for only when the person opens it: never on mount, on a route
  * change or on a workspace event (NAV-01 §1). It is the server's answer, only
@@ -137,6 +148,12 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
   const [projects, setProjects] = React.useState<ProjectsState>({ status: "loading" });
   const [project, setProject] = React.useState("");
   const [stepNotice, setStepNotice] = React.useState<string | null>(null);
+  /** The dial's five, fanned out above the + (from lg). */
+  const [dialOpen, setDialOpen] = React.useState(false);
+  const dialRef = React.useRef<HTMLDivElement>(null);
+  const dialClose = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** A touch on the + fans the five out; the click that follows it must not also open the menu. */
+  const touchFan = React.useRef(false);
 
   /** The open panel's generation: every async answer checks it before it lands (QC-09). */
   const openGeneration = React.useRef(0);
@@ -189,6 +206,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
   // A route change closes an open panel and cancels its work; with the panel closed it does nothing at all (QC-08).
   React.useEffect(() => {
     if (openedPath.current !== null && openedPath.current !== pathname) dismiss();
+    setDialOpen(false);
   }, [pathname, dismiss]);
 
   // A workspace change drops every menu. The switch a launch asked for lets that launch finish (QC-11, Q19, Q20).
@@ -255,6 +273,40 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     setRecent(readRecent(userKey));
     loadMenu();
   }, [pathname, userKey, loadMenu, setOpen]);
+
+  /** Fans the five out, and reads the menu ahead so the one chosen launches at once. */
+  const fanOut = React.useCallback(() => {
+    if (dialClose.current) clearTimeout(dialClose.current);
+    dialClose.current = null;
+    const path = menuPathname(pathname);
+    if (!dialOpen && !open && !cache.peek(path)) void cache.load(path);
+    setDialOpen(true);
+  }, [dialOpen, open, pathname, cache]);
+  /** Folds the five away a moment after the pointer leaves, so crossing the gap between two of them keeps them out. */
+  const foldSoon = React.useCallback(() => {
+    if (dialClose.current) clearTimeout(dialClose.current);
+    dialClose.current = setTimeout(() => setDialOpen(false), 200);
+  }, []);
+  React.useEffect(() => () => {
+    if (dialClose.current) clearTimeout(dialClose.current);
+  }, []);
+  React.useEffect(() => {
+    if (!dialOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setDialOpen(false);
+      triggerRef.current?.focus({ preventScroll: true });
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (!dialRef.current?.contains(event.target as Node)) setDialOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer);
+    };
+  }, [dialOpen]);
 
   // "C" opens Create — the same path as the button, before any menu has ever loaded (§44, QC-03).
   React.useEffect(() => {
@@ -505,6 +557,45 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     void launch(action, null, null);
   }
 
+  /**
+   * One of the dial's five: its flow, straight away — the company or the project
+   * asked for in the panel above the + when the flow needs one, else launched.
+   * The menu is read fresh first, as a launch from the panel would be (QC-07).
+   */
+  async function pick(key: string) {
+    setDialOpen(false);
+    openGeneration.current += 1;
+    openedPath.current = pathname;
+    const generation = openGeneration.current;
+    const result = await cache.load(menuPathname(pathname));
+    if (generation !== openGeneration.current) return;
+    if (!result.ok) {
+      if (result.reason !== "cancelled" && result.reason !== "superseded") toast({ title: result.reason === "offline" ? t("quickCreate.offline") : t("quickCreate.unavailable"), tone: "danger" });
+      return;
+    }
+    setMenuState({ status: "ready", menu: result.menu });
+    const action = result.menu.actions.find((entry) => entry.key === key);
+    if (!action) {
+      toast({ title: t("quickCreate.unavailable"), tone: "danger" });
+      return;
+    }
+    setStepNotice(null);
+    if (action.companies) {
+      const pageCompany = result.menu.context?.company ?? null;
+      setCompany(pageCompany && action.companies.some((entry) => entry.id === pageCompany.id) ? pageCompany.id : action.companies.length === 1 ? action.companies[0].id : "");
+      setStep({ kind: "company", action });
+      setOpen(true);
+      return;
+    }
+    if (action.needsProject) {
+      setStep({ kind: "project", action, company: null });
+      setOpen(true);
+      void loadProjects(action, null);
+      return;
+    }
+    void launch(action, null, null);
+  }
+
   function continueWithCompany(action: QuickCreateActionDTO) {
     const chosen = action.companies?.find((entry) => entry.id === company) ?? null;
     if (!chosen) {
@@ -526,32 +617,89 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     setStep({ kind: "menu" });
   }
 
+  const dial = summary.dial;
   return (
-    // Below lg nothing of it is in the bar's row: the trigger is hidden and the panel is fixed above the phone's bar.
+    // Below lg nothing of it is in the bar's row: the dial is not drawn and the panel is fixed above the phone's bar.
     <div className="relative max-lg:contents">
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => (open ? close() : openPanel())}
-        aria-label={t("quickCreate.create")}
-        aria-keyshortcuts="C"
-        title={tc("shell.createShortcut")}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-none bg-primary px-4 text-body font-medium text-primary-fg transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-lg:hidden lg:max-xl:w-10 lg:max-xl:px-0 touch:h-11 touch:min-w-11"
-        data-testid="quick-create-button"
-        {...warm}
+      {/* From lg: the Create dial, floating at the bottom right (docs/ui/UI-06-create-dial.md). */}
+      <div
+        ref={dialRef}
+        data-create-dial=""
+        data-dial-open={dialOpen || undefined}
+        className="fixed bottom-[max(40px,calc(env(safe-area-inset-bottom)+16px))] right-[max(30px,calc(env(safe-area-inset-right)+12px))] z-40 max-lg:hidden"
+        onPointerEnter={(event) => event.pointerType === "mouse" && fanOut()}
+        onPointerLeave={(event) => event.pointerType === "mouse" && foldSoon()}
+        onFocus={(event) => {
+          // A keyboard landing on the + fans the five out; focus handed back as the panel closes does not.
+          if (!open && event.target.matches(":focus-visible")) fanOut();
+        }}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDialOpen(false);
+        }}
       >
-        <Plus aria-hidden="true" className="size-4" />
-        {/* Between lg and xl the bar has room for the + alone; its name is the button's label. */}
-        <span className="hidden md:inline lg:max-xl:hidden">{t("quickCreate.create")}</span>
-      </button>
+        <button
+          ref={triggerRef}
+          type="button"
+          onPointerDown={(event) => {
+            // A finger has no hover: its first touch fans the five out, a second opens everything.
+            touchFan.current = event.pointerType !== "mouse" && !dialOpen && !open;
+          }}
+          onClick={() => {
+            if (touchFan.current) {
+              touchFan.current = false;
+              fanOut();
+              return;
+            }
+            setDialOpen(false);
+            if (open) close();
+            else openPanel();
+          }}
+          aria-label={t("quickCreate.create")}
+          aria-keyshortcuts="C"
+          title={tc("shell.createShortcut")}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          className={cn(
+            "relative z-[2] grid size-[62px] place-items-center rounded-full bg-primary text-primary-fg shadow-[0_0_0_1px_rgb(255_255_255/0.08),0_10px_24px_-10px_rgb(15_20_26/0.55),0_2px_6px_rgb(15_20_26/0.18)] transition-transform duration-250 ease-out hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-95",
+            (dialOpen || open) && "scale-[1.08]",
+          )}
+          data-testid="quick-create-button"
+          {...warm}
+        >
+          <Plus aria-hidden="true" className={cn("size-[26px] transition-transform duration-300 ease-out", open && "rotate-45")} />
+        </button>
+        {dial.length > 0 ? (
+          <ul aria-label={t("quickCreate.dialLabel")} data-testid="create-dial">
+            {dial.map((key, index) => {
+              const label = t(`quickCreate.actions.${key.replace(/\./g, "_")}` as "quickCreate.actions.tasks_task_create");
+              const Icon = launching === key ? Loader2 : (CREATE_ICONS[QUICK_CREATE_BY_KEY.get(key)?.icon ?? ""] ?? Plus);
+              return (
+                <li key={key}>
+                  <button
+                    type="button"
+                    aria-label={t("quickCreate.createNamed", { name: label })}
+                    onClick={() => void pick(key)}
+                    data-testid={`create-dial-${key}`}
+                    className="nesto-dial-item group absolute bottom-[9px] right-[9px] z-[1] grid size-11 place-items-center rounded-full bg-surface text-fg shadow-[0_0_0_1px_var(--color-line-strong),0_8px_18px_-10px_rgb(15_20_26/0.45)] hover:bg-accent hover:text-accent-fg focus-visible:bg-accent focus-visible:text-accent-fg focus-visible:outline-none"
+                    style={{ "--i": index, "--n": dial.length, "--ty": `${-(72 + 52 * index)}px` } as React.CSSProperties}
+                  >
+                    <Icon aria-hidden="true" className={cn("size-5", launching === key && "animate-spin")} />
+                    <span
+                      aria-hidden="true"
+                      className="absolute right-[52px] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-[7px] bg-canvas/92 px-[9px] py-[7px] font-mono text-meta font-medium uppercase leading-none tracking-[0.08em] text-fg shadow-[0_0_0_1px_var(--color-line-strong)] group-hover:bg-accent group-hover:text-accent-fg group-hover:shadow-none group-focus-visible:bg-accent group-focus-visible:text-accent-fg group-focus-visible:shadow-none"
+                    >
+                      {label}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </div>
 
-      {/* From lg the panel opens under the button, its right edge on the button's — Create stands at the
-          inner edge of the bar's left side — and starts on the bar's lower edge, like every panel opened from the top bar
-          (lib/layout/topbar-line.ts). The wrapper is centred in the bar's row, so half its height plus half
-          the row's is the row's lower edge.
+      {/* From lg the panel stands above the dial's +, its right edge on the dial's, pointing down at it.
           Below lg it is New's sheet: square glass across the screen, standing on the phone's bar, the page dimmed
           behind it; a tap on the page, Escape, its close or New again closes it. */}
       {open ? <div aria-hidden="true" className="fixed inset-x-0 top-0 bottom-(--nesto-bottom-nav-space) z-40 bg-[rgb(15_20_26/0.28)] lg:hidden" /> : null}
@@ -562,11 +710,11 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
-          className="fixed inset-x-0 bottom-(--nesto-bottom-nav-space) z-50 mx-auto flex max-h-[calc(100dvh-var(--nesto-bottom-nav-space)-var(--nesto-topbar-row-h)-1rem)] max-w-xl flex-col border-t border-line-strong bg-canvas/90 outline-none backdrop-blur-[16px] backdrop-saturate-[1.3] sm:border-x lg:absolute lg:inset-auto lg:right-0 lg:top-[calc(50%+var(--nesto-topbar-row-h)/2)] lg:mx-0 lg:max-h-[calc(100dvh-var(--nesto-topbar-row-h)-1.5rem)] lg:w-80 lg:max-w-none lg:border lg:border-line lg:bg-surface lg:shadow-menu lg:backdrop-blur-none lg:touch:mt-3"
+          className="fixed inset-x-0 bottom-(--nesto-bottom-nav-space) z-50 mx-auto flex max-h-[calc(100dvh-var(--nesto-bottom-nav-space)-var(--nesto-topbar-row-h)-1rem)] max-w-xl flex-col border-t border-line-strong bg-canvas/90 outline-none backdrop-blur-[16px] backdrop-saturate-[1.3] sm:border-x lg:inset-auto lg:bottom-[calc(max(40px,calc(env(safe-area-inset-bottom)+16px))+62px+14px)] lg:right-[max(30px,calc(env(safe-area-inset-right)+12px))] lg:mx-0 lg:max-h-[calc(100dvh-var(--nesto-shell-header-h)-10rem)] lg:w-80 lg:max-w-none lg:border lg:border-line lg:bg-surface lg:shadow-menu lg:backdrop-blur-none"
           data-testid="quick-create-panel"
           data-state={step.kind === "menu" ? menuState.status : step.kind}
         >
-          <PanelPointer side="above" className="max-lg:hidden!" />
+          <PanelPointer side="below" className="max-lg:hidden!" />
           {Body ? (
             <Body
               panelId={panelId}

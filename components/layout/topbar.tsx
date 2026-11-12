@@ -4,7 +4,7 @@ import { HomeLink, ModulesPanel } from "@/components/layout/modules-panel";
 import { PhoneInbox } from "@/components/layout/phone-inbox";
 import { PhoneTitle } from "@/components/layout/phone-title";
 import { QuickCreate } from "@/components/layout/quick-create";
-import { RibbonPanel, RibbonProvider, RibbonTabs, RibbonUnits } from "@/components/layout/ribbon";
+import { RibbonPanel, RibbonProvider, RibbonTabs } from "@/components/layout/ribbon";
 import { AccountPanel } from "@/components/shell/account-panel";
 import type { Navigation } from "@/config/navigation";
 import { can, canAccessModule } from "@/lib/access/can";
@@ -16,16 +16,17 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * The one top bar (PRD #3 §16, §76; UI-01 §5; docs/ui/UI-04-navigation-layouts.md).
  * Identical for every role, and it stays at the top as the page scrolls.
  *
- *   [ logo · Home ·     Units · + Create ]   ( Work | Company | Sales | Procurement | Finance )   [ Search…     ⌘K · bell · account ]
+ *   [ logo · Home ]   ( Work | Company | Sales | Procurement | Finance )   [ Search…     ⌘K · bell · account ]
  *
  * Three columns, the two sides equal: from `lg` each side is the same width
  * (`--nesto-bar-side`), its content running from the outer edge to the inner
  * one, so the Ribbon's tabs sit in the middle with the same space either side.
- * The left is where you are and what you make — the logo, which opens every
- * module in a panel on the left third of the screen; the company name, Home;
- * Units, pinned for every role that may see units; + Create. The right is the
- * universal cluster in its order, Search, Notifications, Account (UI-01 §1),
- * the search field taking what is left.
+ * The left is where you are — the logo, which opens every module in a panel
+ * on the left third of the screen, and the company name, Home. The right is
+ * the universal cluster in its order, Search, Notifications, Account (UI-01 §1),
+ * the search field taking what is left. Create is not in the bar: from `lg` it
+ * floats at the bottom right, a + that fans out the five things this person
+ * makes most (components/layout/quick-create.tsx, docs/ui/UI-06-create-dial.md).
  * Every control is 40px and every label 14px medium, on one centre line.
  * Under the bar, the open tab's ribbon, which folds away to leave the bar alone.
  *
@@ -74,7 +75,7 @@ export async function Topbar({
       >
         {/* Below lg: Back, and where you are. */}
         <PhoneTitle />
-        {/* From lg: where you are and what you make. Below lg only Quick Create's panel is left of it, opened by New in the phone's bar. */}
+        {/* From lg: where you are. Quick Create is mounted here but drawn elsewhere: the dial at the bottom right from lg, New's sheet below it. */}
         <div className="col-start-1 flex min-w-0 items-center gap-1.5 max-lg:contents lg:w-full lg:max-w-(--nesto-bar-side)">
           <div className="contents max-lg:hidden">
             <ModulesPanel navigation={navigation} />
@@ -87,9 +88,6 @@ export async function Topbar({
               <span className="sr-only">{shell("demoDisclaimer")}</span>
             </span>
           ) : null}
-          {/* From lg, Units and + Create stand at the side's inner edge, as the search field does on the right. */}
-          <span aria-hidden="true" className="hidden flex-1 lg:block" />
-          <RibbonUnits navigation={navigation} />
           {/* Only what this person may create here; hidden when that is nothing (Quick Create §4, §150). The menu loads only when opened (NAV-01 QC-01). */}
           <QuickCreate userKey={context.userId} summary={core.quickCreate} />
         </div>

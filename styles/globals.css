@@ -368,7 +368,7 @@
      * (AUD-04 §6, MW-08). `focus()` and `scrollIntoView()` both honour it.
      */
     scroll-padding-top: calc(var(--nesto-sticky-cover) + 1rem);
-    scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);
+    scroll-padding-bottom: calc(var(--nesto-bottom-reserve, 0px) + var(--nesto-dial-space, 0px));
   }
 
   /*
@@ -461,6 +461,17 @@
     html:has([data-mobile-bottom-nav]) {
       --nesto-bottom-nav-space: 0px;
       --nesto-bottom-reserve: 0px;
+    }
+  }
+
+  /*
+   * The desktop Create dial floats at the bottom right from lg, 62px standing
+   * 40px off the edge (components/layout/quick-create.tsx). The end of a page,
+   * focus scrolling and toasts keep clear of it by this much.
+   */
+  @media (min-width: 1024px) {
+    html:has([data-create-dial]) {
+      --nesto-dial-space: 6.5rem;
     }
   }
 
@@ -640,13 +651,54 @@
    * `data-gutter="none"` is for a container nested inside one that already
    * has gutters.
    */
+  /*
+   * The Create dial's five (components/layout/quick-create.tsx): folded behind
+   * the + and shrunk, they spring up the column when it opens, the nearest
+   * first, and fold back the farthest first. Each carries its place: --i from
+   * the +, --n of them, --ty how far up it stands.
+   */
+  /* Folded, they are hidden once the fold has played: no click, no tab stop, nothing read out. */
+  .nesto-dial-item {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(0) scale(0.4);
+    transition:
+      transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) calc((var(--n) - var(--i)) * 18ms),
+      opacity 0.2s ease calc((var(--n) - var(--i)) * 18ms),
+      visibility 0s linear calc((var(--n) - var(--i)) * 18ms + 0.3s),
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  [data-dial-open] .nesto-dial-item {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(var(--ty)) scale(1);
+    transition:
+      transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) calc(var(--i) * 32ms),
+      opacity 0.2s ease calc(var(--i) * 32ms),
+      visibility 0s,
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nesto-dial-item {
+      transform: translateY(var(--ty)) scale(1);
+      transition: opacity 0.15s ease, visibility 0s linear 0.15s;
+    }
+    [data-dial-open] .nesto-dial-item {
+      transition: opacity 0.15s ease, visibility 0s;
+    }
+  }
+
   .nesto-page {
     margin-inline: auto;
     width: 100%;
     min-width: 0;
     max-width: var(--nesto-content-max-width);
     padding-top: var(--nesto-space-page-y);
-    padding-bottom: calc(max(var(--nesto-space-page-y-end), var(--nesto-safe-bottom)) + var(--nesto-bottom-nav-space, 0px));
+    padding-bottom: calc(max(var(--nesto-space-page-y-end), var(--nesto-safe-bottom)) + var(--nesto-bottom-nav-space, 0px) + var(--nesto-dial-space, 0px));
     padding-left: max(var(--nesto-space-page-x), var(--nesto-safe-left));
     padding-right: max(var(--nesto-space-page-x), var(--nesto-safe-right));
   }

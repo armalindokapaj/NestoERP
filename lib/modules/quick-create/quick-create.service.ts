@@ -175,7 +175,8 @@ export async function resolveLaunch(session: UserContext, input: { actionKey: st
   }
   if (action.ownership === "PROJECT" && !project) throw refuse("QUICK_CREATE_PROJECT_REQUIRED", "Choose a Project to continue.", "VALIDATION_ERROR");
 
-  const params = new URLSearchParams();
+  // A register's own create dialog opens from its fixed parameters (`query`); the context below adds to them.
+  const params = new URLSearchParams(action.query ?? {});
   let path = action.route;
   const put = (spec: string | undefined, values: string[]) => {
     if (!spec) return;

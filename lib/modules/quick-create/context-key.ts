@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { workspaceKey } from "@/config/workspace";
 import type { UserContext } from "@/lib/context/types";
+import { dialActions } from "@/config/create-dial";
 import { canOpenQuickCreate, eligibleActions } from "@/lib/modules/quick-create/eligibility";
 
 /**
@@ -35,12 +36,21 @@ export type QuickCreateShellDTO = {
   canOpen: boolean;
   /** Opaque UI cache namespace; never an access credential. */
   contextKey: string;
+  /**
+   * The desktop Create dial's actions, nearest the + first: this person's role's
+   * five they may create here (config/create-dial.ts). Drawn at once; launching
+   * one asks the server again, as every Quick Create launch does.
+   */
+  dial: string[];
 };
 
 /** The trigger's summary, from contexts the shell already holds — no query of its own (QC-01). */
 export function quickCreateShellSummary(session: UserContext, candidates: UserContext[]): QuickCreateShellDTO {
+  // In the Group workspace an action counts when any company of the group allows it, as the menu's does.
+  const eligible = [...new Set(eligibleActions(session.workspace.scopeType, candidates).flatMap((entry) => entry.actions))];
   return {
     canOpen: canOpenQuickCreate(session.workspace.scopeType, candidates),
     contextKey: quickCreateContextKey(session, candidates),
+    dial: dialActions(session.role, eligible),
   };
 }

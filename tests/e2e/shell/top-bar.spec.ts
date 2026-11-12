@@ -81,6 +81,32 @@ test("+ Create offers Finance an invoice, and a viewer with nothing to create se
   await viewer.close();
 });
 
+test("the Create dial fans out each user type's five, and one of them opens its create page", async ({ page }) => {
+  await signIn(page, "SALES", { to: "/dashboard" });
+  const create = page.getByTestId("quick-create-button");
+  const dial = page.getByTestId("create-dial");
+  // Folded until the + is hovered: nothing to click, nothing to tab to.
+  await expect(dial.locator("button")).toHaveCount(5);
+  await expect(page.getByTestId("create-dial-sales.lead.create")).toBeHidden();
+  await create.hover();
+  for (const name of ["Lead", "Client", "Opportunity", "Proposal", "Meeting"]) await expect(dial.getByRole("button", { name: `Create ${name}` })).toBeVisible();
+  await expect(dial.locator("button")).toHaveCount(5);
+  // The nearest the + is the role's first.
+  const first = (await page.getByTestId("create-dial-sales.lead.create").boundingBox())!;
+  const second = (await page.getByTestId("create-dial-clients.client.create").boundingBox())!;
+  expect(first.y).toBeGreaterThan(second.y);
+  await page.getByTestId("create-dial-sales.lead.create").click();
+  await expect(page).toHaveURL(/\/sales\/leads\/new$/);
+
+  // Escape folds it away; a click on the + itself opens every action.
+  await create.hover();
+  await expect(page.getByTestId("create-dial-sales.lead.create")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("create-dial-sales.lead.create")).toBeHidden();
+  await create.click();
+  await expect(page.getByTestId("quick-create-panel").getByTestId("quick-create-sales.lead.create")).toBeVisible();
+});
+
 test("the bell opens the Activity Center without reading anything, and View all opens /activity", async ({ page }) => {
   const engineer = await memberIdFor("engineer@nesto.test");
   const row = await db.notification.create({
@@ -139,14 +165,22 @@ test("every panel opened from the top bar starts on its row's lower edge; search
     return (await panel.boundingBox())!;
   };
 
-  // + Create opens below its button, its right edge on the button's: Create sits at the bar's right.
+  // Create is not in the bar: its + floats at the bottom right, and its panel stands above it, the right edges one.
+  await expect(page.getByTestId("topbar-units")).toHaveCount(0);
   const create = page.getByTestId("quick-create-button");
-  await create.click();
-  const menu = await placed(page.getByTestId("quick-create-panel"));
+  const viewport = page.viewportSize()!;
   const button = (await create.boundingBox())!;
+  expect(Math.round(button.width)).toBe(62);
+  expect(Math.round(viewport.width - (button.x + button.width))).toBe(30);
+  expect(Math.round(viewport.height - (button.y + button.height))).toBe(40);
+  await create.click();
+  const panel = page.getByTestId("quick-create-panel");
+  await expect(panel).toBeVisible();
+  const menu = (await panel.boundingBox())!;
   expect(Math.abs(menu.x + menu.width - (button.x + button.width))).toBeLessThanOrEqual(1);
+  expect(menu.y + menu.height).toBeLessThan(button.y);
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("quick-create-panel")).toHaveCount(0);
+  await expect(panel).toHaveCount(0);
 
   // Search: a third of the content's width, never under 352px, in the middle of it; the page stays in view around it.
   await page.getByTestId("search-trigger").click();

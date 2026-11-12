@@ -72,7 +72,10 @@ describe("the shell", () => {
     expect(shell).not.toContain("Dock");
     expect(shell).not.toMatch(/<Sidebar\b/);
     const topbar = read("components/layout/topbar.tsx");
-    for (const part of ["<RibbonProvider", "<RibbonTabs", "<RibbonPanel", "<RibbonUnits", "<ModulesPanel", "<HomeLink", "<PhoneTitle", "<PhoneInbox"]) expect(topbar).toContain(part);
+    for (const part of ["<RibbonProvider", "<RibbonTabs", "<RibbonPanel", "<ModulesPanel", "<HomeLink", "<PhoneTitle", "<PhoneInbox", "<QuickCreate"]) expect(topbar).toContain(part);
+    // Units left the bar; Create floats at the bottom right from lg (components/layout/quick-create.tsx).
+    expect(topbar).not.toContain("RibbonUnits");
+    expect(read("components/layout/quick-create.tsx")).toContain("data-create-dial");
     // Inbox is in the top bar, beside search; the bar at the bottom keeps one height and no Inbox.
     const bar = read("components/layout/phone-bar.tsx");
     expect(bar).not.toContain("PHONE_INBOX");

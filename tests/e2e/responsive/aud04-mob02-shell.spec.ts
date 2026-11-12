@@ -126,7 +126,9 @@ test.describe("the bar", () => {
     await expect(bar(page)).toBeHidden();
     await expect(sectionRow(page)).toBeHidden();
     await expect(page.locator("[data-ribbon]")).toBeVisible();
+    // Create floats at the bottom right; Units is no longer in the top bar.
     await expect(page.getByTestId("quick-create-button")).toBeVisible();
+    await expect(page.getByTestId("topbar-units")).toHaveCount(0);
     await expect(page.getByTestId("account-trigger")).toBeVisible();
     await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeVisible();
     await expect(mainRegion(page).getByTestId("home-tasks")).toBeHidden();

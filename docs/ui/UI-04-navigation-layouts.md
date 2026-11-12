@@ -1,7 +1,7 @@
 > **Chat:** Nesto UI/UX — navigation study
 > **File:** docs/ui/UI-04-navigation-layouts.md
-> **About:** How a person moves around Nesto — one top bar with the Ribbon's five tabs (Work, Company, Sales, Procurement, Finance) and Units pinned beside + Create on a desktop, the logo's panel of every module, and on a phone a bar of Home, Projects, New and Menu, Inbox beside search at the top, and the page's sections in a row under the top bar; what each draws, where the code lives, and what comes next.
-> **Last updated:** 2026-11-12 (phone: Inbox beside search; the bar keeps one height; Sales units after New, and Units moved to /sales/units)
+> **About:** How a person moves around Nesto — one top bar with the Ribbon's five tabs (Work, Company, Sales, Procurement, Finance) on a desktop, Create floating at the bottom right, the logo's panel of every module, and on a phone a bar of Home, Projects, New and Menu, Inbox beside search at the top, and the page's sections in a row under the top bar; what each draws, where the code lives, and what comes next.
+> **Last updated:** 2026-11-12 (desktop: Units and + Create leave the top bar; Create is a dial at the bottom right, UI-06. Phone: Inbox beside search; the bar keeps one height; Sales units after New)
 
 # UI-04 — Navigation layouts
 
@@ -14,7 +14,7 @@ Units" on the canvas then spread the modules over five tabs and added Units.
 
 | Screen | Navigation |
 | --- | --- |
-| Desktop, from `lg` (1024px) | **One top bar** with the Ribbon's five tabs, and the open tab's ribbon under it |
+| Desktop, from `lg` (1024px) | **One top bar** with the Ribbon's five tabs, and the open tab's ribbon under it; **Create** a + floating at the bottom right (UI-06) |
 | Phone and tablet held upright, below `lg` | **The bar** — Home · Projects · New · Sales units · Menu — with Inbox beside search in the top bar; one layout for everyone |
 
 The Dock is retired, with its setting: one desktop layout. The breadcrumb bar
@@ -67,30 +67,31 @@ separate and unchanged.
   step, one layout per role (below, §9).
   ([Fiori launchpad spaces](https://www.sap.com/design-system/fiori-design-web/v1-139/foundations/integration-and-services/sap-fiori-launchpad/sap-fiori-launchpad-spaces), [Designing role centers](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-designing-role-centers))
 - **Real-estate developer ERPs** put the unit inventory at the centre, which is
-  why Units is pinned in the bar and leads the Sales tab.
+  why Units leads the Sales tab.
 
 ## 2. Desktop — the top bar
 
 `components/layout/topbar.tsx`, sticky at the top of every page:
 
-    [ logo · ⌂ Alba Construction ·   Units · + Create ]   ( Work | Company | Sales | Procurement | Finance )   [ Search…     ⌘K · bell · account ]
+    [ logo · ⌂ Alba Construction ]   ( Work | Company | Sales | Procurement | Finance )   [ Search…     ⌘K · bell · account ]
 
 - **Three columns, the two sides equal.** From `lg` the row is a grid,
   `minmax(0,1fr) auto minmax(0,1fr)`, and each side is the same width
   (`--nesto-bar-side`, 26rem, narrower when the window is). Each side's content
-  runs from the outer edge to the inner one — Units and + Create on the left,
+  runs from the outer edge to the inner one — the logo and Home on the left,
   the search field on the right — so the tabs in the middle have the same space
   on either side.
 - **One line, one size, one type.** Every control is 40px tall (44px on touch)
   and sits on the row's centre line, and every label is 14px medium with a 16px
-  icon: Home, Units, + Create, the tabs, the search field's text.
-- **The left is where you are and what you make; the right is the universal
-  cluster** in its order: Search, Notifications, Account (UI-01 §1).
+  icon: Home, the tabs, the search field's text.
+- **The left is where you are; the right is the universal cluster** in its
+  order: Search, Notifications, Account (UI-01 §1). What you make is not in
+  the bar: Create floats at the bottom right (below, and UI-06).
 - **Glass and square** (UI-05 §9). The bar and the open ribbon are glass: 82%
   of the page and a 14px blur, on a layer behind the header (a backdrop
   filter on the header itself would trap the phone's + Create sheet), so the
   page blurs as it scrolls under them. Every control is square with a line:
-  Home, Units, + Create, the search field, the bell, the five tabs (the open
+  Home, the search field, the bell, the five tabs (the open
   one in ink), the ribbon's buttons (the one you are in outlined in ink), the
   tab rows under page titles and the phone's tiles and bar. Labels stay 14px
   in sentence case — mono capitals are the site's.
@@ -105,12 +106,12 @@ separate and unchanged.
   Logout.
 - **Home** (`HomeLink`): a small house and the workspace's name. It goes to
   the Dashboard and switches nothing.
-- **Units** (`RibbonUnits`, `components/layout/ribbon.tsx`): pinned beside
-  + Create for every role that may see units. Inside a project it opens that
-  project's units; anywhere else, every unit across the projects (§4). Gold
-  while you are there. Below 1440px it is the icon alone.
-- **+ Create** stands at the inner edge of the left side; between `lg` and
-  `xl` it is the + alone. Its menu opens under it.
+- **Create** is not in the bar: a 62px + floats at the bottom right of every
+  page (`components/layout/quick-create.tsx`). Hovering it fans out the five
+  things this person's user type makes most; clicking it opens the full
+  Create menu above it. Each role's five, and why: UI-06.
+- **Units** is no longer pinned in the bar: it leads the Sales tab, is under
+  Sales in the logo's panel, and is the phone's Sales units (§4).
 - **The five tabs** are one segmented control in the middle column: the open
   tab raised on the track. The tab holding the page you are on carries the
   homepage's small gold square under its name, whichever tab is open, and with
@@ -146,7 +147,7 @@ share one state: `RibbonProvider` (around the bar's row and the panel),
 
 ![The Ribbon's Procurement tab on Orders](evidence/UI-04-ribbon-page.png)
 ![The Ribbon's Work tab, on the Dashboard](evidence/UI-04-ribbon-work.png)
-![Units for sale: the Sales tab, Units gold in the bar](evidence/UI-04-ribbon-units.png)
+![Units for sale: the Sales tab (taken while Units was still pinned in the bar)](evidence/UI-04-ribbon-units.png)
 ![The Company tab at 1024px](evidence/UI-04-ribbon-1024.png)
 ![The ribbon folded](evidence/UI-04-ribbon-folded.png)
 ![Scrolled: the list blurs under the glass bar, ribbon and tab row](evidence/UI-04-glass-scrolled.png)
@@ -159,8 +160,8 @@ share one state: `RibbonProvider` (around the bar's row and the panel),
 person may see, across the projects, by project, building and floor, 50 to a
 page, with a search by unit, project or type. A row opens the unit's sales
 page, `/sales/units/<unitId>` (`components/sales/sales-unit.tsx`; the rules are
-in `docs/unit-sales.md`), never its work page in the project. The top bar's
-Units, the Sales tab's Units set and the phone's Sales units all open it.
+in `docs/unit-sales.md`), never its work page in the project. The Sales tab's
+Units set, the logo's panel and the phone's Sales units all open it.
 
 - **No new module.** Units rides on Projects: the Projects switch, and
   `project.view` with `project.structure.view` — Sales' address, Projects'
@@ -274,8 +275,9 @@ database this environment does not have.
   search.
 - `tests/unit/navigation/navigation-layouts.test.ts`: the cookie reader, the
   phone's places (Sales units among them) and where Projects goes, and that
-  the shell draws one top bar with the Ribbon, Units, the logo's panel and
-  Home, and no Dock.
+  the shell draws one top bar with the Ribbon, the logo's panel and Home, no
+  Units and no Dock, and the Create dial.
+- `tests/unit/navigation/create-dial.test.ts`: each user type's five (UI-06).
 - `tests/unit/ux/aud05-navigation.test.ts`: every button of the Ribbon and the
   panel has a page, and no group is ever empty.
 - `tests/unit/a11y/theme-drift.test.ts`: the bar, ribbon and breadcrumb

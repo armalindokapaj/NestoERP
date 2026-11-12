@@ -122,12 +122,13 @@ describe("a page's actions on a phone (5b, docs/ui/UI-04-navigation-layouts.md Â
     expect(out).toBe('<div data-main-action="" class="contents"><button>Complete</button></div>');
   });
 
-  it("the page keeps room for the phone's bar alone; only a hand-made bar sends the bar away", () => {
+  it("the page keeps room for the phone's bar, and from lg the Create dial; only a hand-made bar sends the bar away", () => {
     const globals = css("globals.css");
     expect(globals).not.toContain("--nesto-action-bar");
     expect(globals).not.toContain("--nesto-keyboard-inset");
-    expect(globals).toMatch(/padding-bottom: calc\(max\(var\(--nesto-space-page-y-end\), var\(--nesto-safe-bottom\)\) \+ var\(--nesto-bottom-nav-space, 0px\)\);/);
-    expect(globals).toContain("scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);");
+    expect(globals).toMatch(/padding-bottom: calc\(max\(var\(--nesto-space-page-y-end\), var\(--nesto-safe-bottom\)\) \+ var\(--nesto-bottom-nav-space, 0px\) \+ var\(--nesto-dial-space, 0px\)\);/);
+    expect(globals).toContain("scroll-padding-bottom: calc(var(--nesto-bottom-reserve, 0px) + var(--nesto-dial-space, 0px));");
+    expect(globals).toMatch(/@media \(min-width: 1024px\) \{\s*html:has\(\[data-create-dial\]\) \{\s*--nesto-dial-space: 6\.5rem;/);
     expect(globals).toMatch(/html:has\(\[data-mobile-bottom-nav\]\) \{\s*\/\*[^*]*\*\/\s*--nesto-bottom-nav-space: calc\(4rem \+ var\(--nesto-safe-bottom\)\);/);
     expect(globals).toMatch(/html:has\(\[data-sticky-action-bar\]\) \[data-mobile-bottom-nav\]/);
   });

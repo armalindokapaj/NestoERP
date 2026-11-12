@@ -3,7 +3,7 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/unit-sales.md
 > **About:** How units are sold — the commercial status, prices, reservations, the sale, Sales units (/sales/units) and a unit's sales page — for whoever changes unit sales next.
-> **Last updated:** 2026-11-12 (Sales units and the unit's sales page; Sales files the buyer's contract)
+> **Last updated:** 2026-11-12 (Sales units and the unit's sales page; Sales files the buyer's contract; Units left the desktop top bar)
 
 Sales works on the same units E-05B created and E-05D publishes. There is no
 Sales copy of a unit, of a client or of a deal: a unit's commercial side is a
@@ -203,7 +203,7 @@ reopened, added to and removed from a deal.
 - **Sales units** `/sales/units` (2026-11-12) — every unit across the projects,
   as Sales sees them: status, price, buyer, areas, place; the views All, For
   sale, Reserved and Sold. The phone's bar has it right after New (*Sales
-  units*); the top bar's Units and the Sales tab's Units set open it on a
+  units*); the Sales tab's Units set and the logo's panel open it on a
   desktop. Everyone who may see units opens it; status, price and buyer need
   `project.unit.sales.view`. Details in `docs/ui/UI-04-navigation-layouts.md` §4.
 - **A unit's sales page** `/sales/units/:unitId` (2026-11-12,

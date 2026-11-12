@@ -54,12 +54,30 @@ function OpenButton({ label, onOpen, variant = "primary", icon = "plus", testId 
   );
 }
 
+/**
+ * Opened from Create (config/quick-create.ts, `query: { new: "1" }`): the dialog
+ * opens as the register arrives, and `new` leaves the address, so a reload or
+ * Back does not open it again.
+ */
+function useOpenOnArrival(autoOpen: boolean, load: () => Promise<boolean>, setOpen: (open: boolean) => void) {
+  const opened = React.useRef(false);
+  React.useEffect(() => {
+    if (!autoOpen || opened.current) return;
+    opened.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("new");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    void load().then((ok) => ok && setOpen(true));
+  }, [autoOpen, load, setOpen]);
+}
+
 /* RFIs --------------------------------------------------------------------- */
 
-export function NewRfiButton({ projectId, defaults }: { projectId: string; defaults?: Record<string, unknown> }) {
+export function NewRfiButton({ projectId, defaults, autoOpen = false }: { projectId: string; defaults?: Record<string, unknown>; autoOpen?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "rfi");
   const t = useEngineeringTranslations();
+  useOpenOnArrival(autoOpen, load, setOpen);
   return (
     <>
       <OpenButton label={t("dialogs.newRfi")} testId="new-rfi" onOpen={() => void load().then((ok) => ok && setOpen(true))} />
@@ -179,10 +197,11 @@ export function EditSubmittalButton({ projectId, submittal }: { projectId: strin
 
 /* Engineering documents ---------------------------------------------------- */
 
-export function NewDocumentButton({ projectId, drawing = false }: { projectId: string; drawing?: boolean }) {
+export function NewDocumentButton({ projectId, drawing = false, autoOpen = false }: { projectId: string; drawing?: boolean; autoOpen?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const { options, load, loaded } = useProjectOptions(projectId, "document");
   const t = useEngineeringTranslations();
+  useOpenOnArrival(autoOpen, load, setOpen);
   const label = drawing ? t("dialogs.registerDrawing") : t("dialogs.registerDocument");
   return (
     <>

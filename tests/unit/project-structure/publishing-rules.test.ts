@@ -204,8 +204,9 @@ describe("default role policy (§19, §120)", () => {
     }
     for (const [role, position] of [["SALES", "MEMBER"], ["SALES", "COMPANY_MANAGER"], ["FINANCE", "MEMBER"], ["VIEWER", "MEMBER"], ["ENGINEER", "MEMBER"]] as const) {
       const granted = permissionsForRole(role, position) as readonly string[];
-      // Selling a unit is E-05E's, and its contract and collection E-05F's; each is tested with its own rules.
-      const selling = (permission: string) => /^project\.unit\.(sales|sales_status|price|reserve|reservation|mark_sold|reopen_sale|sales_correct|sale|legal|contract|finance)\b/.test(permission);
+      // Selling a unit is E-05E's, and its contract and collection E-05F's; each is tested with its own rules
+      // (the buyer's signed contract Sales files: tests/unit/sales/sales-unit-contract.test.ts).
+      const selling = (permission: string) => /^project\.unit\.(sales|sales_status|price|reserve|reservation|mark_sold|reopen_sale|sales_correct|sale|sale_contract|legal|contract|finance)\b/.test(permission);
       expect(granted.filter((permission) => permission.startsWith("project.unit.") && permission !== "project.unit.publication_history.view" && !selling(permission)), role).toEqual([]);
     }
   });

@@ -10,7 +10,6 @@ import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { groupOfPath, isNavigationItemActive, isRibbonTab, itemForPath, type Navigation, type NavigationGroup, type NavigationItem, type RibbonTab } from "@/config/navigation";
 import { RIBBON_COOKIE } from "@/lib/layout/nav-layout";
-import { projectIdFrom } from "@/lib/navigation/phone";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -263,55 +262,6 @@ function RibbonButton({ item, active }: { item: NavigationItem; active: boolean 
       <Icon aria-hidden="true" className={cn("size-[22px] shrink-0", active ? "text-fg" : "text-fg-subtle")} />
       <span className="line-clamp-2 max-w-full">{item.label}</span>
       {pending ? <PendingDot className="absolute right-1.5 top-1.5 text-accent" /> : null}
-    </Link>
-  );
-}
-
-/**
- * Where Units goes: the units of the project you are in, else every unit
- * across the projects, as Sales sees them (/sales/units). Null when Units is not in this
- * person's navigation.
- */
-function useUnitsHref(navigation: Navigation): { href: string; current: boolean } | null {
-  const pathname = usePathname();
-  const units = navigation.menu.flatMap((group) => group.items).find((item) => item.key === "units");
-  if (!units) return null;
-  const project = projectIdFrom(pathname);
-  const href = project ? `/projects/${project}/units` : units.href;
-  return { href, current: pathname === href || pathname.startsWith(`${href}/`) };
-}
-
-/**
- * Units, pinned in the bar: every unit across the projects — or, inside a
- * project, that project's units — one click from any tab, for every role that
- * may see units. Below 1440px it is the icon alone, so the company's name
- * keeps its room.
- */
-export function RibbonUnits({ navigation }: { navigation: Navigation }) {
-  const t = useTranslations("shell");
-  const units = useUnitsHref(navigation);
-  const pending = usePendingDestination(units?.href ?? null);
-  if (!units) return null;
-  const Icon = getIcon("Layers3");
-  return (
-    <Link
-      href={units.href}
-      navSource="sidebar"
-      intent
-      aria-current={units.current ? "page" : undefined}
-      aria-label={t("nav.units")}
-      title={t("nav.units")}
-      data-pending={pending || undefined}
-      data-testid="topbar-units"
-      className={cn(
-        "relative inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-none text-body font-medium ring-1 ring-inset transition-colors max-lg:hidden min-[90rem]:w-auto min-[90rem]:px-4 touch:h-11 touch:min-w-11",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        units.current ? "bg-accent-soft text-accent-strong ring-accent" : "text-fg ring-line hover:bg-hover",
-      )}
-    >
-      <Icon aria-hidden="true" className={cn("size-4 shrink-0", units.current ? "text-current" : "text-fg-subtle")} />
-      <span className="hidden min-[90rem]:inline">{t("nav.units")}</span>
-      {pending ? <PendingDot className="absolute right-1 top-1 text-accent" /> : null}
     </Link>
   );
 }

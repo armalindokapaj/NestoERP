@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Building2, Camera, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type IconComponent } from "@/components/icons";
+import { ArrowLeft, Camera, Loader2, Plus, RefreshCw, Search, WifiOff, X } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
+import { CREATE_ICONS } from "@/components/layout/create-icons";
 import { useCommonTranslations } from "@/components/i18n/common-text";
 import { QUICK_CREATE_GROUP_LABELS, QUICK_CREATE_GROUPS } from "@/config/quick-create";
 import type { QuickCreateActionDTO, QuickCreateCompany } from "@/lib/modules/quick-create/quick-create.service";
@@ -22,7 +23,7 @@ import Link from "@/components/navigation/nav-link";
  * menu read together with this chunk.
  */
 
-const ICONS: Record<string, IconComponent> = { SquareCheckBig, Presentation, FileText, FolderKanban, NotebookPen, Building2, Target, ReceiptText, Wallet, ShoppingCart, ClipboardCheck, HardHat, TriangleAlert };
+const ICONS = CREATE_ICONS;
 const SEARCH_FROM = 8;
 
 /**

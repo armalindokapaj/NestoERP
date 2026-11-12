@@ -19,7 +19,7 @@ import { listPageRedirect, paginationMeta } from "@/lib/modules/shared/list-quer
 
 /**
  * Sales units (/sales/units; docs/unit-sales.md): the page the phone's Sales
- * units, the top bar's Units and the Sales tab's Units set open. Every unit
+ * units, the Sales tab's Units set and the logo's panel open. Every unit
  * this person may see, by project, building and floor; for a reader who may
  * see the units' sales, its status, price and buyer, and the views All, For
  * sale, Reserved and Sold as tabs. A row opens the unit's sales page

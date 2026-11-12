@@ -44,6 +44,23 @@ export const GLOSSARY_NOUNS = {
   hseHazard: { singular: "HSE hazard", plural: "HSE hazards", listLabel: "Hazards" },
   hazard: { singular: "Hazard", plural: "Hazards" },
   member: { singular: "Member", plural: "Members" },
+  // The desktop Create dial's records (docs/ui/UI-06-create-dial.md, 2026-11-12).
+  announcement: { singular: "Announcement", plural: "Announcements" },
+  proposal: { singular: "Proposal", plural: "Proposals" },
+  supplier: { singular: "Supplier", plural: "Suppliers" },
+  payment: { singular: "Payment", plural: "Payments" },
+  budget: { singular: "Budget", plural: "Budgets" },
+  defect: { singular: "Defect", plural: "Defects" },
+  hseInspection: { singular: "HSE inspection", plural: "HSE inspections", listLabel: "Inspections" },
+  hsePermit: { singular: "HSE permit", plural: "HSE permits", listLabel: "Permits" },
+  toolboxTalk: { singular: "Toolbox talk", plural: "Toolbox talks" },
+  inventoryItem: { singular: "Inventory item", plural: "Inventory items", listLabel: "Items" },
+  stockIssue: { singular: "Stock issue", plural: "Stock issues", listLabel: "Issues" },
+  stockTransfer: { singular: "Stock transfer", plural: "Stock transfers", listLabel: "Transfers" },
+  employee: { singular: "Employee", plural: "Employees" },
+  leaveRequest: { singular: "Leave request", plural: "Leave requests", listLabel: "Leave" },
+  rfi: { singular: "RFI", plural: "RFIs" },
+  drawing: { singular: "Drawing", plural: "Drawings" },
 } as const satisfies Record<string, GlossaryNoun>;
 
 export type GlossaryNounKey = keyof typeof GLOSSARY_NOUNS;

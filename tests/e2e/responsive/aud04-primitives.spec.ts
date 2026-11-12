@@ -181,11 +181,11 @@ test.describe("AUD-04 desktop regression (MW-21)", () => {
     await expect(page.getByRole("navigation", { name: "Main navigation" }).first()).toBeVisible();
     await expectNoPageOverflow(page, "tasks");
 
-    // The dense sizes are unchanged: the bell is 36px, the user menu trigger under 44px tall.
+    // The dense sizes are unchanged: the bell is 36px, the user menu trigger under 44px tall. Create's + floats, 62px.
     const bell = (await page.getByTestId("global-actions").getByTestId("notification-bell").boundingBox())!;
     expect(Math.round(bell.height)).toBe(36);
     const create = page.getByTestId("quick-create-button");
-    if (await create.count()) expect(Math.round((await create.boundingBox())!.height)).toBe(36);
+    if (await create.count()) expect(Math.round((await create.boundingBox())!.height)).toBe(62);
 
     // A table that fits is not an extra tab stop.
     const regions = mainRegion(page).locator("[role=region]:has(table)");

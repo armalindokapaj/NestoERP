@@ -125,13 +125,14 @@ export const en = {
       creatingIn: "Creating in:",
       fromRecord: "From {name}",
       createNamed: "Create {name}",
+      dialLabel: "Create quickly",
       belongsTo: "The {name} belongs to the company you choose. Opening it enters that company.",
       searchActions: "Search actions",
       noMatches: "No create actions match “{query}”.",
       project: "Project",
       continue: "Continue",
-      groups: { GENERAL: "General", PROJECTS: "Projects", SALES: "Sales", FINANCE: "Finance", PROCUREMENT: "Procurement", DOCUMENTS: "Documents", QAQC: "QA/QC", HSE: "HSE" },
-      actions: { tasks_task_create: "Task", meetings_meeting_create: "Meeting", documents_document_create: "Document", projects_project_create: "Project", projects_daily_log_create: "Daily log", clients_client_create: "Client", sales_opportunity_create: "Opportunity", finance_invoice_create: "Invoice", finance_expense_create: "Expense", procurement_purchase_request_create: "Purchase request", qaqc_ncr_create: "NCR", hse_incident_create: "HSE incident", hse_hazard_create: "HSE hazard" },
+      groups: { GENERAL: "General", PROJECTS: "Projects", ENGINEERING: "Engineering", SALES: "Sales", LEGAL: "Legal", FINANCE: "Finance", PROCUREMENT: "Procurement", INVENTORY: "Inventory", DOCUMENTS: "Documents", QAQC: "QA/QC", HSE: "HSE", HR: "HR" },
+      actions: { tasks_task_create: "Task", meetings_meeting_create: "Meeting", documents_document_create: "Document", projects_project_create: "Project", projects_daily_log_create: "Daily log", clients_client_create: "Client", sales_opportunity_create: "Opportunity", finance_invoice_create: "Invoice", finance_expense_create: "Expense", procurement_purchase_request_create: "Purchase request", qaqc_ncr_create: "NCR", hse_incident_create: "HSE incident", hse_hazard_create: "HSE hazard", announcements_announcement_create: "Announcement", engineering_rfi_create: "RFI", engineering_drawing_create: "Drawing", sales_lead_create: "Lead", sales_proposal_create: "Proposal", contracts_contract_create: "Contract", finance_payment_create: "Payment", finance_budget_create: "Budget", procurement_rfq_create: "Enquiry", procurement_supplier_create: "Supplier", inventory_receipt_create: "Receipt", inventory_issue_create: "Stock issue", inventory_transfer_create: "Stock transfer", inventory_item_create: "Inventory item", qaqc_inspection_create: "Inspection", qaqc_defect_create: "Defect", hse_inspection_create: "HSE inspection", hse_permit_create: "HSE permit", hse_toolbox_talk_create: "Toolbox talk", hr_employee_create: "Employee", hr_leave_create: "Leave request" },
     },
     /** The navigation's groups (config/navigation.ts): Home, then the five Ribbon tabs. */
     groups: {

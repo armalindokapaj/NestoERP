@@ -91,7 +91,7 @@ export async function ProjectDocumentRegister({ context, projectId, params, draw
       <Heading
         title={drawings ? t("project.drawingRegister") : t("project.engineeringDocuments")}
         description={drawings ? t("project.drawingRegisterBody") : t("project.engineeringDocumentsBody")}
-        action={can(context, "engineering_document.create") ? <NewDocumentButton projectId={projectId} drawing={drawings} /> : null}
+        action={can(context, "engineering_document.create") ? <NewDocumentButton projectId={projectId} drawing={drawings} autoOpen={params.new === "1"} /> : null}
       />
       <ListToolbar searchPlaceholder={drawings ? t("filters.searchDrawing") : t("filters.searchNumberTitle")} searchParam="q" filters={filters} />
       {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={drawings ? t("nouns.drawings") : t("nouns.documents")} clearHref={base} /> : <DocumentRegister items={result.items} drawings={drawings} />}
@@ -115,7 +115,7 @@ export async function ProjectRfiRegister({ context, projectId, params }: { conte
   ];
   return (
     <div className="space-y-4">
-      <Heading title={t("project.rfis")} description={t("project.rfisBody")} action={can(context, "rfi.create") ? <NewRfiButton projectId={projectId} /> : null} />
+      <Heading title={t("project.rfis")} description={t("project.rfisBody")} action={can(context, "rfi.create") ? <NewRfiButton projectId={projectId} autoOpen={params.new === "1"} /> : null} />
       <ListToolbar searchPlaceholder={t("filters.searchRfi")} searchParam="q" filters={filters} />
       {result.items.length === 0 && narrowed(params, filters) ? <NoResultsState noun={t("nouns.rfis")} clearHref={base} /> : <RfiRegister items={result.items} />}
       <Pager base={base} params={params} result={result} />
