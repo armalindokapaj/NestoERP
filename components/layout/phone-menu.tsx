@@ -218,7 +218,17 @@ function You() {
         <span className="flex-1">{t("account.help")}</span>
         <ChevronRight aria-hidden="true" className="size-4 text-fg-subtle" />
       </Link>
-      <button type="button" disabled={signingOut} onClick={() => void signOut()} className={cn(row, "border-b-0 text-danger-strong hover:bg-danger-soft disabled:opacity-60")}>
+      {/* The whole line in a soft red with a fine red rule at its edge: found at a glance, never an alarm. */}
+      <button
+        type="button"
+        disabled={signingOut}
+        onClick={() => void signOut()}
+        data-testid="phone-sign-out"
+        className={cn(
+          row,
+          "border-b-0 bg-danger-soft font-semibold text-danger-strong shadow-[inset_3px_0_0_var(--nesto-danger)] hover:bg-[color-mix(in_oklab,var(--nesto-danger-soft),var(--nesto-danger)_10%)] active:bg-[color-mix(in_oklab,var(--nesto-danger-soft),var(--nesto-danger)_16%)] disabled:opacity-60",
+        )}
+      >
         <LogOut aria-hidden="true" className="size-5" />
         {signingOut ? t("signingOut") : t("account.signOut")}
       </button>
