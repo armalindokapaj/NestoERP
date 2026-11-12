@@ -1,79 +1,81 @@
-# Mobile shell (MOB-02)
+> **Chat:** Nesto — mobile for the site team
+> **File:** docs/mobile/mobile-shell.md
+> **About:** How the app shell is built below 1024px — the component tree, the widths, the space the bar keeps, the keyboard, layers and motion — for whoever changes the phone shell next.
+> **Last updated:** 2026-11-12
+
+# Mobile shell
+
+What the phone looks like and why is in `docs/ui/UI-04-navigation-layouts.md`
+§6; the rules are in `mobile-navigation.md`. This page is the build.
 
 ```
-AppShell
-├── Sidebar (lg and up)                      unchanged
-├── Topbar
-│   ├── MobileHeader
-│   │   ├── phone (<768)    workspace context (OrganizationWorkspaceHeader "drawer")
-│   │   └── tablet (768-1023) hamburger drawer + organization mark
-│   ├── GlobalSearch, QuickCreate (from md), ActivityBell
-│   └── UserMenu (from md)
-├── BreadcrumbBar                            back / current on a phone
-├── PageContainer <main>
-└── MobileBottomNav (below lg)
-    ├── bar: up to three primary destinations, Create (phone), More
-    └── More sheet (BottomSheet): account, module search, groups, Settings, sign out
+AppShell (components/layout/app-shell.tsx)
+├── Topbar                          header[data-shell-region], 56px, glass
+│   ├── PhoneTitle (below lg)       Back · the page's name, or the project switch
+│   ├── QuickCreate                 below lg only its sheet, opened by New
+│   └── GlobalSearch                below lg alone, in a cell
+├── PhoneSections (below lg)        the page's sections, pinned under the top bar
+├── <main class="nesto-page">
+└── PhoneBar (below lg)             Home · Projects · New · Inbox · Menu
 ```
 
-One shell, one tree per width decided in CSS. Nothing branches on the user
-agent or `window.innerWidth`.
+One shell, one tree, the widths decided in CSS (`lg:hidden`, `max-lg:…`).
+Nothing branches on the user agent. A foldable or a split window gets what its
+width says.
 
 ## Widths
 
 | Width | Shell |
-|---|---|
-| < 768 | Compact header (context, search, bell). Bottom bar with Create. Account in More. |
-| 768-1023 | Existing header with drawer, Create and account menu. Bottom bar without Create. |
-| >= 1024 | Desktop sidebar. No bottom bar. |
+| --- | --- |
+| < 1024 | The phone shell above, phones and tablets alike. |
+| ≥ 1024 | The top bar with the Ribbon, the logo's panel, + Create, the bell and the account. No bar. |
 
-Decisions use the viewport, not the device: a foldable or a split-screen window
-gets whatever its width says.
+## The space the bar keeps
 
-## Header
+- `--nesto-bottom-nav-space` is `calc(4rem + safe-bottom)` while
+  `[data-mobile-bottom-nav]` is on the page, and `--nesto-bottom-reserve`
+  follows it (toasts, focus scrolling). `.nesto-page` pads by it; modules add
+  no bottom padding.
+- The bar folds to 48px while scrolling down; the page keeps the full 64px
+  clear, so nothing moves when it opens again.
+- It steps aside for a page's own hand-made bottom bar
+  (`data-sticky-action-bar`) and while a text field has focus, coming back
+  0.3s after the field lets go, so the tap that ends the typing lands where
+  it was aimed (`styles/globals.css`).
 
-Progressive context, never the whole hierarchy: the organization and the
-workspace on two short lines (`ARVELA` / `Edge of Tirana` style). Tapping it
-opens the workspace sheet (search, group, companies, selected state) through
-the existing switch, which validates access on the server and asks about unsaved
-work. The full trail is in the breadcrumb bar below.
+## Sticky stack
 
-## Bottom bar
+- `--nesto-shell-header-h` is 3.5rem.
+- `--nesto-shell-tabs-h` is 3rem while the section row is there, and before
+  hydration while a tab row's server-drawn anchor (`data-section-level`) says
+  the page has sections — the row's place is held, so the page does not jump.
+- Layers: the top bar 30, the section row and the bar 28. New's sheet, the
+  project list and Menu's popups sit above both, with the page dimmed.
 
-- `<nav aria-label="Primary">`, items are links with `aria-current="page"`, an accent bar and heavier icon for the active one.
-- Clears the home indicator with `--nesto-safe-bottom`; 56px plus the inset.
-- Content clearance is `--nesto-bottom-nav-space`, added by `.nesto-page` and mirrored in `--nesto-bottom-reserve` (toasts, focus scrolling). Modules add no bottom padding.
-- Steps aside (CSS `html:has(...)`) while a form's `data-sticky-action-bar` is on the page (one bottom bar at a time) and while a text field has focus (the keyboard needs the height). With `interactive-widget=resizes-content` the bar rides above the keyboard on Android otherwise.
-- z-index is the lowest shell layer (`--nesto-z-shell-tabs`, 28), under the top bar (30), so the Create, Search and Activity panels, which live inside the top bar's stacking context, cover it; drawers, sheets, dialogs, menus and toasts are above it too, and a modal also makes it inert.
-- Primary links are `intent` links: prepared on deliberate hover or focus, never in bulk. A tapped destination shows the pending dot immediately; the router ignores a second activation.
+## Glass
 
-## Create
+Bars at 82% of the page with a 14px blur; the section row 60% and 12px; sheets
+and drops 86–90% and 16px. The blur sits on a layer behind each bar, never on
+the bar: a backdrop filter would trap the bar's fixed children inside it.
 
-`Create` dispatches `nesto:open-quick-create`. The existing Quick Create panel
-opens as its usual bottom sheet with the actions the server returns for this
-person and route, so project and unit prefill work as on desktop. The bar hides
-the button when the person has nothing to create.
+## New
 
-## More
-
-`BottomSheet` titled "More". Groups follow the existing information architecture
-(General, Work, Department, Company); leftover primary-group items (Calendar,
-Approvals) sit under General. "Search modules" appears when more than eight
-destinations are listed and filters navigation labels only. Settings and sign
-out sit at the foot; the profile row leads. Category placement carries no
-authorization meaning: an item is in the list only because the resolver
-permitted it.
+New dispatches `nesto:open-quick-create` (`OPEN_QUICK_CREATE_EVENT`) with the
+button as its opener. Quick Create opens as a sheet standing on the bar, with
+the actions the server returns for this person and page, so project prefill
+works as on a desktop; on a phone the field's four come first. Pressed again,
+it closes; focus goes back to New.
 
 ## Analytics seam
 
 `lib/navigation/analytics.ts` `emitNavigationEvent` dispatches
-`nesto:navigation-event` on `window`: `navigation_destination_opened`,
-`quick_create_opened`, `more_opened`. (`workspace_switched` and
-`global_search_opened` are named for the owners of those flows to emit.) No
-dependency, no payload beyond ids.
+`nesto:navigation-event` on `window`: `navigation_destination_opened`
+(`source: "phone_bar" | "phone_menu" | "phone_sections"`),
+`quick_create_opened`, `more_opened` (the logo's panel). No dependency, no
+payload beyond ids.
 
 ## Motion and accessibility
 
-Sheets use the shared, reduced-motion aware animations. Every control is a real
-button or link with a visible name; focus returns to the trigger when a sheet
-closes; targets are 44px or more.
+Reduced-motion aware throughout. Every control is a real button or link with a
+visible name — the bar's cells keep theirs when folded. Focus returns to the
+trigger when a sheet closes. Targets are 48px.

@@ -110,15 +110,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           );
         })}
 
-        {/* Clear of the home indicator, and of a sticky bottom action bar while one
-            is mounted (`--nesto-bottom-reserve` and `--nesto-action-bar-space`,
-            globals.css), so a toast never covers Submit or Approve on a phone (AUD-04 §6). */}
+        {/* Clear of the home indicator and of the phone's bar, or of a page's own sticky
+            bottom bar while one is mounted (`--nesto-bottom-reserve`, globals.css), so a
+            toast never covers Submit or Approve on a phone (AUD-04 §6). */}
         <ToastPrimitive.Viewport
           // The region's name, with the key that moves focus to it; Radix fills `{hotkey}` in (F8).
           label={`${shell("notifications")} ({hotkey})`}
           className={cn(
             "fixed z-[70] flex max-h-dvh w-full flex-col gap-2 p-4 outline-none",
-            "bottom-[calc(var(--nesto-bottom-reserve,0px)+var(--nesto-action-bar-space,0px))] left-1/2 max-w-[420px] -translate-x-1/2 pb-[max(1rem,env(safe-area-inset-bottom))]",
+            "bottom-(--nesto-bottom-reserve,0px) left-1/2 max-w-[420px] -translate-x-1/2 pb-[max(1rem,env(safe-area-inset-bottom))]",
             "sm:left-auto sm:right-0 sm:translate-x-0",
           )}
         />

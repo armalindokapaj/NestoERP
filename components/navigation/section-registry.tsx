@@ -5,8 +5,8 @@ import * as React from "react";
 import { SectionStore, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
 
 /**
- * Where a page's tab rows hand their sections to the phone Ribbon's This page
- * below `lg` (components/layout/phone-ribbon.tsx). The store lives in the app
+ * Where a page's tab rows hand their sections to the phone's section row
+ * below `lg` (components/layout/phone-sections.tsx). The store lives in the app
  * shell, keyed by the workspace with everything else, so nothing outlives a
  * workspace switch. Outside the shell (no provider) a row registers nothing.
  */
@@ -30,10 +30,10 @@ export function useSectionLevels(): readonly SectionLevel[] {
 /**
  * One tab row's sections, registered while the row is mounted. Its hidden
  * anchor marks the row's place in the document, which orders nested levels,
- * and — while it has a choice to offer — lets the top bar keep the pill's
+ * and — while it has a choice to offer — holds the phone's section row's
  * place before the page has hydrated (`data-section-level`, styles/globals.css).
  *
- * Registered in a layout effect, so after a client navigation the pill is
+ * Registered in a layout effect, so after a client navigation the row is
  * right in the same frame the new page is first painted.
  */
 export function RegisterSections({ label, items }: { label: string; items: readonly SectionItem[] }) {

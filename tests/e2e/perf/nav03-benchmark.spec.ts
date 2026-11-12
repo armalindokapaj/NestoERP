@@ -52,14 +52,17 @@ const PAGES = [
 
 const PANELS = [
   { name: "search", open: (page: Page) => page.keyboard.press("Control+k"), ready: '[data-testid^="palette-"], [data-testid="search-home-empty-hints"]' },
-  { name: "quick_create", open: (page: Page) => page.getByTestId("quick-create-button").click(), ready: '[data-quick-create-action], [data-testid="quick-create-empty"]' },
-  { name: "activity", open: (page: Page) => page.getByTestId("notification-bell").filter({ visible: true }).click(), ready: '[data-testid="activity-item"], [data-testid="activity-empty"]' },
-  // The workspace switch: the header of the logo's panel, at every width.
+  // + Create in the top bar; New in the phone's bar.
+  { name: "quick_create", open: (page: Page) => page.getByTestId("quick-create-button").or(page.getByTestId("phone-create")).filter({ visible: true }).click(), ready: '[data-quick-create-action], [data-testid="quick-create-empty"]' },
+  // On a phone the bell's place is Inbox, a page, not a panel.
+  { name: "activity", open: (page: Page) => page.getByTestId("notification-bell").filter({ visible: true }).click(), ready: '[data-testid="activity-item"], [data-testid="activity-empty"]', mobileSkip: true },
+  // The workspace switch: the header of the logo's panel; on a phone, the head of Menu.
   {
     name: "workspace",
     open: async (page: Page) => {
-      await page.getByTestId("modules-panel-trigger").click();
-      await page.getByTestId("modules-panel").getByTestId("organization-header").click();
+      const phone = page.viewportSize()!.width < 1024;
+      await page.getByTestId(phone ? "phone-place-menu" : "modules-panel-trigger").click();
+      await page.getByTestId(phone ? "phone-menu" : "modules-panel").getByTestId("organization-header").click();
     },
     ready: '[data-testid="workspace-option"]',
     mobileSkip: false,

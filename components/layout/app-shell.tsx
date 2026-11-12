@@ -1,7 +1,6 @@
 import { PageContainer } from "@/components/ui/page-container";
 import { BreadcrumbRegistryProvider } from "@/components/navigation/breadcrumb-registry";
 import { PageMenuProvider } from "@/components/navigation/page-menu";
-import { MobileActionBarHost, MobileActionBarProvider } from "@/components/ui/mobile-action-bar";
 import { PullToRefresh } from "@/components/layout/pull-to-refresh";
 import { SectionStoreProvider } from "@/components/navigation/section-registry";
 import { BreadcrumbBar } from "@/components/ui/breadcrumbs";
@@ -13,8 +12,8 @@ import { LiveAnnouncer } from "@/components/layout/live-announcer";
 import { RouteFocus } from "@/components/layout/route-focus";
 import { SkipLink } from "@/components/layout/skip-link";
 import { BannerSlot, ShellSlotsProvider } from "@/components/layout/shell-slots";
-import { ActionRibbon } from "@/components/layout/action-ribbon";
-import { PocketRibbon } from "@/components/layout/pocket-ribbon";
+import { PhoneBar } from "@/components/layout/phone-bar";
+import { PhoneSections } from "@/components/layout/phone-sections";
 import { Topbar } from "@/components/layout/topbar";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,7 +23,7 @@ import { Metric, recordDuration } from "@/lib/core/observability/metrics";
 import { grantsInCompany, loadOrganizationAccessFor, type OrganizationAccess } from "@/lib/context/organization-access";
 import { criticalAnnouncementBanner } from "@/lib/modules/announcements/announcement.service";
 import type { UserContext } from "@/lib/context/types";
-import { PHONE_NAV_COOKIE, readPhoneNav, readRibbonFolded, RIBBON_COOKIE } from "@/lib/layout/nav-layout";
+import { readRibbonFolded, RIBBON_COOKIE } from "@/lib/layout/nav-layout";
 import { resolveWorkspaceNavigation } from "@/lib/workspace/navigation";
 import { WorkspaceSwitchProvider } from "@/components/workspace/workspace-switch-provider";
 import { WorkspaceSync } from "@/components/workspace/workspace-sync";
@@ -48,12 +47,12 @@ import { listWorkspaces } from "@/lib/workspace/workspace.service";
  * between roles — only the resolved navigation passed into it does. There is no
  * separate shell for Owner, Finance or Architect (PRD #3 §2).
  *
- * Navigation is resolved once, here, and handed to the top bar's Ribbon and
- * the phone's, so the two can never disagree (PRD #3 §99). Whether the desktop
- * ribbon is folded, and which phone navigation (the Pocket Ribbon or the Action
- * Ribbon) is the person's choice in Settings › Appearance, are read from their
- * cookies so the server draws the right shell on the first paint
- * (docs/ui/UI-04-navigation-layouts.md).
+ * Navigation is resolved once, here, and handed to the top bar's Ribbon
+ * (PRD #3 §99). Whether the desktop ribbon is folded is read from its cookie,
+ * so the server draws the right shell on the first paint. Below lg the phone
+ * has one layout for everyone: the top bar's title and search, the page's
+ * sections in a row under it, and the bar of five places at the bottom
+ * (docs/ui/UI-04-navigation-layouts.md §Phone).
  *
  * Content is capped at 1600px (PRD #3 §87) and padded across mobile, tablet and
  * desktop (PRD #7 §83).
@@ -76,7 +75,6 @@ export async function AppShell({
 }) {
   const cookieStore = await cookies();
   const ribbonFolded = readRibbonFolded(cookieStore.get(RIBBON_COOKIE)?.value);
-  const phoneNav = readPhoneNav(cookieStore.get(PHONE_NAV_COOKIE)?.value);
 
   // Optional reads start now and are awaited only in their slots. The banner is
   // read in this member's audience (PRD #45 §67, §122); the access debugger's
@@ -148,15 +146,15 @@ export async function AppShell({
                     }}
               >
               <BreadcrumbRegistryProvider>
-              {/* A page's tab rows hand their sections to the phone Ribbon's This page below lg, and the module's row to the desktop Ribbon too (section-registry.tsx). */}
+              {/* A page's tab rows hand their sections to the phone's section row below lg, and the module's row to the desktop Ribbon too (section-registry.tsx). */}
               <SectionStoreProvider>
               {/* A page's tips and Help fold into its one ⋯ menu, right after its title or status, and below lg its secondary actions too (components/navigation/page-menu.tsx). */}
               <PageMenuProvider>
-              {/* Below md a detail page's main action moves to the phone's bottom: its own bar above the Pocket Ribbon, or into the Action Ribbon (components/ui/mobile-action-bar.tsx). */}
-              <MobileActionBarProvider>
               <div>
                 {/* The one top bar, with the Ribbon in it from lg (docs/ui/UI-04-navigation-layouts.md). */}
                 <Topbar context={context} core={core} navigation={navigation} ribbonFolded={ribbonFolded} />
+                {/* Below lg: the page's sections, pinned under the top bar. */}
+                <PhoneSections />
                 {/* Connectivity and sync, compact; nothing at all while online with nothing to send (MOB-09 §24, §116). */}
                 <OfflineStatus />
                 {/* A critical banner, when there is one; it takes no room otherwise. */}
@@ -168,22 +166,12 @@ export async function AppShell({
                   {/* Where the page is: the page head's mono line, above its title, scrolling with it (Sticky Navigation §23). */}
                   <BreadcrumbBar />
                   {children}
-                  {/* With the Pocket Ribbon, the page's main action on a phone, pinned above it; nothing while the page has none.
-                      Inside the main region, after the page's content: it is the page's own, and read after it.
-                      The Action Ribbon carries the page's main actions in its own bar instead. */}
-                  {phoneNav === "pocket" ? <MobileActionBarHost /> : null}
                 </PageContainer>
                 {/* Pull down at the top of a phone screen to read the page again (mobile audit 5c). */}
                 <PullToRefresh />
-                {/* The phone and tablet-portrait navigation, below lg: the desktop Ribbon brought to the phone, as the
-                    Pocket Ribbon (the default) or the Action Ribbon (docs/ui/UI-04-navigation-layouts.md). */}
-                {phoneNav === "action" ? (
-                  <ActionRibbon navigation={navigation} canCreate={core.quickCreate.canOpen} />
-                ) : (
-                  <PocketRibbon navigation={navigation} canCreate={core.quickCreate.canOpen} />
-                )}
+                {/* The phone and tablet-portrait navigation, below lg: Home, Projects, New, Inbox, Menu (docs/ui/UI-04-navigation-layouts.md §Phone). */}
+                <PhoneBar canCreate={core.quickCreate.canOpen} />
               </div>
-              </MobileActionBarProvider>
               </PageMenuProvider>
               </SectionStoreProvider>
               </BreadcrumbRegistryProvider>

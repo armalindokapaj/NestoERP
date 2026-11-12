@@ -33,15 +33,9 @@ function phone(page: Page) {
   return page.viewportSize()!.width < 768;
 }
 
-/** The workspace switch: the header of the logo's panel, which is opened first. */
-async function workspaceSwitch(page: Page) {
-  if (!(await page.getByTestId("modules-panel").isVisible())) await page.getByTestId("modules-panel-trigger").click();
-  return page.getByTestId("modules-panel").getByTestId("organization-header");
-}
-
-/** Home, the workspace's name in the top bar. */
-function workspaceHeader(page: Page) {
-  return page.getByTestId("topbar-home");
+/** The workspace switch on a phone: the head of Menu (app/(nesto)/menu). */
+function workspaceSwitch(page: Page) {
+  return page.getByTestId("phone-menu").getByTestId("organization-header");
 }
 
 /**
@@ -75,13 +69,13 @@ test.describe("AUD-04 top bar below 1024px (MW-02)", () => {
     test.skip(!belowLg(page), "the phone and tablet top bar (below 1024px)");
   });
 
-  test("no navigation drawer: the phone Ribbon is the one navigation; the top bar fits without collisions, with 44px controls", async ({ page }) => {
+  test("no navigation drawer: the bar at the bottom is the one navigation; the top bar fits without collisions, with 44px controls", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     const header = page.locator("header[data-shell-region]");
     await expectNoPageOverflow(page, "dashboard");
     await expectTouchTargets(page, header);
     await expect(page.getByRole("button", { name: /open navigation/i })).toHaveCount(0);
-    await expect(page.getByTestId("phone-tab-work")).toBeVisible();
+    await expect(page.getByTestId("phone-place-menu")).toBeVisible();
 
     // No two top-bar controls overlap, and every one is on screen (320px included).
     const boxes = await header.locator("button:visible, a[href]:visible").evaluateAll((elements) =>
@@ -107,10 +101,10 @@ test.describe("AUD-04 top bar below 1024px (MW-02)", () => {
 
 test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!phone(page), "a phone's switch; the logo's panel switches at every width (shell/organization-header.spec.ts)");
+    test.skip(!phone(page), "a phone's switch; the logo's panel switches from 1024px (shell/organization-header.spec.ts)");
   });
 
-  test("the header's workspace popup switches with AUD-03 Stay and Discard, and the full name stays accessible", async ({ page }) => {
+  test("Menu's head switches the workspace; leaving a draft for it asks first with AUD-03 Stay and Discard, and the full name stays accessible", async ({ page }) => {
     await signIn(page, "OWNER", { company: AURELIA, to: "/clients/new" });
     const name = mainRegion(page).getByLabel("Client name");
     await name.fill("AUD04A switch draft");
@@ -121,42 +115,43 @@ test.describe("AUD-04 workspace switch on phones and tablets (MW-03)", () => {
       if (request.method() === "POST" && new URL(request.url()).pathname === "/api/workspace") switches.push(request.url());
     });
 
-    const choose = async () => {
-      const header = await workspaceSwitch(page);
-      // Truncated on screen, whole in the accessible name and the title (§4).
-      await expect(header).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
-      await expect(header).toHaveAttribute("title", /Aurelia Construction/);
-      await header.click();
-      const panel = page.getByTestId("workspace-panel");
-      await expect(panel).toBeVisible();
-      // A popup under the header, its pointer on it, as every popup on a touch layout. It grows out of the
-      // header (styles/globals.css, `nesto-pop-in`), so its targets are measured once it has landed.
-      await expect(panel.locator(".nesto-popup-pointer")).toBeVisible();
-      await panel.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
-      await expectTouchTargets(page, panel);
-      await expectInViewport(panel.getByTestId("workspace-option").last(), "last workspace option");
-      await panel.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
-      await expect(prompt(page)).toContainText("Forma Engineering");
-    };
-
-    await choose();
+    // The switch is in Menu: going there from a draft asks first. Stay keeps the draft where it is.
+    const menu = page.getByTestId("phone-place-menu");
+    await menu.click();
+    await expect(prompt(page)).toBeVisible();
     await prompt(page).getByTestId("unsaved-stay").click();
     await expect(page).toHaveURL(/\/clients\/new/);
     await expect(name).toHaveValue("AUD04A switch draft");
     await expectNoOverlay(page);
+
+    await menu.click();
+    await prompt(page).getByTestId("unsaved-discard").click();
+    await expect(page).toHaveURL(/\/menu$/);
     expect(switches).toHaveLength(0);
     expect(await currentCompany(page)).toBe(AURELIA);
 
-    await choose();
-    await prompt(page).getByTestId("unsaved-discard").click();
+    const header = workspaceSwitch(page);
+    // Truncated on screen, whole in the accessible name and the title (§4).
+    await expect(header).toHaveAccessibleName(/Current workspace: Aurelia Construction/);
+    await expect(header).toHaveAttribute("title", /Aurelia Construction/);
+    await header.click();
+    const panel = page.getByTestId("workspace-panel");
+    await expect(panel).toBeVisible();
+    // A popup under the header, its pointer on it, as every popup on a touch layout. It grows out of the
+    // header (styles/globals.css, `nesto-pop-in`), so its targets are measured once it has landed.
+    await expect(panel.locator(".nesto-popup-pointer")).toBeVisible();
+    await panel.evaluate((element) => Promise.allSettled(element.getAnimations().map((animation) => animation.finished)).then(() => undefined));
+    await expectTouchTargets(page, panel);
+    await expectInViewport(panel.getByTestId("workspace-option").last(), "last workspace option");
+    await panel.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
+
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
     await expect.poll(() => currentCompany(page), { timeout: 20_000 }).toBe(FORMA);
     expect(switches).toHaveLength(1);
-    // The draft does not follow into the new workspace, and a page is shown (route kept or a safe fallback).
+    // The draft did not follow, and Menu stays where it was, naming the new workspace.
     await expect(page.getByText("AUD04A switch draft")).toHaveCount(0);
-    await expect(page).not.toHaveURL(/\/login/);
-    const after = workspaceHeader(page);
-    await expect(after).toHaveAccessibleName(/Current workspace: Forma Engineering/);
+    await expect(page).toHaveURL(/\/menu$/);
+    await expect(workspaceSwitch(page)).toHaveAccessibleName(/Current workspace: Forma Engineering/);
     await expectNoPageOverflow(page, "after the switch");
   });
 });

@@ -175,54 +175,63 @@ export function mainRegion(page: Page) {
 /**
  * A page's sections the way a person reaches them at this width. From 1024px
  * they are the page's tab rows. Below it (phones and tablets) no tab row is
- * drawn: the phone Ribbon's This page opens them as tiles, and a record's own
- * tabs inside a tabbed page (a unit inside its project) are a second group
- * there, under that row's name (components/layout/phone-ribbon.tsx).
+ * drawn: the sections are the row pinned under the top bar
+ * (components/layout/phone-sections.tsx) — inside a record that has its own
+ * sections (a unit inside its project) the record's, after a link back to the
+ * section it sits in.
  */
 export const sectionsInMenu = (page: Page) => page.viewportSize()!.width < 1024;
 
-export function sectionMenuTrigger(page: Page) {
-  return page.getByTestId("section-menu-trigger");
+/** Below 1024px: the section row under the top bar, named after the sections it holds. */
+export function sectionRow(page: Page) {
+  return page.getByTestId("phone-sections");
 }
 
-/** Below 1024px: opens This page's sections and returns them. */
+/** Below 1024px: the section the page is on, in the row. */
+export function currentSection(page: Page) {
+  return sectionRow(page).locator('a[aria-current="page"]');
+}
+
+/** Below 1024px: the section row, once it is drawn (the page's rows register it as they mount). */
 export async function openSectionMenu(page: Page) {
-  await sectionMenuTrigger(page).click();
-  const menu = page.getByTestId("section-menu");
-  await expect(menu).toBeVisible();
-  return menu;
+  const row = sectionRow(page);
+  await expect(row).toBeVisible();
+  return row;
 }
 
 /**
- * Opens a section by its name: from the section menu below 1024px, from the
- * page's tab row from 1024px. `row` is the tab row's accessible name — also the
- * menu group's, where the page has more than one level of sections.
+ * Opens a section by its name: from the section row below 1024px, from the
+ * page's tab row from 1024px. `row` is the tab row's accessible name — the
+ * section row's too, for the innermost sections.
  */
 export async function openSection(page: Page, name: string, row?: string | RegExp) {
   if (sectionsInMenu(page)) {
-    const menu = await openSectionMenu(page);
-    // One level is one list; several are groups, each named as its row is.
-    const grouped = row !== undefined && (await menu.getByRole("group").count()) > 0;
-    const scope = grouped ? menu.getByRole("group", { name: row }) : menu;
-    await scope.getByRole("link", { name, exact: true }).click();
+    const sections = await openSectionMenu(page);
+    if (row !== undefined) await expect(sections).toHaveAccessibleName(row);
+    await sections.getByRole("link", { name, exact: true }).click();
     return;
   }
   const rows = row ? page.getByRole("navigation", { name: row }) : mainRegion(page).locator("[data-context-tabs] nav");
   await rows.getByRole("link", { name, exact: true }).first().click();
 }
 
-/** Home: the company's name at the start of the top bar, the way to its Dashboard; it switches nothing. */
+/**
+ * Where the current workspace is named: from 1024px Home, the company's name at the start of the top bar,
+ * the way to its Dashboard (it switches nothing); below it the head of Menu, which is the switch itself.
+ */
 export function workspaceHeader(page: Page) {
-  return page.getByTestId("topbar-home");
+  return page.viewportSize()!.width < 1024 ? page.getByTestId("phone-menu").getByTestId("organization-header") : page.getByTestId("topbar-home");
 }
 
 /**
- * The workspace switch: the header of the logo's panel (components/layout/modules-panel.tsx),
- * at every width. The panel must be open for it to be in view (`openWorkspaceSwitcher`).
- * A header with nothing to switch is a plain group, not a button (OW §46).
+ * The workspace switch: the header of the logo's panel (components/layout/modules-panel.tsx)
+ * from 1024px, the head of Menu below it (app/(nesto)/menu). The panel, or Menu, must be
+ * open for it to be in view (`openWorkspaceSwitcher`). A header with nothing to switch is
+ * a plain group, not a button (OW §46).
  */
 export function workspaceSwitcher(page: Page) {
-  return page.getByTestId("modules-panel").locator('button[data-testid="organization-header"]');
+  const scope = page.viewportSize()!.width < 1024 ? page.getByTestId("phone-menu") : page.getByTestId("modules-panel");
+  return scope.locator('button[data-testid="organization-header"]');
 }
 
 /** Opens the logo's panel and returns its header, the workspace switch. */
@@ -265,8 +274,14 @@ export function mainNavigation(page: Page) {
   return page.locator("[data-ribbon]");
 }
 
-/** The logo's panel of every module, opened if it is not. */
+/** The logo's panel of every module, opened if it is not; below 1024px, Menu in the phone's bar. */
 async function modulesPanel(page: Page) {
+  if (page.viewportSize()!.width < 1024) {
+    const menu = page.getByTestId("phone-menu");
+    if (!(await menu.isVisible())) await page.getByTestId("phone-place-menu").click();
+    await expect(menu).toBeVisible();
+    return menu;
+  }
   const panel = page.getByTestId("modules-panel");
   if (!(await panel.isVisible())) await page.getByTestId("modules-panel-trigger").click();
   await expect(panel).toBeVisible();

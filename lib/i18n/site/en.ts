@@ -109,6 +109,8 @@ export const siteEn = {
     sections: "Sections on this page",
     sheet: "Sheet",
     top: "NESTO",
+    here: "Here",
+    close: "Close the sections",
     ruler: "Page position {n}%. Click to go to that point of the page.",
     progress: "How far through the page",
     getStarted: "Get started",

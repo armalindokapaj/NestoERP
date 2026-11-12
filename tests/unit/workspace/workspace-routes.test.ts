@@ -5,11 +5,11 @@ import { moduleList } from "@/config/modules";
 
 describe("workspace route policy registry", () => {
   it("covers every canonical module home", () => {
-    for (const module of moduleList) {
-      expect(workspaceRoutePolicy(module.route), module.key).toMatchObject({
+    for (const entry of moduleList) {
+      expect(workspaceRoutePolicy(entry.route), entry.key).toMatchObject({
         routeType: "WORKSPACE_COLLECTION",
-        moduleKey: module.key,
-        moduleHome: module.route,
+        moduleKey: entry.key,
+        moduleHome: entry.route,
       });
     }
   });
@@ -28,6 +28,8 @@ describe("workspace route policy registry", () => {
       parentRoute: "/finance/invoices",
     });
     expect(workspaceRoutePolicy("/settings/profile").routeType).toBe("GLOBAL");
+    expect(workspaceRoutePolicy("/menu").routeType).toBe("GLOBAL");
+    expect(workspaceRoutePolicy("/inbox").routeType).toBe("GLOBAL");
     expect(workspaceRoutePolicy("/admin/access").routeType).toBe("PLATFORM_ONLY");
   });
 

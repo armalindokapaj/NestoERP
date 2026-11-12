@@ -1,9 +1,9 @@
 export const offlineEn = {
   status: {
-    offline: "Offline",
-    offlineWaiting_one: "Offline · {count} change waiting",
-    offlineWaiting_other: "Offline · {count} changes waiting",
-    offlineHint: "Changes will sync when you're connected.",
+    offline: "No signal · what you save stays on this phone",
+    offlineWaiting_one: "No signal · {count} change kept on this phone",
+    offlineWaiting_other: "No signal · {count} changes kept on this phone",
+    offlineHint: "It sends itself when you are back online.",
     waiting_one: "{count} change waiting",
     waiting_other: "{count} changes waiting",
     attention_one: "{count} item needs attention",

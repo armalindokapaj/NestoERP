@@ -6,11 +6,11 @@ import { usePathname } from "next/navigation";
 import { ChevronUp } from "@/components/icons";
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
-import { useUnitsHref } from "@/components/layout/phone-ribbon";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
 import { groupOfPath, isNavigationItemActive, isRibbonTab, itemForPath, type Navigation, type NavigationGroup, type NavigationItem, type RibbonTab } from "@/config/navigation";
 import { RIBBON_COOKIE } from "@/lib/layout/nav-layout";
+import { projectIdFrom } from "@/lib/navigation/phone";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -265,6 +265,20 @@ function RibbonButton({ item, active }: { item: NavigationItem; active: boolean 
       {pending ? <PendingDot className="absolute right-1.5 top-1.5 text-accent" /> : null}
     </Link>
   );
+}
+
+/**
+ * Where Units goes: the units of the project you are in, else every unit
+ * across the projects (/projects/units). Null when Units is not in this
+ * person's navigation.
+ */
+function useUnitsHref(navigation: Navigation): { href: string; current: boolean } | null {
+  const pathname = usePathname();
+  const units = navigation.menu.flatMap((group) => group.items).find((item) => item.key === "units");
+  if (!units) return null;
+  const project = projectIdFrom(pathname);
+  const href = project ? `/projects/${project}/units` : units.href;
+  return { href, current: pathname === href || pathname.startsWith(`${href}/`) };
 }
 
 /**

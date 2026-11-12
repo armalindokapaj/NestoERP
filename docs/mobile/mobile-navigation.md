@@ -1,52 +1,76 @@
-# Mobile navigation rules (MOB-02)
+> **Chat:** Nesto — mobile for the site team
+> **File:** docs/mobile/mobile-navigation.md
+> **About:** The rules behind the phone's navigation below 1024px — who decides what a person sees, which place a page belongs to, where Projects goes, and how to add a module — for whoever changes it next.
+> **Last updated:** 2026-11-12
+
+# Mobile navigation rules
+
+The layout itself — the bar, the top bar, the section row, Inbox and Menu —
+is in `docs/ui/UI-04-navigation-layouts.md` §6. This page is the rules.
 
 ## Authority
 
 ```
 user -> memberships -> role/permissions -> module activation
-   -> resolveNavigation (config/navigation.ts)
-   -> resolveMobileNavigation (lib/navigation/mobile.ts)   placement only
-   -> bottom bar | More
+   -> resolveNavigation (config/navigation.ts)        what this person may open
+   -> lib/navigation/phone.ts                           placement only
+   -> the bar's five places | Menu
 ```
 
-`resolveMobileNavigation(groups)` never checks a permission and never adds an
-item. A test asserts that everything it returns was in its input and that every
-input item appears exactly once.
+`lib/navigation/phone.ts` never checks a permission and never adds a
+destination. It says which place a path belongs to, which pages are a place's
+first, and where Projects goes. Menu lists exactly what `resolveNavigation`
+returned for this person, in the Ribbon's departments and sets.
 
-## Primary destinations
+## The five places
 
-Set in `config/modules.ts` as `mobilePriority: "primary"`: Home (Dashboard),
-Projects, Tasks. At most `MAX_PRIMARY_DESTINATIONS` (3) are used, plus Create
-(phone, only when Quick Create has actions) and More: never more than five
-slots. A restricted person gets fewer buttons, not dead ones. To promote a
-module, add the metadata; do not list routes in a component.
+Home (`/my-day`), Projects, New, Inbox (`/inbox`), Menu (`/menu`). Fixed: they
+are places in the work, not modules, so they do not move with permissions. A
+person who may create nothing gets no New; nobody gets a dead cell.
 
-Labels are the module's translated label; Dashboard reads "Home".
+## Which place a page belongs to
 
-## More
+`placeOf(pathname)`:
 
-Everything not in the bar, in its existing group. Searchable above eight items.
-No count badges: no cheap canonical count exists yet, and a decorative
-per-module request is not worth it (MOB-06 adds daily counters).
+| Place | Paths |
+| --- | --- |
+| Home | `/my-day`, `/dashboard` |
+| Projects | everything under `/projects` |
+| Inbox | `/inbox`, `/approvals`, `/activity`, `/notifications` |
+| Menu | everything else — it was reached through Menu |
 
-## Not in the bar
+A place's first page (`isPlaceRoot`) has no Back in the top bar: the bar is
+the way out. A project's own page counts as Projects' first page.
 
-Admin Console and the 3D viewer are reached through More or a project, never as
-permanent destinations.
+## Projects remembers
 
-## Active state
+Projects opens the project you were last in, in this workspace, on this
+device (`localStorage`, key `nesto-last-project`, one id per workspace —
+never a record's content). Before any, it opens the list. A stored id is only
+a link: the project page still decides whether this person may open it.
 
-By route hierarchy (`activeNavigationKey`), so nested routes keep their parent.
-More is marked active when the current module lives in it.
+## Sections
+
+A page's sections are what its own tab rows register
+(`components/navigation/section-registry.tsx`), already filtered by
+permission. The phone's row shows the innermost level; it can hold nothing
+the tab row would not have shown.
+
+## Workspace switch
+
+From Menu's head. `/menu` and `/inbox` are global routes
+(`config/workspace-routes.ts`), so a switch made there stays there. Leaving a
+form with unsaved work for Menu asks first, as any navigation does.
 
 ## Account
 
-Profile, Settings and sign-out are in More on a phone and in the account menu
-from 768. Sign-out is `useSignOut`: it asks about unsaved work, ends the
-session and clears client state through `logout()` in `lib/auth/client-lifecycle`.
+Your profile, Settings, Refresh, Day or Night, Help and Sign out are at the
+foot of Menu below 1024px, and in the account panel from 1024px. Sign out is
+`useSignOut`: it asks about unsaved work, ends the session and clears client
+state.
 
-## Adding a destination
+## Adding a module
 
-Register the module in `config/modules.ts` with its permission and group. It
-appears on desktop, the tablet drawer and in More automatically. Only add
-`mobilePriority` if it should be in the bar, and remember the bar holds three.
+Register it in `config/modules.ts` with its permission and group, and place it
+in `config/navigation.ts`. It appears in the Ribbon, the logo's panel and Menu
+on its own. Nothing is added to the bar.

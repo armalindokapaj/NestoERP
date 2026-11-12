@@ -32,7 +32,7 @@ export function Table({
   flush = false,
   stack = false,
   stackInset = !flush,
-  stickyFirst = false,
+  stickyFirst = !stack,
   label,
   ...props
 }: React.ComponentProps<"table"> & {
@@ -52,9 +52,12 @@ export function Table({
    */
   stackInset?: boolean;
   /**
-   * A matrix that scrolls sideways below `lg` (a report, a grid): its first
-   * column stays in place while the rest scrolls under it, so every row keeps
-   * its name. From `lg` the table is drawn as ever.
+   * Below `lg`, where a table scrolls sideways, its first column stays in
+   * place while the rest scrolls under it, so every row keeps its name; the
+   * edge it continues past fades, so you can see there is more
+   * (docs/ui/UI-04-navigation-layouts.md §Phone). On by default for a table
+   * that does not stack into cards; pass `false` for one whose first column
+   * should scroll too. From `lg` the table is drawn as ever.
    */
   stickyFirst?: boolean;
   /** The scroll region's accessible name. */

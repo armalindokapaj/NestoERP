@@ -1,7 +1,7 @@
 > **Chat:** Nesto UI/UX — navigation study
 > **File:** docs/ui/UI-04-navigation-layouts.md
-> **About:** How a person moves around Nesto — one top bar with the Ribbon's five tabs (Work, Company, Sales, Procurement, Finance) and Units pinned beside + Create on a desktop, the logo's panel of every module, and the Pocket Ribbon or the Action Ribbon on a phone; what each draws, where the code lives, and what comes next.
-> **Last updated:** 2026-11-12 (five tabs; buttons for sections; Units across the projects; glass and square controls)
+> **About:** How a person moves around Nesto — one top bar with the Ribbon's five tabs (Work, Company, Sales, Procurement, Finance) and Units pinned beside + Create on a desktop, the logo's panel of every module, and on a phone a bar of five places (Home, Projects, New, Inbox, Menu) with the page's sections in a row under the top bar; what each draws, where the code lives, and what comes next.
+> **Last updated:** 2026-11-12 (the phone rebuilt for the site team: five places, the section row, Inbox and Menu)
 
 # UI-04 — Navigation layouts
 
@@ -15,7 +15,7 @@ Units" on the canvas then spread the modules over five tabs and added Units.
 | Screen | Navigation |
 | --- | --- |
 | Desktop, from `lg` (1024px) | **One top bar** with the Ribbon's five tabs, and the open tab's ribbon under it |
-| Phone and tablet held upright, below `lg` | **Pocket Ribbon** (default) or **Action Ribbon**, chosen in Settings › Appearance |
+| Phone and tablet held upright, below `lg` | **The bar of five places** — Home · Projects · New · Inbox · Menu — one layout for everyone |
 
 The Dock is retired, with its setting: one desktop layout. The breadcrumb bar
 is gone too; its trail is now the page head's mono line.
@@ -181,66 +181,101 @@ project.
 - **Titles:** a page's or a module's title is 48px from `md` and ends in the
   homepage's gold square (`[data-page-title]::after`, `styles/globals.css`).
 
-## 6. Phone — what both share
+## 6. Phone
 
-`components/layout/phone-ribbon.tsx`, below `lg`:
+Built for the site team first — one hand, gloves, sunlight — from the canvas
+"Phone, for the site team". One layout for everyone; nothing to choose in
+Settings. Below `lg`:
 
-- **The top bar:** the logo (the same panel, full width) and Home, then
-  Search and the bell. The account is at the foot of the logo's panel.
-- **The Ribbon's five tabs.** A tab's buttons are large tiles (84px, three to
-  a row) under the same captions as the desktop's sets; the one you are in is
-  the gold tile, and the tab holding it is gold too. Home is in the logo's
-  panel.
-- **This page:** the section the page is on (or the page's own name), which
-  opens the page's sections as tiles — the tab rows are not drawn below `lg`.
-- **Units and Create, one tap from anywhere.** Units opens the project's units
-  inside a project, else every unit (§4).
-- `lib/navigation/phone.ts` holds the pure parts (which tabs, which project),
-  unit-tested.
+![Home, Day](evidence/UI-04-phone-home.png)
+![Inside a project: its name switches project, its sections in the row](evidence/UI-04-phone-project.png)
+![New: the field's four first](evidence/UI-04-phone-new.png)
+![Menu](evidence/UI-04-phone-menu.png)
+![Inbox at Night](evidence/UI-04-phone-inbox-night.png)
 
-## 7. Phone — the Pocket Ribbon (default)
+### The bar: places, not actions
 
-`components/layout/pocket-ribbon.tsx`. The bar is the five tabs, in the
-thumb's reach (their names in 9px mono, so Procurement fits at 360px). Above it floats the strip: **This page · Units · Create**. A tab
-opens its tiles just above the bar; a second tap, Close, a tap on the dimmed
-page or Escape closes it.
+`components/layout/phone-bar.tsx`. Five equal cells at the bottom, 64px,
+glass like the top bar, the place you are in marked by a 2px gold line on top:
 
-![Pocket Ribbon](evidence/UI-04-phone-pocket.png)
-![Pocket Ribbon, Company open, in its sets](evidence/UI-04-phone-pocket-company.png)
-![The logo's panel on a phone, at Night](evidence/UI-04-phone-modules-panel.png)
+| Cell | Opens | Marked on |
+| --- | --- | --- |
+| **Home** | `/my-day` — your day: what is next, what is late, what waits for you | My Day and the Dashboard |
+| **Projects** | the project you were last in, in this workspace, on this device; the list before any | every page under `/projects` |
+| **New** | Quick Create as a sheet standing on the bar, the field's four first — Photo, Site diary, Task, Hazard — then everything else; it reads Close while open | — (an action, drawn in ink) |
+| **Inbox** | `/inbox` — approvals answered in their row, then alerts; two filters, visible. Carries the bell's count | Inbox, Approvals, Activity, Notifications |
+| **Menu** | `/menu` — the workspace switch, you, a field that finds any module, Home's modules and the five departments, then Settings, Refresh, Day or Night, Help and Sign out | every other page |
 
-## 8. Phone — the Action Ribbon
+- `lib/navigation/phone.ts` holds the pure parts — which place a path belongs
+  to, which pages are a place's first, where Projects goes — unit-tested.
+- The bar folds to its icons, 48px, while the page scrolls down and opens again
+  as soon as it scrolls up. Folded, each cell keeps its name for a screen
+  reader.
+- Content keeps clear of it by `--nesto-bottom-nav-space`
+  (`styles/globals.css`), so no page pads itself. It steps aside for the
+  keyboard and for a page's own bottom bar.
+- A person who may create nothing gets four cells and no New.
 
-`components/layout/action-ribbon.tsx`. One bar about doing:
-**Ribbon · the page's main actions · Units · Create**. Ribbon opens the whole
-Ribbon as a sheet: the five tabs (This page too, where the page has sections),
-a field that finds any module or section by name, and the tiles.
+### The top bar: where you are, and search
 
-The screenshots come from a preview page that mounts the real top bar, ribbon,
-panel and phone Ribbon with sample data; the signed-in app needs a database
-this environment does not have.
+`components/layout/phone-title.tsx`. 56px: the page's own name — inside a
+project the project's, which drops your other projects from the bar (the
+project layout's own switcher, so only projects this person may open) — and
+search in a cell of its own. **Back** stands at the start on any page deeper
+than a place's first page; on those, the bar is the way out. No logo, no
+bell (Inbox carries it), no account (it is in Menu), no Units (Units is a
+module in Menu, and a section of each project).
 
-## 9. Tests
+### The page's sections: a row under the title
+
+`components/layout/phone-sections.tsx`. The sections the page's own tab rows
+register (`components/navigation/section-registry.tsx`) — from `lg` those rows
+are drawn in the page; below it, this row is, pinned under the top bar as you
+scroll, glass at 60%, the one you are on underlined in gold. Visible, not in a
+menu: the last one is cut by the edge, so you can see there are more. Inside a
+record that has its own sections (a unit inside its project), the row is the
+record's, with the way back to the section it sits in at its start.
+
+### On the page
+
+- **The main action** sits beside the page's title (`MainAction`,
+  `components/ui/mobile-action-bar.tsx`); nothing floats over the bar.
+- **A form's Save and Cancel** are its last row, each taking its share of the
+  row, 48px tall (`MobileActionBar`).
+- **Tables** pin their header and first column (`components/ui/table.tsx`).
+- **Status** is an icon and a word, never colour alone.
+- Targets are 48px.
+
+The screenshots come from a preview page that mounts the real top bar, section
+row, bar, Menu, Inbox and My Day with sample data; the signed-in app needs a
+database this environment does not have.
+
+## 7. Tests
 
 - `tests/unit/navigation/navigation-resolver.test.ts`: every module placed
   once in the panel, the five tabs in order, three or four buttons in every
   set, each module's buttons in its own tab (Units in Sales), sections at
   their routes and behind their permissions, the tab each page opens, and the
   search.
-- `tests/unit/navigation/navigation-layouts.test.ts`: the cookie readers, the
-  phone tabs, that `/projects/units` is not a project, and that the shell draws
-  one top bar with the Ribbon, Units, the logo's panel and Home, and no Dock.
+- `tests/unit/navigation/navigation-layouts.test.ts`: the cookie reader, the
+  phone's places and where Projects goes, that `/projects/units` is not a
+  project, and that the shell draws one top bar with the Ribbon, Units, the
+  logo's panel and Home, and no Dock.
 - `tests/unit/ux/aud05-navigation.test.ts`: every button of the Ribbon and the
   panel has a page, and no group is ever empty.
 - `tests/unit/a11y/theme-drift.test.ts`: the bar, ribbon and breadcrumb
   heights.
 - End-to-end: `tests/e2e/fixtures.ts` reads every module from the logo's panel
   (`navigationHrefs`, `navigationNames`, `navigationLink`) and switches the
-  workspace from its header (`openWorkspaceSwitcher`, `chooseWorkspace`).
-  `tests/e2e/shell/organization-header.spec.ts` covers Home and the switch.
-  These need the database to run.
+  workspace from its header (`openWorkspaceSwitcher`, `chooseWorkspace`) —
+  below `lg` from Menu, and a page's sections from the section row
+  (`openSection`, `currentSection`).
+  `tests/e2e/shell/organization-header.spec.ts` covers Home and the switch;
+  `tests/e2e/responsive/aud04-mob02-shell.spec.ts` the phone: the five places,
+  Projects remembering, the project switch, the section row, Back, New, Inbox,
+  Menu, the bar folding and the keyboard. These need the database to run.
 
-## 10. Next
+## 8. Next
 
 - **One layout per role** — an architect's Ribbon, an engineer's — as Fiori's
   spaces and Business Central's role centres do: the same buttons, chosen and

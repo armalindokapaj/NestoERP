@@ -1,6 +1,6 @@
 "use client";
 
-import { OPEN_QUICK_CREATE_EVENT } from "@/components/layout/phone-ribbon";
+import { OPEN_QUICK_CREATE_EVENT } from "@/components/layout/phone-bar";
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Plus, X } from "@/components/icons";
@@ -270,7 +270,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
     return () => window.removeEventListener("keydown", onKey);
   }, [summary.canOpen, open, openPanel]);
 
-  // The phone Ribbon's Create opens the same panel; its own trigger is hidden below md (MOB-02 §16).
+  // New in the phone's bar opens the same panel; its own trigger is hidden below lg (docs/ui/UI-04-navigation-layouts.md §Phone).
   // Pressed again while the panel is open, that button closes it, as this one does.
   React.useEffect(() => {
     if (!summary.canOpen) return;
@@ -527,7 +527,8 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
   }
 
   return (
-    <div className="relative">
+    // Below lg nothing of it is in the bar's row: the trigger is hidden and the panel is fixed above the phone's bar.
+    <div className="relative max-lg:contents">
       <button
         ref={triggerRef}
         type="button"
@@ -538,7 +539,7 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-none bg-primary px-4 text-body font-medium text-primary-fg transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-md:hidden lg:max-xl:w-10 lg:max-xl:px-0 touch:h-11 touch:min-w-11"
+        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-none bg-primary px-4 text-body font-medium text-primary-fg transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-lg:hidden lg:max-xl:w-10 lg:max-xl:px-0 touch:h-11 touch:min-w-11"
         data-testid="quick-create-button"
         {...warm}
       >
@@ -547,12 +548,13 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
         <span className="hidden md:inline lg:max-xl:hidden">{t("quickCreate.create")}</span>
       </button>
 
-      {/* From md up the panel opens under the button, its right edge on the button's — Create stands at the
+      {/* From lg the panel opens under the button, its right edge on the button's — Create stands at the
           inner edge of the bar's left side — and starts on the bar's lower edge, like every panel opened from the top bar
           (lib/layout/topbar-line.ts). The wrapper is centred in the bar's row, so half its height plus half
           the row's is the row's lower edge.
-          Below md the button is the bottom bar's Create: the panel is a bubble of glass floating above the
-          bar, its pointer on that button. On a touch tablet it hangs under the top bar's button the same way. */}
+          Below lg it is New's sheet: square glass across the screen, standing on the phone's bar, the page dimmed
+          behind it; a tap on the page, Escape, its close or New again closes it. */}
+      {open ? <div aria-hidden="true" className="fixed inset-x-0 top-0 bottom-(--nesto-bottom-nav-space) z-40 bg-[rgb(15_20_26/0.28)] lg:hidden" /> : null}
       {open ? (
         <div
           ref={panelRef}
@@ -560,12 +562,11 @@ export function QuickCreate({ userKey, summary }: { userKey: string; summary: Qu
           role="dialog"
           aria-labelledby={headingId}
           tabIndex={-1}
-          className="nesto-popup-glass fixed inset-x-3 bottom-[max(calc(var(--nesto-safe-bottom)+0.75rem),calc(var(--nesto-bottom-nav-space)-0.875rem))] z-50 mx-auto flex max-h-[min(70dvh,calc(100dvh-var(--nesto-bottom-nav-space)-4.5rem))] max-w-md flex-col border border-line bg-surface shadow-xl outline-none md:absolute md:inset-auto md:right-0 md:top-[calc(50%+var(--nesto-topbar-row-h)/2)] md:mx-0 md:max-h-[calc(100dvh-var(--nesto-topbar-row-h)-1.5rem)] md:w-80 md:max-w-none md:touch:mt-3 rounded-[14px] shadow-menu"
+          className="fixed inset-x-0 bottom-(--nesto-bottom-nav-space) z-50 mx-auto flex max-h-[calc(100dvh-var(--nesto-bottom-nav-space)-var(--nesto-topbar-row-h)-1rem)] max-w-xl flex-col border-t border-line-strong bg-canvas/90 outline-none backdrop-blur-[16px] backdrop-saturate-[1.3] sm:border-x lg:absolute lg:inset-auto lg:right-0 lg:top-[calc(50%+var(--nesto-topbar-row-h)/2)] lg:mx-0 lg:max-h-[calc(100dvh-var(--nesto-topbar-row-h)-1.5rem)] lg:w-80 lg:max-w-none lg:border lg:border-line lg:bg-surface lg:shadow-menu lg:backdrop-blur-none lg:touch:mt-3"
           data-testid="quick-create-panel"
           data-state={step.kind === "menu" ? menuState.status : step.kind}
         >
-          <PanelPointer side="below" className="md:hidden!" />
-          <PanelPointer side="above" className="max-md:hidden!" />
+          <PanelPointer side="above" className="max-lg:hidden!" />
           {Body ? (
             <Body
               panelId={panelId}

@@ -1,23 +1,22 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { mainRegion, openSectionMenu, sectionMenuTrigger, signIn } from "../fixtures";
+import { currentSection, mainRegion, openSectionMenu, sectionRow, signIn } from "../fixtures";
 import { expectNoPageOverflow, expectTouchTargets } from "./geometry";
 
 /**
- * The phone shell (docs/ui/UI-04-navigation-layouts.md): the desktop Ribbon
- * brought to the phone, below 1024px. Runs in every responsive matrix project;
- * each test says which width family it is about and skips the rest.
+ * The phone shell (docs/ui/UI-04-navigation-layouts.md §Phone), below 1024px.
+ * Runs in every responsive matrix project; each test says which width family
+ * it is about and skips the rest.
  *
- * Phone is below 768, tablet portrait 768-1023 (the same bar; Create stays in
- * the top bar), desktop 1024 and up (the Ribbon or the Dock; no phone bar).
+ * Phone is below 768, tablet portrait 768–1023 (the same shell), desktop 1024
+ * and up (the Ribbon; no phone bar).
  *
- * The Pocket Ribbon, the default: the bar is the Ribbon's tabs — Home, Work,
- * Department, Company — each opening its modules as tiles above it; the tab
- * holding the module you are in is marked. Above the bar floats the strip:
- * This page (the section you are on, opening the page's sections), Units and
- * Create. The Action Ribbon, the other choice: Ribbon, the page's main actions
- * (or This page), Units and Create, with the whole Ribbon as a sheet. The bell
- * is the top bar's at every width; the account is under Company.
+ * The bar holds five places — Home, Projects, New, Inbox, Menu — the one you
+ * are in marked. The top bar is where you are and search: the page's name, or
+ * inside a project the project's, which switches project; Back when you are
+ * deeper than a place's first page. A page's sections are the row under the
+ * top bar. New opens Quick Create on the bar, the field's first; Inbox holds
+ * approvals and alerts; Menu the departments, search and you.
  *
  * Read-only against the seeded demo except the form checks, which type into a
  * form and leave it.
@@ -29,171 +28,281 @@ const isTablet = (page: Page) => width(page) >= 768 && width(page) < 1024;
 const isDesktop = (page: Page) => width(page) >= 1024;
 
 const bar = (page: Page) => page.getByTestId("phone-navigation");
-const tab = (page: Page, group: "primary" | "work" | "department" | "company") => bar(page).getByTestId(`phone-tab-${group}`);
-const panel = (page: Page) => page.getByTestId("phone-panel");
-const strip = (page: Page) => page.getByTestId("phone-strip");
+const place = (page: Page, name: "home" | "projects" | "inbox" | "menu") => bar(page).getByTestId(`phone-place-${name}`);
+const header = (page: Page) => page.locator("header[data-shell-region]");
 
-/** The Action Ribbon is chosen in Settings › Appearance; its cookie is set before signing in. */
-async function chooseAction(page: Page, baseURL: string | undefined) {
-  await page.context().addCookies([{ name: "nesto.phone-nav", value: "action", url: baseURL ?? "http://localhost:3000" }]);
-}
-
-/** A popup grows out of its control, and a sheet slides in: either is measured once it has landed. */
+/** A sheet drops or rises into place: it is measured once it has landed. */
 async function landed(popup: Locator) {
   await popup.evaluate((element) => Promise.allSettled(element.getAnimations({ subtree: true }).map((animation) => animation.finished)).then(() => undefined));
 }
 
-test.describe("Pocket Ribbon", () => {
-  test("phone: the Ribbon's four tabs, the one you are in marked; This page, Units and Create above", async ({ page }) => {
-    test.skip(!isPhone(page), "phone shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
+test.describe("the bar", () => {
+  test("phone and tablet: five places, the one you are in marked", async ({ page }) => {
+    test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
     await expect(bar(page)).toBeVisible();
-    await expect(bar(page)).toHaveAttribute("data-mobile-bottom-nav", "pocket");
-    for (const [group, name] of [["primary", "Home"], ["work", "Work"], ["department", "Department"], ["company", "Company"]] as const) {
-      await expect(tab(page, group)).toHaveText(name);
+    await expect(bar(page)).toHaveAttribute("data-mobile-bottom-nav", "bar");
+    for (const [name, label] of [["home", "Home"], ["projects", "Projects"], ["inbox", /^Inbox/], ["menu", "Menu"]] as const) {
+      await expect(place(page, name)).toHaveAccessibleName(label);
     }
-    await expect(tab(page, "primary")).toHaveAttribute("data-here", "true");
-    await expect(tab(page, "work")).not.toHaveAttribute("data-here", "true");
-    // The strip: Home has no sections, so This page names the page and opens nothing.
-    await expect(strip(page).getByTestId("phone-this-page")).toBeVisible();
-    await expect(strip(page).getByTestId("phone-units")).toBeVisible();
-    await expect(strip(page).getByTestId("phone-create")).toBeVisible();
-    // The bell is the top bar's at every width.
-    await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeVisible();
+    await expect(bar(page).getByTestId("phone-create")).toHaveAccessibleName("New");
+    await expect(place(page, "home")).toHaveAttribute("aria-current", "page");
+    await expect(bar(page).locator('[aria-current="page"]')).toHaveCount(1);
     await expectTouchTargets(page, bar(page));
-    await expectNoPageOverflow(page, "dashboard with the bar");
+    await expectNoPageOverflow(page, "My Day with the bar");
   });
 
-  test("phone: a nested route marks the tab holding its module", async ({ page }) => {
+  test("phone: a page marks the place it belongs to", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-    await expect(tab(page, "work")).toHaveAttribute("data-here", "true");
-    await expect(tab(page, "primary")).not.toHaveAttribute("data-here", "true");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a/tasks" });
+    await expect(place(page, "projects")).toHaveAttribute("aria-current", "page");
+    await page.goto("/approvals");
+    await expect(place(page, "inbox")).toHaveAttribute("aria-current", "page");
+    await page.goto("/calendar");
+    await expect(place(page, "menu")).toHaveAttribute("aria-current", "page");
+    await page.goto("/dashboard");
+    await expect(place(page, "home")).toHaveAttribute("aria-current", "page");
   });
 
-  test("phone and tablet: a tab opens its modules as tiles above the bar; a tile navigates and closes it", async ({ page }) => {
+  test("a person without create rights sees four places and no New", async ({ page }) => {
     test.skip(isDesktop(page), "the bar exists below 1024");
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects" });
-    await tab(page, "work").click();
-    await expect(tab(page, "work")).toHaveAttribute("aria-expanded", "true");
-    await expect(panel(page)).toBeVisible();
-    await expect(panel(page)).toHaveAccessibleName("Work");
-    // The module you are in is the gold tile, and takes focus.
-    const projects = panel(page).getByTestId("phone-module-projects");
-    await expect(projects).toHaveAttribute("aria-current", "page");
-    await expect(projects).toBeFocused();
-    // The panel sits on the bar, whole on screen; the strip makes way for it.
-    await landed(panel(page));
-    const [sheet, tabs] = [(await panel(page).boundingBox())!, (await bar(page).locator("ul").boundingBox())!];
-    expect(Math.abs(sheet.y + sheet.height - tabs.y)).toBeLessThanOrEqual(2);
-    expect(sheet.y).toBeGreaterThanOrEqual(0);
-    await expect(strip(page)).toBeHidden();
-    await expectTouchTargets(page, panel(page));
-
-    await panel(page).getByTestId("phone-module-tasks").click();
-    await expect(page).toHaveURL(/\/tasks/);
-    await expect(panel(page)).toHaveCount(0);
-    await expect(tab(page, "work")).toHaveAttribute("data-here", "true");
+    await signIn(page, "VIEWER", { to: "/my-day" });
+    await expect(place(page, "menu")).toBeVisible();
+    await expect(page.getByTestId("phone-create")).toHaveCount(0);
+    await expect(bar(page).locator("li")).toHaveCount(4);
   });
 
-  test("Escape and a second tap close the panel; focus goes back to the tab", async ({ page }) => {
-    test.skip(isDesktop(page), "the bar exists below 1024");
-    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    await tab(page, "department").click();
-    await expect(panel(page)).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(panel(page)).toHaveCount(0);
-    await expect(tab(page, "department")).toBeFocused();
-    await tab(page, "department").click();
-    await expect(panel(page)).toBeVisible();
-    await tab(page, "department").click();
-    await expect(panel(page)).toHaveCount(0);
-  });
-
-  test("Company holds the account: profile, Settings, Refresh, the theme and Logout", async ({ page }) => {
-    test.skip(!isPhone(page), "phone shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    await tab(page, "company").click();
-    const account = panel(page).getByTestId("phone-account");
-    await expect(account.getByRole("link", { name: /my profile/i })).toBeVisible();
-    await expect(account.getByRole("link", { name: "Settings" })).toBeVisible();
-    await expect(account.getByTestId("phone-refresh")).toBeVisible();
-    await account.getByRole("button", { name: /logout/i }).click();
-    await expect(page).toHaveURL(/\/login/);
-    // Back must not reveal authenticated content.
-    await page.goBack();
-    await expect(page).not.toHaveURL(/\/dashboard$/);
-  });
-
-  test("phone: content is never hidden behind the strip", async ({ page }) => {
+  test("phone: content is never hidden behind the bar", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects" });
     await expect(mainRegion(page).getByTestId("project-card").first()).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    // The last piece of content, not the padded box: it must end above the strip once scrolled to the end.
-    const last = await mainRegion(page).evaluate((main) => {
-      const content = [...main.children].filter((child) => !child.matches("[data-mobile-action-bar]"));
-      return (content.at(-1) ?? main).getBoundingClientRect().bottom;
-    });
-    const top = (await strip(page).boundingBox())!.y;
+    // The last piece of content, not the padded box: it ends above the bar once scrolled to the end.
+    const last = await mainRegion(page).evaluate((main) => ([...main.children].at(-1) ?? main).getBoundingClientRect().bottom);
+    const top = (await bar(page).boundingBox())!.y;
     expect(Math.round(last)).toBeLessThanOrEqual(Math.round(top) + 1);
   });
 
-  test("tablet portrait: the same bar; Create stays in the top bar", async ({ page }) => {
+  test("phone: the bar folds to its icons while you scroll down and opens on the way up", async ({ page }) => {
+    test.skip(!isPhone(page), "phone shell");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    await expect(mainRegion(page).getByRole("heading", { level: 1 }).first()).toBeVisible();
+    // A page long enough to scroll, whatever the seed holds.
+    await mainRegion(page).evaluate((main) => (main.style.minHeight = "400vh"));
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(bar(page)).toHaveAttribute("data-folded", "true");
+    expect(Math.round((await bar(page).locator("ul").boundingBox())!.height)).toBe(48);
+    // Folded, a cell keeps its name.
+    await expect(place(page, "projects")).toHaveAccessibleName("Projects");
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await expect(bar(page)).not.toHaveAttribute("data-folded");
+    expect(Math.round((await bar(page).locator("ul").boundingBox())!.height)).toBe(64);
+  });
+
+  test("tablet portrait: the same bar; no Create in the top bar", async ({ page }) => {
     test.skip(!isTablet(page), "tablet portrait shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
+    await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
     await expect(bar(page)).toBeVisible();
-    await expect(page.getByTestId("phone-create")).toBeHidden();
-    await expect(page.getByTestId("quick-create-button")).toBeVisible();
+    await expect(bar(page).getByTestId("phone-create")).toBeVisible();
+    await expect(page.getByTestId("quick-create-button")).toBeHidden();
     await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(0);
-    await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeVisible();
   });
 
   test("desktop: no phone bar; the Ribbon is the navigation", async ({ page }) => {
     test.skip(!isDesktop(page), "desktop shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     await expect(bar(page)).toBeHidden();
+    await expect(sectionRow(page)).toBeHidden();
     await expect(page.locator("[data-ribbon]")).toBeVisible();
     await expect(page.getByTestId("quick-create-button")).toBeVisible();
     await expect(page.getByTestId("account-trigger")).toBeVisible();
+    await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeVisible();
     await expect(mainRegion(page).getByTestId("home-tasks")).toBeHidden();
   });
+});
 
-  test("a person without create rights sees no Create button and no dead slot", async ({ page }) => {
+test.describe("Projects", () => {
+  test("phone: Projects opens the project you were last in; before any, the list", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
-    await signIn(page, "VIEWER", { to: "/dashboard" });
-    await expect(page.getByTestId("phone-create")).toHaveCount(0);
-    await expect(tab(page, "company")).toBeVisible();
+    await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
+    await expect(place(page, "projects")).toHaveAttribute("href", "/projects");
+    await page.goto("/projects/project_a/tasks");
+    await expect(place(page, "projects")).toHaveAttribute("aria-current", "page");
+    await page.goto("/my-day");
+    await expect(place(page, "projects")).toHaveAttribute("href", "/projects/project_a");
+    await place(page, "projects").click();
+    await expect(page).toHaveURL(/\/projects\/project_a$/);
+  });
+
+  test("phone and tablet: inside a project the title is its name, and switches project", async ({ page }) => {
+    test.skip(isDesktop(page), "the title exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    const title = header(page).getByTestId("phone-project-switch");
+    await expect(title).toBeVisible();
+    await title.click();
+    const list = page.getByTestId("phone-project-list");
+    await expect(list).toBeVisible();
+    await landed(list);
+    // Your projects, the one you are on marked; the list sits on the top bar, whole on screen.
+    await expect(list.locator('a[aria-current="page"]')).toHaveCount(1);
+    const [drop, top] = [(await list.boundingBox())!, (await header(page).boundingBox())!];
+    expect(Math.abs(drop.y - (top.y + top.height))).toBeLessThanOrEqual(2);
+    await expectTouchTargets(page, list);
+    await page.keyboard.press("Escape");
+    await expect(list).toHaveCount(0);
+    await expect(title).toBeFocused();
+    // Another project is one tap away.
+    await title.click();
+    const other = list.locator("ul a:not([aria-current])").first();
+    test.skip((await other.count()) === 0, "this person has one project");
+    const href = await other.getAttribute("href");
+    await other.click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expect(list).toHaveCount(0);
   });
 });
 
-test.describe("Units", () => {
-  test("phone: one tap to the units of the project you are in, and of the last one from anywhere", async ({ page }) => {
+test.describe("sections", () => {
+  test("phone and tablet: a project's sections are the row under the top bar; no tab row is drawn", async ({ page }) => {
+    test.skip(isDesktop(page), "the row exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    const row = await openSectionMenu(page);
+    await expect(row).toHaveAccessibleName("Project sections");
+    await expect(currentSection(page)).toHaveText("Overview");
+    await expect(row.locator('[aria-current="page"]')).toHaveCount(1);
+    // Every section the row had at desktop, those it tucked under More included.
+    await expect(row.getByRole("link", { name: "Tasks", exact: true })).toBeAttached();
+    await expect(row.getByRole("link", { name: "Activity", exact: true })).toBeAttached();
+    // The page's tab row is not drawn; the Overview's own controls stay on the page, where the row was.
+    await expect(mainRegion(page).locator("[data-tab-scroller]").first()).toBeHidden();
+    await expect(mainRegion(page).locator("[data-context-tabs-trailing]").getByRole("button", { name: "More project actions" })).toBeVisible();
+
+    // Pinned under the top bar as the page scrolls.
+    await mainRegion(page).evaluate((main) => (main.style.minHeight = "300vh"));
+    await page.evaluate(() => window.scrollTo(0, 500));
+    const [pinned, top] = [(await row.boundingBox())!, (await header(page).boundingBox())!];
+    expect(Math.abs(pinned.y - (top.y + top.height))).toBeLessThanOrEqual(1);
+
+    await row.getByRole("link", { name: "Tasks", exact: true }).click();
+    await expect(page).toHaveURL(/\/projects\/project_a\/tasks$/);
+    await expect(currentSection(page)).toHaveText("Tasks");
+    await expect(currentSection(page)).toBeInViewport();
+    await expectNoPageOverflow(page, "project tasks with the section row");
+  });
+
+  test("phone: Back goes to where you were, and is not on a place's first page", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-    const units = page.getByTestId("phone-units");
-    await expect(units).toHaveAttribute("href", "/projects/project_a/units");
-    await units.click();
-    await expect(page).toHaveURL(/\/projects\/project_a\/units/);
-    await expect(units).toHaveAttribute("aria-current", "page");
-    // Elsewhere, Units remembers the project.
-    await page.goto("/dashboard");
-    await expect(page.getByTestId("phone-units")).toHaveAttribute("href", "/projects/project_a/units");
+    await expect(page.getByTestId("phone-back")).toHaveCount(0);
+    await (await openSectionMenu(page)).getByRole("link", { name: "Tasks", exact: true }).click();
+    await expect(page).toHaveURL(/\/projects\/project_a\/tasks$/);
+    await page.getByTestId("phone-back").click();
+    await expect(page).toHaveURL(/\/projects\/project_a$/);
+  });
+
+  test("desktop: the tab rows are drawn and there is no section row", async ({ page }) => {
+    test.skip(!isDesktop(page), "desktop shell");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    await expect(mainRegion(page).getByRole("navigation", { name: "Project sections" })).toBeVisible();
+    await expect(sectionRow(page)).toBeHidden();
   });
 });
 
-test.describe("Tasks on Home", () => {
-  test("phone and tablet: Tasks opens Home — My tasks, Due today and Overdue with their counts, and All tasks", async ({ page }) => {
+test.describe("New", () => {
+  test("phone and tablet: New opens Quick Create on the bar, the field's first; New again closes it", async ({ page }) => {
     test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
+    const create = bar(page).getByTestId("phone-create");
+    await create.click();
+    const quick = page.getByTestId("quick-create-panel");
+    await expect(quick).toBeVisible();
+    await expect(create).toHaveAttribute("aria-expanded", "true");
+    await expect(create).toHaveAccessibleName("Close New");
+    // The field's first, a task among them; everything else below.
+    const field = quick.getByTestId("quick-create-field");
+    await expect(field).toBeVisible();
+    await expect(field.getByTestId("quick-create-field-tasks.task.create")).toBeVisible();
+    // Standing on the bar, whole on screen.
+    await landed(quick);
+    const [sheet, cells] = [(await quick.boundingBox())!, (await bar(page).boundingBox())!];
+    expect(sheet.y).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(sheet.y + sheet.height - cells.y)).toBeLessThanOrEqual(2);
+    await expectTouchTargets(page, field);
+
+    await page.keyboard.press("Escape");
+    await expect(quick).toHaveCount(0);
+    await expect(create).toBeFocused();
+    await create.click();
+    await expect(quick).toBeVisible();
+    await create.click();
+    await expect(quick).toHaveCount(0);
+    await expect(create).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+test.describe("Inbox", () => {
+  test("phone and tablet: Inbox holds what waits for your answer and what is new for you", async ({ page }) => {
+    test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
+    await place(page, "inbox").click();
+    await expect(page).toHaveURL(/\/inbox$/);
+    const inbox = mainRegion(page).getByTestId("inbox");
+    await expect(inbox).toBeVisible();
+    await expect(place(page, "inbox")).toHaveAttribute("aria-current", "page");
+    // Two filters, visible: what needs you, and everything.
+    await expect(inbox.getByTestId("inbox-needs-you")).toHaveAttribute("aria-pressed", "true");
+    await inbox.getByTestId("inbox-everything").click();
+    await expect(inbox.getByTestId("inbox-everything")).toHaveAttribute("aria-pressed", "true");
+    await expect(inbox.getByRole("link", { name: /all approvals/i })).toHaveAttribute("href", "/approvals");
+    // The bell is not drawn below 1024: Inbox carries its count.
+    await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeHidden();
+    await expectNoPageOverflow(page, "Inbox");
+  });
+});
+
+test.describe("Menu", () => {
+  test("phone and tablet: Menu holds the departments and search; a name finds a module", async ({ page }) => {
+    test.skip(isDesktop(page), "the bar exists below 1024");
+    await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
+    await place(page, "menu").click();
+    const menu = page.getByTestId("phone-menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("region", { name: "Departments" })).toBeVisible();
+    await menu.getByTestId("phone-menu-find").fill("cal");
+    await expect(menu.getByTestId("phone-module-calendar")).toBeVisible();
+    await menu.getByTestId("phone-module-calendar").click();
+    await expect(page).toHaveURL(/\/calendar/);
+    await expect(place(page, "menu")).toHaveAttribute("aria-current", "page");
+  });
+
+  test("phone: Menu holds you — your profile, Settings, Refresh and Sign out", async ({ page }) => {
+    test.skip(!isPhone(page), "phone shell");
+    await signIn(page, "PROJECT_MANAGER", { to: "/menu" });
+    const menu = page.getByTestId("phone-menu");
+    await expect(menu.getByTestId("phone-menu-you")).toHaveAttribute("href", "/settings/profile");
+    const you = menu.getByTestId("phone-account");
+    await expect(you.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(you.getByTestId("phone-refresh")).toBeVisible();
+    await expectTouchTargets(page, you);
+    await you.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login/);
+    // Back must not reveal authenticated content.
+    await page.goBack();
+    await expect(page).not.toHaveURL(/\/menu$/);
+  });
+});
+
+test.describe("Tasks on the Dashboard", () => {
+  test("phone and tablet: the Dashboard opens with Tasks — My tasks, Due today and Overdue with their counts, and All tasks", async ({ page }) => {
+    test.skip(isDesktop(page), "the block exists below 1024");
     await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
     const block = mainRegion(page).getByTestId("home-tasks");
     await expect(block).toBeVisible();
     await expect(block.getByRole("heading", { name: "Tasks" })).toBeVisible();
-    // The block opens Home's aside, above My Day.
+    // The block opens the Dashboard's aside, above My Day.
     const [tasksTop, myDayTop] = [(await block.boundingBox())!.y, (await mainRegion(page).getByTestId("open-my-day").boundingBox())!.y];
     expect(tasksTop).toBeLessThan(myDayTop);
-    const links = block.getByRole("link");
-    await expect(links).toHaveCount(4);
+    await expect(block.getByRole("link")).toHaveCount(4);
     await expect(block.getByTestId("home-tasks-mine")).toHaveAttribute("href", "/tasks/my-tasks");
     await expect(block.getByTestId("home-tasks-today")).toHaveAttribute("href", "/tasks/all?due=today");
     await expect(block.getByTestId("home-tasks-overdue")).toHaveAttribute("href", "/tasks/overdue");
@@ -207,7 +316,7 @@ test.describe("Tasks on Home", () => {
   });
 
   test("somebody who cannot open Tasks gets no Tasks block", async ({ page }) => {
-    test.skip(isDesktop(page), "the bar exists below 1024");
+    test.skip(isDesktop(page), "the block exists below 1024");
     await signIn(page, "VIEWER", { to: "/dashboard" });
     const response = await page.request.get("/tasks");
     test.skip(!response.url().includes("access-denied"), "this role can open Tasks");
@@ -216,153 +325,35 @@ test.describe("Tasks on Home", () => {
   });
 });
 
-test.describe("This page", () => {
-  test("phone and tablet: a project's tabs are This page and its tiles; no tab row is drawn", async ({ page }) => {
-    test.skip(isDesktop(page), "This page exists below 1024");
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-    const trigger = sectionMenuTrigger(page);
-    await expect(trigger).toBeVisible();
-    await expect(trigger).toHaveAccessibleName("Page sections: Overview");
-    await expect(trigger.getByTestId("section-menu-current")).toHaveText("Overview");
-    // The tab row is not drawn; the Overview's own controls stay on the page, where the row was.
-    await expect(page.getByRole("navigation", { name: "Project sections" })).toHaveCount(0);
-    await expect(mainRegion(page).locator("[data-context-tabs-trailing]").getByRole("button", { name: "More project actions" })).toBeVisible();
-
-    const menu = await openSectionMenu(page);
-    await landed(panel(page));
-    // Every section the row had, those it tucked under More included, the current one marked and focused.
-    const current = menu.getByRole("link", { name: "Overview", exact: true });
-    await expect(current).toHaveAttribute("aria-current", "page");
-    await expect(current).toBeFocused();
-    await expect(menu.getByRole("link", { name: "Tasks", exact: true })).toBeVisible();
-    await expect(menu.getByRole("link", { name: "Activity", exact: true })).toBeVisible();
-    await expect(menu.locator('[aria-current="page"]')).toHaveCount(1);
-    await expectTouchTargets(page, menu);
-
-    await menu.getByRole("link", { name: "Tasks", exact: true }).click();
-    await expect(page).toHaveURL(/\/projects\/project_a\/tasks$/);
-    await expect(page.getByTestId("section-menu")).toHaveCount(0);
-    await expect(sectionMenuTrigger(page).getByTestId("section-menu-current")).toHaveText("Tasks");
-    await expectNoPageOverflow(page, "project tasks with This page");
-  });
-
-  test("Escape closes the sections and gives focus back to This page", async ({ page }) => {
-    test.skip(isDesktop(page), "This page exists below 1024");
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-    const trigger = sectionMenuTrigger(page);
-    await trigger.focus();
-    await page.keyboard.press("Enter");
-    const menu = page.getByTestId("section-menu");
-    await expect(menu.getByRole("link", { name: "Overview", exact: true })).toBeFocused();
-    await page.keyboard.press("Escape");
-    await expect(menu).toHaveCount(0);
-    await expect(sectionMenuTrigger(page)).toBeFocused();
-  });
-
-  test("desktop: the tab rows are drawn and there is no This page below", async ({ page }) => {
-    test.skip(!isDesktop(page), "desktop shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-    await expect(page.getByRole("navigation", { name: "Project sections" })).toBeVisible();
-    await expect(sectionMenuTrigger(page)).toBeHidden();
-  });
-});
-
-test.describe("Create", () => {
-  test("opens the same Quick Create panel as a bubble above the strip, and the same button closes it", async ({ page }) => {
-    test.skip(!isPhone(page), "phone shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    const create = page.getByTestId("phone-create");
-    await create.click();
-    const quick = page.getByTestId("quick-create-panel");
-    await expect(quick).toBeVisible();
-    await expect(create).toHaveAttribute("aria-expanded", "true");
-    await expect(quick.getByTestId("quick-create-tasks.task.create")).toBeVisible();
-    // Floating above the strip, whole on screen, its pointer on the button that opened it.
-    const pointer = quick.locator('.nesto-panel-pointer[data-side="below"]');
-    await expect(pointer).toBeVisible();
-    const [control, bubble, tail] = [(await create.boundingBox())!, (await quick.boundingBox())!, (await pointer.boundingBox())!];
-    expect(bubble.y).toBeGreaterThanOrEqual(0);
-    expect(bubble.x + bubble.width).toBeLessThanOrEqual(width(page));
-    expect(bubble.y + bubble.height).toBeLessThanOrEqual(control.y + 1);
-    expect(Math.abs(tail.x + tail.width / 2 - (control.x + control.width / 2))).toBeLessThanOrEqual(2);
-    await page.keyboard.press("Escape");
-    await expect(quick).toHaveCount(0);
-
-    await create.click();
-    await expect(quick).toBeVisible();
-    await create.click();
-    await expect(quick).toHaveCount(0);
-    await expect(create).toHaveAttribute("aria-expanded", "false");
-  });
-});
-
-test.describe("Action Ribbon", () => {
-  test("phone: Ribbon, This page, Units and Create in one bar", async ({ page, baseURL }) => {
-    test.skip(!isPhone(page), "phone shell");
-    await chooseAction(page, baseURL);
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects/project_a" });
-    await expect(bar(page)).toHaveAttribute("data-mobile-bottom-nav", "action");
-    await expect(bar(page).getByTestId("phone-ribbon")).toBeVisible();
-    await expect(sectionMenuTrigger(page)).toBeVisible();
-    await expect(bar(page).getByTestId("phone-units")).toBeVisible();
-    await expect(bar(page).getByTestId("phone-create")).toBeVisible();
-    // No strip: the page's main actions take This page's place when it has one.
-    await expect(strip(page)).toHaveCount(0);
-    await expectTouchTargets(page, bar(page));
-    await expectNoPageOverflow(page, "project with the Action Ribbon");
-  });
-
-  test("Ribbon opens every tab as a sheet, on the tab you are in; a name finds a module", async ({ page, baseURL }) => {
-    test.skip(isDesktop(page), "the bar exists below 1024");
-    await chooseAction(page, baseURL);
-    await signIn(page, "PROJECT_MANAGER", { to: "/projects" });
-    await bar(page).getByTestId("phone-ribbon").click();
-    const sheet = page.getByTestId("phone-ribbon-sheet");
-    await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole("tab", { name: "Work" })).toHaveAttribute("aria-selected", "true");
-    await expect(sheet.getByTestId("phone-module-projects")).toHaveAttribute("aria-current", "page");
-    await sheet.getByRole("tab", { name: "Company" }).click();
-    await expect(sheet.getByTestId("phone-account")).toBeVisible();
-    await sheet.getByTestId("phone-find").fill("cal");
-    await expect(sheet.getByTestId("phone-module-calendar")).toBeVisible();
-    await sheet.getByTestId("phone-module-calendar").click();
-    await expect(page).toHaveURL(/\/calendar/);
-    await expect(sheet).toHaveCount(0);
-  });
-});
-
 test.describe("header", () => {
-  test("phone: the logo, Home, search and the bell; no hamburger, no account menu, no company switcher", async ({ page }) => {
+  test("phone: where you are and search; no logo, bell or account", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
-    await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
-    const header = page.locator("header[data-shell-region]");
-    await expect(header.getByTestId("modules-panel-trigger")).toBeVisible();
-    await expect(header.getByTestId("topbar-home")).toBeVisible();
-    await expect(header.getByTestId("search-trigger")).toBeVisible();
-    await expect(header.getByTestId("notification-bell")).toBeVisible();
-    await expect(header.getByTestId("section-menu-trigger")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
+    await signIn(page, "PROJECT_MANAGER", { to: "/my-day" });
+    await expect(header(page).getByTestId("phone-page-title")).toBeVisible();
+    await expect(header(page).getByTestId("phone-back")).toHaveCount(0);
+    await expect(header(page).getByTestId("search-trigger")).toBeVisible();
+    await expect(header(page).getByTestId("modules-panel-trigger")).toBeHidden();
+    await expect(header(page).getByTestId("notification-bell")).toBeHidden();
     await expect(page.getByTestId("account-trigger")).toBeHidden();
-    // The switch and the account are in the logo's panel (components/layout/modules-panel.tsx).
-    await expect(header.getByTestId("organization-header")).toHaveCount(0);
-    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(57);
-    await expectTouchTargets(page, header);
+    await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
+    expect((await header(page).boundingBox())!.height).toBeLessThanOrEqual(57);
+    await expectTouchTargets(page, header(page));
     await expectNoPageOverflow(page, "header");
   });
 });
 
-test.describe("form action bar and the keyboard", () => {
-  test("a form's action bar sits above the phone bar, which stays (mobile audit 5b)", async ({ page }) => {
+test.describe("form actions and the keyboard", () => {
+  test("phone: a form's Save and Cancel are its last row, never under the bar (mobile audit 5b)", async ({ page }) => {
     test.skip(!isPhone(page), "phone shell");
     // The Owner and the CEO create projects (2f22d359); a project manager is refused /projects/new.
     await signIn(page, "OWNER", { to: "/projects/new" });
-    const actionBar = mainRegion(page).locator('[data-mobile-action-bar="flow"]').first();
-    await expect(actionBar).toBeVisible();
-    await expect(strip(page)).toBeVisible();
-    const actions = (await actionBar.boundingBox())!;
-    const top = (await strip(page).boundingBox())!;
-    // Stacked, never overlapping: Save and Cancel end above the strip's top edge.
-    expect(actions.y + actions.height).toBeLessThanOrEqual(top.y + 1);
+    const actions = mainRegion(page).locator("[data-form-actions]").first();
+    await expect(actions).toBeAttached();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(actions).toBeInViewport();
+    await expect(bar(page)).toBeVisible();
+    const [row, top] = [(await actions.boundingBox())!, (await bar(page).boundingBox())!];
+    expect(row.y + row.height).toBeLessThanOrEqual(top.y + 1);
   });
 
   test("the phone bar yields to the keyboard while a text field has focus", async ({ page }) => {

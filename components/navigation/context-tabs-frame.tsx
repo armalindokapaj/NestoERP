@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils/cn";
  * the tabs outgrow the row it scrolls sideways.
  *
  * Below `lg` (phones and tablets) the row is not drawn: its `sections` — every
- * tab, including those a row tucks under More — are the phone Ribbon's This
- * page (components/layout/phone-ribbon.tsx). A page's own controls (`trailing`)
+ * tab, including those a row tucks under More — are the phone's section row
+ * under the top bar (components/layout/phone-sections.tsx). A page's own controls (`trailing`)
  * stay on the page there, a compact right-aligned row in the tab row's place
  * that scrolls with it (`data-tabs-in-menu`, styles/globals.css). `lead` is
  * what names the context in that row below `lg` — a project's name, code,
@@ -34,7 +34,7 @@ export function ContextTabsFrame({
   lead,
 }: {
   label: string;
-  /** The row's tabs as data, for the section menu: the same tabs, in the same order, with the one the page is on marked. */
+  /** The row's tabs as data, for the phone's section row: the same tabs, in the same order, with the one the page is on marked. */
   sections: readonly SectionItem[];
   children: React.ReactNode;
   className?: string;
@@ -44,7 +44,7 @@ export function ContextTabsFrame({
   lead?: React.ReactNode;
 }) {
   const scroller = (
-    // Desktop tab sets are kept short enough not to scroll (§20); below lg the row is the section menu instead.
+    // Desktop tab sets are kept short enough not to scroll (§20); below lg the phone's section row stands for it.
     <div className={cn("overflow-x-auto overscroll-x-contain max-lg:hidden", trailing ? "min-w-0 flex-1" : null)} data-tab-scroller>
       <nav aria-label={label} data-testid={testId} className="flex h-(--nesto-shell-tab-row-h) min-w-max items-stretch gap-1 border-b border-line">
         {children}

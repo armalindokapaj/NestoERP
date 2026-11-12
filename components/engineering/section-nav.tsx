@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils/cn";
  * the longest route that matches, so a record page keeps its register
  * highlighted.
  *
- * Below `lg` (phones and tablets) neither is drawn: the sections are a level
- * of the phone Ribbon's This page (components/layout/phone-ribbon.tsx), under
- * the project's own, like every other tab row.
+ * Below `lg` (phones and tablets) neither is drawn: the sections are the
+ * phone's section row (components/layout/phone-sections.tsx), with the way
+ * back to the project's Engineering at its start, like every other tab row.
  */
 export function SectionNav({ items, label, testId, layout = "column" }: { items: Array<{ href: string; label: string; count?: number | null; exact?: boolean }>; label: string; testId?: string; layout?: "column" | "tabs" }) {
   const pathname = usePathname();

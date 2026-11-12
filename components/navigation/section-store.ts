@@ -1,15 +1,16 @@
 /**
- * The page's sections, for This page below `lg` (components/layout/phone-ribbon.tsx).
+ * The page's sections, for the phone's section row below `lg`
+ * (components/layout/phone-sections.tsx).
  *
- * Below 1024px a page's tab rows are not drawn: the phone Ribbon's This page
- * opens them instead. Every tab row goes through ContextTabsFrame,
+ * Below 1024px a page's tab rows are not drawn: the row under the top bar
+ * holds them instead. Every tab row goes through ContextTabsFrame,
  * which hands its tabs to this store while it is mounted — its level — and
  * takes them back when it unmounts. A record's own tabs inside a tabbed page
  * (a unit inside its project) are a second level; the levels are kept in
  * document order, outer first.
  *
  * Presentation only. A row's tabs arrive already filtered by permission, so
- * the menu can hold nothing the row would not have shown. Framework-free, so
+ * the phone's row can hold nothing the tab row would not have shown. Framework-free, so
  * it is unit-tested on its own; the React side is section-registry.tsx.
  */
 
@@ -68,7 +69,7 @@ export class SectionStore {
   };
 
   getSnapshot = () => this.snapshot;
-  /** The server, and the hydrating render, know no sections: the pill appears once the page's rows have registered. */
+  /** The server, and the hydrating render, know no sections: the row appears once the page's rows have registered. */
   getServerSnapshot = () => EMPTY;
 
   /** Registers a level, or replaces what it holds; it keeps its place among the levels. */
@@ -88,32 +89,9 @@ export class SectionStore {
   }
 }
 
-/** The levels the menu offers: a row of one tab is no choice, as ContextTabs draws no row for it. */
+/** The levels the phone's row can show: a row of one tab is no choice, as ContextTabs draws no row for it. */
 export function menuLevels(levels: readonly SectionLevel[]): SectionLevel[] {
   return levels.filter((level) => level.items.length > 1);
-}
-
-/**
- * What the pill says: the innermost level's current section — on a unit, the
- * unit's, not the project's. A page that is reachable but in no row (a
- * project's Media, opened from its Overview) is marked by none; the pill then
- * names the page itself (`pageName`, read from the page by the menu), and only
- * when the page has no name to give, the innermost level's own name. Null when
- * there is nothing to offer.
- */
-export function pillFor(levels: readonly SectionLevel[], pageName?: string | null): { label: string; item: SectionItem | null } | null {
-  if (levels.length === 0) return null;
-  for (let index = levels.length - 1; index >= 0; index -= 1) {
-    const item = levels[index]!.items.find((candidate) => candidate.active);
-    if (item) return { label: item.label, item };
-  }
-  const name = pageName?.trim();
-  return { label: name || levels[levels.length - 1]!.label, item: null };
-}
-
-/** True when some level marks the section the page is on; otherwise the pill needs the page's own name. */
-export function hasCurrentSection(levels: readonly SectionLevel[]): boolean {
-  return levels.some((level) => level.items.some((item) => item.active));
 }
 
 /**

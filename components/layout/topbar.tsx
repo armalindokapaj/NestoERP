@@ -1,6 +1,7 @@
 import { GlobalSearch } from "@/components/layout/global-search";
 import { ActivityBell } from "@/components/layout/activity-bell";
 import { HomeLink, ModulesPanel } from "@/components/layout/modules-panel";
+import { PhoneTitle } from "@/components/layout/phone-title";
 import { QuickCreate } from "@/components/layout/quick-create";
 import { RibbonPanel, RibbonProvider, RibbonTabs, RibbonUnits } from "@/components/layout/ribbon";
 import { AccountPanel } from "@/components/shell/account-panel";
@@ -31,10 +32,12 @@ import type { ShellCoreDTO } from "@/lib/workspace/shell-core";
  * every layer pinned under the header lines up (styles/globals.css). Every
  * panel opened from the bar starts on the row's lower edge (lib/layout/topbar-line.ts).
  *
- * Below `lg` the navigation is the phone Ribbon at the bottom
- * (components/layout/pocket-ribbon.tsx, action-ribbon.tsx), and on a phone the
- * account is at the foot of the logo's panel. The gutters include the
- * safe-area insets.
+ * Below `lg` the bar is where you are and search, nothing else: Back when
+ * there is somewhere to go back to, the page's (or the project's) name, then
+ * search in a cell of its own (components/layout/phone-title.tsx). The bell,
+ * Create, the account and every module are the phone's bar of five places at
+ * the bottom (components/layout/phone-bar.tsx): Inbox, New and Menu. The
+ * gutters include the safe-area insets.
  */
 export async function Topbar({
   context,
@@ -65,15 +68,16 @@ export async function Topbar({
       <RibbonProvider navigation={navigation} folded={ribbonFolded}>
       <div
         data-topbar-row
-        className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:pl-[max(1.5rem,env(safe-area-inset-left))] md:pr-[max(1.5rem,env(safe-area-inset-right))] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-4 xl:gap-x-8 xl:px-8"
+        className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-stretch pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-x-4 lg:pl-[max(1.5rem,env(safe-area-inset-left))] lg:pr-[max(1.5rem,env(safe-area-inset-right))] xl:gap-x-8 xl:px-8"
       >
-        {/* Where you are and what you make. */}
-        <div className="col-start-1 flex min-w-0 items-center gap-1.5 lg:w-full lg:max-w-(--nesto-bar-side)">
-          <ModulesPanel
-            navigation={navigation}
-            account={{ firstName: context.firstName, lastName: context.lastName, avatarUrl: context.avatarUrl, roleLabel, workspaceName }}
-          />
-          <HomeLink />
+        {/* Below lg: Back, and where you are. */}
+        <PhoneTitle />
+        {/* From lg: where you are and what you make. Below lg only Quick Create's panel is left of it, opened by New in the phone's bar. */}
+        <div className="col-start-1 flex min-w-0 items-center gap-1.5 max-lg:contents lg:w-full lg:max-w-(--nesto-bar-side)">
+          <div className="contents max-lg:hidden">
+            <ModulesPanel navigation={navigation} />
+            <HomeLink />
+          </div>
           {/* A demonstration tenant says so on every page (D-01 §68). */}
           {context.parentGroup.isDemo ? (
             <span title={shell("demoDisclaimer")} data-testid="demo-notice" className="inline-flex shrink-0 rounded-none border border-line px-2 py-px text-micro font-medium text-fg-muted max-xl:hidden">
@@ -91,13 +95,16 @@ export async function Topbar({
         {/* From lg: the Ribbon's five tabs, in the middle. */}
         <RibbonTabs className="col-start-2" />
 
-        {/* The universal cluster in its order on every surface: Search, Notifications, Account (UI-01 §1). */}
-        <div className="col-start-3 flex min-w-0 items-center justify-end gap-1 justify-self-end sm:gap-1.5 lg:w-full lg:max-w-(--nesto-bar-side)" data-testid="global-actions">
+        {/* The universal cluster in its order on every surface: Search, Notifications, Account (UI-01 §1). Below lg, Search alone, in a cell. */}
+        <div className="col-start-3 flex min-w-0 items-center justify-end justify-self-end max-lg:w-14 max-lg:justify-center max-lg:border-l max-lg:border-line-strong lg:w-full lg:max-w-(--nesto-bar-side) lg:gap-1.5" data-testid="global-actions">
           <GlobalSearch contextKey={core.contextKey} />
-          {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31). */}
-          <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
-          {/* Phone: the account is at the foot of the logo's panel. */}
-          <div className="contents max-md:hidden">
+          {/* One bell for notifications and announcements alike, across every company (Activity Center §3, §31).
+              Below lg it is mounted but not drawn: Inbox in the phone's bar carries its count. */}
+          <div className="contents max-lg:hidden">
+            <ActivityBell contextKey={core.contextKey} canManageAnnouncements={context.permissions.includes("announcement.create")} />
+          </div>
+          {/* Below lg, you are in Menu. */}
+          <div className="contents max-lg:hidden">
             <AccountPanel
               model={{
                 user: { firstName: context.firstName, lastName: context.lastName, avatarUrl: context.avatarUrl },

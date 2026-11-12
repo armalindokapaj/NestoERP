@@ -24,10 +24,11 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-/** Below 1024px the engineering sections are a group of the top bar's section pill, under the project's own. */
+/** Below 1024px the engineering sections are the row under the top bar, after the way back to the project's Engineering. */
 async function openEngineeringSection(page: Page, name: string | RegExp) {
-  const menu = await openSectionMenu(page);
-  await menu.getByRole("group", { name: "Engineering sections" }).getByRole("link", { name }).click();
+  const row = await openSectionMenu(page);
+  await expect(row).toHaveAccessibleName("Engineering sections");
+  await row.getByRole("link", { name }).click();
 }
 
 async function expectNoSidewaysScroll(page: Page) {
@@ -38,7 +39,7 @@ async function expectNoSidewaysScroll(page: Page) {
 test("the engineer answers an RFI and reviews a submittal from the phone", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, "ENGINEER", { to: `/projects/${PROJECT}/engineering` });
-  // The section column is not drawn on a phone: its sections are in the section pill.
+  // The section column is not drawn on a phone: its sections are the row under the top bar.
   await expect(page.getByTestId("engineering-nav")).toBeHidden();
   await expectNoSidewaysScroll(page);
 

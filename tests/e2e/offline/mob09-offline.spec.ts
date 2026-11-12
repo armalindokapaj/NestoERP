@@ -96,7 +96,7 @@ async function goOffline(context: BrowserContext, page: Page, path: string) {
   await context.setOffline(true);
   await page.goto(path);
   await expect(page.getByTestId("offline-app")).toBeVisible();
-  await expect(page.getByTestId("offline-status")).toContainText(/offline/i);
+  await expect(page.getByTestId("offline-status")).toContainText(/no signal/i);
 }
 
 async function pendingCount(page: Page): Promise<number> {

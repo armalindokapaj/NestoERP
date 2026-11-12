@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ChevronDown } from "@/components/icons";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -92,7 +93,10 @@ export function SectionBar({ label, note, tone }: { label: string; note?: string
       <Container className="flex h-11 items-center justify-between gap-6">
         <span className="site-bar-n min-w-0 truncate">{label}</span>
         {note ? <span className="site-bar-k max-md:hidden">{note}</span> : null}
-        <span aria-hidden="true" className="site-bar-count" />
+        {/* Below xl, which of how many (02 / 05), drawn by the sheet's counter; a tap opens the page's sections (components/marketing/site-index.tsx). */}
+        <button type="button" data-site-sections-open="" aria-haspopup="dialog" className="site-bar-count -my-2 -mr-3 inline-flex min-h-11 flex-row-reverse items-center gap-1.5 px-3 transition-colors hover:text-fg xl:hidden">
+          <ChevronDown aria-hidden="true" className="size-3.5" />
+        </button>
       </Container>
     </div>
   );

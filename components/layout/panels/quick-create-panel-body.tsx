@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Building2, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type IconComponent } from "@/components/icons";
+import { ArrowLeft, Building2, Camera, ClipboardCheck, FileText, FolderKanban, HardHat, Loader2, NotebookPen, Plus, Presentation, ReceiptText, RefreshCw, Search, ShoppingCart, SquareCheckBig, Target, TriangleAlert, Wallet, WifiOff, X, type IconComponent } from "@/components/icons";
 
 import { useTranslations } from "@/components/i18n/i18n-provider";
 import { useCommonTranslations } from "@/components/i18n/common-text";
@@ -10,6 +10,8 @@ import type { QuickCreateActionDTO, QuickCreateCompany } from "@/lib/modules/qui
 import { cn } from "@/lib/utils/cn";
 import type { MenuState, ProjectsState, Step } from "@/components/layout/quick-create";
 import { FormSelect } from "@/components/ui/form-select";
+import { useIsBelow } from "@/components/ui/use-breakpoint";
+import Link from "@/components/navigation/nav-link";
 
 /**
  * `+ Create`'s menu, company and project steps, loaded when the panel first
@@ -22,6 +24,14 @@ import { FormSelect } from "@/components/ui/form-select";
 
 const ICONS: Record<string, IconComponent> = { SquareCheckBig, Presentation, FileText, FolderKanban, NotebookPen, Building2, Target, ReceiptText, Wallet, ShoppingCart, ClipboardCheck, HardHat, TriangleAlert };
 const SEARCH_FROM = 8;
+
+/**
+ * New on a phone (below lg): the field's first, as big square cells — a
+ * photo into the project you are in, today's site diary, a task, a hazard —
+ * each only where the menu offers it; everything else is the list below them.
+ */
+const FIELD_KEYS = ["projects.daily_log.create", "tasks.task.create", "hse.hazard.create"] as const;
+const PHOTO_KEY = "documents.document.create";
 
 export type QuickCreateBodyProps = {
   panelId: string;
@@ -50,19 +60,29 @@ export type QuickCreateBodyProps = {
   close: () => void;
 };
 
+/** One of the field's cells: square, the icon above, the name and what it does below; at least 120px tall for a gloved thumb. */
+const fieldCell =
+  "flex min-h-[7.5rem] w-full flex-col justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-60";
+
 export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
   const { panelId, headingId, step, menuState, recent, query, setQuery, active, setActive, launching, company, setCompany, project, setProject, projects, stepNotice, searchRef, choose, continueWithCompany, backToMenu, launch, loadProjects, loadMenu, close } = props;
   const t = useTranslations("shell");
   const tc = useCommonTranslations();
+  const phone = useIsBelow("lg") === true;
   const menu = menuState.status === "ready" ? menuState.menu : null;
   const actions = React.useMemo(() => menu?.actions ?? [], [menu]);
   const text = query.trim().toLowerCase();
+  // A photo goes into the project you are in, through its capture sheet; outside a project there is none to offer.
+  const photoProject = menu?.context?.project && actions.some((action) => action.key === PHOTO_KEY) ? menu.context.project : null;
+  const fieldActions = phone && !text ? FIELD_KEYS.map((key) => actions.find((action) => action.key === key)).filter((action): action is QuickCreateActionDTO => Boolean(action)) : [];
+  const fieldCount = fieldActions.length + (phone && !text && photoProject ? 1 : 0);
+  const inField = (action: QuickCreateActionDTO) => fieldActions.includes(action);
   // The registry's labels are English record nouns; the reader sees them in their language.
   const actionLabel = React.useCallback((action: QuickCreateActionDTO) => t(`quickCreate.actions.${action.key.replace(/\./g, "_")}` as "quickCreate.actions.tasks_task_create"), [t]);
   const groupLabel = React.useCallback((group: keyof typeof QUICK_CREATE_GROUP_LABELS) => t(`quickCreate.groups.${group}`), [t]);
   const matches = React.useCallback((action: QuickCreateActionDTO) => !text || [actionLabel(action), action.label, groupLabel(action.group), QUICK_CREATE_GROUP_LABELS[action.group], ...action.keywords].some((value) => value.toLowerCase().includes(text)), [text, actionLabel, groupLabel]);
-  const recentActions = text ? [] : recent.map((key) => actions.find((action) => action.key === key)).filter((action): action is QuickCreateActionDTO => Boolean(action));
-  const grouped = QUICK_CREATE_GROUPS.map((group) => ({ group, rows: actions.filter((action) => action.group === group && matches(action)).sort((a, b) => actionLabel(a).localeCompare(actionLabel(b))) })).filter((entry) => entry.rows.length);
+  const recentActions = text ? [] : recent.map((key) => actions.find((action) => action.key === key)).filter((action): action is QuickCreateActionDTO => Boolean(action) && !inField(action!));
+  const grouped = QUICK_CREATE_GROUPS.map((group) => ({ group, rows: actions.filter((action) => action.group === group && matches(action) && !inField(action)).sort((a, b) => actionLabel(a).localeCompare(actionLabel(b))) })).filter((entry) => entry.rows.length);
   const ordered = [...recentActions, ...grouped.flatMap((entry) => entry.rows)];
 
   function onListKey(event: React.KeyboardEvent) {
@@ -170,6 +190,36 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
             </button>
           </div>
         ) : null}
+        {fieldCount > 0 ? (
+          <ul className="grid shrink-0 grid-cols-2 border-b border-line-strong" data-testid="quick-create-field">
+            {photoProject ? (
+              <li className="border-b border-line odd:border-r [&:last-child:nth-child(odd)]:col-span-2">
+                <Link href={`/projects/${photoProject.id}/documents?capture=1`} navSource="mobile" onNavigate={close} className={fieldCell} data-testid="quick-create-photo">
+                  <Camera aria-hidden="true" className="size-7 text-accent-strong" />
+                  <span>
+                    <span className="block text-body font-semibold text-fg">{t("phone.photo")}</span>
+                    <span className="block text-table text-fg-muted">{t("phone.photoHint")}</span>
+                  </span>
+                </Link>
+              </li>
+            ) : null}
+            {fieldActions.map((action) => {
+              const Icon = ICONS[action.icon] ?? Plus;
+              return (
+                <li key={action.key} className="border-b border-line odd:border-r [&:last-child:nth-child(odd)]:col-span-2">
+                  <button type="button" onClick={() => choose(action)} disabled={launching !== null} aria-busy={launching === action.key || undefined} className={fieldCell} data-testid={`quick-create-field-${action.key}`}>
+                    {launching === action.key ? <Loader2 aria-hidden="true" className="size-7 animate-spin text-accent-strong" /> : <Icon aria-hidden="true" className="size-7 text-accent-strong" />}
+                    <span>
+                      <span className="block text-body font-semibold text-fg">{action.key === "projects.daily_log.create" ? t("phone.siteDiary") : action.key === "hse.hazard.create" ? t("phone.hazard") : actionLabel(action)}</span>
+                      <span className="block text-table text-fg-muted">{t(`phone.fieldHints.${action.key.replace(/\./g, "_")}` as "phone.fieldHints.tasks_task_create")}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        {fieldCount > 0 && ordered.length > 0 ? <p className="nesto-eyebrow shrink-0 px-4 pb-1 pt-3.5 text-fg-subtle">{t("phone.everythingElse")}</p> : null}
         {actions.length > SEARCH_FROM ? (
           <div className="border-b border-line p-2">
             <label className="relative block">
@@ -213,7 +263,7 @@ export function QuickCreatePanelBody(props: QuickCreateBodyProps) {
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onListKey}>
           <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
             {step.kind === "menu" ? (
-              <h2 id={headingId} className="text-card font-semibold text-fg">{t("quickCreate.create")}</h2>
+              <h2 id={headingId} className="text-card font-semibold text-fg">{phone ? t("phone.new") : t("quickCreate.create")}</h2>
             ) : (
               <button type="button" id={headingId} onClick={backToMenu} className="inline-flex items-center gap-1.5 text-table font-medium text-fg">
                 <ArrowLeft aria-hidden="true" className="size-4" />

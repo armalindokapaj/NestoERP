@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Building2,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   CircleHelp,
   Eye,
@@ -161,6 +162,10 @@ export function SiteMasthead({
   const panels = buildPanels(ribbon, moduleZones, roles, roleCount);
   const here = tabOf(pathname);
 
+  // Below lg the masthead slides away while you read down, and comes back as soon as you scroll up;
+  // the section bars and the gold line take its place at the top (styles/globals.css).
+  const away = useAwayOnScroll(menu);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -176,7 +181,7 @@ export function SiteMasthead({
   const mono = "whitespace-nowrap font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em]";
 
   return (
-    <header className="sticky top-0 z-30" data-testid="site-masthead">
+    <header className={cn("sticky top-0 z-30 transition-transform duration-200", away && "max-lg:-translate-y-full")} data-testid="site-masthead" data-away={away || undefined}>
       {/* The glass sits on a layer behind the masthead, not on it: a backdrop filter makes its
           element the box `position: fixed` children are placed in, which would trap the scrim. */}
       <div aria-hidden="true" className="absolute inset-0 -z-10 border-b border-line-strong bg-canvas/95 backdrop-blur-[8px]" />
@@ -342,7 +347,53 @@ function RibbonPanel({ panel, ribbon, onGo }: { panel: Panel; ribbon: SiteCopy["
   );
 }
 
-/** The phone's menu: a full-screen sheet with the tabs as pills and each panel as tiles (UI-05 §2.3). */
+/**
+ * Below lg the masthead slides away while the page scrolls down and comes back
+ * as soon as it scrolls up or reaches its top. Marked on <html> too, so the
+ * section bars and the gold line can take its place. Never while the menu is open.
+ */
+function useAwayOnScroll(menuOpen: boolean): boolean {
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    const phone = window.matchMedia("(max-width: 1023.98px)");
+    let last = window.scrollY;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const y = window.scrollY;
+      if (!phone.matches || menuOpen || y <= 80) setAway(false);
+      else if (y > last + 6) setAway(true);
+      else if (y < last - 6) setAway(false);
+      if (Math.abs(y - last) > 6 || y <= 80) last = y;
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    phone.addEventListener("change", read);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      phone.removeEventListener("change", read);
+    };
+  }, [menuOpen]);
+  useEffect(() => {
+    if (away) document.documentElement.dataset.siteMasthead = "away";
+    else delete document.documentElement.dataset.siteMasthead;
+    return () => {
+      delete document.documentElement.dataset.siteMasthead;
+    };
+  }, [away]);
+  return away;
+}
+
+/**
+ * The phone's menu, a full-screen sheet (UI-05 §2.3): the Ribbon's five tabs
+ * as lines in the index rail's capitals that open in place, the one for the
+ * page you are on open first, its sets as rows; then language and Day or
+ * Night; and the two ways in, Sign in and Apply, at the foot, where the thumb is.
+ */
 function PhoneMenu({
   open,
   onOpenChange,
@@ -358,8 +409,7 @@ function PhoneMenu({
   panels: Record<RibbonTab, Panel>;
   here: RibbonTab | null;
 }) {
-  const [tab, setTab] = useState<RibbonTab>(here ?? "platform");
-  const panel = panels[tab];
+  const [tab, setTab] = useState<RibbonTab | null>(here ?? "platform");
   const close = () => onOpenChange(false);
 
   return (
@@ -368,89 +418,91 @@ function PhoneMenu({
         <DrawerTitle className="sr-only">{copy.drawerTitle}</DrawerTitle>
         <div className="flex h-16 shrink-0 items-stretch justify-between border-b border-line-strong">
           <span className="flex items-center px-4"><NestoLogo /></span>
-          <button type="button" onClick={close} aria-label={copy.closeMenu} className="grid w-14 place-items-center border-l border-line-strong text-fg transition-colors hover:bg-hover">
+          <button type="button" onClick={close} aria-label={copy.closeMenu} className="grid w-14 place-items-center bg-fg text-canvas transition-[filter] hover:brightness-125">
             <X aria-hidden="true" className="size-5" />
           </button>
         </div>
 
-        <div role="group" aria-label={copy.siteNavigation} className="flex shrink-0 gap-1.5 overflow-x-auto border-b-2 border-fg px-4 py-3">
-          {RIBBON_TABS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={tab === key}
-              onClick={() => setTab(key)}
-              className={cn(
-                "h-11 flex-none border px-4 font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em] transition-colors",
-                tab === key ? "border-primary bg-primary text-primary-fg" : "border-line-strong text-fg-muted",
-              )}
-            >
-              {ribbon.tabs[key]}
-            </button>
-          ))}
-        </div>
-
-        <nav aria-label={ribbon.tabs[tab]} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-          {panel.groups.map((group) => (
-            <section key={group.key} className="mb-5">
-              <h2 className="nesto-eyebrow mb-2 text-fg-subtle">{group.caption}</h2>
-              <ul className="grid grid-cols-3 gap-2">
-                {group.items.map((item) => (
-                  <li key={item.key}>
-                    <Link
-                      href={item.href}
-                      onClick={close}
-                      className="flex min-h-[84px] flex-col items-center justify-center gap-2 border border-line-strong bg-surface p-2 text-center text-meta leading-tight text-fg active:bg-accent-soft"
-                    >
-                      <item.Icon aria-hidden="true" className="size-5 text-fg-subtle" />
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-          {panel.write ? (
-            <section>
-              <h2 className="nesto-eyebrow mb-2 text-fg-subtle">{ribbon.groups.write}</h2>
-              <ul className="border border-line-strong bg-surface">
-                {(["general", "sales", "support"] as const).map((channel) => (
-                  <li key={channel} className="border-b border-line last:border-b-0">
-                    <a href={`mailto:${siteContact[channel]}`} className="flex min-h-12 items-center justify-between gap-3 px-4 text-body">
-                      <span className="text-fg-muted">{ribbon.channels[channel]}</span>
-                      <span className="text-fg">{siteContact[channel]}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-meta text-fg-subtle">{ribbon.replyNote}</p>
-            </section>
-          ) : null}
-          {panel.callout ? (
-            <Link href={panel.callout.href} onClick={close} className="mt-1 flex flex-col gap-2 bg-fg p-4 text-canvas">
-              <span className="nesto-eyebrow text-accent">{panel.callout.eyebrow}</span>
-              <span className="text-section leading-tight font-display">{panel.callout.title}</span>
-              <span className="inline-flex items-center gap-1.5 text-table font-medium">
-                {panel.callout.cta}
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </span>
-            </Link>
-          ) : null}
+        <nav aria-label={copy.siteNavigation} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {RIBBON_TABS.map((key) => {
+            const expanded = tab === key;
+            const panel = panels[key];
+            return (
+              <div key={key} data-testid={`site-menu-${key}`}>
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  onClick={() => setTab(expanded ? null : key)}
+                  className="flex h-16 w-full items-center justify-between gap-4 border-b border-line-strong px-4 text-left transition-colors hover:bg-hover sm:px-6"
+                >
+                  <span className={cn("font-display text-[1.875rem] font-medium uppercase leading-none tracking-[0.01em]", here === key ? "text-accent-strong" : "text-fg")}>{ribbon.tabs[key]}</span>
+                  <span aria-hidden="true" className="font-mono text-[1.125rem] text-fg">{expanded ? "−" : "+"}</span>
+                </button>
+                {expanded ? (
+                  <div className="border-b border-line-strong bg-surface pb-3">
+                    {panel.groups.map((group) => (
+                      <section key={group.key}>
+                        <h2 className="nesto-eyebrow px-4 pb-1 pt-4 text-fg-subtle sm:px-6">{group.caption}</h2>
+                        <ul>
+                          {group.items.map((item) => (
+                            <li key={item.key}>
+                              <Link href={item.href} onClick={close} className="flex min-h-12 items-center gap-3 px-4 text-body text-fg transition-colors hover:bg-hover active:bg-accent-soft sm:px-6">
+                                <item.Icon aria-hidden="true" className="size-[18px] shrink-0 text-fg-subtle" />
+                                <span className="min-w-0 flex-1">{item.label}</span>
+                                <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-subtle" />
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                    {panel.write ? (
+                      <section>
+                        <h2 className="nesto-eyebrow px-4 pb-1 pt-4 text-fg-subtle sm:px-6">{ribbon.groups.write}</h2>
+                        <ul>
+                          {(["general", "sales", "support"] as const).map((channel) => (
+                            <li key={channel}>
+                              <a href={`mailto:${siteContact[channel]}`} className="flex min-h-12 items-center justify-between gap-3 px-4 text-body sm:px-6">
+                                <span className="text-fg-muted">{ribbon.channels[channel]}</span>
+                                <span className="text-fg">{siteContact[channel]}</span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="px-4 pt-1 text-meta text-fg-subtle sm:px-6">{ribbon.replyNote}</p>
+                      </section>
+                    ) : null}
+                    {panel.callout ? (
+                      <Link href={panel.callout.href} onClick={close} className="mx-4 mt-3 flex flex-col gap-2 bg-fg p-4 text-canvas sm:mx-6">
+                        <span className="nesto-eyebrow text-accent">{panel.callout.eyebrow}</span>
+                        <span className="text-section leading-tight font-display">{panel.callout.title}</span>
+                        <span className="inline-flex items-center gap-1.5 text-table font-medium">
+                          {panel.callout.cta}
+                          <ArrowRight aria-hidden="true" className="size-4" />
+                        </span>
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-5 sm:px-6">
+            <LocaleSwitch label={copy.language} />
+            <ThemeToggle />
+          </div>
         </nav>
 
-        <div className="shrink-0 space-y-3 border-t border-line p-4">
-          <div className="flex items-center gap-2">
-            <ThemeToggle variant="row" className="flex-1" />
-            <LocaleSwitch label={copy.language} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button asChild variant="secondary" size="lg">
-              <Link href="/login" onClick={close}>{copy.signIn}</Link>
-            </Button>
-            <Button asChild size="lg">
-              <Link href="/apply" onClick={close}>{copy.applyShort}</Link>
-            </Button>
-          </div>
+        <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-line-strong px-4 pb-[max(1rem,var(--nesto-safe-bottom))] pt-3 sm:px-6">
+          <Button asChild variant="secondary" size="lg">
+            <Link href="/login" onClick={close}>{copy.signIn}</Link>
+          </Button>
+          <Button asChild size="lg">
+            <Link href="/apply" onClick={close}>
+              {copy.applyShort}
+              <ArrowRight aria-hidden="true" />
+            </Link>
+          </Button>
         </div>
       </DrawerContent>
     </Drawer>

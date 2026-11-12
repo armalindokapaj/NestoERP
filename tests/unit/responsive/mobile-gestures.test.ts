@@ -6,12 +6,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { compile } from "tailwindcss";
 import { describe, expect, it } from "vitest";
 
-import { MainAction, MobileActionBar, MobileActionBarProvider } from "@/components/ui/mobile-action-bar";
+import { MainAction, MobileActionBar } from "@/components/ui/mobile-action-bar";
 import { StickyActions } from "@/components/ui/sticky";
 import { SwipeAction, SwipeActions } from "@/components/ui/swipe-actions";
 import {
   FLICK_VELOCITY,
-  keyboardInset,
   lockAxis,
   pullDistance,
   pullProgress,
@@ -105,92 +104,38 @@ describe("pull to refresh", () => {
   });
 });
 
-describe("the keyboard inset", () => {
-  it("is the keyboard's height where it overlays the page (iOS)", () => {
-    expect(keyboardInset(844, { height: 508, offsetTop: 0, scale: 1 })).toBe(336);
-    expect(keyboardInset(844, { height: 508, offsetTop: 40, scale: 1 })).toBe(296);
-  });
-
-  it("is nothing where the keyboard resizes the page (Android, the native shell), for toolbar movement, or while zoomed", () => {
-    expect(keyboardInset(508, { height: 508, offsetTop: 0, scale: 1 })).toBe(0);
-    expect(keyboardInset(844, { height: 790, offsetTop: 0, scale: 1 })).toBe(0);
-    expect(keyboardInset(844, { height: 422, offsetTop: 0, scale: 2 })).toBe(0);
-  });
-});
-
-describe("the bottom action bar (5b)", () => {
-  it("a form's bar is the shared bar, sticky above the bottom navigation on a phone and the footer row from md", () => {
-    const out = html(React.createElement(StickyActions, { className: "justify-start", "data-form-actions": true } as React.ComponentProps<"div">, "Save"));
-    expect(out).toContain('data-mobile-action-bar="flow"');
-    expect(out).toContain("max-md:sticky");
-    expect(out).toContain("max-md:bottom-[calc(var(--nesto-action-bar-bottom)+var(--nesto-action-bar-room))]");
-    expect(out).toContain("md:py-3");
+describe("a page's actions on a phone (5b, docs/ui/UI-04-navigation-layouts.md §Phone)", () => {
+  it("a form's actions are its last row at every width, the buttons sharing it on a phone: nothing floats over the bar", () => {
+    const out = html(React.createElement(StickyActions, { className: "justify-start" }, "Save"));
+    expect(out).toContain('data-form-actions=""');
+    expect(out).toContain("py-3");
     expect(out).toContain("justify-start");
-    // No longer a hand-made bar: the bottom navigation is not told to step aside.
+    expect(out).toContain("max-md:[&amp;&gt;button]:flex-1");
+    expect(out).not.toContain("sticky");
+    expect(out).not.toContain("data-mobile-action-bar");
     expect(out).not.toContain("data-sticky-action-bar");
     expect(html(React.createElement(MobileActionBar, null, "Save"))).toContain("justify-end");
   });
 
-  it("a main action is drawn where it sits, with no box, outside the shell at every width", () => {
+  it("a main action is drawn where it sits, beside the page's title, at every width", () => {
     const out = html(React.createElement(MainAction, null, React.createElement("button", null, "Complete")));
     expect(out).toBe('<div data-main-action="" class="contents"><button>Complete</button></div>');
   });
 
-  it("in the shell, a main action waits hidden below md until it can move into the bar: drawn once, never copied", () => {
-    const out = html(React.createElement(MobileActionBarProvider, null, React.createElement(MainAction, null, React.createElement("button", null, "Complete"))));
-    expect(out).toBe('<div data-main-action="" class="contents max-md:hidden"><button>Complete</button></div>');
-  });
-
-  it("sits above the bottom navigation, rides above the keyboard, and the page keeps room for a pinned bar", () => {
+  it("the page keeps room for the phone's bar alone; only a hand-made bar sends the bar away", () => {
     const globals = css("globals.css");
-    expect(globals).toMatch(/--nesto-action-bar-bottom:\s*calc\(max\(calc\(var\(--nesto-safe-bottom\) \+ 0\.5rem\), calc\(var\(--nesto-bottom-nav-space\) - 0\.875rem\)\) \+ var\(--nesto-keyboard-inset\)\)/);
-    expect(globals).toMatch(/html:has\(\[data-mobile-action-bar="pinned"\]:not\(:empty\)\) \{\s*--nesto-action-bar-room:/);
-    expect(globals).toMatch(/padding-bottom: calc\([^;]*var\(--nesto-action-bar-room, 0px\)\)/);
-    expect(globals).toMatch(/scroll-padding-bottom: calc\(var\(--nesto-bottom-reserve, 0px\) \+ var\(--nesto-action-bar-space, 0px\)\)/);
-    // The shared bar never hides the bottom navigation; only a hand-made bar does.
-    expect(globals).not.toMatch(/\[data-mobile-action-bar[^\]]*\]\) \[data-mobile-bottom-nav\]/);
+    expect(globals).not.toContain("--nesto-action-bar");
+    expect(globals).not.toContain("--nesto-keyboard-inset");
+    expect(globals).toMatch(/padding-bottom: calc\(max\(var\(--nesto-space-page-y-end\), var\(--nesto-safe-bottom\)\) \+ var\(--nesto-bottom-nav-space, 0px\)\);/);
+    expect(globals).toContain("scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);");
+    expect(globals).toMatch(/html:has\(\[data-mobile-bottom-nav\]\) \{\s*\/\*[^*]*\*\/\s*--nesto-bottom-nav-space: calc\(4rem \+ var\(--nesto-safe-bottom\)\);/);
     expect(globals).toMatch(/html:has\(\[data-sticky-action-bar\]\) \[data-mobile-bottom-nav\]/);
   });
 
-  it("while typing, the pinned bar is hidden by a rule outside every layer, so its own flex cannot win", async () => {
-    const out = await build(["flex"]);
-    // Walk the built sheet: the rule's enclosing blocks, from the outside in.
-    const stack: string[] = [];
-    let start = 0;
-    let enclosing: string[] | null = null;
-    for (let index = 0; index < out.length && !enclosing; index += 1) {
-      const char = out[index];
-      if (char === "{") {
-        const prelude = out.slice(start, index).trim();
-        if (prelude.includes('[data-mobile-action-bar="pinned"]') && out.slice(index, out.indexOf("}", index)).includes("display: none")) enclosing = [...stack];
-        stack.push(prelude);
-        start = index + 1;
-      } else if (char === "}") {
-        stack.pop();
-        start = index + 1;
-      } else if (char === ";") {
-        start = index + 1;
-      }
-    }
-    expect(enclosing, "the typing rule is in the build").not.toBeNull();
-    expect(enclosing!.some((prelude) => prelude.startsWith("@layer"))).toBe(false);
-    expect(enclosing!.some((prelude) => prelude.includes("767.98px"))).toBe(true);
-  });
-
-  it("the classes the bar uses exist, and its phone slab only below md", async () => {
-    const out = await build([
-      "bottom-(--nesto-action-bar-bottom)",
-      "z-(--nesto-z-shell-tabs)",
-      "max-md:sticky",
-      "max-md:bottom-[calc(var(--nesto-action-bar-bottom)+var(--nesto-action-bar-room))]",
-      "max-md:[&>span:empty]:hidden",
-      "md:py-3",
-    ]);
-    expect(out).toContain("bottom: var(--nesto-action-bar-bottom)");
-    expect(out).toContain("z-index: var(--nesto-z-shell-tabs)");
-    expect(out).toContain("bottom: calc(var(--nesto-action-bar-bottom) + var(--nesto-action-bar-room))");
-    expect(out).toMatch(/@media \(width < 768px\) \{\s*\.max-md\\:sticky \{\s*position: sticky;/);
-    expect(out).toMatch(/@media \(width < 768px\) \{\s*\.max-md\\:\\\[\\&\\>span\\:empty\\\]\\:hidden > span:empty \{\s*display: none;/);
+  it("the classes the form's row uses exist, only below md", async () => {
+    const out = await build(["max-md:[&>button]:flex-1", "max-md:[&>span:empty]:hidden", "py-3"]);
+    expect(out).toMatch(/@media \(width < 768px\) \{\s*\.max-md\\:\\\[\\&\\>button\\\]\\:flex-1 > button \{\s*flex: 1;/);
+    expect(out).toMatch(/\.max-md\\:\\\[\\&\\>span\\:empty\\\]\\:hidden > span:empty \{\s*display: none;/);
   });
 });
 

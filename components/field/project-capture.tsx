@@ -16,6 +16,7 @@ import { EvidenceCapture } from "./evidence-capture";
  * fixed by the page, never chosen again, and every action is offered only if
  * the server said the reader may do it (`links`, `canUpload` are computed from
  * their permissions in the page, and each destination re-checks them).
+ * New › Photo in the phone's bar opens it from anywhere (`?capture=1`).
  */
 export type CaptureLink = { key: string; label: string; href: string };
 
@@ -23,6 +24,14 @@ export function ProjectCapture({ projectId, projectName, canUpload, links }: { p
   const t = useDocumentsTranslations();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
+  // New › Photo on a phone lands here with `?capture=1`: the sheet opens at once, and the address forgets it.
+  React.useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("capture") !== "1") return;
+    setOpen(true);
+    url.searchParams.delete("capture");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
   if (!canUpload && links.length === 0) return null;
 
   return (

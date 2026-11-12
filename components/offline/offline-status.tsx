@@ -56,7 +56,7 @@ export function OfflineStatus({ className, inShell = true }: { className?: strin
     <div
       className={cn(
         "flex justify-center",
-        inShell && "pointer-events-none fixed inset-x-0 top-[calc(var(--nesto-shell-header-h)+var(--nesto-shell-breadcrumb-h)+0.5rem)] z-[var(--nesto-z-shell-breadcrumb)] px-4",
+        inShell && "pointer-events-none fixed inset-x-0 top-[calc(var(--nesto-shell-header-h)+var(--nesto-shell-breadcrumb-h)+var(--nesto-shell-tabs-h)+0.5rem)] z-[var(--nesto-z-shell-breadcrumb)] px-4",
         className,
       )}
     >
@@ -70,9 +70,10 @@ export function OfflineStatus({ className, inShell = true }: { className?: strin
         aria-live="polite"
         title={tone === "offline" ? t("status.offlineHint") : t("status.openSyncCenter")}
         className={cn(
-          "inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border px-3 py-1 text-micro font-semibold touch:min-h-11",
+          "inline-flex min-h-8 max-w-full items-center gap-2 rounded-none border px-3 py-1 text-micro font-semibold max-md:text-meta touch:min-h-11",
           inShell && "pointer-events-auto shadow-menu",
-          tone === "offline" && "border-line-strong bg-surface text-fg",
+          // Offline says so in the field's hatched amber, and in words: where the work is and when it goes.
+          tone === "offline" && "border-warning bg-warning-soft text-warning-strong",
           tone === "attention" && "border-warning/30 bg-surface text-warning-strong",
           // The platform's gold-outline chip on a surface ground, as the role chip on the dashboard: no blue.
           (tone === "syncing" || tone === "waiting") && "border-accent/30 bg-surface text-accent-strong",

@@ -63,6 +63,8 @@ export const siteSq: SiteCopy = {
     sections: "Seksionet e kësaj faqeje",
     sheet: "Fleta",
     top: "NESTO",
+    here: "Këtu",
+    close: "Mbyll seksionet",
     ruler: "Pozicioni në faqe {n}%. Klikoni për të shkuar në atë pikë të faqes.",
     progress: "Sa keni lexuar nga faqja",
     getStarted: "Fillo",

@@ -3,13 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { RegisterSections, SectionStoreProvider, useSectionLevels } from "@/components/navigation/section-registry";
-import { hasCurrentSection, menuLevels, orderLevels, pageNameFrom, pillFor, SectionStore, type SectionAnchor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
+import { menuLevels, orderLevels, pageNameFrom, SectionStore, type SectionAnchor, type SectionItem, type SectionLevel } from "@/components/navigation/section-store";
 
 /**
- * The section menu's store (mobile section pill): each tab row registers its
- * level while mounted, the levels are kept outer first, and the pill names the
- * innermost section the page is on. Below lg the tab rows are not drawn, so
- * this is the only way to a page's sections there.
+ * The store behind the phone's section row: each tab row registers its level
+ * while mounted, the levels are kept outer first, and the row shows the
+ * innermost. Below lg the tab rows are not drawn, so this is the only way to a
+ * page's sections there.
  */
 
 const items = (keys: string[], active?: string): SectionItem[] => keys.map((key) => ({ key, label: key[0]!.toUpperCase() + key.slice(1), href: `/x/${key}`, active: key === active }));
@@ -104,43 +104,13 @@ describe("orderLevels", () => {
   });
 });
 
-describe("menuLevels and pillFor", () => {
+describe("menuLevels", () => {
   const project: SectionLevel = { id: "p", label: "Project sections", items: items(["overview", "planning", "units", "sales"], "units") };
-  const unit: SectionLevel = { id: "u", label: "A-101 sections", items: items(["overview", "documents", "sales"], "sales") };
 
   it("offers no level of a single tab, as no tab row is drawn for one", () => {
     const single: SectionLevel = { id: "s", label: "Single", items: items(["overview"], "overview") };
     expect(menuLevels([project, single]).map((level) => level.id)).toEqual(["p"]);
-    expect(pillFor(menuLevels([single]))).toBeNull();
-  });
-
-  it("shows no pill on a page without sections", () => {
-    expect(pillFor([])).toBeNull();
-  });
-
-  it("names the section the page is on", () => {
-    expect(pillFor([project])).toEqual({ label: "Units", item: project.items[2] });
-  });
-
-  it("on a record inside a tabbed page, names the innermost level's section", () => {
-    expect(pillFor([project, unit])?.label).toBe("Sales");
-    expect(pillFor([project, unit])?.item?.href).toBe("/x/sales");
-  });
-
-  it("where the innermost level marks no section, names the outer one's", () => {
-    const unmarked: SectionLevel = { ...unit, items: items(["overview", "documents"]) };
-    expect(pillFor([project, unmarked])?.label).toBe("Units");
-  });
-
-  it("where no level marks a section, names the page itself (a project's Media), and only without one the level", () => {
-    const none: SectionLevel = { ...project, items: items(["overview", "units"]) };
-    expect(hasCurrentSection([none])).toBe(false);
-    expect(hasCurrentSection([project])).toBe(true);
-    expect(pillFor([none], "Project media")).toEqual({ label: "Project media", item: null });
-    expect(pillFor([none], "  ")).toEqual({ label: "Project sections", item: null });
-    expect(pillFor([none])).toEqual({ label: "Project sections", item: null });
-    // A marked section wins over the page's name.
-    expect(pillFor([project], "Project media")?.label).toBe("Units");
+    expect(menuLevels([single])).toEqual([]);
   });
 });
 
@@ -177,7 +147,7 @@ describe("RegisterSections and useSectionLevels on the server", () => {
     expect(html).toContain("<output>0</output>");
   });
 
-  it("marks a row that offers a choice, for the top bar to keep the pill's place before hydration", () => {
+  it("marks a row that offers a choice, so the phone's section row keeps its place before hydration", () => {
     const two = renderToStaticMarkup(React.createElement(RegisterSections, { label: "L", items: items(["one", "two"], "one") }));
     const one = renderToStaticMarkup(React.createElement(RegisterSections, { label: "L", items: items(["one"], "one") }));
     expect(two).toMatch(/<span hidden="" data-section-level="">/);

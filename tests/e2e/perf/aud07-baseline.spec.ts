@@ -335,18 +335,18 @@ test.describe("AUD-07 benchmark", () => {
           try {
             await probe(page, route, category, index);
             destinationPrefetches = 0;
-            await page.goto(route.origin!, { waitUntil: "load" });
-            // On a phone the modules are under the phone Ribbon's tabs at the bottom: the tab holding this
-            // one is opened first, outside the measurement.
+            // On a phone every module is in Menu, the bar's last place: the measurement starts there, with
+            // the department holding this one opened first, outside the measurement.
             let selector = route.link!;
-            if (PROFILE === "mobile" && selector.startsWith("nav ")) {
+            const inMenu = PROFILE === "mobile" && selector.startsWith("nav ");
+            await page.goto(inMenu ? "/menu" : route.origin!, { waitUntil: "load" });
+            if (inMenu) {
               const target = selector.slice("nav ".length);
-              for (const tab of await page.locator('[data-mobile-bottom-nav] [data-testid^="phone-tab-"]').all()) {
-                await tab.click();
-                if ((await page.locator(`[data-testid="phone-panel"] ${target}`).count()) > 0) break;
-                await tab.click();
+              selector = `[data-testid="phone-menu"] ${target}`;
+              for (const department of await page.locator('[data-testid^="phone-department-"] > button[aria-expanded="false"]').all()) {
+                if ((await page.locator(selector).count()) > 0) break;
+                await department.click();
               }
-              selector = `[data-testid="phone-panel"] ${target}`;
             }
             const link = page.locator(selector).filter({ visible: true }).first();
             await link.waitFor({ state: "visible", timeout: 15_000 });

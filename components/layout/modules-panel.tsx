@@ -8,7 +8,6 @@ import { useTranslations } from "@/components/i18n/i18n-provider";
 import { getIcon } from "@/components/layout/nav-icon";
 import { OrganizationMark } from "@/components/layout/organization-mark";
 import { OrganizationWorkspaceHeader } from "@/components/layout/organization-workspace-header";
-import { AccountBlock, type PhoneAccount } from "@/components/layout/phone-ribbon";
 import { useShellCore } from "@/components/layout/shell-slots";
 import Link from "@/components/navigation/nav-link";
 import { PendingDot, usePendingDestination } from "@/components/navigation/navigation-feedback";
@@ -24,14 +23,13 @@ import { cn } from "@/lib/utils/cn";
  * Office's app launcher opens (docs/ui/UI-04-navigation-layouts.md). The
  * panel's header is the workspace, and switches it where there is somewhere
  * else to work; a field finds a module, or one of the Ribbon's sections, by
- * name. On a phone, where the top bar
- * has no account button, the panel ends with you: the profile, Settings,
- * Refresh, the theme and Logout.
+ * name. From lg only: below it, every module is in Menu, in the phone's bar
+ * (app/(nesto)/menu).
  *
  * Renders what the one navigation resolver produced, so a module this person
  * cannot open is not here.
  */
-export function ModulesPanel({ navigation, account }: { navigation: Navigation; account: PhoneAccount }) {
+export function ModulesPanel({ navigation }: { navigation: Navigation }) {
   const t = useTranslations("shell");
   const { activeWorkspace, organization } = useShellCore();
   const pathname = usePathname();
@@ -136,10 +134,6 @@ export function ModulesPanel({ navigation, account }: { navigation: Navigation; 
             ))
           )}
 
-          {/* A phone's top bar has no account button: you are here instead. */}
-          <div className="mt-8 md:hidden">
-            <AccountBlock account={account} onDone={done} />
-          </div>
         </div>
       </DrawerContent>
     </Drawer>

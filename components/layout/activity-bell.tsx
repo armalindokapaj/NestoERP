@@ -30,6 +30,32 @@ const body = createPanelLoader("activity", () => import("@/components/layout/pan
  * of the screen for the page and for moving around (docs/ui/UI-04-navigation-layouts.md),
  * so there is one controller and one `notification-bell`.
  */
+/*
+ * The unread count, for the phone's Inbox (components/layout/phone-bar.tsx).
+ * The bell keeps the one controller for the context (below lg it is mounted
+ * but not drawn), and hands its count on: never a second feed of its own.
+ */
+let unread: number | null = null;
+const unreadListeners = new Set<() => void>();
+
+function publishUnread(next: number | null) {
+  if (next === unread) return;
+  unread = next;
+  for (const listener of unreadListeners) listener();
+}
+
+/** The bell's unread count; null until its first answer, never a guessed zero. */
+export function useUnreadActivity(): number | null {
+  return React.useSyncExternalStore(
+    (listener) => {
+      unreadListeners.add(listener);
+      return () => unreadListeners.delete(listener);
+    },
+    () => unread,
+    () => null,
+  );
+}
+
 export function ActivityBell({ contextKey, canManageAnnouncements = false }: { contextKey: string; canManageAnnouncements?: boolean }) {
   return <BellControl contextKey={contextKey} canManageAnnouncements={canManageAnnouncements} />;
 }
@@ -75,6 +101,7 @@ function BellControl({ contextKey, canManageAnnouncements }: { contextKey: strin
   const counts = snapshot.count.value;
   const total = counts?.total ?? 0;
   const critical = (counts?.critical ?? 0) > 0;
+  React.useEffect(() => publishUnread(counts === null ? null : total), [counts, total]);
   // Unknown until the first answer, never "0 unread"; a failed refresh keeps the last value, marked (ACTIVITY-04).
   const label = counts === null ? t("title") : `${t("title")} — ${t("unreadCount", { count: total })}${snapshot.count.stale ? ` (${t("countStale")})` : ""}`;
   const Body = code.status === "ready" ? code.module.ActivityPanelBody : null;

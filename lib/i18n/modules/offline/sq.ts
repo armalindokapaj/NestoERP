@@ -2,10 +2,10 @@ import type { offlineEn } from "./en";
 
 export const offlineSq: typeof offlineEn = {
   status: {
-    offline: "Pa lidhje",
-    offlineWaiting_one: "Pa lidhje · {count} ndryshim në pritje",
-    offlineWaiting_other: "Pa lidhje · {count} ndryshime në pritje",
-    offlineHint: "Ndryshimet do të sinkronizohen kur të lidheni.",
+    offline: "Pa sinjal · çfarë ruan mbetet në këtë telefon",
+    offlineWaiting_one: "Pa sinjal · {count} ndryshim i ruajtur në këtë telefon",
+    offlineWaiting_other: "Pa sinjal · {count} ndryshime të ruajtura në këtë telefon",
+    offlineHint: "Dërgohet vetë kur të ktheheni në linjë.",
     waiting_one: "{count} ndryshim në pritje",
     waiting_other: "{count} ndryshime në pritje",
     attention_one: "{count} element kërkon vëmendje",

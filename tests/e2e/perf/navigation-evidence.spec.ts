@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { devices, expect, test, type Page } from "@playwright/test";
 
-import { expectAccessDenied, mainRegion, navigationLink, signIn } from "../fixtures";
+import { expectAccessDenied, mainRegion, navigationLink, openWorkspaceSwitcher, signIn } from "../fixtures";
 
 /**
  * NAV-01 release evidence (§17 item 6): desktop and phone pictures of the
@@ -115,11 +115,11 @@ test.describe("NAV-01 evidence, phone", () => {
   delete pixel.defaultBrowserType;
   test.use(pixel);
 
-  test("a tile tap: the panel closes and the skeleton owns the wait", async ({ page }) => {
-    await signIn(page, "FINANCE", { to: "/dashboard" });
+  test("a module tap in Menu: the skeleton owns the wait", async ({ page }) => {
+    await signIn(page, "FINANCE", { to: "/menu" });
     const release = await hold(page, "/finance");
-    await page.getByTestId("phone-tab-department").click();
-    await page.getByTestId("phone-panel").locator('a[href="/finance"]').click();
+    await page.getByTestId("phone-menu-find").fill("Finance");
+    await page.getByTestId("phone-menu").locator('a[href="/finance"]').first().click();
     await expect(mainRegion(page).getByTestId("page-skeleton")).toBeVisible();
     await page.waitForTimeout(250);
     await shot(page, "phone-01-loading-skeleton");
@@ -154,14 +154,13 @@ async function slotStates(page: Page, prefix: string) {
   await page.goto("/tasks", { waitUntil: "commit" });
   await expect(mainRegion(page).locator("h1").first()).toBeVisible();
   // The workspace switch is drawn from the verified core at once; only its options are pending (OW §57).
-  // It is the header of the logo's panel, at every width.
-  const switcher = page.getByTestId("modules-panel").getByTestId("organization-header");
-  await page.getByTestId("modules-panel-trigger").click();
+  // It is the header of the logo's panel from 1024px, the head of Menu below it.
+  const switcher = await openWorkspaceSwitcher(page);
   await expect(switcher).toHaveAttribute("data-options", "pending");
   await shot(page, `${prefix}-01-slots-pending`);
   await rules("workspaces=0:fail,banner=0:fail");
   await page.goto("/tasks");
-  await page.getByTestId("modules-panel-trigger").click();
+  await openWorkspaceSwitcher(page);
   await expect(switcher).toHaveAttribute("data-options", "failed");
   await expect(page.getByTestId("critical-banner-failed")).toBeVisible();
   await switcher.click();

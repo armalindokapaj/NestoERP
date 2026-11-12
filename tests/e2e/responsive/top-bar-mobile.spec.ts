@@ -4,23 +4,21 @@ import { signIn } from "../fixtures";
 
 /**
  * The top bar on a phone (Fast Re-entry §148, Quick Create §48, §181,
- * Activity Center §102-§105, §214): search opens full screen; Create, which
- * lives in the phone Ribbon at the bottom, opens as a bubble of glass above it
- * with a pointer on the button pressed; the bell stays in the top bar and opens
- * the Activity Center under it — all with the same content as on a desktop.
+ * Activity Center §102-§105, §214): search opens full screen; New, in the
+ * phone's bar at the bottom, opens Quick Create as a sheet of glass standing
+ * on the bar; the bell is not drawn — Inbox in the bar is its place — with
+ * the same content as on a desktop.
  */
 
-/** Above the bar and whole on screen, the pointer under the panel aimed at the middle of its button. */
-async function expectBubbleOver(panel: Locator, control: Locator) {
-  const pointer = panel.locator('.nesto-panel-pointer[data-side="below"]');
-  await expect(pointer).toBeVisible();
-  const [button, bubble, tail] = [(await control.boundingBox())!, (await panel.boundingBox())!, (await pointer.boundingBox())!];
+/** Standing on the bar, across the screen and whole on it. */
+async function expectSheetOnBar(panel: Locator, bar: Locator) {
+  await panel.evaluate((element) => Promise.allSettled(element.getAnimations({ subtree: true }).map((animation) => animation.finished)).then(() => undefined));
+  const [cells, sheet] = [(await bar.boundingBox())!, (await panel.boundingBox())!];
   const viewport = panel.page().viewportSize()!;
-  expect(bubble.x).toBeGreaterThanOrEqual(0);
-  expect(bubble.x + bubble.width).toBeLessThanOrEqual(viewport.width);
-  expect(bubble.y).toBeGreaterThanOrEqual(0);
-  expect(bubble.y + bubble.height).toBeLessThanOrEqual(button.y + 1);
-  expect(Math.abs(tail.x + tail.width / 2 - (button.x + button.width / 2))).toBeLessThanOrEqual(2);
+  expect(sheet.x).toBeGreaterThanOrEqual(0);
+  expect(sheet.x + sheet.width).toBeLessThanOrEqual(viewport.width);
+  expect(sheet.y).toBeGreaterThanOrEqual(0);
+  expect(Math.abs(sheet.y + sheet.height - cells.y)).toBeLessThanOrEqual(2);
 }
 
 test("search opens full screen with recent work and the link to My Work", async ({ page }) => {
@@ -39,14 +37,14 @@ test("search opens full screen with recent work and the link to My Work", async 
   expect(Math.abs(box.height - viewport.height)).toBeLessThanOrEqual(1);
 });
 
-test("+ Create opens a bubble of the actions the person may create, and closes from the same button", async ({ page }) => {
+test("New opens a sheet of the actions the person may create, and closes from the same button", async ({ page }) => {
   await signIn(page, "PROJECT_MANAGER", { to: "/dashboard" });
   const create = page.getByTestId("phone-create");
   await create.click();
   const panel = page.getByTestId("quick-create-panel");
   await expect(panel).toBeVisible();
-  await expect(panel.getByTestId("quick-create-tasks.task.create")).toBeVisible();
-  await expectBubbleOver(panel, create);
+  await expect(panel.getByTestId("quick-create-field-tasks.task.create")).toBeVisible();
+  await expectSheetOnBar(panel, page.getByTestId("phone-navigation"));
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
 
@@ -57,20 +55,12 @@ test("+ Create opens a bubble of the actions the person may create, and closes f
   await expect(panel).toHaveCount(0);
 });
 
-test("the bell is the top bar's and opens the Activity Center under it, with the way to all activity", async ({ page }) => {
+test("the bell's place is Inbox: its count is on the bar, and Inbox opens the alerts with the way to all activity", async ({ page }) => {
   await signIn(page, "ENGINEER", { to: "/dashboard" });
-  const bell = page.getByTestId("global-actions").getByTestId("notification-bell");
-  await bell.click();
-  const panel = page.getByRole("dialog", { name: "Activity Center" });
-  await expect(panel).toBeVisible();
-  await expect(panel.getByRole("tab", { name: "Announcements" })).toBeVisible();
-  // Under the bell and whole on screen.
-  const [button, box] = [(await bell.boundingBox())!, (await panel.boundingBox())!];
-  expect(box.y).toBeGreaterThanOrEqual(button.y + button.height - 1);
-  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
-  const all = panel.getByTestId("activity-view-all");
-  await expect(all).toHaveText("View all activity");
-  await expect(all).toHaveAttribute("href", "/activity");
-  await panel.getByRole("button", { name: "Close" }).click();
-  await expect(panel).toHaveCount(0);
+  await expect(page.getByTestId("global-actions").getByTestId("notification-bell")).toBeHidden();
+  await page.getByTestId("phone-place-inbox").click();
+  const inbox = page.getByTestId("inbox");
+  await expect(inbox).toBeVisible();
+  await inbox.getByTestId("inbox-everything").click();
+  await expect(inbox.getByRole("link", { name: /all activity/i })).toHaveAttribute("href", "/activity");
 });

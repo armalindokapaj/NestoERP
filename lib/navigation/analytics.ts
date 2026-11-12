@@ -10,9 +10,8 @@
 export type NavigationEventName =
   | "navigation_destination_opened"
   | "quick_create_opened"
+  /** The logo's panel of every module opened, from lg (components/layout/modules-panel.tsx). */
   | "more_opened"
-  /** The phone Ribbon's This page opened the page's sections, below lg (components/layout/phone-ribbon.tsx). */
-  | "section_menu_opened"
   | "workspace_switched"
   | "global_search_opened";
 

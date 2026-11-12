@@ -350,16 +350,18 @@ test.describe("widths (§47-§49, §84, §85)", () => {
     await expect(workspacePanel(page)).toHaveCount(0);
   });
 
-  test("a tablet: no navigation drawer; the logo's panel switches, and the phone Ribbon is the navigation", async ({ page }) => {
+  test("a tablet: no navigation drawer; the phone's bar is the navigation, and Menu's head switches", async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 1180 });
     await signIn(page, "MULTI_COMPANY", { to: "/dashboard" });
     await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(0);
-    await expect(page.getByTestId("phone-tab-work")).toBeVisible();
+    await expect(page.getByTestId("phone-place-menu")).toBeVisible();
     await (await openWorkspaceSwitcher(page)).click();
     const popup = workspacePanel(page);
     await expect(popup.getByTestId("workspace-option").first()).toBeVisible();
     await popup.getByTestId("workspace-option").filter({ hasText: "Forma Engineering" }).click();
     await expect(page.getByTestId("workspace-switching")).toHaveCount(0, { timeout: 20_000 });
-    await expect(workspaceHeader(page)).toHaveAccessibleName("Dashboard. Current workspace: Forma Engineering.");
+    // A switch from Menu stays on Menu, its head naming the new workspace.
+    await expect(page).toHaveURL(/\/menu$/);
+    await expect(workspaceHeader(page)).toHaveAccessibleName(/Current workspace: Forma Engineering/);
   });
 });

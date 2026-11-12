@@ -114,6 +114,9 @@ const GLOBAL_ROUTES = [
   "/my-work",
   "/my-day",
   "/activity",
+  // The phone's Inbox and Menu (docs/ui/UI-04-navigation-layouts.md §Phone): a workspace switch is made from Menu, and stays there.
+  "/inbox",
+  "/menu",
   // Module Help: open in either workspace; each page answers only for modules the reader can open (AUD-05 §7).
   "/help",
 ] as const;

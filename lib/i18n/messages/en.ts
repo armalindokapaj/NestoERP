@@ -146,8 +146,6 @@ export const en = {
     ribbon: {
       label: "Ribbon",
       home: "Home",
-      /** On the phone, the section you are on, which opens the page's sections. */
-      thisPage: "This page",
       sections: "Sections",
       modules: "Modules",
       fold: "Fold the ribbon",
@@ -187,24 +185,41 @@ export const en = {
       find: "Find a module or section",
       noMatch: "No module matches.",
     },
-    /** The phone navigation: the Pocket Ribbon and the Action Ribbon (components/layout/phone-ribbon.tsx). */
+    /** The phone, below lg: the bar of five places, the top bar's title, Menu and New (components/layout/phone-bar.tsx). */
     phone: {
-      label: "Ribbon",
-      ribbon: "Ribbon",
-      tabs: "Ribbon tabs",
-      units: "Units",
-      create: "Create",
+      label: "Main",
+      home: "Home",
+      projects: "Projects",
+      new: "New",
+      closeNew: "Close New",
+      inbox: "Inbox",
+      inboxCount: "{count} new",
+      menu: "Menu",
       close: "Close",
-      find: "Find a module or section",
-      noMatch: "No module matches.",
-      /** Under the Company tab: the profile, Settings, Refresh, the theme and Logout. */
+      back: "Back",
+      switchProject: "{name} — switch project",
+      findProject: "Find a project",
+      yourProjects: "Your projects",
+      here: "Here",
+      noProject: "No project matches.",
+      allProjects: "All projects",
+      /** New's field cells, first on a phone. */
+      photo: "Photo",
+      photoHint: "Into this project",
+      siteDiary: "Site diary",
+      hazard: "Hazard",
+      fieldHints: {
+        projects_daily_log_create: "Today's, for a project",
+        tasks_task_create: "For you or your crew",
+        hse_hazard_create: "Report it, with photos",
+      },
+      everythingElse: "Everything else",
+      /** Menu. */
+      found: "Found",
+      departments: "Departments",
       you: "You",
       /** Reads the page again, as pulling down at its top does (mobile audit 5c). */
       refresh: "Refresh this page",
-    },
-    /** This page, below lg: the section you are on, which opens the page's sections. */
-    sectionMenu: {
-      trigger: "Page sections: {section}",
     },
     /** The Tasks block at the top of Home, below lg. */
     homeTasks: {
@@ -516,13 +531,6 @@ export const en = {
     },
 
     appearance: {
-      phoneNav: "Phone navigation",
-      phoneNavHint: "How you move around Nesto on a phone or a tablet held upright.",
-      phoneNavs: {
-        pocket: { label: "Pocket Ribbon", hint: "The Ribbon's tabs at the bottom, each opening its modules. This page, Units and Create float just above." },
-        action: { label: "Action Ribbon", hint: "Ribbon, the page's main actions, Units and Create. Ribbon opens every tab and module, with a search." },
-      },
-      defaultChoice: "Default",
       colourScheme: "Nesto theme",
       colourSchemeHint: "Day or Night. This browser keeps your choice.",
       themes: { light: "Day", dark: "Night" },

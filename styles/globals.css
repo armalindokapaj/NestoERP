@@ -368,7 +368,7 @@
      * (AUD-04 §6, MW-08). `focus()` and `scrollIntoView()` both honour it.
      */
     scroll-padding-top: calc(var(--nesto-sticky-cover) + 1rem);
-    scroll-padding-bottom: calc(var(--nesto-bottom-reserve, 0px) + var(--nesto-action-bar-space, 0px));
+    scroll-padding-bottom: var(--nesto-bottom-reserve, 0px);
   }
 
   /*
@@ -450,21 +450,24 @@
    * displace it: it sits above it.
    */
   html:has([data-mobile-bottom-nav]) {
-    --nesto-bottom-nav-space: calc(6.5rem + var(--nesto-safe-bottom));
+    /* The bar of five places is 64px (components/layout/phone-bar.tsx); folded while scrolling it is 48px, and the page keeps its full height clear. */
+    --nesto-bottom-nav-space: calc(4rem + var(--nesto-safe-bottom));
     --nesto-bottom-reserve: var(--nesto-bottom-nav-space);
     /* Back 0.3s after a text field lets go (the @property above); gone at once when one takes focus (below). */
     transition: --nesto-bottom-nav-space 0s linear 0.3s;
-  }
-
-  /* The Pocket Ribbon is taller: its bar (76px) and the strip floating 8px above it (60px). */
-  html:has([data-mobile-bottom-nav="pocket"]) {
-    --nesto-bottom-nav-space: calc(10.375rem + var(--nesto-safe-bottom));
   }
 
   @media (min-width: 1024px) {
     html:has([data-mobile-bottom-nav]) {
       --nesto-bottom-nav-space: 0px;
       --nesto-bottom-reserve: 0px;
+    }
+  }
+
+  /* The Admin Console's bar floats 0.875rem above the edge, 68px tall (components/platform/platform-shell.tsx). */
+  @media (max-width: 1023.98px) {
+    html:has([data-mobile-bottom-nav].nesto-bottom-nav) {
+      --nesto-bottom-nav-space: calc(5.5rem + var(--nesto-safe-bottom));
     }
   }
 
@@ -504,56 +507,6 @@
   html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) [data-mobile-bottom-nav] {
     visibility: hidden;
     transition-delay: 0s;
-  }
-
-  /*
-   * The phone's bottom action bar (components/ui/mobile-action-bar.tsx; mobile
-   * audit 5b): a form's Save / Cancel ("flow") and a detail page's main action
-   * ("pinned"). Unlike the hand-made bars above (`data-sticky-action-bar`),
-   * it does not take the bottom navigation's place: it sits above it, 0.5rem
-   * clear of its top edge (`--nesto-bottom-nav-space` less its 0.875rem of
-   * breathing room), or 0.5rem above the safe area where
-   * the navigation is not pinned (from lg, while typing, a low window in
-   * version 2). An open keyboard lifts it by `--nesto-keyboard-inset`, which
-   * the bar publishes from the visual viewport (0 where the keyboard resizes
-   * the page: Android, the native shell). Its measured height is
-   * `--nesto-action-bar-h`.
-   *
-   * - `--nesto-action-bar-space`: what focus scrolling and toasts keep clear of
-   *   on top of `--nesto-bottom-reserve`, while either bar is on screen.
-   * - `--nesto-action-bar-room`: what the page keeps at its foot for a pinned
-   *   bar, so its last line is never under it. A form's bar is in the form's
-   *   flow and needs none.
-   *
-   * While a text field has focus the pinned bar steps aside, as the bottom
-   * navigation does (the rule that hides it is unlayered, at the end of this
-   * file, so the bar's own `flex` does not outrank it); a form's Save stays,
-   * above the keyboard.
-   */
-  :root {
-    --nesto-keyboard-inset: 0px;
-    --nesto-action-bar-h: 3.875rem;
-    --nesto-action-bar-space: 0px;
-    --nesto-action-bar-room: 0px;
-    --nesto-action-bar-bottom: calc(max(calc(var(--nesto-safe-bottom) + 0.5rem), calc(var(--nesto-bottom-nav-space) - 0.875rem)) + var(--nesto-keyboard-inset));
-  }
-
-  @media (max-width: 767.98px) {
-    html:has([data-mobile-action-bar]:not(:empty)) {
-      --nesto-action-bar-space: calc(var(--nesto-action-bar-h) + 0.5rem);
-    }
-
-    html:has([data-mobile-action-bar="pinned"]:not(:empty)) {
-      --nesto-action-bar-room: calc(var(--nesto-action-bar-h) + 0.5rem);
-    }
-
-    html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) {
-      --nesto-action-bar-room: 0px;
-    }
-
-    html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus):not(:has([data-mobile-action-bar="flow"])) {
-      --nesto-action-bar-space: 0px;
-    }
   }
 
   /*
@@ -693,7 +646,7 @@
     min-width: 0;
     max-width: var(--nesto-content-max-width);
     padding-top: var(--nesto-space-page-y);
-    padding-bottom: calc(max(var(--nesto-space-page-y-end), var(--nesto-safe-bottom)) + var(--nesto-bottom-nav-space, 0px) + var(--nesto-action-bar-room, 0px));
+    padding-bottom: calc(max(var(--nesto-space-page-y-end), var(--nesto-safe-bottom)) + var(--nesto-bottom-nav-space, 0px));
     padding-left: max(var(--nesto-space-page-x), var(--nesto-safe-left));
     padding-right: max(var(--nesto-space-page-x), var(--nesto-safe-right));
   }
@@ -1110,10 +1063,10 @@ html[data-unsaved-masked] [data-experience-editor] {
 }
 
 /*
- * Below lg (phones and tablets) a page's sections are the phone Ribbon's This
- * page (components/layout/phone-ribbon.tsx), so a row that hands its tabs to it
- * (`data-tabs-in-menu`, components/navigation/context-tabs-frame.tsx) is not
- * drawn. One that carries a page's own controls keeps just those, right-aligned
+ * Below lg (phones and tablets) a page's sections are the phone's section row
+ * under the top bar (components/layout/phone-sections.tsx), so a row that hands
+ * its tabs to it (`data-tabs-in-menu`, components/navigation/context-tabs-frame.tsx)
+ * is not drawn. One that carries a page's own controls keeps just those, right-aligned
  * in its place and scrolling with the page, with the context's compact header
  * (a project's name, code, company and status) at its start when it has one;
  * one with neither is not there at all.
@@ -1133,6 +1086,24 @@ html[data-unsaved-masked] [data-experience-editor] {
   :root:has([data-tabs-in-menu]):not(:has([data-context-tabs]:not([data-tabs-in-menu]))) {
     --nesto-shell-tabs-h: 0px;
   }
+
+  /*
+   * The phone's section row is pinned in their place, 48px under the top bar. Before the
+   * page hydrates the row has no sections yet: the rows' server-drawn anchors
+   * (`data-section-level`, components/navigation/section-registry.tsx) hold its place,
+   * so the page does not jump down when it arrives.
+   */
+  :root:has([data-phone-sections], [data-section-level]):not(:has([data-context-tabs]:not([data-tabs-in-menu]))) {
+    --nesto-shell-tabs-h: 3rem;
+  }
+
+  :root:has([data-section-level]) [data-phone-sections-placeholder] {
+    display: block;
+  }
+}
+
+[data-phone-sections-placeholder] {
+  display: none;
 }
 
 /*
@@ -1522,18 +1493,6 @@ html[data-unsaved-masked] [data-experience-editor] {
   animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
 }
 
-/*
- * Typing on a phone: a page's pinned main action steps aside for the keyboard,
- * as the bottom navigation does (components/ui/mobile-action-bar.tsx; the
- * room it kept goes too, in the base layer above). Unlayered on purpose: the
- * bar is a `flex` utility, which outranks anything in a layer.
- */
-@media (max-width: 767.98px) {
-  html:has(input:is([type="text"], [type="email"], [type="search"], [type="tel"], [type="url"], [type="password"], [type="number"], :not([type])):focus, textarea:focus) [data-mobile-action-bar="pinned"] {
-    display: none;
-  }
-}
-
 /* ==== The drawing-set conventions (docs/ui/UI-03-nesto-theme.md §4, §5) ==== */
 
 /*
@@ -1820,6 +1779,7 @@ html[data-unsaved-masked] [data-experience-editor] {
   .site-bar {
     position: sticky;
     top: 4rem;
+    transition: top 0.2s ease;
     z-index: 20;
     border-bottom: 1px solid var(--nesto-border-strong);
     background: color-mix(in srgb, var(--site-ground, var(--nesto-canvas)) 60%, transparent);
@@ -1863,6 +1823,17 @@ html[data-unsaved-masked] [data-experience-editor] {
   @media (min-width: 1200px) {
     .site-bar-count {
       display: none;
+    }
+  }
+  /* The gold line of how far through the page you are, under the masthead below xl (components/marketing/site-index.tsx). */
+  [data-site-progress] {
+    top: 4rem;
+  }
+  /* Below lg the masthead slides away while you read down (components/marketing/site-masthead.tsx): the bars and the gold line take the top. */
+  @media (max-width: 1023.98px) {
+    html[data-site-masthead="away"] .site-bar,
+    html[data-site-masthead="away"] [data-site-progress] {
+      top: 0;
     }
   }
   .site-bar[data-tone="ink"] {

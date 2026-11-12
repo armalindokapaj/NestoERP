@@ -79,22 +79,3 @@ export function pullProgress(distance: number, threshold: number = PULL_THRESHOL
   if (threshold <= 0) return 1;
   return Math.max(0, Math.min(1, distance / threshold));
 }
-
-/** Smaller than this, a difference between the two viewports is browser chrome moving, not a keyboard. */
-export const KEYBOARD_MIN = 80;
-
-/**
- * How much of the bottom of the layout viewport an on-screen keyboard covers.
- *
- * Android Chrome (with `interactive-widget=resizes-content`, app/layout.tsx)
- * and the native shell (Keyboard resize "native") shrink the layout viewport
- * instead, so the two heights agree and this is 0: a bar at the bottom is
- * already above the keyboard. iOS Safari overlays the keyboard on the layout
- * viewport; the visual viewport is what is left above it. Nothing while the
- * page is zoomed — the two viewports differ then for another reason.
- */
-export function keyboardInset(layoutHeight: number, visual: { height: number; offsetTop: number; scale: number }): number {
-  if (Math.abs(visual.scale - 1) > 0.01) return 0;
-  const covered = Math.round(layoutHeight - visual.height - visual.offsetTop);
-  return covered >= KEYBOARD_MIN ? covered : 0;
-}

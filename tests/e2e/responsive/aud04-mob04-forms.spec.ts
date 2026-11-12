@@ -4,8 +4,8 @@ import { mainRegion, signIn } from "./../fixtures";
 import { expectNoPageOverflow } from "./geometry";
 
 /**
- * MOB-04 forms and detail pages: the same RecordForm on every width, with its
- * actions pinned to the bottom of a phone and in the page flow from md; the
+ * MOB-04 forms and detail pages: the same RecordForm on every width, its
+ * actions the form's last row on every width (on a phone, above the bar); the
  * shared record page as semantic sections. Nothing is saved: the specs open
  * pages and read geometry. Runs in every responsive matrix project.
  */
@@ -14,28 +14,20 @@ const width = (page: Page) => page.viewportSize()!.width;
 const isPhone = (page: Page) => width(page) < 768;
 
 test.describe("form actions", () => {
-  test("create task: actions sit at the bottom of a phone screen and in the flow on desktop", async ({ page }) => {
+  test("create task: the actions are the form's last row, in the flow on every width", async ({ page }) => {
     await signIn(page, "PROJECT_MANAGER", { to: "/tasks/new" });
     const actions = mainRegion(page).locator("[data-form-actions]").first();
-    await expect(actions).toBeVisible();
-    const submit = actions.getByRole("button").first();
-    await expect(submit).toBeVisible();
-    const position = await actions.evaluate((node) => getComputedStyle(node).position);
+    await expect(actions).toBeAttached();
+    await expect(actions.getByRole("button").first()).toBeAttached();
+    expect(await actions.evaluate((node) => getComputedStyle(node).position)).toBe("static");
     if (isPhone(page)) {
-      expect(position).toBe("sticky");
-      const box = (await actions.boundingBox())!;
-      const viewport = page.viewportSize()!;
-      // Pinned to the bottom of the screen, whole in view, above the safe area and the bottom navigation.
-      expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
-      expect(box.y + box.height).toBeGreaterThan(viewport.height - 200);
-      // The bottom navigation stays, and the action bar sits above it rather than on it (mobile audit 5b):
-      // above the Pocket Ribbon's strip, which floats over its bar.
+      // Where the thumb finishes the form: at its end, whole in view above the bar once scrolled there (mobile audit 5b).
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect(actions).toBeInViewport();
       const navigation = page.locator("[data-mobile-bottom-nav]");
       await expect(navigation).toBeVisible();
-      const top = (await page.getByTestId("phone-strip").or(navigation).first().boundingBox())!;
+      const [box, top] = [(await actions.boundingBox())!, (await navigation.boundingBox())!];
       expect(box.y + box.height).toBeLessThanOrEqual(top.y + 1);
-    } else {
-      expect(position).toBe("static");
     }
     await expectNoPageOverflow(page);
   });

@@ -100,12 +100,10 @@ export function StickyTabs(props: Omit<React.ComponentProps<"div">, "level">) {
 }
 
 /**
- * The bottom action bar of a form (Save / Cancel). Below `md` it sticks to the
- * bottom of the screen above the bottom navigation, clear of the safe area and
- * riding above an open keyboard; from `md` it sits in the page flow. It is the
- * shared `MobileActionBar` (components/ui/mobile-action-bar.tsx), whose
- * `data-mobile-action-bar` is what makes toasts and focus scrolling keep clear
- * of it (globals.css), so use this instead of a hand-made bar.
+ * The action row of a form (Save / Cancel), the form's last row at every
+ * width: nothing floats over the phone's bar (docs/ui/UI-04-navigation-layouts.md).
+ * It is the shared `MobileActionBar` (components/ui/mobile-action-bar.tsx), so
+ * use this instead of a hand-made bar.
  */
 export function StickyActions(props: React.ComponentProps<"div">) {
   return <MobileActionBar {...props} />;

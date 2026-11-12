@@ -1,7 +1,7 @@
 > **Chat:** Nesto — adapting the 7F "Tirana Vertical" design
 > **File:** `docs/ui/UI-03-nesto-theme.md`
 > **About:** The Nesto theme — the Tirana Vertical reference taken apart, the concept Nesto draws from it, how each of the reference's patterns lands on Nesto's screens, the icon system, Day and Night, what was removed (Theme 1, UI-02), and what comes next.
-> **Last updated:** 2026-11-10 (the only theme; Day or Night)
+> **Last updated:** 2026-11-12 (the phone's navigation row brought up to date)
 
 # UI-03 — The Nesto theme
 
@@ -211,7 +211,7 @@ Everything below is a class on the component or a rule in `styles/globals.css`.
 | Reference | Nesto | Where |
 | --- | --- | --- |
 | Masthead and its ink rule | Top bar on an ink rule. + Create is an ink pill and the company switcher a white pill | `components/layout/topbar.tsx` |
-| Navigation | The Ribbon or the Dock on a desktop, the Thumb bar or Bottom tabs on a phone (UI-04); the current module is an ink pill | `ribbon.tsx`, `desktop-dock.tsx`, `mobile-bottom-nav.tsx`, `mobile-tabs-nav.tsx` |
+| Navigation | The Ribbon on a desktop; on a phone the bar of five places, the one you are in under a gold line, and the page's sections in a row under the top bar (UI-04) | `ribbon.tsx`, `phone-bar.tsx`, `phone-sections.tsx` |
 | Hero, outlined second word, square full stop | The dashboard's `Company overview.`: Archivo at width 62, from 4rem to 7.5rem. "overview" is outlined and indented with a gold square for the full stop, and the block rises from focus | `welcome-header.tsx`, admin `sections.tsx` |
 | Hero figures | KPI cards lead with the figure (2.75rem, width 70) under the gold tick, over a mono label. The icon tile is gone | `kpi-card.tsx` |
 | Facts under hairlines | A record header's facts (contract value, floors, completion, manager) form a grid of figures, each under its own hairline. On a phone they take the full width, two columns | `page-header.tsx` (`FACTS`) |
