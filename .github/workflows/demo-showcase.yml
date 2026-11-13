@@ -44,6 +44,14 @@ jobs:
           TYPED: ${{ inputs.confirm }}
         run: test -n "$NESTO_SEED_TARGET" && test "$TYPED" = "$NESTO_SEED_TARGET"
 
+      # Supabase's pooler host is shared by every project in the region, so the
+      # host alone cannot tell the demo from the live database: refuse the live one by its project id.
+      - name: Never the live database
+        run: |
+          case "$DATABASE_URL" in
+            *ccsjhrcvooukyiarxovf*) echo "DEMO_DATABASE_URL points at the live rozaris.com database. Refusing."; exit 1 ;;
+          esac
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4

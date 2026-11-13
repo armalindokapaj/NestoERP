@@ -110,7 +110,9 @@ links, and the standard seed and its tests are untouched.
 3. **Secrets for the reset** — GitHub → Settings → Environments → New
    environment `demo`, with these secrets:
    - `DEMO_DATABASE_URL` — the demo database's non-pooling URL
-   - `DEMO_SEED_TARGET` — its `host/database`, e.g. `db.xxxx.supabase.co/postgres`
+   - `DEMO_SEED_TARGET` — its `host/database`: `aws-0-eu-central-1.pooler.supabase.com/postgres`.
+     That pooler host is shared with the live database, so the reset also
+     refuses any address carrying the live project's id.
    - `DEMO_PASSWORD` — the temporary password prospects are given
    - `DEMO_ADMIN_PASSWORD` — the demo Platform Admin's, different
    - `DEMO_STORAGE_BUCKET` = `documents`, `DEMO_SUPABASE_URL`, `DEMO_SUPABASE_SECRET_KEY`
