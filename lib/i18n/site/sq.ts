@@ -269,6 +269,7 @@ export const siteSq: SiteCopy = {
       cta: "Ndërto NESTO-n tënd",
       columns: { item: "Zëri", included: "Përfshihet", rate: "Tarifa", per: "Në muaj, për" },
       rows: {
+        minimum: { item: "Minimumi i NESTO Platform", included: "Modulet, personat, kompanitë dhe projektet shtesë llogariten brenda tij", per: "muaj" },
         platform: { item: "Baza e NESTO Platform", included: "{companies} kompani · {projects} projekt · {users} persona · mjetet e përditshme", per: "hapësirë pune" },
         modules: { item: "Modulet, të zgjedhura një nga një", included: "{n} module, secili me çmimin e vet", per: "modul" },
         modulesPerUser: { item: "Modulet, për çdo person", included: "{n} module · {companies} kompani dhe {projects} projekt të përfshirë · mjetet e përditshme falas", per: "person, për modul" },

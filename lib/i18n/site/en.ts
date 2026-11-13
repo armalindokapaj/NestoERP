@@ -317,6 +317,7 @@ export const siteEn = {
       cta: "Build your NESTO",
       columns: { item: "Item", included: "Included", rate: "Rate", per: "Per month, per" },
       rows: {
+        minimum: { item: "NESTO Platform minimum", included: "Modules, people, further companies and projects all count towards it", per: "month" },
         platform: { item: "NESTO Platform base", included: "{companies} company · {projects} project · {users} people · everyday tools", per: "workspace" },
         modules: { item: "Modules, chosen one by one", included: "{n} modules, each priced on its own", per: "module" },
         modulesPerUser: { item: "Modules, for each person", included: "{n} modules · {companies} company and {projects} project included · everyday tools free", per: "person, per module" },

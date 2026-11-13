@@ -124,3 +124,22 @@ describe("price book with modules priced for each person", () => {
     expect(sampleEstimateCents(perPerson, 1, 15)).toBe(147_000);
   });
 });
+
+describe("price book with a monthly minimum", () => {
+  const withMinimum: PublicPricingConfig = {
+    ...perPerson,
+    foundations: perPerson.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, minimumMonthlyCents: 50_000 } : row)),
+  };
+
+  it("leads the bill with the minimum", () => {
+    const rows = priceRows(withMinimum);
+    expect(rows.map((row) => row.key)).toEqual(["minimum", "modulesPerUser", "company", "project", "rozaris"]);
+    expect(rows[0]).toMatchObject({ from: false, monthlyCents: 50_000 });
+  });
+
+  it("charges an example below the minimum the minimum, and leaves the rest as they are", () => {
+    const examples = Object.fromEntries(priceExamples(withMinimum).map((example) => [example.key, [example.monthlyCents, example.atMinimum]]));
+    expect(examples).toEqual({ sales: [50_000, true], developer: [147_000, false], everything: [256_500, false], group: [335_000, false] });
+    expect(sampleEstimateCents(withMinimum, 1, 4)).toBe(50_000);
+  });
+});

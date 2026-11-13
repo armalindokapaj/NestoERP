@@ -52,8 +52,8 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
   version: "2026.09",
   currency: "EUR",
   foundations: [
-    { id: "ROZARIS", enabled: true, name: "NESTO ROZARIS", description: "A focused real-estate sales environment for Units, Contracts and the published ROZARIS 3D experience.", baseMonthlyCents: 0, included: ROZARIS_INCLUDED, imageKey: "foundation-rozaris" },
-    { id: "NESTO_PLATFORM", enabled: true, name: "NESTO Platform", description: "Build a modular company operating platform by selecting the NESTO modules your organization needs.", baseMonthlyCents: 250_000, included: ["1 company", "1 active project", "15 active users"], imageKey: "foundation-platform" },
+    { id: "ROZARIS", enabled: true, name: "NESTO ROZARIS", description: "A focused real-estate sales environment for Units, Contracts and the published ROZARIS 3D experience.", baseMonthlyCents: 0, minimumMonthlyCents: 0, included: ROZARIS_INCLUDED, imageKey: "foundation-rozaris" },
+    { id: "NESTO_PLATFORM", enabled: true, name: "NESTO Platform", description: "Build a modular company operating platform by selecting the NESTO modules your organization needs.", baseMonthlyCents: 250_000, minimumMonthlyCents: 0, included: ["1 company", "1 active project", "15 active users"], imageKey: "foundation-platform" },
   ],
   modules: DEFAULT_MODULES,
   companies: {

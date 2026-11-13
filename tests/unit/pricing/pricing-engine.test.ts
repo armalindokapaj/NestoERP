@@ -174,6 +174,29 @@ describe("modules priced per person", () => {
     expect(resolveModules(perPerson, "NESTO_PLATFORM", ["SALES"], 10).rows.find((row) => row.id === "SALES")).toMatchObject({ reason: "SELECTED", monthlyCents: 28_000 });
   });
 
+  it("charges a setup below the minimum the minimum, and says how much it added", () => {
+    const withMinimum: PricingConfig = { ...perPerson, foundations: perPerson.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, minimumMonthlyCents: 50_000 } : row)) };
+    // 1 architect, 1 engineer and 2 CEOs on Finance and Project Management: 4 × €52 = €208.
+    const small = calculatePricing(platform(["FINANCE", "PROJECT_MANAGEMENT"], 4), withMinimum, null);
+    expect(small.standardMonthlyCents).toBe(50_000);
+    expect(small.minimum).toEqual({ monthlyCents: 50_000, topUpCents: 50_000 - 20_800 });
+    const large = calculatePricing(platform(["SALES", "FINANCE"], 15), withMinimum, null);
+    expect(large.standardMonthlyCents).toBe(84_000);
+    expect(large.minimum.topUpCents).toBe(0);
+  });
+
+  it("discounts the minimum with the launch offer like any NESTO charge", () => {
+    const withMinimum: PricingConfig = { ...perPerson, foundations: perPerson.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, minimumMonthlyCents: 50_000 } : row)) };
+    const quote = calculatePricing(platform(["SALES"], 2, { promotionCode: DEFAULT_LAUNCH_PROMOTION.code }), withMinimum, DEFAULT_LAUNCH_PROMOTION);
+    expect(quote.schedule.map((period) => period.monthlyCents)).toEqual([0, 25_000, 50_000]);
+  });
+
+  it("reads a stored book without a minimum as having none", () => {
+    const stored = JSON.parse(JSON.stringify(DEFAULT_PRICING_CONFIG)) as { foundations: Array<Record<string, unknown>> };
+    for (const row of stored.foundations) delete row.minimumMonthlyCents;
+    expect(pricingConfigSchema.parse(stored).foundations.every((row) => row.minimumMonthlyCents === 0)).toBe(true);
+  });
+
   it("reads a stored book without per-person prices as charging none", () => {
     const stored = JSON.parse(JSON.stringify(DEFAULT_PRICING_CONFIG)) as { modules: Array<Record<string, unknown>> };
     for (const row of stored.modules) delete row.monthlyPerUserCents;

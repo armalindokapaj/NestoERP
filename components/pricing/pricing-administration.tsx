@@ -118,6 +118,7 @@ function PriceBookSummary({ config }: { config: PricingConfig }) {
   return (
     <dl className="mt-5 grid gap-4 border-t border-line pt-5 sm:grid-cols-3">
       <Summary label={t("pricing.sumPlatformBase")} value={platform ? mo(platform.baseMonthlyCents) : "—"} />
+      <Summary label={t("pricing.sumPlatformMinimum")} value={platform?.minimumMonthlyCents ? mo(platform.minimumMonthlyCents) : "—"} />
       <Summary label={t("pricing.sumPricedModules")} value={t("pricing.ofTotal", { priced, total: config.modules.filter((row) => row.public).length })} />
       <Summary label={t("pricing.sumProjectAddon")} value={mo(config.nestoProjects.additionalMonthlyCents)} />
       <Summary label={t("pricing.sumRozarisClasses")} value={(["BASIC", "LARGE", "VILLAGE"] as const).map((key) => eur(config.rozaris.classes[key].monthly24Cents)).join(" · ")} />
@@ -279,6 +280,7 @@ function PricingVersionEditor({ version }: { version: Version }) {
               <label className="flex items-center gap-3 text-table text-fg"><input type="checkbox" checked={foundation.enabled} onChange={(event) => setFoundation(foundation.id, { enabled: event.target.checked })} /> {t("pricing.offeredPublicly")}</label>
               <Field label={t("pricing.publicName")}><Input value={foundation.name} onChange={(event) => setFoundation(foundation.id, { name: event.target.value })} /></Field>
               <MoneyField label={t("pricing.baseMonth")} cents={foundation.baseMonthlyCents} set={(value) => setFoundation(foundation.id, { baseMonthlyCents: value })} />
+              <MoneyField label={t("pricing.minimumMonth")} cents={foundation.minimumMonthlyCents} set={(value) => setFoundation(foundation.id, { minimumMonthlyCents: value })} />
               <Field label={t("pricing.publicDescription")}><Textarea value={foundation.description} onChange={(event) => setFoundation(foundation.id, { description: event.target.value })} /></Field>
               <Field label={t("pricing.includedLines")}><Textarea value={foundation.included.join("\n")} onChange={(event) => setFoundation(foundation.id, { included: event.target.value.split("\n").map((line) => line.trim()).filter(Boolean) })} /></Field>
               <NumberField label={t("pricing.includedCompanies")} value={config.companies[foundation.id].included} set={(value) => setCompanies(foundation.id, { included: Math.max(1, value) })} />

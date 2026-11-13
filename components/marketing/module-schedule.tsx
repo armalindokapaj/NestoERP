@@ -5,8 +5,8 @@ import type { PublicPricingConfig } from "@/lib/modules/pricing/pricing.types";
 
 /**
  * Every module of the NESTO Platform with its own rate — a month, or for each
- * person a month — by group, as
- * a drawing's schedule, then what a few typical buyers pay
+ * person a month — by group, as a drawing's schedule, then the monthly
+ * minimum and what a few typical buyers pay
  * (docs/pricing-modules.md). Read from the live price book like the bill of
  * quantities, so a rate changed by the Platform Admin changes here too; a
  * book that sells everything in the base shows nothing here.
@@ -15,6 +15,7 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
   const groups = moduleGroups(config);
   if (!groups.some((entry) => entry.modules.some((row) => !row.included))) return null;
   const examples = priceExamples(config);
+  const minimum = config.foundations.find((row) => row.id === "NESTO_PLATFORM")?.minimumMonthlyCents ?? 0;
   const words = copy.schedule;
   const name = (id: string, fallback: string) => copy.moduleText[id]?.name ?? fallback;
   const cell = "border border-fg px-3.5 py-3 text-left align-top";
@@ -72,6 +73,7 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
         <section aria-labelledby="price-examples">
           <h3 id="price-examples" className="text-[28px] leading-none text-fg sm:text-[36px] font-display">{words.examplesTitle}</h3>
           <p className="mt-2 max-w-2xl text-body text-fg-muted">{words.examplesNote}</p>
+          {minimum > 0 ? <p className="mt-1 max-w-2xl text-body text-fg-muted" data-testid="minimum-note">{fill(words.minimumNote, { price: formatEuros(minimum, locale) })}</p> : null}
           <ul className="mt-6 grid border-l-[1.5px] border-t-[1.5px] border-fg sm:grid-cols-2 xl:grid-cols-4" data-testid="price-examples">
             {examples.map((example) => (
               <li key={example.key} className="flex flex-col gap-3 border-b-[1.5px] border-r-[1.5px] border-fg bg-surface p-5" data-example={example.key}>
@@ -83,6 +85,7 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
                 <p className="mt-auto flex items-baseline gap-1.5 border-t border-line pt-3">
                   <span className="text-[34px] leading-none tabular-nums text-fg font-display">{formatEuros(example.monthlyCents, locale)}</span>
                   <span className="text-meta text-fg-muted">{words.perMonth}</span>
+                  {example.atMinimum ? <span className="ml-auto font-mono text-micro uppercase tracking-[0.1em] text-fg-subtle">{words.atMinimum}</span> : null}
                 </p>
               </li>
             ))}

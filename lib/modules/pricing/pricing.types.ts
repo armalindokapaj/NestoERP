@@ -44,6 +44,8 @@ export type FoundationConfig = {
   description: string;
   /** Recurring base; ROZARIS is priced by its project classes, so its base is usually zero. */
   baseMonthlyCents: number;
+  /** The least its NESTO charges come to a month: a smaller setup is charged this (zero for none). */
+  minimumMonthlyCents: number;
   included: string[];
   imageKey?: string;
 };
@@ -123,7 +125,9 @@ export type PricingQuote = {
   companies: { included: number; fullGroup: number; jointVenture: number; documentsOnly: number; monthlyCents: number };
   projects: Array<{ id: string; label: string; type: string; monthlyCents: number; includedUsers: number }>;
   users: { requested: number; included: number; billable: number; packSize: number; packs: number; monthlyCents: number };
-  /** Recurring NESTO charges (foundation, modules, companies, projects, users) — what a promotion may discount. */
+  /** The foundation's monthly minimum and what was added to reach it (zero when the setup is above it). */
+  minimum: { monthlyCents: number; topUpCents: number };
+  /** Recurring NESTO charges (foundation, modules, companies, projects, users, the minimum's top-up) — what a promotion may discount. */
   nestoMonthlyCents: number;
   rozarisMonthlyCents: number;
   standardMonthlyCents: number;

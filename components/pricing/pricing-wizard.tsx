@@ -298,7 +298,7 @@ function FoundationStep({ ctx, choose }: { ctx: Ctx; choose: (foundation: Founda
             <Preview kind={id === "ROZARIS" ? "rozaris" : "platform"} label={words?.name ?? foundation.name} />
             <span className="flex flex-1 flex-col p-5">
               <span className="flex items-center justify-between gap-2"><strong className="text-card text-fg">{words?.name ?? foundation.name}</strong><span className={cn("text-meta font-semibold", selected ? "text-accent-strong" : "text-fg-subtle")}>{selected ? <><CheckCircle2 className="mr-1 inline size-4" aria-hidden="true" />{t.foundation.selected}</> : t.foundation.choose}</span></span>
-              <span className="mt-1 text-table font-semibold text-fg">{id === "ROZARIS" ? fill(t.foundation.fromProject, { price: money(lowest) }) : fill(t.foundation.from, { price: money(foundation.baseMonthlyCents) })}</span>
+              <span className="mt-1 text-table font-semibold text-fg">{id === "ROZARIS" ? fill(t.foundation.fromProject, { price: money(lowest) }) : fill(t.foundation.from, { price: money(Math.max(foundation.baseMonthlyCents, foundation.minimumMonthlyCents)) })}</span>
               <span className="mt-2 text-table leading-relaxed text-fg-muted">{words?.description ?? foundation.description}</span>
               <span className="mt-3 flex flex-wrap gap-x-4 gap-y-1">{(words?.included ?? foundation.included).map((item) => <span key={item} className="inline-flex items-center gap-1.5 text-meta text-fg-muted"><Check className="size-3.5 text-success-strong" aria-hidden="true" />{item}</span>)}</span>
               <span className="mt-3 text-meta text-fg-subtle">{id === "ROZARIS" ? t.foundation.rozarisNote : t.foundation.platformNote}</span>
@@ -449,6 +449,11 @@ function UsersStep({ ctx }: { ctx: Ctx }) {
         </dl>
       ) : null}
       {perPerson > 0 ? <p className="text-table text-fg-muted">{t.users.perPersonNote}</p> : null}
+      {quote.minimum.topUpCents > 0 ? (
+        <p className="border border-line bg-accent-soft/40 p-4 text-table text-fg" data-testid="minimum-note">
+          {fill(t.users.minimumNote, { charges: money(quote.nestoMonthlyCents - quote.minimum.topUpCents), minimum: money(quote.minimum.monthlyCents) })}
+        </p>
+      ) : null}
       {users.included > 0 || users.monthlyCents > 0 ? (
       <dl className="grid gap-4 rounded-xl border border-line bg-canvas p-5 sm:grid-cols-2" data-testid="users-calculation">
         <Stat label={t.users.included} value={String(users.included)} />
@@ -504,6 +509,7 @@ function ReviewStep({ ctx, updating, blocked, onProposal }: { ctx: Ctx; updating
     ...(quote.companies.monthlyCents || quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly ? [[t.review.companies, `${quote.companies.included} + ${quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly}`, quote.companies.monthlyCents] as [string, React.ReactNode, number]] : [[t.review.companies, String(quote.companies.included), null] as [string, React.ReactNode, null]]),
     ...quote.projects.map((project) => [t.review.projects, project.type === "NESTO" ? project.label : `${t.classes[project.type]?.name ?? config.rozaris.classes[project.type as RozarisClass]?.name ?? project.type} · ROZARIS`, project.monthlyCents || null] as [string, React.ReactNode, number | null]),
     [t.review.users, quote.users.included ? fill(t.review.usersLine, { included: quote.users.included, billable: quote.users.billable }) : String(quote.users.requested), quote.users.monthlyCents || null],
+    ...(quote.minimum.topUpCents > 0 ? [[t.review.minimum, fill(t.review.minimumLine, { price: money(quote.minimum.monthlyCents) }), quote.minimum.topUpCents] as [string, React.ReactNode, number]] : []),
     [t.review.contract, fill(t.contract.months, { n: quote.contractMonths }), null],
   ];
   return (
@@ -557,6 +563,7 @@ function Estimate({ ctx, updating, error, step }: { ctx: Ctx; updating: boolean;
   if (step >= 2) rows.push([t.estimate.companies, String(quote.companies.included + quote.companies.fullGroup + quote.companies.jointVenture) + (quote.companies.documentsOnly ? ` + ${quote.companies.documentsOnly}` : "")]);
   if (step >= 3 && quote.projects.length) rows.push([t.estimate.projects, quote.projects.map((project) => project.type === "NESTO" ? project.label : t.classes[project.type]?.name ?? project.type).join(" · ")]);
   if (step >= 4) rows.push([t.estimate.users, quote.users.included ? `${quote.users.requested} (${quote.users.included} ${t.users.included.toLowerCase()})` : String(quote.users.requested)]);
+  if (quote.minimum.topUpCents > 0) rows.push([t.estimate.minimum, fill(t.estimate.minimumApplies, { price: money(quote.minimum.monthlyCents) })]);
   if (step >= 5) rows.push([t.estimate.contract, fill(t.contract.months, { n: quote.contractMonths })]);
   if (step >= 5 && quote.promotion.applied) rows.push([t.estimate.promotion, quote.schedule.filter((period) => period.discountPercent).map((period) => fill(t.review.monthsRange, { from: period.fromMonth, to: period.toMonth }) + ` −${period.discountPercent}%`).join(" · ")]);
   return (
