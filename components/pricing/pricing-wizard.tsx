@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, ArrowRight, Building2, Check, CheckCircle2, Layers3, Lock, Minus, Orbit, Plus, RefreshCw, Trash2, Users } from "@/components/icons";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Layers3, Lock, Minus, Orbit, Plus, RefreshCw, Users } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -11,26 +11,28 @@ import { numberText } from "@/lib/i18n/format";
 import { engineBook } from "@/lib/marketing/price-book";
 import { fill, type PricingCopy } from "@/lib/i18n/site/pricing-configurator";
 import { defaultRequest, MODULE_GROUPS } from "@/lib/modules/pricing/pricing.config";
-import { calculatePricing, hasRozarisProjects, isIncluded, isOffered, resolveModules } from "@/lib/modules/pricing/pricing.engine";
-import type { Foundation, PricingConfig, PricingModule, PricingQuote, PricingRequest, PublicPricingConfig, RozarisClass } from "@/lib/modules/pricing/pricing.types";
+import { calculatePricing, hasRozarisProjects, isOffered, offersGroup, resolveModules } from "@/lib/modules/pricing/pricing.engine";
+import type { CustomerType, ModuleReason, PricingConfig, PricingModule, PricingQuote, PricingRequest, PublicPricingConfig, RozarisClass } from "@/lib/modules/pricing/pricing.types";
 import { cn } from "@/lib/utils/cn";
 
 /*
- * The public pricing configurator (Modular Pricing PRD §4-§54). The page is
- * the configurator: seven steps, the live estimate beside them, the address
- * carrying the configuration. The browser estimates with the same engine; the
- * server's answer replaces it.
+ * The public pricing configurator (docs/pricing-modules.md). The page is the
+ * configurator: what the buyer is (a company or a group of companies), its
+ * projects, ROZARIS 3D, modules, users and contract, with the live estimate
+ * beside them and the address carrying the configuration. The browser
+ * estimates with the same engine; the server's answer replaces it.
  */
 
-const STEPS = ["foundation", "modules", "companies", "projects", "users", "contract", "review"] as const;
+const STEPS = ["type", "projects", "rozaris", "modules", "users", "contract", "review"] as const;
 type Step = (typeof STEPS)[number];
 const REVIEW = STEPS.indexOf("review");
 const CLASSES: RozarisClass[] = ["BASIC", "LARGE", "VILLAGE"];
 type ProposalType = "FORMAL_PROPOSAL" | "TALK_TO_SALES" | "THREE_D_PRODUCTION";
+/** Old addresses' step names, read once and rewritten. */
+const OLD_STEPS: Record<string, Step> = { foundation: "type", product: "type", companies: "type" };
 
-/** The public config as a price book the engine can run (technical modules are server-only and simply absent here). */
-function promotionFor(config: PublicPricingConfig, foundation: Foundation, months: 12 | 24, requested?: string | null) {
-  const eligible = config.promotions.filter((row) => row.enabled && row.product === foundation && row.requiredContractMonths === months);
+function promotionFor(config: PublicPricingConfig, months: 12 | 24, requested?: string | null) {
+  const eligible = config.promotions.filter((row) => row.enabled && row.product === "NESTO_PLATFORM" && row.requiredContractMonths === months);
   return eligible.find((row) => row.code === requested) ?? eligible[0] ?? null;
 }
 
@@ -39,59 +41,58 @@ let projectSeq = 0;
 const newProjectId = () => `p${Date.now().toString(36)}${(projectSeq++).toString(36)}`;
 
 function withPromotion(config: PublicPricingConfig, input: PricingRequest, requested?: string | null): PricingRequest {
-  return { ...input, promotionCode: promotionFor(config, input.foundation, input.contractMonths, requested ?? input.promotionCode)?.code ?? null };
+  return { ...input, promotionCode: promotionFor(config, input.contractMonths, requested ?? input.promotionCode)?.code ?? null };
 }
 
+const minUsers = (config: PublicPricingConfig, customer: CustomerType) => (customer === "GROUP" ? config.customers.group.minUsers : config.customers.company.minUsers);
+
 /**
- * The address → a configuration (§37, §38). Old links (`mode=erp`, per-class
- * ROZARIS counts, `step=product`) are read and rewritten in the new form.
+ * The address → a configuration. Old links (`foundation=`, `mode=`, the old
+ * step names, per-class ROZARIS counts) are read and rewritten in the new form;
+ * an old ROZARIS link becomes a company with its 3D projects.
  */
 function readUrl(config: PublicPricingConfig): { input: PricingRequest; step: number; legacy: boolean } {
   const params = new URLSearchParams(window.location.search);
-  const mode = params.get("mode");
-  const legacy = mode !== null || ["product", "rozaris"].includes(params.get("step") ?? "") || ["basic", "large", "village", "group"].some((key) => params.has(key));
-  const foundation: Foundation = (params.get("foundation") ?? (mode === "rozaris" ? "rozaris" : "nesto")) === "rozaris" ? "ROZARIS" : "NESTO_PLATFORM";
-  const base = defaultRequest(foundation, config);
+  const legacy = params.has("foundation") || params.has("mode") || (params.get("step") ?? "") in OLD_STEPS || ["basic", "large", "village"].some((key) => params.has(key));
+  const customer: CustomerType = params.get("type") === "group" && offersGroup(config) ? "GROUP" : "COMPANY";
+  const base = defaultRequest("NESTO_PLATFORM", config, customer);
   const count = (key: string, max = 500) => bounded(Number(params.get(key) ?? 0), 0, max);
   let rozaris: RozarisClass[] = (params.get("rozaris") ?? params.get("projectType") ?? "").split(",").map((value) => value.trim().toUpperCase()).filter((value): value is RozarisClass => (CLASSES as string[]).includes(value));
   if (!params.get("rozaris") && !params.get("projectType")) {
     rozaris = [...Array(count("basic", 50)).fill("BASIC"), ...Array(count("large", 50)).fill("LARGE"), ...Array(count("village", 50)).fill("VILLAGE")];
   }
-  if (foundation === "ROZARIS" && rozaris.length === 0) rozaris = ["BASIC"];
+  rozaris = rozaris.slice(0, 50);
+  const projects = Math.max(rozaris.length, bounded(Number(params.get("projects") ?? config.nestoProjects.included), 1, 1_000));
   const input: PricingRequest = {
-    foundation,
-    modules: (params.get("modules") ?? "").split(",").map((value) => value.trim().toUpperCase()).filter(Boolean),
-    companies: { fullGroup: count("group") || Math.max(0, count("companies") - 1), jointVenture: count("jv"), documentsOnly: count("docs") },
-    ...(foundation === "NESTO_PLATFORM" ? { nestoProjects: { active: bounded(Number(params.get("projects") ?? config.nestoProjects.included), 1, 1_000) } } : {}),
-    rozarisProjects: rozaris.slice(0, 50).map((type) => ({ tempId: newProjectId(), type })),
-    activeUsers: bounded(Number(params.get("users") ?? base.activeUsers), 1, 100_000),
-    ...(params.get("mu") ? { moduleUsers: readModuleUsers(params.get("mu")!) } : {}),
+    foundation: "NESTO_PLATFORM",
+    customer,
+    modules: customer === "GROUP" ? [] : (params.get("modules") ?? "").split(",").map((value) => value.trim().toUpperCase()).filter(Boolean),
+    companies: customer === "GROUP" ? { fullGroup: Math.max(base.companies.fullGroup, count("group") || count("companies") - 1), jointVenture: count("jv"), documentsOnly: count("docs") } : base.companies,
+    nestoProjects: { active: projects },
+    rozarisProjects: rozaris.map((type) => ({ tempId: newProjectId(), type })),
+    activeUsers: bounded(Number(params.get("users") ?? base.activeUsers), minUsers(config, customer), 100_000),
     contractMonths: params.get("term") === "12" ? 12 : 24,
     promotionCode: params.get("promo"),
   };
-  const stepName = ({ product: "foundation", rozaris: "projects" } as Record<string, string>)[params.get("step") ?? ""] ?? params.get("step");
-  const step = STEPS.indexOf(stepName as Step);
+  const named = params.get("step") ?? "";
+  const step = STEPS.indexOf((OLD_STEPS[named] ?? named) as Step);
   return { input: withPromotion(config, input, params.get("promo")), step: step >= 0 ? step : 0, legacy };
-}
-
-/** `sales:5,finance:3` → people per module. */
-function readModuleUsers(value: string): Record<string, number> {
-  const pairs = value.split(",").map((pair) => pair.split(":")).filter(([id, n]) => id && n !== undefined && /^\d+$/.test(n));
-  return Object.fromEntries(pairs.slice(0, 60).map(([id, n]) => [id.trim().toUpperCase(), bounded(Number(n), 0, 100_000)]));
 }
 
 function urlFor(input: PricingRequest, step: number) {
   const params = new URLSearchParams();
-  params.set("foundation", input.foundation === "ROZARIS" ? "rozaris" : "nesto");
-  if (input.modules.length) params.set("modules", input.modules.map((id) => id.toLowerCase()).join(","));
-  if (input.companies.fullGroup) params.set("group", String(input.companies.fullGroup));
-  if (input.companies.jointVenture) params.set("jv", String(input.companies.jointVenture));
-  if (input.companies.documentsOnly) params.set("docs", String(input.companies.documentsOnly));
+  const group = input.customer === "GROUP";
+  params.set("type", group ? "group" : "company");
+  if (group) {
+    params.set("companies", String(1 + input.companies.fullGroup));
+    if (input.companies.jointVenture) params.set("jv", String(input.companies.jointVenture));
+    if (input.companies.documentsOnly) params.set("docs", String(input.companies.documentsOnly));
+  } else if (input.modules.length) {
+    params.set("modules", input.modules.map((id) => id.toLowerCase()).join(","));
+  }
   if (input.nestoProjects) params.set("projects", String(input.nestoProjects.active));
   if (input.rozarisProjects?.length) params.set("rozaris", input.rozarisProjects.map((project) => project.type.toLowerCase()).join(","));
   params.set("users", String(input.activeUsers));
-  const moduleUsers = Object.entries(input.moduleUsers ?? {});
-  if (moduleUsers.length) params.set("mu", moduleUsers.map(([id, n]) => `${id.toLowerCase()}:${n}`).join(","));
   params.set("term", String(input.contractMonths));
   if (input.promotionCode) params.set("promo", input.promotionCode);
   params.set("step", STEPS[step]);
@@ -109,7 +110,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 function track(event: string, input: PricingRequest, extra: Record<string, unknown> = {}) {
   if (typeof window === "undefined") return;
   // Configuration only — never a name, email or phone (§50).
-  const properties = { foundation: input.foundation, moduleCount: input.modules.length, contractMonths: input.contractMonths, companyCount: 1 + input.companies.fullGroup + input.companies.jointVenture, rozarisProjects: input.rozarisProjects?.map((project) => project.type) ?? [], userCount: input.activeUsers, ...extra };
+  const properties = { customer: input.customer ?? "COMPANY", moduleCount: input.modules.length, contractMonths: input.contractMonths, companyCount: 1 + input.companies.fullGroup + input.companies.jointVenture, projectCount: input.nestoProjects?.active ?? 0, rozarisProjects: input.rozarisProjects?.map((project) => project.type) ?? [], userCount: input.activeUsers, ...extra };
   window.dispatchEvent(new CustomEvent("nesto:analytics", { detail: { event, properties } }));
 }
 
@@ -120,19 +121,18 @@ export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: 
   const book = React.useMemo(() => engineBook(initialConfig), [initialConfig]);
   // Never `Intl` with the reader's locale: Chrome has no Albanian data, so the server and the browser would print two different prices.
   const money = React.useCallback((cents: number) => numberText(cents / 100, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }, locale === "sq" ? "sq" : "en", "en"), [locale]);
-  const initial = React.useMemo(() => withPromotion(initialConfig, defaultRequest("ROZARIS", initialConfig)), [initialConfig]);
+  const initial = React.useMemo(() => withPromotion(initialConfig, defaultRequest("NESTO_PLATFORM", initialConfig)), [initialConfig]);
   const [input, setInput] = React.useState<PricingRequest>(initial);
   const [step, setStep] = React.useState(0);
   const [reached, setReached] = React.useState(0);
   const stepRef = React.useRef(step);
   stepRef.current = step;
-  const estimate = React.useCallback((next: PricingRequest) => calculatePricing(next, book, promotionFor(initialConfig, next.foundation, next.contractMonths, next.promotionCode)), [book, initialConfig]);
+  const estimate = React.useCallback((next: PricingRequest) => calculatePricing(next, book, promotionFor(initialConfig, next.contractMonths, next.promotionCode)), [book, initialConfig]);
   const [quote, setQuote] = React.useState<PricingQuote>(() => estimate(initial));
   const lastGood = React.useRef(quote);
   const [hydrated, setHydrated] = React.useState(false);
   const [updating, setUpdating] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [notice, setNotice] = React.useState<string | null>(null);
   const [proposal, setProposal] = React.useState<ProposalType | null>(null);
   const [savedFor, setSavedFor] = React.useState<string | null>(null);
 
@@ -178,7 +178,6 @@ export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: 
   // The Review step saves the quote with its price version, for the proposal to reference (§44, §51).
   React.useEffect(() => {
     if (!hydrated || step !== REVIEW || savedFor === fingerprint) return;
-    if (input.foundation === "ROZARIS" && !hasRozarisProjects(input)) return;
     let active = true;
     setUpdating(true);
     postJson<PricingQuote>("/api/public/pricing/calculate", { configuration: input, persistQuote: true })
@@ -194,28 +193,15 @@ export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: 
     if (event) track(event, next, extra);
   }
 
-  function chooseFoundation(foundation: Foundation) {
-    if (foundation === input.foundation) return;
-    const base = defaultRequest(foundation, initialConfig);
-    const offered = new Set(initialConfig.modules.filter((row) => isOffered(row, foundation) && !isIncluded(row, foundation)).map((row) => row.id));
-    const kept = input.modules.filter((id) => offered.has(id));
-    const next = withPromotion(initialConfig, {
-      ...base,
-      modules: kept,
-      contractMonths: input.contractMonths,
-      rozarisProjects: foundation === "ROZARIS" ? (input.rozarisProjects?.length ? input.rozarisProjects : base.rozarisProjects) : input.rozarisProjects,
-      companies: initialConfig.companies[foundation].additionalAvailable ? input.companies : base.companies,
-    });
-    // Only incompatible choices go, and the visitor is told (§36).
-    const lost = input.modules.length - kept.length;
-    const sales = initialConfig.modules.find((row) => row.id === "SALES");
-    setNotice(foundation === "ROZARIS" && sales && isIncluded(sales, "ROZARIS") ? `${t.estimate.updated} ${fill(t.modules.includedWith, { foundation: "ROZARIS" })}: ${sales.name}.` : lost ? t.estimate.updated : null);
-    change(next, "pricing_foundation_selected");
+  /** A company keeps its modules; a group has them all. Projects, 3D, users and term carry over. */
+  function chooseType(customer: CustomerType) {
+    if (customer === (input.customer ?? "COMPANY")) return;
+    const base = defaultRequest("NESTO_PLATFORM", initialConfig, customer);
+    change({ ...input, customer, modules: customer === "GROUP" ? [] : input.modules, companies: base.companies, activeUsers: Math.max(base.activeUsers, input.activeUsers) }, "pricing_type_selected", { customer });
   }
 
   function move(target: number) {
     const next = bounded(target, 0, STEPS.length - 1);
-    if (next > step && !stepValid(step)) return;
     setStep(next);
     setReached((value) => Math.max(value, next));
     window.history.pushState({ pricingStep: next }, "", urlFor(input, next));
@@ -224,14 +210,9 @@ export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: 
     if (next === REVIEW) track("pricing_review_viewed", input);
   }
 
-  function stepValid(index: number) {
-    if (STEPS[index] === "projects" && input.foundation === "ROZARIS") return hasRozarisProjects(input);
-    return true;
-  }
-
   const ctx: Ctx = { config: initialConfig, book, input, quote, t, money, change };
   const name = STEPS[step];
-  const blocked = input.foundation === "ROZARIS" && !hasRozarisProjects(input);
+  const group = input.customer === "GROUP";
 
   return (
     <div>
@@ -257,21 +238,20 @@ export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: 
           <div className="border-b border-line px-5 py-5 sm:px-7">
             <p className="nesto-eyebrow text-accent-strong">{fill(t.stepOf, { n: step + 1, total: STEPS.length })} · {t.steps[name]}</p>
             <h2 id="pricing-step-heading" tabIndex={-1} className="mt-2 text-page font-semibold text-fg outline-none">{t.headings[name]}</h2>
-            <p className="mt-1.5 max-w-3xl text-body leading-relaxed text-fg-muted">{name === "projects" ? (input.foundation === "ROZARIS" ? t.descriptions.projectsRozaris : t.descriptions.projectsNesto) : t.descriptions[name]}</p>
-            {notice ? <p role="status" className="mt-3 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-table text-fg">{notice}</p> : null}
+            <p className="mt-1.5 max-w-3xl text-body leading-relaxed text-fg-muted">{name === "modules" && group ? t.descriptions.modulesGroup : t.descriptions[name]}</p>
           </div>
           <div className="p-5 sm:p-7">
-            {name === "foundation" ? <FoundationStep ctx={ctx} choose={chooseFoundation} /> : null}
-            {name === "modules" ? <ModulesStep ctx={ctx} /> : null}
-            {name === "companies" ? <CompaniesStep ctx={ctx} /> : null}
+            {name === "type" ? <TypeStep ctx={ctx} choose={chooseType} /> : null}
             {name === "projects" ? <ProjectsStep ctx={ctx} /> : null}
+            {name === "rozaris" ? <RozarisStep ctx={ctx} /> : null}
+            {name === "modules" ? <ModulesStep ctx={ctx} /> : null}
             {name === "users" ? <UsersStep ctx={ctx} /> : null}
             {name === "contract" ? <ContractStep ctx={ctx} /> : null}
-            {name === "review" ? <ReviewStep ctx={ctx} updating={updating} blocked={blocked} onProposal={(type) => { setProposal(type); track("pricing_proposal_started", input, { requestType: type }); }} /> : null}
+            {name === "review" ? <ReviewStep ctx={ctx} updating={updating} onProposal={(type) => { setProposal(type); track("pricing_proposal_started", input, { requestType: type }); }} /> : null}
           </div>
           <footer className="flex items-center justify-between gap-3 border-t border-line px-5 py-4 sm:px-7">
             <Button type="button" variant="secondary" size="lg" onClick={() => move(step - 1)} disabled={step === 0}><ArrowLeft aria-hidden="true" /> {t.back}</Button>
-            {step < REVIEW ? <Button type="button" size="lg" onClick={() => move(step + 1)} disabled={!stepValid(step)}>{t.continue} <ArrowRight aria-hidden="true" /></Button> : <Button type="button" variant="secondary" size="lg" onClick={() => move(0)}>{t.startOver}</Button>}
+            {step < REVIEW ? <Button type="button" size="lg" onClick={() => move(step + 1)}>{t.continue} <ArrowRight aria-hidden="true" /></Button> : <Button type="button" variant="secondary" size="lg" onClick={() => move(0)}>{t.startOver}</Button>}
           </footer>
         </section>
 
@@ -291,40 +271,119 @@ export function PricingWizard({ initialConfig, copy, locale }: { initialConfig: 
 
 /* ---------------------------------------------------------------- steps -- */
 
-function FoundationStep({ ctx, choose }: { ctx: Ctx; choose: (foundation: Foundation) => void }) {
-  const { config, input, t, money } = ctx;
-  const lowest = Math.min(...CLASSES.map((type) => config.rozaris.classes[type].monthly24Cents));
-  const order: Foundation[] = ["ROZARIS", "NESTO_PLATFORM"];
+/** What the cheapest module costs a company, a month and for each user: the company card's "from" figures. */
+function cheapestModule(config: PublicPricingConfig) {
+  const sold = config.modules.filter((row) => isOffered(row, "NESTO_PLATFORM") && !row.includedInFoundations.includes("NESTO_PLATFORM"));
+  const lowest = (cents: number[]) => (cents.length ? Math.min(...cents) : 0);
+  return { month: lowest(sold.map((row) => row.monthlyPriceCents).filter((cents) => cents > 0)), user: lowest(sold.map((row) => row.monthlyPerUserCents).filter((cents) => cents > 0)) };
+}
+
+function TypeStep({ ctx, choose }: { ctx: Ctx; choose: (customer: CustomerType) => void }) {
+  const { config, input, t, money, change } = ctx;
+  const platform = config.foundations.find((row) => row.id === "NESTO_PLATFORM");
+  const rules = config.customers;
+  const companies = config.companies.NESTO_PLATFORM;
+  const cheapest = cheapestModule(config);
+  const chosen = input.customer ?? "COMPANY";
+  const set = (key: keyof PricingRequest["companies"], value: number) => change({ ...input, companies: { ...input.companies, [key]: value } }, "pricing_company_changed");
+  const cards: Array<{ id: CustomerType; name: string; body: string; price: string; min: string; from: string | null }> = [
+    { id: "COMPANY", name: t.type.company, body: t.type.companyBody, price: fill(t.type.companyPrice, { module: money(cheapest.month), user: money(cheapest.user) }), min: fill(t.type.companyMin, { users: rules.company.minUsers }), from: platform?.minimumMonthlyCents ? fill(t.type.from, { price: money(platform.minimumMonthlyCents) }) : null },
+    ...(offersGroup(config) ? [{ id: "GROUP" as const, name: t.type.group, body: t.type.groupBody, price: fill(t.type.groupPrice, { company: money(rules.group.perCompanyCents), user: money(rules.group.perUserCents) }), min: fill(t.type.groupMin, { companies: rules.group.minCompanies, users: rules.group.minUsers }), from: null }] : []),
+  ];
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {order.map((id) => {
-        const foundation = config.foundations.find((row) => row.id === id);
-        if (!foundation) return null;
-        const words = t.foundationText[id];
-        const selected = input.foundation === id;
-        return (
-          <button key={id} type="button" onClick={() => choose(id)} aria-pressed={selected} data-testid={`foundation-${id.toLowerCase()}`} className={cn("flex w-full flex-col overflow-hidden rounded-xl border text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", selected ? "border-accent ring-2 ring-accent/15" : "border-line hover:border-line-strong")}>
-            <Preview kind={id === "ROZARIS" ? "rozaris" : "platform"} label={words?.name ?? foundation.name} />
-            <span className="flex flex-1 flex-col p-5">
-              <span className="flex items-center justify-between gap-2"><strong className="text-card text-fg">{words?.name ?? foundation.name}</strong><span className={cn("text-meta font-semibold", selected ? "text-accent-strong" : "text-fg-subtle")}>{selected ? <><CheckCircle2 className="mr-1 inline size-4" aria-hidden="true" />{t.foundation.selected}</> : t.foundation.choose}</span></span>
-              <span className="mt-1 text-table font-semibold text-fg">{id === "ROZARIS" ? fill(t.foundation.fromProject, { price: money(lowest) }) : fill(t.foundation.from, { price: money(Math.max(foundation.baseMonthlyCents, foundation.minimumMonthlyCents)) })}</span>
-              <span className="mt-2 text-table leading-relaxed text-fg-muted">{words?.description ?? foundation.description}</span>
-              <span className="mt-3 flex flex-wrap gap-x-4 gap-y-1">{(words?.included ?? foundation.included).map((item) => <span key={item} className="inline-flex items-center gap-1.5 text-meta text-fg-muted"><Check className="size-3.5 text-success-strong" aria-hidden="true" />{item}</span>)}</span>
-              <span className="mt-3 text-meta text-fg-subtle">{id === "ROZARIS" ? t.foundation.rozarisNote : t.foundation.platformNote}</span>
-            </span>
-          </button>
-        );
-      })}
+    <div className="space-y-5">
+      <div role="radiogroup" aria-label={t.headings.type} className="grid gap-4 lg:grid-cols-2">
+        {cards.map((card) => {
+          const selected = chosen === card.id;
+          return (
+            <button key={card.id} type="button" role="radio" aria-checked={selected} onClick={() => choose(card.id)} data-testid={`type-${card.id.toLowerCase()}`} className={cn("flex w-full flex-col overflow-hidden rounded-xl border text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", selected ? "border-accent ring-2 ring-accent/15" : "border-line hover:border-line-strong")}>
+              <Preview kind={card.id === "GROUP" ? "group" : "platform"} label={card.name} />
+              <span className="flex flex-1 flex-col p-5">
+                <span className="flex items-center justify-between gap-2"><strong className="text-card text-fg">{card.name}</strong><span className={cn("text-meta font-semibold", selected ? "text-accent-strong" : "text-fg-subtle")}>{selected ? <><CheckCircle2 className="mr-1 inline size-4" aria-hidden="true" />{t.type.selected}</> : t.type.choose}</span></span>
+                <span className="mt-2 text-table leading-relaxed text-fg-muted">{card.body}</span>
+                <span className="mt-3 text-table font-semibold text-fg">{card.price}</span>
+                <span className="mt-1 text-meta text-fg-muted">{card.min}{card.from ? ` · ${card.from}` : ""}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {chosen === "GROUP" ? (
+        <div className="space-y-3" data-testid="group-companies">
+          <Stepper label={t.companies.companies} help={fill(t.companies.companiesHelp, { price: money(rules.group.perCompanyCents), min: rules.group.minCompanies })} value={1 + input.companies.fullGroup} min={rules.group.minCompanies} max={500} onChange={(value) => set("fullGroup", value - 1)} />
+          {companies.jointVentureMonthlyCents > 0 ? <Stepper label={t.companies.jv} help={fill(t.companies.jvHelp, { price: money(companies.jointVentureMonthlyCents) })} value={input.companies.jointVenture} max={500} onChange={(value) => set("jointVenture", value)} /> : null}
+          {companies.documentsOnlyMonthlyCents > 0 ? <Stepper label={t.companies.documents} help={fill(t.companies.documentsHelp, { price: money(companies.documentsOnlyMonthlyCents) })} value={input.companies.documentsOnly} max={500} onChange={(value) => set("documentsOnly", value)} /> : null}
+          <p className="text-meta text-fg-subtle">{t.companies.external}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
 
+function ProjectsStep({ ctx }: { ctx: Ctx }) {
+  const { config, input, t, money, change } = ctx;
+  const active = input.nestoProjects?.active ?? config.nestoProjects.included;
+  const extra = Math.max(0, active - config.nestoProjects.included);
+  const price = config.nestoProjects.additionalMonthlyCents;
+  // A 3D project is one of the portfolio's: fewer projects drop the last 3D ones.
+  const setProjects = (value: number) => change({ ...input, nestoProjects: { active: value }, rozarisProjects: (input.rozarisProjects ?? []).slice(0, value) }, "pricing_projects_changed");
+  return (
+    <div className="space-y-3">
+      <Stepper label={t.projects.portfolio} help={fill(t.projects.portfolioHelp, { price: money(price) })} value={active} min={1} max={1_000} onChange={setProjects} />
+      {extra > 0 ? <p className="text-table text-fg-muted" data-testid="projects-line">{fill(t.projects.line, { extra, price: money(price), total: money(extra * price) })}</p> : null}
+    </div>
+  );
+}
+
+function RozarisStep({ ctx }: { ctx: Ctx }) {
+  const { config, input, t, money, change } = ctx;
+  const projects = input.rozarisProjects ?? [];
+  const portfolio = input.nestoProjects?.active ?? config.nestoProjects.included;
+  const term = input.contractMonths === 24 ? "monthly24Cents" : "monthly12Cents";
+  const setProjects = (next: NonNullable<PricingRequest["rozarisProjects"]>, event: string) => change({ ...input, rozarisProjects: next }, event);
+  const setCount = (n: number) => setProjects(n > projects.length ? [...projects, ...Array.from({ length: n - projects.length }, () => ({ tempId: newProjectId(), type: "BASIC" as RozarisClass }))] : projects.slice(0, n), "pricing_rozaris_count_changed");
+  return (
+    <div className="space-y-5">
+      <RozarisSketches t={t} />
+      <Stepper label={t.rozaris.count} help={fill(t.rozaris.countHelp, { n: portfolio })} value={projects.length} min={0} max={Math.min(50, portfolio)} onChange={setCount} />
+      {projects.map((project, index) => (
+        <fieldset key={project.tempId} className="rounded-xl border border-line p-4" data-testid="rozaris-project">
+          <legend className="px-1 text-card font-semibold text-fg">{fill(t.rozaris.project, { n: index + 1 })}</legend>
+          <div role="radiogroup" aria-label={t.rozaris.size} className="mt-1 grid gap-2 sm:grid-cols-3">
+            {CLASSES.map((type) => {
+              const rate = config.rozaris.classes[type];
+              const words = t.classes[type];
+              const on = project.type === type;
+              return (
+                <button key={type} type="button" role="radio" aria-checked={on} onClick={() => setProjects(projects.map((row) => (row.tempId === project.tempId ? { ...row, type } : row)), "pricing_project_type_changed")} className={cn("flex min-h-11 flex-col rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "border-accent bg-accent-soft/40" : "border-line hover:border-line-strong")}>
+                  <Preview kind={type.toLowerCase() as "basic" | "large" | "village"} label={words?.name ?? rate.name} small />
+                  <span className="mt-2 text-table font-semibold text-fg">{words?.name ?? rate.name}</span>
+                  <span className="text-table text-fg">{fill(t.rozaris.perMonth, { price: money(rate[term]) })}</span>
+                  <span className="mt-1 text-meta leading-snug text-fg-subtle">{words?.guidance ?? rate.guidance}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      ))}
+      {projects.length ? <div className="rounded-xl border border-warning/40 bg-warning-soft p-4 text-table"><p className="font-semibold text-warning-strong">{t.rozaris.production}</p><p className="mt-1 text-fg-muted">{t.rozaris.review}</p></div> : null}
+    </div>
+  );
+}
+
+/** Which words say why a module costs nothing here. */
+function includedWords(t: PricingCopy, reason: ModuleReason): string {
+  return reason === "ROZARIS" ? t.modules.includedRozaris : reason === "GROUP" ? t.modules.includedGroup : t.modules.includedFree;
+}
+
 function ModulesStep({ ctx }: { ctx: Ctx }) {
   const { config, book, input, t, change } = ctx;
-  const resolved = React.useMemo(() => resolveModules(book, input.foundation, input.modules).rows, [book, input.foundation, input.modules]);
+  const customer = input.customer ?? "COMPANY";
+  const rozaris3d = hasRozarisProjects(input);
+  const resolved = React.useMemo(() => resolveModules(book, "NESTO_PLATFORM", input.modules, { customer, users: input.activeUsers, rozaris3d }).rows, [book, input.modules, customer, input.activeUsers, rozaris3d]);
   const held = new Map(resolved.map((row) => [row.id, row]));
-  const shown = config.modules.filter((row) => isOffered(row, input.foundation)).sort((a, b) => a.sortOrder - b.sortOrder);
-  const absorbedBy = (row: PricingModule) => config.modules.find((other) => held.has(other.id) && other.absorbs.includes(row.id));
+  const shown = config.modules.filter((row) => isOffered(row, "NESTO_PLATFORM")).sort((a, b) => a.sortOrder - b.sortOrder);
+  const absorbedBy = (row: PricingModule) => config.modules.find((other) => held.get(other.id)?.reason === "SELECTED" && other.absorbs.includes(row.id));
   if (shown.length === 0) return <p className="text-body text-fg-muted">{t.modules.none}</p>;
   function toggle(row: PricingModule) {
     const on = input.modules.includes(row.id);
@@ -346,20 +405,14 @@ function ModulesStep({ ctx }: { ctx: Ctx }) {
   );
 }
 
-function ModuleCard({ row, ctx, held, absorbedBy, onToggle }: { row: PricingModule; ctx: Ctx; held?: { included: boolean; locked: boolean; reason: string }; absorbedBy?: PricingModule; onToggle: () => void }) {
-  const { input, t, money, config } = ctx;
+function ModuleCard({ row, ctx, held, absorbedBy, onToggle }: { row: PricingModule; ctx: Ctx; held?: { included: boolean; reason: ModuleReason }; absorbedBy?: PricingModule; onToggle: () => void }) {
+  const { t, money } = ctx;
   const [open, setOpen] = React.useState(false);
   const words = t.moduleText[row.id];
-  const included = isIncluded(row, input.foundation);
-  const foundationName = t.foundationText[input.foundation]?.name ?? config.foundations.find((item) => item.id === input.foundation)?.name ?? "";
+  const included = Boolean(held?.included);
   const selected = Boolean(held) || Boolean(absorbedBy);
-  const parts = [
-    row.monthlyPriceCents > 0 ? money(row.monthlyPriceCents) : null,
-    row.monthlyPerCompanyCents > 0 ? fill(t.modules.perCompany, { price: money(row.monthlyPerCompanyCents) }) : null,
-    row.monthlyPerUserCents > 0 ? fill(t.modules.perUser, { price: money(row.monthlyPerUserCents) }) : null,
-  ].filter(Boolean);
-  const price = parts.length ? fill(t.modules.rate, { parts: parts.join(" + ") }) : "";
-  const state = included ? fill(t.modules.includedWith, { foundation: foundationName }) : absorbedBy ? fill(t.modules.absorbed, { name: t.moduleText[absorbedBy.id]?.name ?? absorbedBy.name }) : price;
+  const price = [row.monthlyPriceCents > 0 ? fill(t.modules.perMonth, { price: money(row.monthlyPriceCents) }) : null, row.monthlyPerUserCents > 0 ? fill(t.modules.perUser, { price: money(row.monthlyPerUserCents) }) : null].filter(Boolean).join(" + ");
+  const state = held?.included ? includedWords(t, held.reason) : absorbedBy ? fill(t.modules.absorbed, { name: t.moduleText[absorbedBy.id]?.name ?? absorbedBy.name }) : price;
   return (
     <article className={cn("flex flex-col rounded-xl border p-4", selected ? "border-accent/60 bg-accent-soft/30" : "border-line")} data-testid={`module-${row.id.toLowerCase()}`}>
       <div className="flex items-start justify-between gap-3">
@@ -370,13 +423,12 @@ function ModuleCard({ row, ctx, held, absorbedBy, onToggle }: { row: PricingModu
         <Preview kind="module" label={words?.name ?? row.name} small />
       </div>
       <p className="mt-2 text-table font-semibold text-fg">{state}</p>
-      {!included && !absorbedBy && row.monthlyGroupCapCents > 0 ? <p className="mt-0.5 text-meta text-fg-muted">{fill(t.modules.groupCap, { price: money(row.monthlyGroupCapCents) })}</p> : null}
       {open ? <p className="mt-2 text-table leading-relaxed text-fg-muted">{words?.description ?? row.description}</p> : null}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <button type="button" className="min-h-11 text-table font-medium text-accent-strong hover:underline" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t.modules.showLess : t.modules.learnMore}</button>
-        {included && row.lockedWhenIncluded ? (
+        {included ? (
           <span className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-success/30 bg-success-soft px-3 text-table font-medium text-success-strong"><Lock className="size-3.5" aria-hidden="true" />{t.modules.included}</span>
-        ) : included || absorbedBy ? (
+        ) : absorbedBy ? (
           <span className="inline-flex min-h-11 items-center gap-1.5 px-1 text-table font-medium text-success-strong"><Check className="size-4" aria-hidden="true" />{t.modules.included}</span>
         ) : (
           <Button type="button" size="sm" className="min-h-11" variant={held ? "secondary" : "primary"} aria-pressed={Boolean(held)} onClick={onToggle}>{held ? t.modules.remove : t.modules.add}</Button>
@@ -386,111 +438,25 @@ function ModuleCard({ row, ctx, held, absorbedBy, onToggle }: { row: PricingModu
   );
 }
 
-function CompaniesStep({ ctx }: { ctx: Ctx }) {
-  const { config, input, t, money, change } = ctx;
-  const rules = config.companies[input.foundation];
-  const set = (key: keyof PricingRequest["companies"], value: number) => change({ ...input, companies: { ...input.companies, [key]: value } }, "pricing_company_changed");
-  return (
-    <div className="space-y-3">
-      <Included icon={<Building2 />} title={fill(rules.included === 1 ? t.companies.included : t.companies.includedPlural, { n: rules.included })} />
-      {rules.additionalAvailable ? (
-        <>
-          <Stepper label={t.companies.operating} help={fill(t.companies.operatingHelp, { price: money(rules.fullGroupMonthlyCents), users: rules.includedUsersPerFullCompany })} value={input.companies.fullGroup} max={500} onChange={(value) => set("fullGroup", value)} />
-          <Stepper label={t.companies.jv} help={fill(t.companies.jvHelp, { price: money(rules.jointVentureMonthlyCents), users: rules.includedUsersPerFullCompany })} value={input.companies.jointVenture} max={500} onChange={(value) => set("jointVenture", value)} />
-          <Stepper label={t.companies.documents} help={fill(t.companies.documentsHelp, { price: money(rules.documentsOnlyMonthlyCents) })} value={input.companies.documentsOnly} max={500} onChange={(value) => set("documentsOnly", value)} />
-        </>
-      ) : <p className="rounded-xl border border-line bg-canvas p-4 text-table text-fg-muted">{t.companies.onRequest}</p>}
-      <p className="text-meta text-fg-subtle">{t.companies.external}</p>
-    </div>
-  );
-}
-
-function ProjectsStep({ ctx }: { ctx: Ctx }) {
-  const { config, input, t, money, change } = ctx;
-  const projects = input.rozarisProjects ?? [];
-  const term = input.contractMonths === 24 ? "monthly24Cents" : "monthly12Cents";
-  const setProjects = (next: NonNullable<PricingRequest["rozarisProjects"]>, event: string) => change({ ...input, rozarisProjects: next }, event);
-  return (
-    <div className="space-y-4">
-      {input.nestoProjects ? (
-        <>
-          <Stepper label={t.projects.nestoActive} help={fill(t.projects.nestoHelp, { included: config.nestoProjects.included, price: money(config.nestoProjects.additionalMonthlyCents) })} value={input.nestoProjects.active} min={1} max={1_000} onChange={(active) => change({ ...input, nestoProjects: { active } }, "pricing_project_added")} />
-          <h3 className="pt-2 text-card font-semibold text-fg">{t.projects.rozarisOptional}</h3>
-        </>
-      ) : null}
-      {projects.map((project, index) => (
-        <fieldset key={project.tempId} className="rounded-xl border border-line p-4" data-testid="rozaris-project">
-          <div className="flex items-center justify-between gap-2">
-            <legend className="text-card font-semibold text-fg">{fill(t.projects.project, { n: index + 1 })}</legend>
-            {projects.length > 1 || input.foundation !== "ROZARIS" ? <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={() => setProjects(projects.filter((row) => row.tempId !== project.tempId), "pricing_project_type_changed")} aria-label={`${t.projects.remove} ${index + 1}`}><Trash2 className="size-4" aria-hidden="true" /></Button> : null}
-          </div>
-          <div role="radiogroup" aria-label={t.projects.type} className="mt-3 grid gap-2 sm:grid-cols-3">
-            {CLASSES.map((type) => {
-              const rate = config.rozaris.classes[type];
-              const words = t.classes[type];
-              const on = project.type === type;
-              return (
-                <button key={type} type="button" role="radio" aria-checked={on} onClick={() => setProjects(projects.map((row) => row.tempId === project.tempId ? { ...row, type } : row), "pricing_project_type_changed")} className={cn("flex min-h-11 flex-col rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "border-accent bg-accent-soft/40" : "border-line hover:border-line-strong")}>
-                  <Preview kind={type.toLowerCase() as "basic" | "large" | "village"} label={words?.name ?? rate.name} small />
-                  <span className="mt-2 text-table font-semibold text-fg">{words?.name ?? rate.name}</span>
-                  <span className="text-table text-fg">{fill(t.projects.perMonth, { price: money(rate[term]) })}</span>
-                  <span className="text-meta text-fg-muted">{fill(t.projects.users, { n: rate.includedUsers })}</span>
-                  <span className="mt-1 text-meta leading-snug text-fg-subtle">{words?.guidance ?? rate.guidance}</span>
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-      ))}
-      <Button type="button" variant="secondary" className="min-h-11" onClick={() => setProjects([...projects, { tempId: newProjectId(), type: "BASIC" }], "pricing_project_added")}>{projects.length ? t.projects.add : t.projects.addFirst}</Button>
-      {input.foundation === "ROZARIS" && projects.length === 0 ? <p role="alert" className="text-table text-danger-strong">{t.projects.atLeastOne}</p> : null}
-      {projects.length ? <div className="rounded-xl border border-warning/40 bg-warning-soft p-4 text-table"><p className="font-semibold text-warning-strong">{t.projects.production}</p><p className="mt-1 text-fg-muted">{t.projects.review}</p></div> : null}
-    </div>
-  );
-}
-
 function UsersStep({ ctx }: { ctx: Ctx }) {
-  const { input, quote, t, money, change } = ctx;
-  const users = quote.users;
-  // The charged modules a person can be counted in, each with how many use it.
-  const perUser = quote.modules.filter((row) => !row.included && row.perUserCents > 0);
+  const { config, input, quote, t, money, change } = ctx;
+  const customer = input.customer ?? "COMPANY";
+  const min = minUsers(config, customer);
+  // A company: each user pays the chosen modules' per-user prices; a group: its own price per user.
+  const perUser = quote.group ? quote.group.perUserCents : quote.modules.filter((row) => !row.included).reduce((sum, row) => sum + row.perUserCents, 0);
+  const line = quote.group
+    ? fill(t.users.groupLine, { users: quote.users.requested, perUser: money(perUser), total: money(perUser * quote.users.requested) })
+    : perUser > 0 ? fill(t.users.companyLine, { users: quote.users.requested, perUser: money(perUser), total: money(perUser * quote.users.requested) }) : t.users.noModules;
   return (
     <div className="space-y-4">
-      <Stepper label={t.users.requested} help={t.users.requestedHelp} value={input.activeUsers} min={1} max={100_000} onChange={(activeUsers) => change({ ...input, activeUsers }, "pricing_users_changed")} />
-      {perUser.length ? (
-        <section className="space-y-3" aria-labelledby="people-per-module" data-testid="users-per-module">
-          <div>
-            <h3 id="people-per-module" className="text-card font-semibold text-fg">{t.users.perModuleTitle}</h3>
-            <p className="mt-0.5 text-table text-fg-muted">{t.users.perModuleNote}</p>
-          </div>
-          {perUser.map((row) => (
-            <Stepper
-              key={row.id}
-              label={t.moduleText[row.id]?.name ?? row.name}
-              help={fill(t.users.moduleLine, { company: money(row.companyCents), users: row.users, perUser: money(row.perUserCents), total: money(row.monthlyCents) })}
-              value={row.users}
-              min={0}
-              max={input.activeUsers}
-              onChange={(people) => change({ ...input, moduleUsers: { ...input.moduleUsers, [row.id]: people } }, "pricing_users_changed")}
-            />
-          ))}
-        </section>
-      ) : null}
+      <Stepper label={t.users.requested} help={fill(t.users.requestedHelp, { min })} value={input.activeUsers} min={min} max={100_000} onChange={(activeUsers) => change({ ...input, activeUsers }, "pricing_users_changed")} />
+      <p className="rounded-xl border border-line bg-canvas p-4 text-table text-fg" data-testid="users-line">{line}</p>
       {quote.minimum.topUpCents > 0 ? (
         <p className="border border-line bg-accent-soft/40 p-4 text-table text-fg" data-testid="minimum-note">
-          {fill(t.users.minimumNote, { charges: money(quote.nestoMonthlyCents - quote.minimum.topUpCents), minimum: money(quote.minimum.monthlyCents) })}
+          {fill(t.users.minimumNote, { charges: money(quote.standardMonthlyCents - quote.minimum.topUpCents), minimum: money(quote.minimum.monthlyCents) })}
         </p>
       ) : null}
-      {users.included > 0 || users.monthlyCents > 0 ? (
-      <dl className="grid gap-4 rounded-xl border border-line bg-canvas p-5 sm:grid-cols-2" data-testid="users-calculation">
-        <Stat label={t.users.included} value={String(users.included)} />
-        <Stat label={t.users.additional} value={String(users.billable)} />
-        <Stat label={t.users.packs} value={users.packs ? fill(t.users.packsValue, { packs: users.packs, size: users.packSize }) : "—"} />
-        <Stat label={t.users.price} value={users.monthlyCents ? `${money(users.monthlyCents)} ${t.estimate.perMonth}` : "—"} />
-      </dl>
-      ) : null}
-      {users.billable === 0 ? <p className="text-table text-fg-muted">{t.users.covered}</p> : null}
-      <Included icon={<Users />} title={t.users.requestedHelp} />
+      <Included icon={<Users />} title={fill(t.users.requestedHelp, { min })} />
     </div>
   );
 }
@@ -502,7 +468,7 @@ function ContractStep({ ctx }: { ctx: Ctx }) {
     <div className="space-y-4">
       <div role="radiogroup" aria-label={t.steps.contract} className="grid gap-3 sm:grid-cols-2">
         {([24, 12] as const).map((months) => {
-          const offer = promotionFor(config, input.foundation, months);
+          const offer = promotionFor(config, months);
           const on = input.contractMonths === months;
           return (
             <button key={months} type="button" role="radio" aria-checked={on} onClick={() => choose(months)} className={cn("min-h-11 rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "border-accent bg-accent-soft/40" : "border-line hover:border-line-strong")}>
@@ -523,22 +489,42 @@ function ContractStep({ ctx }: { ctx: Ctx }) {
   );
 }
 
-function ReviewStep({ ctx, updating, blocked, onProposal }: { ctx: Ctx; updating: boolean; blocked: boolean; onProposal: (type: ProposalType) => void }) {
-  const { config, input, quote, t, money } = ctx;
-  const foundationName = t.foundationText[quote.foundation.id]?.name ?? quote.foundation.label;
-  const included = quote.modules.filter((row) => row.included);
-  const added = quote.modules.filter((row) => !row.included);
-  const moduleName = (row: { id: string; name: string }) => t.moduleText[row.id]?.name ?? row.name;
-  const rows: Array<[string, React.ReactNode, number | null]> = [
-    [t.review.foundation, foundationName, quote.foundation.monthlyCents || null],
-    ...(included.length ? [[t.review.included, included.map(moduleName).join(", "), null] as [string, React.ReactNode, null]] : []),
-    ...added.map((row) => [t.review.added, row.perUserCents > 0 ? fill(t.review.moduleUsers, { name: moduleName(row), users: row.users }) : moduleName(row), row.monthlyCents] as [string, React.ReactNode, number]),
-    ...(quote.companies.monthlyCents || quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly ? [[t.review.companies, `${quote.companies.included} + ${quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly}`, quote.companies.monthlyCents] as [string, React.ReactNode, number]] : [[t.review.companies, String(quote.companies.included), null] as [string, React.ReactNode, null]]),
-    ...quote.projects.map((project) => [t.review.projects, project.type === "NESTO" ? project.label : `${t.classes[project.type]?.name ?? config.rozaris.classes[project.type as RozarisClass]?.name ?? project.type} · ROZARIS`, project.monthlyCents || null] as [string, React.ReactNode, number | null]),
-    [t.review.users, quote.users.included ? fill(t.review.usersLine, { included: quote.users.included, billable: quote.users.billable }) : String(quote.users.requested), quote.users.monthlyCents || null],
-    ...(quote.minimum.topUpCents > 0 ? [[t.review.minimum, fill(t.review.minimumLine, { price: money(quote.minimum.monthlyCents) }), quote.minimum.topUpCents] as [string, React.ReactNode, number]] : []),
-    [t.review.contract, fill(t.contract.months, { n: quote.contractMonths }), null],
-  ];
+/** Every line of the price, each with how it is worked out (docs/pricing-modules.md). */
+function priceLines(ctx: Ctx): Array<[string, string, number | null]> {
+  const { config, quote, t, money } = ctx;
+  const name = (row: { id: string; name: string }) => t.moduleText[row.id]?.name ?? row.name;
+  const companies = config.companies.NESTO_PLATFORM;
+  const users = quote.users.requested;
+  const lines: Array<[string, string, number | null]> = [];
+  if (quote.group) {
+    lines.push([t.review.group, fill(t.review.groupLine, { companies: quote.group.companies, perCompany: money(quote.group.perCompanyCents), users: quote.group.users, perUser: money(quote.group.perUserCents) }), quote.group.monthlyCents]);
+  } else {
+    for (const row of quote.modules.filter((item) => !item.included)) {
+      const month = Math.max(0, row.monthlyCents - row.perUserCents * users);
+      lines.push([t.review.module, fill(t.review.moduleLine, { name: name(row), month: money(month), users, perUser: money(row.perUserCents) }), row.monthlyCents]);
+    }
+  }
+  const free = quote.modules.filter((row) => row.included && row.reason !== "GROUP");
+  if (free.length) lines.push([t.review.included, free.map(name).join(", "), null]);
+  if (quote.companies.jointVenture) lines.push([t.review.companies, fill(t.review.jvLine, { n: quote.companies.jointVenture, price: money(companies.jointVentureMonthlyCents) }), quote.companies.jointVenture * companies.jointVentureMonthlyCents]);
+  if (quote.companies.documentsOnly) lines.push([t.review.companies, fill(t.review.documentsLine, { n: quote.companies.documentsOnly, price: money(companies.documentsOnlyMonthlyCents) }), quote.companies.documentsOnly * companies.documentsOnlyMonthlyCents]);
+  const portfolio = quote.projects.find((project) => project.type === "NESTO");
+  if (portfolio) {
+    const active = quote.normalizedConfiguration.nestoProjects?.active ?? 1;
+    const extra = Math.max(0, active - config.nestoProjects.included);
+    lines.push([t.review.projects, extra ? fill(t.review.projectsLine, { n: active, extra, price: money(config.nestoProjects.additionalMonthlyCents) }) : fill(t.review.projectsOne, { n: active }), portfolio.monthlyCents || null]);
+  }
+  quote.projects.filter((project) => project.type !== "NESTO").forEach((project, index) => {
+    lines.push([t.review.rozaris, fill(t.review.rozarisLine, { n: index + 1, size: t.classes[project.type]?.name ?? config.rozaris.classes[project.type as RozarisClass]?.name ?? project.type }), project.monthlyCents]);
+  });
+  lines.push([t.review.users, String(users), null]);
+  if (quote.minimum.topUpCents > 0) lines.push([t.review.minimum, fill(t.review.minimumLine, { price: money(quote.minimum.monthlyCents) }), quote.minimum.topUpCents]);
+  return lines;
+}
+
+function ReviewStep({ ctx, updating, onProposal }: { ctx: Ctx; updating: boolean; onProposal: (type: ProposalType) => void }) {
+  const { input, quote, t, money } = ctx;
+  const rows: Array<[string, string, number | null]> = [...priceLines(ctx), [t.review.contract, fill(t.contract.months, { n: quote.contractMonths }), null]];
   return (
     <div className="space-y-5">
       <dl className="divide-y divide-line rounded-xl border border-line" data-testid="review-breakdown">
@@ -563,10 +549,9 @@ function ReviewStep({ ctx, updating, blocked, onProposal }: { ctx: Ctx; updating
         <p className="mt-1 text-table text-graphite-fg/70">{t.contract.hicpNote}</p>
         {quote.quoteReference ? <p className="mt-3 font-mono text-table">{fill(t.review.reference, { ref: quote.quoteReference })}</p> : updating ? <p className="mt-3 text-table text-graphite-fg/70">{t.review.saving}</p> : null}
       </div>
-      {blocked ? <p role="alert" className="rounded-lg bg-warning-soft p-3 text-table text-warning-strong">{t.review.needProject}</p> : null}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Button type="button" size="lg" disabled={blocked || updating || !quote.quoteId} onClick={() => onProposal("FORMAL_PROPOSAL")}>{t.review.proposal}</Button>
-        <Button type="button" size="lg" variant="secondary" disabled={blocked || updating || !quote.quoteId} onClick={() => onProposal("TALK_TO_SALES")}>{t.review.talk}</Button>
+        <Button type="button" size="lg" disabled={updating || !quote.quoteId} onClick={() => onProposal("FORMAL_PROPOSAL")}>{t.review.proposal}</Button>
+        <Button type="button" size="lg" variant="secondary" disabled={updating || !quote.quoteId} onClick={() => onProposal("TALK_TO_SALES")}>{t.review.talk}</Button>
         {hasRozarisProjects(input) ? <Button type="button" size="lg" variant="secondary" disabled={updating || !quote.quoteId} onClick={() => onProposal("THREE_D_PRODUCTION")}>{t.review.production}</Button> : null}
       </div>
       <div>
@@ -582,14 +567,13 @@ function ReviewStep({ ctx, updating, blocked, onProposal }: { ctx: Ctx; updating
 /** The live estimate: the figure with its context, only rows that apply (§31-§33). Never "Confirmed". */
 function Estimate({ ctx, updating, error, step }: { ctx: Ctx; updating: boolean; error: string | null; step: number }) {
   const { quote, t, money, config } = ctx;
-  const foundationName = t.foundationText[quote.foundation.id]?.name ?? quote.foundation.label;
-  const added = quote.modules.filter((row) => !row.included);
+  const chosen = quote.modules.filter((row) => !row.included);
   const rozaris = quote.projects.filter((project) => project.type !== "NESTO");
-  const rows: Array<[string, string]> = [[t.estimate.foundation, rozaris.length && quote.foundation.id === "ROZARIS" ? `${foundationName} · ${rozaris.map((project) => t.classes[project.type]?.name ?? config.rozaris.classes[project.type as RozarisClass]?.name).join(", ")}` : foundationName]];
-  if (step >= 1) rows.push([t.estimate.modules, [fill(t.estimate.modulesIncluded, { n: quote.modules.filter((row) => row.included).length }), added.length ? fill(t.estimate.modulesAdded, { n: added.length }) : ""].filter(Boolean).join(" · ")]);
-  if (step >= 2) rows.push([t.estimate.companies, String(quote.companies.included + quote.companies.fullGroup + quote.companies.jointVenture) + (quote.companies.documentsOnly ? ` + ${quote.companies.documentsOnly}` : "")]);
-  if (step >= 3 && quote.projects.length) rows.push([t.estimate.projects, quote.projects.map((project) => project.type === "NESTO" ? project.label : t.classes[project.type]?.name ?? project.type).join(" · ")]);
-  if (step >= 4) rows.push([t.estimate.users, quote.users.included ? `${quote.users.requested} (${quote.users.included} ${t.users.included.toLowerCase()})` : String(quote.users.requested)]);
+  const rows: Array<[string, string]> = [[t.estimate.type, quote.group ? fill(t.estimate.group, { n: quote.group.companies }) : t.estimate.company]];
+  if (step >= 1) rows.push([t.estimate.projects, String(quote.normalizedConfiguration.nestoProjects?.active ?? 1)]);
+  if (step >= 2 && rozaris.length) rows.push([t.estimate.rozaris, rozaris.map((project) => t.classes[project.type]?.name ?? config.rozaris.classes[project.type as RozarisClass]?.name).join(", ")]);
+  if (step >= 3) rows.push([t.estimate.modules, quote.group ? t.estimate.modulesGroup : fill(t.estimate.modulesChosen, { n: chosen.length })]);
+  if (step >= 4) rows.push([t.estimate.users, String(quote.users.requested)]);
   if (quote.minimum.topUpCents > 0) rows.push([t.estimate.minimum, fill(t.estimate.minimumApplies, { price: money(quote.minimum.monthlyCents) })]);
   if (step >= 5) rows.push([t.estimate.contract, fill(t.contract.months, { n: quote.contractMonths })]);
   if (step >= 5 && quote.promotion.applied) rows.push([t.estimate.promotion, quote.schedule.filter((period) => period.discountPercent).map((period) => fill(t.review.monthsRange, { from: period.fromMonth, to: period.toMonth }) + ` −${period.discountPercent}%`).join(" · ")]);
@@ -617,6 +601,80 @@ function Estimate({ ctx, updating, error, step }: { ctx: Ctx; updating: boolean;
   );
 }
 
+/* ------------------------------------------------------------- sketches -- */
+
+/**
+ * What a ROZARIS 3D experience is, in three line sketches in the site's
+ * drawing style: the building to turn, its units coloured by status, a unit's
+ * sheet. Drawn, not screenshots: no network request, both themes.
+ */
+function RozarisSketches({ t }: { t: PricingCopy }) {
+  const words = t.rozaris;
+  const frame = "block h-auto w-full text-fg";
+  const sketches = [
+    // 1 · The building in 3D: a block in two-point view with an orbit arrow round it.
+    <svg key="building" viewBox="0 0 200 140" className={frame} aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+        <path d="M100 28 L150 46 L150 112 L100 128 L50 112 L50 46 Z" />
+        <path d="M100 28 L100 128 M50 46 L100 62 L150 46" />
+        <path d="M100 62 L100 128" />
+        {[0, 1, 2, 3].map((i) => <path key={i} d={`M50 ${62 + i * 13} L100 ${78 + i * 13} L150 ${62 + i * 13}`} strokeWidth="1" />)}
+      </g>
+      <g fill="none" stroke="currentColor" strokeWidth="1.25" strokeDasharray="4 4" className="text-accent-strong">
+        <ellipse cx="100" cy="122" rx="88" ry="14" />
+      </g>
+      <path d="M182 116 l6 6 -8 3" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent-strong" />
+    </svg>,
+    // 2 · Every unit, live: a front elevation, each unit filled by status.
+    <svg key="units" viewBox="0 0 200 140" className={frame} aria-hidden="true">
+      <rect x="40" y="14" width="120" height="112" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      {Array.from({ length: 5 }, (_, row) => Array.from({ length: 4 }, (_, col) => {
+        const status = (row * 4 + col) % 7 === 0 ? "fill-danger" : (row * 4 + col) % 5 === 1 ? "fill-warning" : "fill-success";
+        return <rect key={`${row}-${col}`} x={48 + col * 28} y={22 + row * 20} width="20" height="13" className={cn(status, "opacity-80")} stroke="currentColor" strokeWidth="0.75" />;
+      }))}
+      <path d="M40 126 H160" stroke="currentColor" strokeWidth="3" />
+    </svg>,
+    // 3 · The unit's sheet: a plan, its figures, a button to reserve.
+    <svg key="sheet" viewBox="0 0 200 140" className={frame} aria-hidden="true">
+      <rect x="24" y="10" width="152" height="120" rx="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <g fill="none" stroke="currentColor" strokeWidth="1.25">
+        <rect x="36" y="22" width="72" height="62" />
+        <path d="M72 22 V60 M36 60 H108 M88 60 V84" />
+        <path d="M56 84 a10 10 0 0 1 10 -10" strokeWidth="1" />
+      </g>
+      <g className="fill-current text-fg-muted">
+        <rect x="118" y="24" width="46" height="5" rx="2" />
+        <rect x="118" y="36" width="34" height="5" rx="2" />
+        <rect x="118" y="48" width="40" height="5" rx="2" />
+      </g>
+      <rect x="118" y="62" width="46" height="9" rx="2" className="fill-accent" />
+      <rect x="36" y="96" width="128" height="22" rx="3" className="fill-accent-soft" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M92 107 h16 m-5 -4 4 4 -4 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>,
+  ];
+  return (
+    <section aria-labelledby="rozaris-what" className="rounded-xl border border-line bg-canvas p-5" data-testid="rozaris-sketches">
+      <h3 id="rozaris-what" className="text-card font-semibold text-fg">{words.what}</h3>
+      <p className="mt-1 max-w-2xl text-table text-fg-muted">{words.intro}</p>
+      <ol className="mt-4 grid gap-4 md:grid-cols-3">
+        {words.sketches.map((sketch, index) => (
+          <li key={sketch.title} className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-3 [background-image:linear-gradient(to_right,var(--nesto-border)_1px,transparent_1px),linear-gradient(to_bottom,var(--nesto-border)_1px,transparent_1px)] [background-size:16px_16px]">
+            {sketches[index]}
+            <p className="text-table font-semibold text-fg">{sketch.title}</p>
+            <p className="text-meta leading-snug text-fg-muted">{sketch.body}</p>
+            {index === 1 ? (
+              <ul className="flex flex-wrap gap-x-3 gap-y-1 text-micro text-fg-muted">
+                {([["bg-success", words.legend.available], ["bg-warning", words.legend.reserved], ["bg-danger", words.legend.sold]] as const).map(([tone, label]) => <li key={label} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 opacity-80", tone)} aria-hidden="true" />{label}</li>)}
+              </ul>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-4 flex items-start gap-2 text-table text-fg"><Orbit className="mt-0.5 size-4 shrink-0 text-accent-strong" aria-hidden="true" />{words.salesIncluded}</p>
+    </section>
+  );
+}
+
 /* -------------------------------------------------------------- visuals -- */
 
 /**
@@ -624,7 +682,7 @@ function Estimate({ ctx, updating, error, step }: { ctx: Ctx; updating: boolean;
  * shaped like the screen it stands for, no live 3D, no network request. A
  * real screenshot replaces it by its price-book `imageKey`.
  */
-function Preview({ kind, label, small = false }: { kind: "rozaris" | "platform" | "module" | "basic" | "large" | "village"; label: string; small?: boolean }) {
+function Preview({ kind, label, small = false }: { kind: "rozaris" | "platform" | "group" | "module" | "basic" | "large" | "village"; label: string; small?: boolean }) {
   const blocks = kind === "basic" ? 1 : kind === "large" ? 3 : kind === "village" ? 7 : 0;
   if (small && kind === "module") return <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-strong"><Layers3 className="size-5" /></span>;
   if (small) {
@@ -636,7 +694,17 @@ function Preview({ kind, label, small = false }: { kind: "rozaris" | "platform" 
   }
   return (
     <span role="img" aria-label={label} className="relative block h-36 overflow-hidden border-b border-line bg-canvas [background-image:linear-gradient(to_right,var(--nesto-border)_1px,transparent_1px),linear-gradient(to_bottom,var(--nesto-border)_1px,transparent_1px)] [background-size:24px_24px]">
-      {kind === "rozaris" ? (
+      {kind === "group" ? (
+        // Several companies under one group: a row of workspaces joined by one line.
+        <span className="absolute inset-x-4 inset-y-5 flex items-end justify-between gap-2">
+          {[72, 92, 60, 84].map((height, index) => (
+            <span key={index} className="flex flex-1 flex-col gap-1 rounded-lg border border-line bg-surface p-1.5" style={{ height }}>
+              {Array.from({ length: 3 }, (_, line) => <span key={line} className={cn("block h-1.5 rounded", line === 0 ? "bg-accent" : "bg-hover")} />)}
+            </span>
+          ))}
+          <span className="absolute inset-x-0 -bottom-1.5 h-0.5 bg-accent" aria-hidden="true" />
+        </span>
+      ) : kind === "rozaris" ? (
         <>
           <span className="absolute inset-y-4 left-4 w-[58%] rounded-lg border border-line bg-surface/80 p-3"><Orbit className="size-5 text-accent-strong" aria-hidden="true" /><span className="mt-6 flex items-end gap-1.5">{[60, 85, 45, 70].map((height, index) => <span key={index} className="w-5 rounded-sm bg-accent/60" style={{ height }} />)}</span></span>
           <span className="absolute inset-y-4 right-4 w-[32%] space-y-1.5 rounded-lg border border-line bg-surface p-2">{["bg-success", "bg-warning", "bg-success", "bg-danger"].map((tone, index) => <span key={index} className="flex items-center gap-1.5"><span className={cn("size-2 rounded-full", tone)} /><span className="h-1.5 flex-1 rounded bg-hover" /></span>)}</span>
@@ -669,10 +737,6 @@ function Stepper({ label, value, onChange, help, min = 0, max }: { label: string
 
 function Included({ icon, title }: { icon: React.ReactNode; title: string }) {
   return <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success-soft p-3.5"><span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface text-success-strong [&_svg]:size-5" aria-hidden="true">{icon}</span><p className="text-table font-semibold text-fg">{title}</p></div>;
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-meta text-fg-subtle">{label}</dt><dd className="mt-1 text-section font-semibold text-fg">{value}</dd></div>;
 }
 
 function ProposalDialog({ open, type, quote, t, money, onOpenChange }: { open: boolean; type: ProposalType; quote: PricingQuote; t: PricingCopy; money: (cents: number) => string; onOpenChange: (open: boolean) => void }) {

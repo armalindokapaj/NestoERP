@@ -7,6 +7,21 @@ const foundation = z.preprocess((value) => (value === "NESTO_ERP" ? "NESTO_PLATF
 const rozarisClass = z.enum(["BASIC", "LARGE", "VILLAGE"]);
 const moduleId = z.string().trim().regex(/^[A-Z0-9_]+$/).max(60);
 
+/**
+ * Book 2026.11.4 priced each module per company with a group cap. For one
+ * company that per-company price is the module's monthly price, which is how
+ * it reads now; the cap went with the group's own price (2026.11.5).
+ */
+function fromPerCompanyBook(value: unknown): unknown {
+  if (!value || typeof value !== "object" || !("monthlyPerCompanyCents" in value || "monthlyGroupCapCents" in value)) return value;
+  const row = { ...(value as Record<string, unknown>) };
+  const perCompany = typeof row.monthlyPerCompanyCents === "number" ? row.monthlyPerCompanyCents : 0;
+  delete row.monthlyPerCompanyCents;
+  delete row.monthlyGroupCapCents;
+  const flat = typeof row.monthlyPriceCents === "number" ? row.monthlyPriceCents : 0;
+  return { ...row, monthlyPriceCents: flat > 0 ? flat : perCompany };
+}
+
 export const pricingRequestSchema = z.object({
   foundation,
   modules: z.array(moduleId).max(60).default([]),
@@ -17,8 +32,8 @@ export const pricingRequestSchema = z.object({
   }).strict(),
   nestoProjects: z.object({ active: z.number().int().min(1).max(1_000) }).strict().optional(),
   rozarisProjects: z.array(z.object({ tempId: z.string().trim().min(1).max(40), type: rozarisClass }).strict()).max(50).default([]),
+  customer: z.enum(["COMPANY", "GROUP"]).optional(),
   activeUsers: z.number().int().min(1).max(100_000),
-  moduleUsers: z.record(moduleId, z.number().int().min(0).max(100_000)).refine((users) => Object.keys(users).length <= 60).optional(),
   contractMonths: z.union([z.literal(12), z.literal(24)]),
   promotionCode: z.string().trim().max(80).nullable().optional(),
 }).strict().superRefine((input, context) => {
@@ -98,14 +113,19 @@ export const pricingConfigSchema = z.object({
     id: foundationId, enabled: z.boolean(), name: text(80).min(2), description: text(400), baseMonthlyCents: cents, minimumMonthlyCents: cents.default(0),
     included: z.array(text(120)).max(30), imageKey: text(80).optional(),
   }).strict()).length(2),
-  modules: z.array(z.object({
+  modules: z.array(z.preprocess(fromPerCompanyBook, z.object({
     id: moduleId, name: text(80).min(2), group: text(60).min(2), enabled: z.boolean(), public: z.boolean(),
-    tier: z.enum(["S", "A", "B", "C", "ACCESS"]), monthlyPriceCents: cents, monthlyPerCompanyCents: cents.default(0), monthlyGroupCapCents: cents.default(0), monthlyPerUserCents: cents.default(0),
+    tier: z.enum(["S", "A", "B", "C", "ACCESS"]), monthlyPriceCents: cents, monthlyPerUserCents: cents.default(0),
     includedInFoundations: z.array(foundationId).max(2), lockedWhenIncluded: z.boolean(),
     dependencies: z.array(moduleId).max(20), conflicts: z.array(moduleId).max(20), absorbs: z.array(moduleId).max(20),
     shortDescription: text(200), description: text(800), imageKey: text(80).optional(), sortOrder: z.number().int().min(0).max(10_000),
-  }).strict()).min(1).max(80),
+  }).strict())).min(1).max(80),
   companies: z.object({ NESTO_PLATFORM: companyRules, ROZARIS: companyRules }).strict(),
+  // A book without them sells to a company from one user and offers no group.
+  customers: z.object({
+    company: z.object({ minUsers: z.number().int().min(1).max(10_000) }).strict(),
+    group: z.object({ minUsers: z.number().int().min(1).max(10_000), minCompanies: z.number().int().min(2).max(500), perCompanyCents: cents, perUserCents: cents }).strict(),
+  }).strict().default({ company: { minUsers: 1 }, group: { minUsers: 1, minCompanies: 2, perCompanyCents: 0, perUserCents: 0 } }),
   nestoProjects: z.object({ included: z.number().int().min(1).max(100), additionalMonthlyCents: cents }).strict(),
   nestoIncludedUsers: z.number().int().min(0).max(10_000),
   rozaris: z.object({

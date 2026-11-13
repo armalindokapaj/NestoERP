@@ -1,4 +1,4 @@
-import type { Foundation, PricingConfig, PricingModule, PricingPromotionConfig, PricingRequest } from "./pricing.types";
+import type { CustomerType, Foundation, PricingConfig, PricingModule, PricingPromotionConfig, PricingRequest } from "./pricing.types";
 
 /*
  * The shape of a price book and the one this code starts from (Modular Pricing
@@ -15,7 +15,7 @@ const catalogModule = (
   extra: Partial<PricingModule> = {},
 ): PricingModule => ({
   id, name, group, tier, shortDescription, description,
-  enabled: true, public: true, monthlyPriceCents: 0, monthlyPerCompanyCents: 0, monthlyGroupCapCents: 0, monthlyPerUserCents: 0,
+  enabled: true, public: true, monthlyPriceCents: 0, monthlyPerUserCents: 0,
   includedInFoundations: ["NESTO_PLATFORM"], lockedWhenIncluded: false,
   dependencies: [], conflicts: [], absorbs: [], imageKey: id.toLowerCase().replaceAll("_", "-"), sortOrder: 0,
   ...extra,
@@ -60,6 +60,7 @@ export const DEFAULT_PRICING_CONFIG: PricingConfig = {
     NESTO_PLATFORM: { included: 1, additionalAvailable: true, fullGroupMonthlyCents: 25_000, jointVentureMonthlyCents: 25_000, documentsOnlyMonthlyCents: 10_000, includedUsersPerFullCompany: 15 },
     ROZARIS: { included: 1, additionalAvailable: false, fullGroupMonthlyCents: 0, jointVentureMonthlyCents: 0, documentsOnlyMonthlyCents: 0, includedUsersPerFullCompany: 0 },
   },
+  customers: { company: { minUsers: 10 }, group: { minUsers: 25, minCompanies: 2, perCompanyCents: 60_000, perUserCents: 6_000 } },
   nestoProjects: { included: 1, additionalMonthlyCents: 25_000 },
   nestoIncludedUsers: 15,
   rozaris: {
@@ -109,6 +110,8 @@ export function upgradeLegacyConfig(legacy: LegacyPricingConfig): PricingConfig 
       ...base.companies,
       NESTO_PLATFORM: { included: erp.includedCompanies, additionalAvailable: true, fullGroupMonthlyCents: erp.additionalGroupCompanyMonthlyCents, jointVentureMonthlyCents: erp.additionalJVCompanyMonthlyCents, documentsOnlyMonthlyCents: erp.documentsOnlyCompanyMonthlyCents, includedUsersPerFullCompany: erp.includedUsersPerFullCompany },
     },
+    // That book sold to a company from one user and had no group price.
+    customers: { company: { minUsers: 1 }, group: { minUsers: 1, minCompanies: 2, perCompanyCents: 0, perUserCents: 0 } },
     nestoProjects: { included: erp.includedProjects, additionalMonthlyCents: erp.additionalProjectMonthlyCents },
     nestoIncludedUsers: erp.includedCompanies * erp.includedUsersPerFullCompany,
     rozaris: {
@@ -138,13 +141,19 @@ export const DEFAULT_LAUNCH_PROMOTION: PricingPromotionConfig = {
   ],
 };
 
-/** Where a Platform estimate starts when the book includes no users (modules priced per person). */
-const STARTING_USERS = 15;
-
-export function defaultRequest(foundation: Foundation, config: Pick<PricingConfig, "nestoProjects" | "nestoIncludedUsers" | "rozaris">): PricingRequest {
-  return foundation === "ROZARIS"
-    ? { foundation, modules: [], companies: { fullGroup: 0, jointVenture: 0, documentsOnly: 0 }, rozarisProjects: [{ tempId: "p1", type: "BASIC" }], activeUsers: config.rozaris.classes.BASIC.includedUsers, contractMonths: 24, promotionCode: null }
-    : { foundation, modules: [], companies: { fullGroup: 0, jointVenture: 0, documentsOnly: 0 }, nestoProjects: { active: config.nestoProjects.included }, rozarisProjects: [], activeUsers: config.nestoIncludedUsers || STARTING_USERS, contractMonths: 24, promotionCode: null };
+/** Where an estimate starts: a company or a group at its fewest users and companies. */
+export function defaultRequest(foundation: Foundation, config: Pick<PricingConfig, "nestoProjects" | "rozaris" | "customers">, customer: CustomerType = "COMPANY"): PricingRequest {
+  if (foundation === "ROZARIS") {
+    return { foundation, modules: [], companies: { fullGroup: 0, jointVenture: 0, documentsOnly: 0 }, rozarisProjects: [{ tempId: "p1", type: "BASIC" }], activeUsers: config.rozaris.classes.BASIC.includedUsers, contractMonths: 24, promotionCode: null };
+  }
+  const group = customer === "GROUP";
+  return {
+    foundation, customer, modules: [],
+    companies: { fullGroup: group ? config.customers.group.minCompanies - 1 : 0, jointVenture: 0, documentsOnly: 0 },
+    nestoProjects: { active: config.nestoProjects.included }, rozarisProjects: [],
+    activeUsers: group ? config.customers.group.minUsers : config.customers.company.minUsers,
+    contractMonths: 24, promotionCode: null,
+  };
 }
 
 export const PRICING_EXCLUSIONS = [

@@ -21,18 +21,9 @@ export type PricingModule = {
   /** Shown on the public page; a technical dependency is enabled but not public. */
   public: boolean;
   tier: ModuleTier;
-  /*
-   * What the module costs a month when sold (ignored where the foundation
-   * includes it): a flat price once, a price for each company, capped by a
-   * group price, and a price for each person who uses it — added together.
-   */
-  /** Once for the whole group. */
+  /** What a company pays for the module a month, on top of `monthlyPerUserCents` for each user (a group has every module in its own price). */
   monthlyPriceCents: number;
-  /** For each company it serves: the included one, further group companies and joint ventures. */
-  monthlyPerCompanyCents: number;
-  /** The most the company price comes to for the whole group; zero for no cap. */
-  monthlyGroupCapCents: number;
-  /** For each person who uses the module. */
+  /** For each user a month. */
   monthlyPerUserCents: number;
   includedInFoundations: Foundation[];
   lockedWhenIncluded: boolean;
@@ -77,6 +68,15 @@ export type UserPricingRule = {
   pricePerPackCents: number;
 };
 
+/** Who is buying the NESTO Platform: one company choosing its modules, or a group of companies with every module (docs/pricing-modules.md). */
+export type CustomerType = "COMPANY" | "GROUP";
+
+export type CustomerRules = {
+  company: { minUsers: number };
+  /** Every module for every company: `perCompanyCents` for each company and `perUserCents` for each user. Not offered while both are zero. */
+  group: { minUsers: number; minCompanies: number; perCompanyCents: number; perUserCents: number };
+};
+
 export type PricingConfig = {
   schemaVersion: 2;
   version: string;
@@ -84,6 +84,7 @@ export type PricingConfig = {
   foundations: FoundationConfig[];
   modules: PricingModule[];
   companies: Record<Foundation, CompanyRules>;
+  customers: CustomerRules;
   nestoProjects: { included: number; additionalMonthlyCents: number };
   /** Users the NESTO Platform foundation includes before companies add theirs. */
   nestoIncludedUsers: number;
@@ -117,12 +118,14 @@ export type PricingRequest = {
   companies: { fullGroup: number; jointVenture: number; documentsOnly: number };
   nestoProjects?: { active: number };
   rozarisProjects?: Array<{ tempId: string; type: RozarisClass }>;
+  /** NESTO Platform only; a company when not given. */
+  customer?: CustomerType;
   activeUsers: number;
-  /** People using each module, by id; a module not listed counts every active user. Never more than `activeUsers`. */
-  moduleUsers?: Record<string, number>;
   contractMonths: ContractMonths;
   promotionCode?: string | null;
 };
+
+export type ModuleReason = "FOUNDATION" | "ROZARIS" | "GROUP" | "SELECTED" | "DEPENDENCY";
 
 export type PricingQuote = {
   quoteId: string | null;
@@ -131,12 +134,15 @@ export type PricingQuote = {
   currency: "EUR";
   normalizedConfiguration: PricingRequest;
   foundation: { id: Foundation; monthlyCents: number; label: string };
+  customer: CustomerType;
   /**
-   * `monthlyCents` is the module's whole charge: its flat price, `companyCents`
-   * (its price for each company, capped by its group price) and `perUserCents`
-   * for each of its `users`.
+   * `monthlyCents` is the module's whole charge: its monthly price and
+   * `perUserCents` for each user. Included at no charge: with the foundation,
+   * with ROZARIS 3D (Sales), or in the group's price.
    */
-  modules: Array<{ id: string; name: string; included: boolean; locked: boolean; monthlyCents: number; perCompanyCents: number; companyCents: number; perUserCents: number; users: number; reason: "FOUNDATION" | "SELECTED" | "DEPENDENCY" }>;
+  modules: Array<{ id: string; name: string; included: boolean; locked: boolean; monthlyCents: number; perUserCents: number; reason: ModuleReason }>;
+  /** A group's own line: every module for `companies` companies and `users` users. */
+  group: { companies: number; perCompanyCents: number; users: number; perUserCents: number; monthlyCents: number } | null;
   companies: { included: number; fullGroup: number; jointVenture: number; documentsOnly: number; monthlyCents: number };
   projects: Array<{ id: string; label: string; type: string; monthlyCents: number; includedUsers: number }>;
   users: { requested: number; included: number; billable: number; packSize: number; packs: number; monthlyCents: number };
@@ -161,6 +167,7 @@ export type PublicPricingConfig = {
   foundations: FoundationConfig[];
   modules: PricingModule[];
   companies: Record<Foundation, CompanyRules>;
+  customers: CustomerRules;
   nestoProjects: PricingConfig["nestoProjects"];
   nestoIncludedUsers: number;
   rozaris: PricingConfig["rozaris"];

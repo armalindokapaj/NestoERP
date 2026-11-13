@@ -1,12 +1,13 @@
 import type { Locale } from "@/lib/i18n/config";
 import { fill, type PricingCopy } from "@/lib/i18n/site/pricing-configurator";
 import { formatEuros, moduleGroups, priceExamples } from "@/lib/marketing/price-book";
+import { offersGroup } from "@/lib/modules/pricing/pricing.engine";
 import type { PublicPricingConfig } from "@/lib/modules/pricing/pricing.types";
 
 /**
- * Every module of the NESTO Platform with its rates — for each company, at
- * most for a group, for each user, a month — by group, as a drawing's
- * schedule, then the monthly minimum and what a few typical buyers pay
+ * Every module of the NESTO Platform with what a company pays for it — a
+ * month and for each user — by group, as a drawing's schedule; then the
+ * group's own price, the monthly minimum and what a few typical buyers pay
  * (docs/pricing-modules.md). Read from the live price book like the bill of
  * quantities, so a rate changed by the Platform Admin changes here too; a
  * book that sells everything in the base shows nothing here.
@@ -28,15 +29,14 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
           <tr>
             <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.module}</th>
             <th scope="col" className={`${cell} site-tb-k font-normal max-md:hidden`}>{words.columns.covers}</th>
-            <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.company}</th>
-            <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.group}</th>
+            <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.month}</th>
             <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.user}</th>
           </tr>
         </thead>
         {groups.map((entry) => (
           <tbody key={entry.group}>
             <tr>
-              <th scope="colgroup" colSpan={5} className="border border-fg bg-canvas px-3.5 py-2 text-left font-mono text-micro font-medium uppercase tracking-[0.12em] text-fg-subtle">
+              <th scope="colgroup" colSpan={4} className="border border-fg bg-canvas px-3.5 py-2 text-left font-mono text-micro font-medium uppercase tracking-[0.12em] text-fg-subtle">
                 {copy.groups[entry.group] ?? entry.group}
               </th>
             </tr>
@@ -50,13 +50,12 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
                   </th>
                   <td className={`${cell} text-table text-fg-muted max-md:hidden`}>{covers}</td>
                   {row.included ? (
-                    <td colSpan={3} className={`${cell} whitespace-nowrap`}>
+                    <td colSpan={2} className={`${cell} whitespace-nowrap`}>
                       <span className="font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-muted">{words.inBase}</span>
                     </td>
                   ) : (
                     <>
-                      <td className={`${cell} whitespace-nowrap`}>{figure(row.perCompanyCents)}</td>
-                      <td className={`${cell} whitespace-nowrap`}>{figure(row.groupCapCents)}</td>
+                      <td className={`${cell} whitespace-nowrap`}>{figure(row.monthlyCents)}</td>
                       <td className={`${cell} whitespace-nowrap`}>{figure(row.perUserCents)}</td>
                     </>
                   )}
@@ -66,6 +65,12 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
           </tbody>
         ))}
       </table>
+
+      {offersGroup(config) ? (
+        <p className="border-[1.5px] border-fg bg-accent-soft px-4 py-3 text-body font-medium text-fg" data-testid="group-note">
+          {fill(words.groupNote, { company: formatEuros(config.customers.group.perCompanyCents, locale), user: formatEuros(config.customers.group.perUserCents, locale) })}
+        </p>
+      ) : null}
 
       {examples.length > 0 ? (
         <section aria-labelledby="price-examples">
@@ -78,7 +83,7 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
                 <h4 className="text-card font-semibold text-fg">{words.examples[example.key].title}</h4>
                 <p className="text-table text-fg-muted">{words.examples[example.key].body}</p>
                 <p className="font-mono text-micro uppercase tracking-[0.1em] text-fg-subtle">
-                  {fill(example.companies === 1 ? words.setupOne : words.setupGroup, { companies: example.companies, projects: example.projects, users: example.users })}
+                  {fill(example.customer === "GROUP" ? words.setupGroup : words.setupOne, { companies: example.companies, projects: example.projects, users: example.users })}
                 </p>
                 <p className="mt-auto flex items-baseline gap-1.5 border-t border-line pt-3">
                   <span className="text-[34px] leading-none tabular-nums text-fg font-display">{formatEuros(example.monthlyCents, locale)}</span>

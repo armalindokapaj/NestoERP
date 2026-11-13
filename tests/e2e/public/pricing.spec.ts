@@ -29,29 +29,33 @@ test("the configurator is the page: one header, no hero, no entry button, no Con
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Build your NESTO");
   await expect(page.getByRole("heading", { name: "Build your NESTO" })).toHaveCount(1);
   await expect(page.getByText("Build your configuration")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "What do you need from NESTO?" })).toBeInViewport();
+  await expect(page.getByRole("heading", { name: "What are you?" })).toBeInViewport();
   await expect(page.getByText("Confirmed", { exact: true })).toHaveCount(0);
-  await expect(page.locator('[aria-current="step"]')).toHaveText(/Foundation/);
+  await expect(page.locator('[aria-current="step"]')).toHaveText(/You are/);
 });
 
-test("customer configures an ARVELA-like NESTO Platform plan and requests a proposal", async ({ page }) => {
+// Figures from book 2026.11.5 (docs/pricing-modules.md).
+test("a group of companies gets every module in one price, and requests a proposal", async ({ page }) => {
   await page.goto("/pricing");
-  await page.getByTestId("foundation-nesto_platform").click();
+  await page.getByTestId("type-group").click();
+  await page.getByRole("spinbutton", { name: "Companies in the group" }).fill("9");
   await next(page);
+  await page.getByRole("spinbutton", { name: "Projects in your portfolio" }).fill("11");
   await next(page);
-  await page.getByRole("spinbutton", { name: "Additional operating companies" }).fill("8");
-  await next(page);
-  await page.getByRole("spinbutton", { name: "Active NESTO projects" }).fill("11");
-  await page.getByRole("button", { name: "+ Add a ROZARIS 3D project" }).click();
+  await expect(page.getByTestId("rozaris-sketches")).toBeVisible();
+  await page.getByRole("spinbutton", { name: "Projects with a 3D experience" }).fill("1");
   await page.getByRole("radio", { name: /^Large/ }).click();
   await next(page);
-  await page.getByRole("spinbutton", { name: "Active users" }).fill("135");
+  await expect(page.getByTestId("module-finance").getByText("Included in the group price")).toBeVisible();
+  await next(page);
+  await page.getByRole("spinbutton", { name: "Users" }).fill("135");
   await next(page);
   await page.getByRole("radio", { name: /24 months/ }).click();
   await next(page);
 
-  await expect(page.getByText("€8,300").first()).toBeVisible();
-  await expect(page.getByText("€167,700").first()).toBeVisible();
+  // 9 × €600 + 135 × €60 = €13,500; 10 further projects €2,000; one Large 3D €1,300.
+  await expect(page.getByText("€16,800").first()).toBeVisible();
+  await expect(page.getByText("€333,450").first()).toBeVisible();
   await expect(page.getByText(/^Reference NESTO-/)).toBeVisible();
   const reference = await rememberQuote(page);
 
@@ -66,17 +70,18 @@ test("customer configures an ARVELA-like NESTO Platform plan and requests a prop
   await expect(page.getByText(reference, { exact: true })).toBeVisible();
 });
 
-test("ROZARIS includes and locks Sales, and a 12-month Basic plan is priced per class (Tests B, H)", async ({ page }) => {
+test("a company selling in 3D gets Sales with ROZARIS, a 12-month Basic priced per class (Tests B, H)", async ({ page }) => {
   await page.goto("/pricing");
-  await page.getByTestId("foundation-rozaris").click();
-  await next(page);
-  const sales = page.getByTestId("module-sales");
-  await expect(sales.getByText("Included with NESTO ROZARIS")).toBeVisible();
-  await expect(sales.getByRole("button", { name: /Add module|Remove/ })).toHaveCount(0);
+  await expect(page.getByTestId("type-company")).toHaveAttribute("aria-checked", "true");
   await next(page);
   await next(page);
+  await page.getByRole("spinbutton", { name: "Projects with a 3D experience" }).fill("1");
   await expect(page.getByTestId("rozaris-project")).toHaveCount(1);
   await page.getByRole("radio", { name: /^Basic/ }).click();
+  await next(page);
+  const sales = page.getByTestId("module-sales");
+  await expect(sales.getByText("Included with ROZARIS 3D")).toBeVisible();
+  await expect(sales.getByRole("button", { name: /Add module|Remove/ })).toHaveCount(0);
   await next(page);
   await next(page);
   await page.getByRole("radio", { name: /12 months/ }).click();
@@ -90,9 +95,9 @@ test("ROZARIS includes and locks Sales, and a 12-month Basic plan is priced per 
 
 test("an old pricing link still opens and is rewritten in the new form (Test J)", async ({ page }) => {
   await page.goto("/pricing?mode=erp&projects=1&users=15&term=24&step=product");
-  await expect(page.getByRole("heading", { name: "What do you need from NESTO?" })).toBeVisible();
-  await expect(page.getByTestId("foundation-nesto_platform")).toHaveAttribute("aria-pressed", "true");
-  await expect(page).toHaveURL(/foundation=nesto/);
-  await expect(page).toHaveURL(/step=foundation/);
+  await expect(page.getByRole("heading", { name: "What are you?" })).toBeVisible();
+  await expect(page.getByTestId("type-company")).toHaveAttribute("aria-checked", "true");
+  await expect(page).toHaveURL(/type=company/);
+  await expect(page).toHaveURL(/step=type/);
   await expect(page).not.toHaveURL(/mode=/);
 });
