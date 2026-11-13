@@ -126,6 +126,11 @@ minutes: the fill writes about ten thousand records over the network. The
 run refuses any other database, and the seed's own guard refuses production
 and staging.
 
+**Files** — leave it at `supabase`. Choose `none` only while Supabase storage
+refuses uploads (a Free plan over its storage quota answers 402): the demo is
+filled without its files, so every record is there but opening a document or
+photo shows nothing. Reset again with `supabase` once storage is back.
+
 After a reset every temporary password works again for 30 days, and the
 Platform Admin (`platform-admin`) signs in with `DEMO_ADMIN_PASSWORD` and
 chooses a new one.

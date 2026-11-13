@@ -13,6 +13,11 @@ on:
       confirm:
         description: The demo database host, typed out (as in the DEMO_SEED_TARGET secret)
         required: true
+      files:
+        description: Where the demo's files go. "none" while Supabase storage is unavailable — the records are all there, but their files are not.
+        type: choice
+        options: [supabase, none]
+        default: supabase
 
 concurrency:
   group: demo-showcase
@@ -33,8 +38,9 @@ jobs:
       NESTO_DEMO_SIGN_IN: temporary
       # A hosted demo: the seed guard refuses production and staging, never this.
       APP_ENV: demo
-      # The demo's files go to the demo project's own bucket, where its site reads them.
-      STORAGE_DRIVER: supabase
+      # The demo's files go to the demo project's own bucket, where its site reads them
+      # ("none": to the runner's disk, which is thrown away).
+      STORAGE_DRIVER: ${{ inputs.files == 'none' && 'local' || 'supabase' }}
       STORAGE_BUCKET: ${{ secrets.DEMO_STORAGE_BUCKET }}
       SUPABASE_URL: ${{ secrets.DEMO_SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.DEMO_SUPABASE_SECRET_KEY }}
