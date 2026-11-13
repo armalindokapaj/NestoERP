@@ -16,15 +16,18 @@ function resolveDatasourceUrl(): string | undefined {
 }
 
 /**
- * Prisma's default pool is `num_cpus * 2 + 1` — five on a Vercel function —
- * and a dashboard fans out more queries than that at once, so requests timed
- * out waiting for a connection. Behind the pooler a function can hold more.
- * Anything the URL already says wins.
+ * Each Vercel instance keeps its own pool, and every connection in it counts
+ * against the Supabase pooler's 200 clients. At 20 a pool, ten busy instances
+ * filled the pooler (EMAXCONN, 2026-11-12 and 2026-11-13): every new query
+ * failed for minutes, so no company could be opened and the person stayed
+ * stuck where they were. At 8, twenty-five instances fit; a dashboard's
+ * fan-out waits a few milliseconds for a connection instead. Prisma's own
+ * default, five, made those waits time out. Anything the URL says wins.
  */
 function withServerlessPool(url: string): string {
   if (!process.env.VERCEL) return url;
   const parsed = new URL(url);
-  if (!parsed.searchParams.has("connection_limit")) parsed.searchParams.set("connection_limit", "20");
+  if (!parsed.searchParams.has("connection_limit")) parsed.searchParams.set("connection_limit", "8");
   if (!parsed.searchParams.has("pool_timeout")) parsed.searchParams.set("pool_timeout", "8"); // inside the 10 s client read deadline (AUD-07 §7)
   return parsed.toString();
 }

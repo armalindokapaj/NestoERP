@@ -111,6 +111,8 @@ describe("group dashboards (§108, §109, §111)", () => {
     const rows = await groupCompanies(owner);
     expect(rows.map((row) => row.title).sort()).toEqual(DEMO_NAMES);
     expect(rows.every((row) => row.subtitle?.startsWith("1 active project"))).toBe(true);
+    // A row enters its company: its dashboard, in that company's workspace.
+    expect(rows.every((row) => row.href === "/dashboard" && row.companyId === row.id)).toBe(true);
   });
 
   it("shows the Head of Group Finance all five companies' invoices, and an Aurelia accountant Aurelia's only (§109)", async () => {

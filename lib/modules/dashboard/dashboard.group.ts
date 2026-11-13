@@ -75,7 +75,9 @@ export async function groupCompanies(context: UserContext): Promise<WidgetListIt
         subtitle: [projects === null ? null : plural(projects, "active project"), plural(people, "person", "people"), nipt(identity?.registrationNumber ?? null)].filter(Boolean).join(" · "),
         meta: company.roleLabel,
         status: identity?.status,
-        href: `/organization/companies/${company.companyId}`,
+        // Entering the company is the one click a group dashboard owes (its departments are under Company → Companies).
+        href: "/dashboard",
+        companyId: company.companyId,
       };
     }),
   );

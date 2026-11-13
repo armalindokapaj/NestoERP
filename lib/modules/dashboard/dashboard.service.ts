@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { dashboardForRole, groupDashboardFor } from "@/config/dashboards";
+import { dashboardForRole, dashboards, groupDashboardFor } from "@/config/dashboards";
 import { kpis } from "@/config/kpis";
 import { quickActions } from "@/config/quick-actions";
 import { widgets } from "@/config/widgets";
@@ -113,7 +113,10 @@ export async function planDashboard(context: UserContext): Promise<DashboardPlan
   // Group workspace reads its own layout, asking each authorised company in turn.
   if (context.workspace.scopeType === "GROUP") return planGroupDashboard(context);
 
-  const config = dashboardForRole(context.role, context.position);
+  // Inside one company the Owner's group figures and group-wide line do not apply:
+  // that company's executive figures and line (the CEO's) take their place.
+  const own = dashboardForRole(context.role, context.position);
+  const config = context.role === "OWNER" ? { ...own, focus: dashboards.CEO.focus, kpis: dashboards.CEO.kpis } : own;
 
   // A switched-off module is absent from the dashboard (PRD #47 §26). And a group
   // figure has no place in a company workspace, whatever the role's layout lists:
