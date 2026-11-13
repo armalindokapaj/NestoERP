@@ -21,8 +21,10 @@ export type PricingModule = {
   /** Shown on the public page; a technical dependency is enabled but not public. */
   public: boolean;
   tier: ModuleTier;
-  /** The add-on price; ignored where the foundation includes the module. */
+  /** The add-on price a month; ignored where the foundation includes the module. */
   monthlyPriceCents: number;
+  /** The add-on price for each active user a month, on top of `monthlyPriceCents`; ignored where the foundation includes the module. */
+  monthlyPerUserCents: number;
   includedInFoundations: Foundation[];
   lockedWhenIncluded: boolean;
   dependencies: string[];
@@ -116,7 +118,8 @@ export type PricingQuote = {
   currency: "EUR";
   normalizedConfiguration: PricingRequest;
   foundation: { id: Foundation; monthlyCents: number; label: string };
-  modules: Array<{ id: string; name: string; included: boolean; locked: boolean; monthlyCents: number; reason: "FOUNDATION" | "SELECTED" | "DEPENDENCY" }>;
+  /** `monthlyCents` is the module's whole charge: its flat price plus `perUserCents` for each active user. */
+  modules: Array<{ id: string; name: string; included: boolean; locked: boolean; monthlyCents: number; perUserCents: number; reason: "FOUNDATION" | "SELECTED" | "DEPENDENCY" }>;
   companies: { included: number; fullGroup: number; jointVenture: number; documentsOnly: number; monthlyCents: number };
   projects: Array<{ id: string; label: string; type: string; monthlyCents: number; includedUsers: number }>;
   users: { requested: number; included: number; billable: number; packSize: number; packs: number; monthlyCents: number };

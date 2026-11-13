@@ -344,7 +344,8 @@ function ModuleCard({ row, ctx, held, absorbedBy, onToggle }: { row: PricingModu
   const included = isIncluded(row, input.foundation);
   const foundationName = t.foundationText[input.foundation]?.name ?? config.foundations.find((item) => item.id === input.foundation)?.name ?? "";
   const selected = Boolean(held) || Boolean(absorbedBy);
-  const state = included ? fill(t.modules.includedWith, { foundation: foundationName }) : absorbedBy ? fill(t.modules.absorbed, { name: t.moduleText[absorbedBy.id]?.name ?? absorbedBy.name }) : fill(t.modules.addOn, { price: money(row.monthlyPriceCents) });
+  const price = [row.monthlyPriceCents > 0 ? fill(t.modules.addOn, { price: money(row.monthlyPriceCents) }) : null, row.monthlyPerUserCents > 0 ? fill(t.modules.addOnPerUser, { price: money(row.monthlyPerUserCents) }) : null].filter(Boolean).join(" ");
+  const state = included ? fill(t.modules.includedWith, { foundation: foundationName }) : absorbedBy ? fill(t.modules.absorbed, { name: t.moduleText[absorbedBy.id]?.name ?? absorbedBy.name }) : price;
   return (
     <article className={cn("flex flex-col rounded-xl border p-4", selected ? "border-accent/60 bg-accent-soft/30" : "border-line")} data-testid={`module-${row.id.toLowerCase()}`}>
       <div className="flex items-start justify-between gap-3">
@@ -436,15 +437,26 @@ function ProjectsStep({ ctx }: { ctx: Ctx }) {
 function UsersStep({ ctx }: { ctx: Ctx }) {
   const { input, quote, t, money, change } = ctx;
   const users = quote.users;
+  const perPerson = quote.modules.reduce((sum, row) => sum + row.perUserCents, 0);
   return (
     <div className="space-y-4">
       <Stepper label={t.users.requested} help={t.users.requestedHelp} value={input.activeUsers} min={1} max={100_000} onChange={(activeUsers) => change({ ...input, activeUsers }, "pricing_users_changed")} />
+      {perPerson > 0 ? (
+        <dl className="grid gap-4 border border-line bg-canvas p-5 sm:grid-cols-3" data-testid="users-per-person">
+          <Stat label={t.users.perPerson} value={money(perPerson)} />
+          <Stat label={t.users.people} value={String(input.activeUsers)} />
+          <Stat label={t.users.modulesCost} value={`${money(perPerson * input.activeUsers)} ${t.estimate.perMonth}`} />
+        </dl>
+      ) : null}
+      {perPerson > 0 ? <p className="text-table text-fg-muted">{t.users.perPersonNote}</p> : null}
+      {users.included > 0 || users.monthlyCents > 0 ? (
       <dl className="grid gap-4 rounded-xl border border-line bg-canvas p-5 sm:grid-cols-2" data-testid="users-calculation">
         <Stat label={t.users.included} value={String(users.included)} />
         <Stat label={t.users.additional} value={String(users.billable)} />
         <Stat label={t.users.packs} value={users.packs ? fill(t.users.packsValue, { packs: users.packs, size: users.packSize }) : "—"} />
         <Stat label={t.users.price} value={users.monthlyCents ? `${money(users.monthlyCents)} ${t.estimate.perMonth}` : "—"} />
       </dl>
+      ) : null}
       {users.billable === 0 ? <p className="text-table text-fg-muted">{t.users.covered}</p> : null}
       <Included icon={<Users />} title={t.users.requestedHelp} />
     </div>
@@ -491,7 +503,7 @@ function ReviewStep({ ctx, updating, blocked, onProposal }: { ctx: Ctx; updating
     ...added.map((row) => [t.review.added, moduleName(row), row.monthlyCents] as [string, React.ReactNode, number]),
     ...(quote.companies.monthlyCents || quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly ? [[t.review.companies, `${quote.companies.included} + ${quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly}`, quote.companies.monthlyCents] as [string, React.ReactNode, number]] : [[t.review.companies, String(quote.companies.included), null] as [string, React.ReactNode, null]]),
     ...quote.projects.map((project) => [t.review.projects, project.type === "NESTO" ? project.label : `${t.classes[project.type]?.name ?? config.rozaris.classes[project.type as RozarisClass]?.name ?? project.type} · ROZARIS`, project.monthlyCents || null] as [string, React.ReactNode, number | null]),
-    [t.review.users, fill(t.review.usersLine, { included: quote.users.included, billable: quote.users.billable }), quote.users.monthlyCents || null],
+    [t.review.users, quote.users.included ? fill(t.review.usersLine, { included: quote.users.included, billable: quote.users.billable }) : String(quote.users.requested), quote.users.monthlyCents || null],
     [t.review.contract, fill(t.contract.months, { n: quote.contractMonths }), null],
   ];
   return (
@@ -544,7 +556,7 @@ function Estimate({ ctx, updating, error, step }: { ctx: Ctx; updating: boolean;
   if (step >= 1) rows.push([t.estimate.modules, [fill(t.estimate.modulesIncluded, { n: quote.modules.filter((row) => row.included).length }), added.length ? fill(t.estimate.modulesAdded, { n: added.length }) : ""].filter(Boolean).join(" · ")]);
   if (step >= 2) rows.push([t.estimate.companies, String(quote.companies.included + quote.companies.fullGroup + quote.companies.jointVenture) + (quote.companies.documentsOnly ? ` + ${quote.companies.documentsOnly}` : "")]);
   if (step >= 3 && quote.projects.length) rows.push([t.estimate.projects, quote.projects.map((project) => project.type === "NESTO" ? project.label : t.classes[project.type]?.name ?? project.type).join(" · ")]);
-  if (step >= 4) rows.push([t.estimate.users, `${quote.users.requested} (${quote.users.included} ${t.users.included.toLowerCase()})`]);
+  if (step >= 4) rows.push([t.estimate.users, quote.users.included ? `${quote.users.requested} (${quote.users.included} ${t.users.included.toLowerCase()})` : String(quote.users.requested)]);
   if (step >= 5) rows.push([t.estimate.contract, fill(t.contract.months, { n: quote.contractMonths })]);
   if (step >= 5 && quote.promotion.applied) rows.push([t.estimate.promotion, quote.schedule.filter((period) => period.discountPercent).map((period) => fill(t.review.monthsRange, { from: period.fromMonth, to: period.toMonth }) + ` −${period.discountPercent}%`).join(" · ")]);
   return (

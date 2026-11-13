@@ -41,7 +41,8 @@ export function PriceBook({ config, copy, locale }: { config: PublicPricingConfi
         {priceRows(config).map((row) => {
           const words = copy.rows[row.key];
           const price = formatEuros(row.monthlyCents, locale);
-          const included = fill(words.included, row.values);
+          // A further company that brings no people of its own (modules priced per person) has nothing to list.
+          const included = row.key === "company" && row.values.users === 0 ? "—" : fill(words.included, row.values);
           return (
             <tr key={row.key}>
               <th scope="row" className={`${cell} text-body font-medium`}>

@@ -319,6 +319,7 @@ export const siteEn = {
       rows: {
         platform: { item: "NESTO Platform base", included: "{companies} company · {projects} project · {users} people · everyday tools", per: "workspace" },
         modules: { item: "Modules, chosen one by one", included: "{n} modules, each priced on its own", per: "module" },
+        modulesPerUser: { item: "Modules, for each person", included: "{n} modules · {companies} company and {projects} project included · everyday tools free", per: "person, per module" },
         company: { item: "Further company", included: "{users} people each", per: "company" },
         project: { item: "Further active project", included: "—", per: "project" },
         users: { item: "Further people", included: "—", per: "{n} people" },
@@ -988,7 +989,7 @@ export const siteEn = {
       start: "Start",
       estimate: "Sample estimate",
       perMonth: "{price} a month",
-      estimateNote: "From the public price book: the NESTO Platform base on 24 months, before modules and the launch offer. Your proposal is written for you.",
+      estimateNote: "From the public price book: the NESTO Platform with Sales, Finance, Project Management and Procurement for your people, on 24 months, before the launch offer. Your proposal is written for you.",
       show: "Show the application",
       hide: "Hide the application",
     },

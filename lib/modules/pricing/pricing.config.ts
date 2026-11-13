@@ -15,7 +15,7 @@ const catalogModule = (
   extra: Partial<PricingModule> = {},
 ): PricingModule => ({
   id, name, group, tier, shortDescription, description,
-  enabled: true, public: true, monthlyPriceCents: 0,
+  enabled: true, public: true, monthlyPriceCents: 0, monthlyPerUserCents: 0,
   includedInFoundations: ["NESTO_PLATFORM"], lockedWhenIncluded: false,
   dependencies: [], conflicts: [], absorbs: [], imageKey: id.toLowerCase().replaceAll("_", "-"), sortOrder: 0,
   ...extra,
@@ -138,10 +138,13 @@ export const DEFAULT_LAUNCH_PROMOTION: PricingPromotionConfig = {
   ],
 };
 
+/** Where a Platform estimate starts when the book includes no users (modules priced per person). */
+const STARTING_USERS = 15;
+
 export function defaultRequest(foundation: Foundation, config: Pick<PricingConfig, "nestoProjects" | "nestoIncludedUsers" | "rozaris">): PricingRequest {
   return foundation === "ROZARIS"
     ? { foundation, modules: [], companies: { fullGroup: 0, jointVenture: 0, documentsOnly: 0 }, rozarisProjects: [{ tempId: "p1", type: "BASIC" }], activeUsers: config.rozaris.classes.BASIC.includedUsers, contractMonths: 24, promotionCode: null }
-    : { foundation, modules: [], companies: { fullGroup: 0, jointVenture: 0, documentsOnly: 0 }, nestoProjects: { active: config.nestoProjects.included }, rozarisProjects: [], activeUsers: config.nestoIncludedUsers, contractMonths: 24, promotionCode: null };
+    : { foundation, modules: [], companies: { fullGroup: 0, jointVenture: 0, documentsOnly: 0 }, nestoProjects: { active: config.nestoProjects.included }, rozarisProjects: [], activeUsers: config.nestoIncludedUsers || STARTING_USERS, contractMonths: 24, promotionCode: null };
 }
 
 export const PRICING_EXCLUSIONS = [
