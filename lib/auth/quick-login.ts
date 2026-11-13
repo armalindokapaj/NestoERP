@@ -11,9 +11,14 @@ export type QuickLoginSection = { name: string; people: QuickLoginPerson[] };
 
 export const QUICK_LOGIN_PASSWORD = DEMO_PASSWORD;
 
+/** The demo people's mail domain: a hosted demo dressed as a customer has its own (NESTO_DEMO_EMAIL_DOMAIN). */
+const DEMO_EMAIL_DOMAIN = `@${process.env.NESTO_DEMO_EMAIL_DOMAIN ?? "nesto.test"}`;
+
 export async function quickLoginSections(): Promise<QuickLoginSection[]> {
+  // A demo whose people choose their own password at first sign-in has no one-click sign-in to offer.
+  if (process.env.NESTO_DEMO_SIGN_IN === "temporary") return [];
   const users = await prisma.user.findMany({
-    where: { status: "ACTIVE", email: { endsWith: "@nesto.test" } },
+    where: { status: "ACTIVE", email: { endsWith: DEMO_EMAIL_DOMAIN } },
     orderBy: { username: "asc" },
     select: {
       username: true,
