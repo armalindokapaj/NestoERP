@@ -61,7 +61,7 @@ export const en = {
     demoData: "Demo data",
     /** The same notice on the collapsed rail, where one word fits. */
     demo: "Demo",
-    demoDisclaimer: "Demo environment — public company and project information combined with synthetic operational data.",
+    demoDisclaimer: "Demo environment — an invented group of companies: every name, person and figure is made up.",
     account: {
       menuFor: "Account menu for {name}",
       title: "Account",

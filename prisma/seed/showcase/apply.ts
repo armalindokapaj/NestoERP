@@ -28,6 +28,7 @@ import {
   usernameOf,
 } from "./dataset";
 import { SHOWCASE_CONVERSATIONS } from "./conversations";
+import { fillShowcase } from "./fill";
 import { proseReplacementSql } from "./prose";
 
 /** `temporary`: everyone must choose their own password at first sign-in. `shared`: everyone keeps the demo password. */
@@ -42,6 +43,7 @@ export async function applyShowcaseDemo(
   options: { passwordHash: string; adminPasswordHash: string; signIn: ShowcaseSignIn; now?: Date },
 ) {
   const now = options.now ?? new Date();
+  await removeTestFixtures(prisma);
   await replaceProse(prisma);
   await dressGroupAndCompanies(prisma);
   await dressProjects(prisma);
@@ -49,9 +51,26 @@ export async function applyShowcaseDemo(
   const added = await addCompanies(prisma, options.passwordHash, now);
   await addProjects(prisma);
   const comments = await addConversations(prisma, now);
+  const filled = await fillShowcase(prisma, now);
   await syncMemberPlaces(prisma);
   const people = await setSignIn(prisma, options, now);
-  return { companies: Object.keys(SHOWCASE_COMPANIES).length + added, projects: Object.keys(SHOWCASE_PROJECTS).length + SHOWCASE_EXTRA_PROJECTS.length, people, comments };
+  return { companies: Object.keys(SHOWCASE_COMPANIES).length + added, projects: Object.keys(SHOWCASE_PROJECTS).length + SHOWCASE_EXTRA_PROJECTS.length, people, comments, filled };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Test fixtures                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** The standard seed's test tenants (other groups, for isolation tests) have no place in a selling demo. */
+const FIXTURE_GROUPS = ["group_fixture", "group_fixture_solo"];
+
+async function removeTestFixtures(prisma: PrismaClient) {
+  const companies = await prisma.company.findMany({ where: { parentGroupId: { in: FIXTURE_GROUPS } }, select: { id: true } });
+  const groups = await prisma.parentGroup.findMany({ where: { id: { in: FIXTURE_GROUPS } }, select: { id: true } });
+  if (companies.length === 0 && groups.length === 0) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(`select platform_purge_tenants($1::text[], $2::text[])::text as purged`, companies.map((row) => row.id), groups.map((row) => row.id));
+  });
 }
 
 /* -------------------------------------------------------------------------- */

@@ -174,6 +174,39 @@ export function usernameOf(person: ShowcasePerson): string {
 export const SHOWCASE_EMAIL_DOMAIN = "arvela.test";
 
 /**
+ * The standard seed's other names — its clients, the old project names in
+ * file names and meeting titles — given the demo's own.
+ */
+const STANDARD_NAMES: Array<{ old: string; new: string; word?: boolean }> = [
+  { old: "ACME Developments", new: "Dielli Developments" },
+  { old: "Acme Developments", new: "Dielli Developments" },
+  { old: "Nova Living", new: "Jeta e Re" },
+  { old: "Beta Properties SHPK", new: "Bregu Properties sh.p.k." },
+  { old: "Beta Properties", new: "Bregu Properties" },
+  { old: "Atlas Holdings Inc.", new: "Shqiponja Holding" },
+  { old: "Atlas US distribution hub", new: "Shqiponja distribution hub" },
+  { old: "Atlas Holdings", new: "Shqiponja Holding" },
+  { old: "Urban Core", new: "Qendra Urbane" },
+  { old: "Greenline Residences", new: "Lëndina Residences" },
+  { old: "Horizon Estates", new: "Horizonti Estates" },
+  { old: "Central Municipality", new: "Bashkia Vorë" },
+  { old: "Adriatic Hotels", new: "Butrinti Hotels" },
+  { old: "Adriatic Hotel", new: "Ksamil Bay Hotel" },
+  { old: "East Gate", new: "Nyja" },
+  { old: "Archive Test Client", new: "Dardania Trading" },
+  { old: "Archive test contract", new: "Old framework contract" },
+  { old: "Elena Demo Client", new: "Elena Marku" },
+  { old: "ACME", new: "Dielli", word: true },
+  { old: "Acme", new: "Dielli", word: true },
+  { old: "Atlas", new: "Shqiponja", word: true },
+  { old: "Greenline", new: "Lëndina", word: true },
+  { old: "Horizon", new: "Horizonti", word: true },
+  { old: "Riverside", new: "Kalaja", word: true },
+  { old: "riverside", new: "Kalaja", word: true },
+  { old: "atlas-materials.test", new: "shqiponja-materials.test" },
+];
+
+/**
  * Prose the standard seed wrote with its own names — task titles, notes, posts,
  * file names — and what it says now, longest first so a company's legal name
  * goes before its short one. `word` matches only a whole word, so "Forma" never
@@ -195,6 +228,7 @@ export function showcaseReplacements(): Array<{ old: string; new: string; word?:
     if (person.was !== now) pairs.push({ old: person.was, new: now });
   }
   pairs.push({ old: "@nesto.test", new: `@${SHOWCASE_EMAIL_DOMAIN}` });
+  pairs.push(...STANDARD_NAMES);
   // The short forms last, whole words only.
   for (const company of Object.values(SHOWCASE_COMPANIES)) pairs.push({ old: company.was.word, new: company.name, word: true });
   return pairs.sort((a, b) => Number(Boolean(a.word)) - Number(Boolean(b.word)) || b.old.length - a.old.length);

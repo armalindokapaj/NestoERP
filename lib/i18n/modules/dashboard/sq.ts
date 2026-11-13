@@ -19,7 +19,7 @@ export const dashboardSq: typeof dashboardEn = {
   activeCompanies_one: "{count} kompani aktive",
   activeCompanies_other: "{count} kompani aktive",
   suspended: "{count} të pezulluara",
-  demoDisclaimer: "Mjedis demonstrues — informacion publik për kompanitë dhe projektet i kombinuar me të dhëna operacionale sintetike.",
+  demoDisclaimer: "Mjedis demonstrues — një grup kompanish i trilluar: çdo emër, person dhe shifër është e shpikur.",
   viewByCompany: "Shiko sipas kompanisë",
   partNotLoaded: "Një pjesë e kësaj nuk u ngarkua dot",
   startHere: "Fillo këtu",

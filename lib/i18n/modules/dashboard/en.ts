@@ -18,7 +18,7 @@ export const dashboardEn = {
   activeCompanies_one: "{count} active company",
   activeCompanies_other: "{count} active companies",
   suspended: "{count} suspended",
-  demoDisclaimer: "Demo environment — public company and project information combined with synthetic operational data.",
+  demoDisclaimer: "Demo environment — an invented group of companies: every name, person and figure is made up.",
   viewByCompany: "View by company",
   partNotLoaded: "Part of this could not be loaded",
   startHere: "Start here",

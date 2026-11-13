@@ -32,6 +32,7 @@ async function main() {
   });
   console.log(`✓ Showcase demo: ${result.companies} companies, ${result.projects} projects, ${result.people} people, ${result.comments} comments`);
   console.log(`✓ Sign-in: ${signIn === "temporary" ? "each person changes the demo password at first sign-in" : "everyone uses the demo password"}`);
+  if (result.filled) console.log(`✓ Filled: ${JSON.stringify(result.filled)}`);
 }
 
 main()

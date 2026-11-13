@@ -50,7 +50,7 @@ export const sq: Messages = {
     poweredBy: "Mundësuar nga",
     demoData: "Të dhëna demo",
     demo: "Demo",
-    demoDisclaimer: "Mjedis demonstrues — informacion publik për kompanitë dhe projektet i kombinuar me të dhëna operacionale sintetike.",
+    demoDisclaimer: "Mjedis demonstrues — një grup kompanish i trilluar: çdo emër, person dhe shifër është e shpikur.",
     account: {
       menuFor: "Menuja e llogarisë për {name}",
       title: "Llogaria",

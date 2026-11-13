@@ -21,7 +21,7 @@ concurrency:
 jobs:
   reset:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     environment: demo
     env:
       # The demo database's direct (non-pooling) URL: migrations need a session connection.

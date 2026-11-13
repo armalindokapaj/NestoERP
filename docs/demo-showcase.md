@@ -1,6 +1,6 @@
 > **Chat:** Nesto — mobile for the site team
 > **File:** docs/demo-showcase.md
-> **About:** The selling demo — a separate demo site (demo.rozaris.com) with its own database, showing Arvela Group, an invented group of ten companies with 46 people, every module in use, project conversations with @mentions and temporary passwords; how it is built, set up and reset.
+> **About:** The selling demo — a separate demo site (demo.rozaris.com) with its own database, showing Arvela Group, an invented group of ten companies with 46 people, every module filled on every project (units and their sale contracts, procurement and subcontracts, stock, site records, HSE, QA/QC, engineering, finance, people), project conversations with @mentions and temporary passwords; how it is built, set up and reset.
 > **Last updated:** 2026-11-13
 
 # Selling demo — Arvela Group
@@ -24,10 +24,37 @@ reach, a real company or person.
   group's people.
 - **Projects:** Kalaja Residence (Tirana), Porta Tower (Durrës), Nyja Logistics
   Park (Vorë), Lungomare Apartments (Vlorë) and Ksamil Bay Hotel & Residences
-  (Sarandë), with tasks, milestones, daily logs, defects, HSE, documents,
-  meetings, approvals, units, buyers, reservations, contracts, budgets,
-  invoices, purchase requests and orders; Promenada Durrës, Kodra Villas and
-  Rinas Business Park in Arvela Developments' portfolio.
+  (Sarandë); Promenada Durrës (selling and building), Kodra Villas (sold out
+  and handed over in 2023) and Rinas Business Park (in design) in Arvela
+  Developments' portfolio.
+- **Units:** about 670 — flats and penthouses, offices, warehouse bays,
+  serviced residences, villas, shops, parking and storage — each published,
+  most on a price list. Around 270 sold and 75 reserved, to about 250
+  invented buyers (many abroad).
+- **Contracts in units:** every sale has its won deal, the reservation that
+  converted, a sale contract (often with a parking space or storage on the
+  same contract), a payment schedule, invoices for what fell due and the
+  payments against them — a few buyers late. Reserved units wait at every
+  step: just reserved, a contract asked of Legal, a contract in review.
+- **Procurement:** each company's suppliers (Arvela Betoni and Arvela Pajisje
+  supply the group's concrete and cranes), subcontractors with their
+  insurance and guarantees, supply agreements and subcontracts with
+  variations, and every project's purchasing from a draft request through
+  RFQs, quotes, orders and deliveries to closed orders, with the finance
+  commitment each approved order opens.
+- **Stock:** a store on every site, each delivery booked in, materials issued
+  to the site week by week, returns, a draft issue, items below reorder.
+- **Site:** phases and milestones, a month of daily logs (weather, crews,
+  work, plant, deliveries, delays, visitors, instructions), tasks, weekly site
+  meetings with minutes, the company calendar with public holidays.
+- **HSE and quality:** safety walks, hazards, incidents, permits to work,
+  toolbox talks, risk assessments, PPE checks, environmental observations, a
+  stop-work order; QA/QC inspections, defects, NCRs and corrective actions;
+  drawing registers with revisions, RFIs, submittals and transmittals.
+- **Finance and people:** a current budget on every project, supplier bills,
+  subcontract valuations and site overheads booked and paid against it;
+  timesheets, leave, attendance, and two site crews with workers on every
+  building project.
 - **46 people**, from the Group Owner (Luan Kelmendi) and the heads of every
   group department to each company's managers and staff.
 - **Conversations** on every project: people writing to each other and
@@ -49,7 +76,17 @@ every module in use. `prisma/seed-showcase.ts` then dresses it as Arvela
   text and JSON column (task titles, notes, posts, file names), never in ids,
   keys, storage paths or URLs. Tested on the full migrated schema.
 - `conversations.ts` — the project threads and their @mentions.
-- `apply.ts` — runs it all and sets the passwords.
+- `fill/` — everything each project and company does: `units.ts` (buildings,
+  floors, units), `sales.ts` (price lists, buyers, reservations, sale
+  contracts, schedules, invoices, payments, leads), `procurement.ts`,
+  `inventory.ts`, `site.ts` (programme, daily logs, tasks, calendar),
+  `hse.ts`, `quality.ts` (QA/QC and engineering), `meetings.ts` and
+  `company.ts` (budgets, costs, time, leave, workforce). Seeded random, so
+  every reset gives the same demo, dated from that day; record numbers follow
+  each company's own numbering, and the counters move past them so the next
+  record a prospect creates gets a free number.
+- `apply.ts` — runs it all, removes the standard seed's test tenants, and
+  sets the passwords.
 
 Record ids stay the standard seed's, so every module's records keep their
 links, and the standard seed and its tests are untouched.
@@ -82,7 +119,8 @@ links, and the standard seed and its tests are untouched.
 
 GitHub → Actions → **Demo — reset** → Run workflow, and type the demo database
 host (the `DEMO_SEED_TARGET` value). It empties the demo database, migrates
-it, loads the standard demo and dresses it as Arvela. About five minutes. The
+it, loads the standard demo, dresses it as Arvela and fills it. Allow 30 to 60
+minutes: the fill writes about ten thousand records over the network. The
 run refuses any other database, and the seed's own guard refuses production
 and staging.
 

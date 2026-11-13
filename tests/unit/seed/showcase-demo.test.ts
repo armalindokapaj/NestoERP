@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { SHOWCASE_CONVERSATIONS } from "@/prisma/seed/showcase/conversations";
 import { SHOWCASE_EXTRA_COMPANIES, SHOWCASE_NEW_PEOPLE, SHOWCASE_PEOPLE, SHOWCASE_PROJECTS, SHOWCASE_COMPANIES, showcaseReplacements, usernameOf } from "@/prisma/seed/showcase/dataset";
 import { proseReplacementSql } from "@/prisma/seed/showcase/prose";
+import { PLANS } from "@/prisma/seed/showcase/fill/sales";
+import { LAYOUTS } from "@/prisma/seed/showcase/fill/units";
+import { unitLabel } from "@/lib/modules/project-structure/structure.rules";
 import { DEMO_PROJECTS } from "@/prisma/seed/demo/projects";
 import { COMPANY_USERS, GROUP_USERS, isMemberOf } from "@/prisma/seed/demo/users";
 
@@ -68,6 +71,31 @@ describe("the selling demo's conversations", () => {
     for (const conversation of SHOWCASE_CONVERSATIONS) {
       const days = conversation.comments.map((comment) => comment.daysAgo);
       expect(days).toEqual([...days].sort((a, b) => b - a));
+    }
+  });
+});
+
+describe("the selling demo's fill", () => {
+  const codesOf = (projectId: string) => LAYOUTS.find((layout) => layout.projectId === projectId)!.buildings.flatMap((building) => building.levels.flatMap((level) => level.units.map((unit) => unitLabel(building.code, unit.code))));
+
+  it("gives every unit a code of its own in its project", () => {
+    for (const layout of LAYOUTS) {
+      const codes = codesOf(layout.projectId);
+      expect(new Set(codes).size, layout.projectId).toBe(codes.length);
+    }
+  });
+
+  it("only pins the story on units that exist", () => {
+    for (const plan of PLANS.filter((row) => row.key !== null)) {
+      const codes = new Set(codesOf(plan.projectId));
+      for (const code of Object.keys(plan.force ?? {})) expect(codes.has(code), `${plan.projectId} ${code}`).toBe(true);
+    }
+  });
+
+  it("prices every building it puts on the market", () => {
+    for (const plan of PLANS.filter((row) => row.key !== null)) {
+      const layout = LAYOUTS.find((row) => row.projectId === plan.projectId)!;
+      for (const building of Object.keys(plan.launch)) expect(layout.buildings.some((row) => row.code === building), `${plan.projectId} ${building}`).toBe(true);
     }
   });
 });
