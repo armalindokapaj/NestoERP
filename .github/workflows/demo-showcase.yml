@@ -1,0 +1,68 @@
+# The selling demo: empties the demo database, migrates it, loads the
+# standard demo and dresses it as Arvela Group (docs/demo-showcase.md).
+#
+# Run by hand only (Actions → "Demo — reset" → Run workflow), and only
+# against the demo database: the run is refused unless the host typed matches
+# the DEMO_SEED_TARGET secret, and the seed's own guard checks it again. It
+# never touches rozaris.com's database — that URL is not a secret here.
+name: Demo — reset
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: The demo database host, typed out (as in the DEMO_SEED_TARGET secret)
+        required: true
+
+concurrency:
+  group: demo-showcase
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: demo
+    env:
+      # The demo database's direct (non-pooling) URL: migrations need a session connection.
+      DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DEMO_DATABASE_URL }}
+      NESTO_SEED_TARGET: ${{ secrets.DEMO_SEED_TARGET }}
+      NESTO_DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+      NESTO_DEMO_ADMIN_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
+      NESTO_DEMO_SIGN_IN: temporary
+      # A hosted demo: the seed guard refuses production and staging, never this.
+      APP_ENV: demo
+      # The demo's files go to the demo project's own bucket, where its site reads them.
+      STORAGE_DRIVER: supabase
+      STORAGE_BUCKET: ${{ secrets.DEMO_STORAGE_BUCKET }}
+      SUPABASE_URL: ${{ secrets.DEMO_SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.DEMO_SUPABASE_SECRET_KEY }}
+    steps:
+      - name: The host typed is the demo database
+        env:
+          TYPED: ${{ inputs.confirm }}
+        run: test -n "$NESTO_SEED_TARGET" && test "$TYPED" = "$NESTO_SEED_TARGET"
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Empty and migrate the demo database
+        run: pnpm prisma migrate reset --force --skip-seed
+
+      - name: Roles, permissions and modules
+        run: pnpm tsx scripts/access-sync.ts
+
+      - name: The standard demo
+        run: pnpm tsx prisma/seed.ts
+
+      - name: Dressed as Arvela Group
+        run: pnpm tsx prisma/seed-showcase.ts
