@@ -27,6 +27,12 @@ export function CreateCompanyDialog({ open, onOpenChange, groups, group }: { ope
     group
       ? { name: "groupId", label: t("create.company.groupLabel"), type: "select", options: [group], disabled: true }
       : { name: "groupId", label: t("create.company.groupLabel"), type: "select", options: groups, emptyLabel: t("create.company.noneStandalone"), hint: t("create.company.groupHint") },
+    // The registry details, all optional: a company copied from its extract is made in one step.
+    { name: "legalName", label: t("company.fields.legalName"), type: "text", maxLength: 200 },
+    { name: "registrationNumber", label: t("company.fields.registrationNumber"), type: "text", maxLength: 60 },
+    { name: "taxNumber", label: t("company.fields.taxNumber"), type: "text", maxLength: 60 },
+    { name: "country", label: t("company.fields.country"), type: "text", maxLength: 80 },
+    { name: "address", label: t("company.fields.address"), type: "text", maxLength: 300, wide: true },
   ];
   return (
     <FormDialog
@@ -41,7 +47,8 @@ export function CreateCompanyDialog({ open, onOpenChange, groups, group }: { ope
       testId="new-company-dialog"
       onSubmit={async (payload) => {
         const groupId = group?.value ?? payload.groupId;
-        const result = await engineeringApi<{ companyId: string }>("/api/platform-admin/command", { body: { action: "company.create", name: payload.name, ...(groupId ? { groupId } : {}) } });
+        const { legalName, registrationNumber, taxNumber, country, address } = payload;
+        const result = await engineeringApi<{ companyId: string }>("/api/platform-admin/command", { body: { action: "company.create", name: payload.name, legalName, registrationNumber, taxNumber, country, address, ...(groupId ? { groupId } : {}) } });
         toast({ title: t("create.company.toast"), tone: "success" });
         return { redirectTo: `/admin/organizations/${result.companyId}` };
       }}

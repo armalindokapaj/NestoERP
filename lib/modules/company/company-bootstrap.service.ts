@@ -21,6 +21,12 @@ import {
 } from "@/lib/modules/team/invitations/invite.token";
 
 /**
+ * A company's time zone when its group names none. NESTO is sold in Albania,
+ * and UTC would show every site time an hour or two off.
+ */
+const DEFAULT_TIMEZONE = "Europe/Tirane";
+
+/**
  * Production company provisioning (PRD #38 §19).
  *
  * Creates everything a company needs to function — its parent group when it
@@ -218,7 +224,7 @@ export async function bootstrapCompany(raw: BootstrapCompanyInput): Promise<Boot
       create: {
         companyId,
         ...(input.locale ? { locale: input.locale } : {}),
-        ...(input.timezone ? { timezone: input.timezone } : {}),
+        timezone: input.timezone || DEFAULT_TIMEZONE,
         ...(input.baseCurrency ? { baseCurrency: input.baseCurrency } : {}),
       },
     });

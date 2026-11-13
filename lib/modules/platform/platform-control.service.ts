@@ -21,7 +21,7 @@ import { invalidateMaintenanceSnapshot } from "@/lib/core/maintenance/platform-m
 import { incrementCounter, Metric } from "@/lib/core/observability/metrics";
 import { logger, serialiseError } from "@/lib/core/observability/logger";
 import { applyModuleChange, ModulePolicyError, SHARED_MODULES } from "@/lib/modules/settings/module-toggle.service";
-import type { AccessInspectorInput } from "./platform-control.schema";
+import type { AccessInspectorInput, ProjectUpdateInput } from "./platform-control.schema";
 import { inspectAccess } from "./platform-control.query";
 import { describeLogo } from "@/lib/workspace/branding";
 
@@ -426,12 +426,29 @@ export async function createPlatformProject(context: PlatformContext, input: { c
  * project is edited the same way; its ownership never changes here (Standalone
  * Project PRD §36) — only the assignment action gives it a company.
  */
-export async function updatePlatformProject(context: PlatformContext, input: { projectId: string; name: string; description?: string | null; status: "PENDING" | "ACTIVE" | "FINISHED"; reason: string }) {
+export async function updatePlatformProject(context: PlatformContext, input: ProjectUpdateInput) {
   assertPlatform(context, "platform.project.manage");
-  const project = assertFound(await prisma.project.findFirst({ where: { id: input.projectId, archivedAt: null, OR: [{ companyId: null }, { company: { parentGroup: { isTestFixture: false } } }] }, select: { id: true, name: true, description: true, status: true, companyId: true, company: { select: { parentGroupId: true } } } }));
+  const project = assertFound(await prisma.project.findFirst({
+    where: { id: input.projectId, archivedAt: null, OR: [{ companyId: null }, { company: { parentGroup: { isTestFixture: false } } }] },
+    select: { id: true, name: true, description: true, status: true, companyId: true, company: { select: { parentGroupId: true } }, projectTypeId: true, address: true, city: true, country: true, builtArea: true, startDate: true, endDate: true },
+  }));
+  // The edit form sends the whole record and leaves blanks out, so a field left out is cleared, as the description is.
+  const saved = { projectTypeId: project.projectTypeId, address: project.address, city: project.city, country: project.country, builtArea: project.builtArea === null ? null : Number(project.builtArea), startDate: project.startDate, endDate: project.endDate };
+  const place = {
+    projectTypeId: input.projectTypeId ?? null, address: input.address ?? null, city: input.city ?? null, country: input.country ?? null,
+    builtArea: input.builtArea ?? null, startDate: input.startDate ?? null, endDate: input.endDate ?? null,
+  };
+  // A type is one of the project's company's own, in use (E-05A §62); an unassigned project has none to choose from.
+  if (place.projectTypeId && place.projectTypeId !== saved.projectTypeId) {
+    const owned = project.companyId ? await prisma.projectType.count({ where: { id: place.projectTypeId, companyId: project.companyId, isActive: true } }) : 0;
+    if (!owned) throw new AccessError("VALIDATION_ERROR", "Choose one of this company's project types.", { field: "projectTypeId" });
+  }
+  if (place.startDate && place.endDate && place.endDate < place.startDate) throw new AccessError("VALIDATION_ERROR", "The end date cannot be before the start date.", { field: "endDate" });
+  const day = (value: Date | null) => value?.toISOString().slice(0, 10) ?? null;
+  const record = (row: typeof place) => ({ ...row, startDate: day(row.startDate), endDate: day(row.endDate) });
   await prisma.$transaction(async (tx) => {
-    assertUpdated(await tx.project.updateMany({ where: { id: project.id, status: project.status, companyId: project.companyId }, data: { name: input.name, description: input.description ?? null, status: input.status } }));
-    await recordProjectAction(context, project, { actionKey: AuditAction.PLATFORM_PROJECT_UPDATED, entity: { type: "Project", id: project.id, label: input.name }, projectId: project.id, before: { name: project.name, status: project.status }, after: { name: input.name, status: input.status }, reason: input.reason }, tx);
+    assertUpdated(await tx.project.updateMany({ where: { id: project.id, status: project.status, companyId: project.companyId }, data: { name: input.name, description: input.description ?? null, status: input.status, ...place } }));
+    await recordProjectAction(context, project, { actionKey: AuditAction.PLATFORM_PROJECT_UPDATED, entity: { type: "Project", id: project.id, label: input.name }, projectId: project.id, before: { name: project.name, status: project.status, ...record(saved) }, after: { name: input.name, status: input.status, ...record(place) }, reason: input.reason }, tx);
   });
 }
 

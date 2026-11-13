@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AccessError } from "@/lib/access/guards";
 import { canPlatform, requirePlatformContext } from "@/lib/context/platform-context";
-import { formatDate } from "@/lib/i18n/format";
+import { formatDate, formatNumber } from "@/lib/i18n/format";
 import { getPlatformProjectDetail, projectCompanyOptions, projectModules, projectUsers } from "@/lib/modules/platform/platform-projects.query";
 import { getLocale, getTranslations } from "@/lib/i18n/server";
 import { threeDLabel } from "../../organizations/_detail/labels";
@@ -72,6 +72,11 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
               [t("project.usersLabel"), project.members],
               [t("project.units"), project.units],
               [t("project.threeD"), threeDLabel(t, project.threeD.state)],
+              [t("project.type"), project.place.type ?? "—"],
+              [t("project.address"), [project.place.address, project.place.city, project.place.country].filter(Boolean).join(", ") || "—"],
+              [t("project.builtArea"), project.place.builtArea === null ? "—" : t("project.builtAreaValue", { area: formatNumber(project.place.builtArea, locale) })],
+              [t("project.startDate"), project.place.startDate ? formatDate(project.place.startDate, locale) : "—"],
+              [t("project.endDate"), project.place.endDate ? formatDate(project.place.endDate, locale) : "—"],
               [t("project.created"), formatDate(project.createdAt, locale)],
               [t("project.updated"), formatDate(project.updatedAt, locale)],
             ] as const).map(([name, value]) => <div key={name}><dt className="text-meta text-fg-subtle">{name}</dt><dd className="text-body text-fg">{value}</dd></div>)}
@@ -134,7 +139,20 @@ export default async function PlatformProjectPage({ params, searchParams }: Prop
           <p className="mt-1 text-table text-fg-muted">{t("project.settings.description")}</p>
           {canManage && !project.archived ? (
             <div className="mt-4 flex flex-wrap gap-2">
-              <PlatformCommandButton label={t("project.settings.editLabel")} title={t("project.settings.editTitle", { name: project.name })} action="project.update" fixed={{ projectId: project.id }} fields={[{ name: "name", label: t("common.projectName"), type: "text", required: true }, { name: "description", label: t("common.description"), type: "textarea" }, { name: "status", label: t("project.settings.statusField"), type: "select", required: true, options: [{ value: "PENDING", label: t("projects.statuses.PENDING") }, { value: "ACTIVE", label: t("projects.statuses.ACTIVE") }, { value: "FINISHED", label: t("projects.statuses.FINISHED") }] }, { name: "reason", label: t("common.reason"), type: "textarea", required: true }]} initial={{ name: project.name, description: project.description ?? "", status: project.status }} success={t("project.settings.updated")} />
+              <PlatformCommandButton label={t("project.settings.editLabel")} title={t("project.settings.editTitle", { name: project.name })} action="project.update" fixed={{ projectId: project.id }} fields={[
+                { name: "name", label: t("common.projectName"), type: "text", required: true },
+                { name: "description", label: t("common.description"), type: "textarea" },
+                { name: "status", label: t("project.settings.statusField"), type: "select", required: true, options: [{ value: "PENDING", label: t("projects.statuses.PENDING") }, { value: "ACTIVE", label: t("projects.statuses.ACTIVE") }, { value: "FINISHED", label: t("projects.statuses.FINISHED") }] },
+                // The company's own types; an unassigned project gets one once it has a company.
+                ...(project.types.length > 0 ? [{ name: "projectTypeId", label: t("project.type"), type: "select" as const, options: project.types, emptyLabel: "—" }] : []),
+                { name: "address", label: t("project.address"), type: "text", maxLength: 300, wide: true },
+                { name: "city", label: t("project.city"), type: "text", maxLength: 120 },
+                { name: "country", label: t("project.country"), type: "text", maxLength: 120 },
+                { name: "builtArea", label: t("project.builtArea"), type: "number", hint: "m²" },
+                { name: "startDate", label: t("project.startDate"), type: "date" },
+                { name: "endDate", label: t("project.endDate"), type: "date" },
+                { name: "reason", label: t("common.reason"), type: "textarea", required: true },
+              ]} initial={{ name: project.name, description: project.description ?? "", status: project.status, projectTypeId: project.place.projectTypeId ?? "", address: project.place.address ?? "", city: project.place.city ?? "", country: project.place.country ?? "", builtArea: project.place.builtArea === null ? "" : String(project.place.builtArea), startDate: project.place.startDate ?? "", endDate: project.place.endDate ?? "" }} success={t("project.settings.updated")} />
               <PlatformCommandButton label={t("project.settings.archiveLabel")} title={t("project.settings.archiveTitle", { name: project.name })} description={t("project.settings.archiveDescription")} action="project.archive" fixed={{ projectId: project.id }} reasonOnly destructive variant="danger" submitLabel={t("project.settings.archiveSubmit")} success={t("project.settings.archived")} />
             </div>
           ) : project.archived ? <p className="mt-3 text-table text-fg-muted">{t("project.settings.archivedNote")}</p> : null}

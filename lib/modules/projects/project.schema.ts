@@ -78,23 +78,23 @@ const versionStamp = z
  *
  * AUD-09: candidate for lib/forms (the omit / clear / set triple).
  */
-const patchText = (max: number) =>
+export const patchText = (max: number) =>
   z
     .union([z.string().trim().max(max), z.null()])
     .optional()
     .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value));
 
-const patchId = z
+export const patchId = z
   .union([z.string().trim().max(64), z.null()])
   .optional()
   .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : value));
 
-const patchDate = z
+export const patchDate = z
   .union([projectDate, z.literal(""), z.null()])
   .optional()
   .transform((value) => (value === undefined ? undefined : value === "" || value === null ? null : (value as Date)));
 
-const patchArea = z
+export const patchArea = z
   .union([
     z.coerce.number({ message: "Built area must be a number" }).positive("Built area must be above zero").max(10_000_000, "Built area is at most 10,000,000 m²"),
     z.literal(""),

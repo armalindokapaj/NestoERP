@@ -88,7 +88,10 @@ async function companyOrNotFound(companyId: string) {
 export async function createCompany(context: PlatformContext, input: CreateCompanyInput): Promise<{ companyId: string }> {
   assertPlatform(context, "platform.company.create");
   const slug = await freeSlug(prisma, input.name);
-  const result = await bootstrapCompany({ name: input.name, slug, parentGroupSlug: slug, standalone: true, disabledModules: [] });
+  const result = await bootstrapCompany({
+    name: input.name, slug, parentGroupSlug: slug, standalone: true, disabledModules: [],
+    legalName: input.legalName, registrationNumber: input.registrationNumber, taxNumber: input.taxNumber, country: input.country, address: input.address,
+  });
   await recordPlatformAction(context, result.parentGroupId, {
     actionKey: AuditAction.PLATFORM_COMPANY_CREATED,
     entity: { type: "Company", id: result.companyId, label: input.name },
