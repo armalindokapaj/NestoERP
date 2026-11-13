@@ -4,7 +4,8 @@ import { formatEuros, moduleGroups, priceExamples } from "@/lib/marketing/price-
 import type { PublicPricingConfig } from "@/lib/modules/pricing/pricing.types";
 
 /**
- * Every module of the NESTO Platform with its own monthly rate, by group, as
+ * Every module of the NESTO Platform with its own rate — a month, or for each
+ * person a month — by group, as
  * a drawing's schedule, then what a few typical buyers pay
  * (docs/pricing-modules.md). Read from the live price book like the bill of
  * quantities, so a rate changed by the Platform Admin changes here too; a
@@ -48,7 +49,16 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
                     {row.included ? (
                       <span className="font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-muted">{words.inBase}</span>
                     ) : (
-                      <span className="text-[26px] leading-none tabular-nums font-display">{formatEuros(row.monthlyCents, locale)}</span>
+                      <>
+                        {row.monthlyCents > 0 ? <span className="text-[26px] leading-none tabular-nums font-display">{formatEuros(row.monthlyCents, locale)}</span> : null}
+                        {row.monthlyCents > 0 && row.perUserCents > 0 ? <span className="mx-1 text-meta text-fg-muted">+</span> : null}
+                        {row.perUserCents > 0 ? (
+                          <>
+                            <span className="text-[26px] leading-none tabular-nums font-display">{formatEuros(row.perUserCents, locale)}</span>
+                            <span className="ml-1.5 text-meta text-fg-muted">{words.perPerson}</span>
+                          </>
+                        ) : null}
+                      </>
                     )}
                   </td>
                 </tr>

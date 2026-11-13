@@ -90,3 +90,37 @@ describe("price book charged by module", () => {
     expect(priceExamples(config)).toEqual([]);
   });
 });
+
+/** The book with modules priced for each person (docs/pricing-modules.md): no base, no included or packed users. */
+const PER_PERSON: Record<string, number> = {
+  SALES: 28, FINANCE: 28, PROJECT_MANAGEMENT: 24, PROCUREMENT: 18, HR: 14, LEGAL_FULL: 14, LEGAL_DOCUMENTS: 5,
+  ARCHITECTURE: 9, ENGINEERING: 9, HSE: 9, INVENTORY: 9, CONTRACTORS: 9,
+};
+const perPerson: PublicPricingConfig = {
+  ...byModule,
+  foundations: byModule.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, baseMonthlyCents: 0 } : row)),
+  companies: { ...byModule.companies, NESTO_PLATFORM: { ...byModule.companies.NESTO_PLATFORM, includedUsersPerFullCompany: 0 } },
+  nestoIncludedUsers: 0,
+  users: byModule.users.map((rule) => (rule.foundation === "NESTO_PLATFORM" ? { ...rule, pricePerPackCents: 0 } : rule)),
+  modules: byModule.modules.map((row) => (row.id in PER_PERSON ? { ...row, monthlyPriceCents: 0, monthlyPerUserCents: PER_PERSON[row.id]! * 100 } : row)),
+};
+
+describe("price book with modules priced for each person", () => {
+  it("drops the base and the user packs, and quotes modules per person from the cheapest", () => {
+    const rows = priceRows(perPerson);
+    expect(rows.map((row) => row.key)).toEqual(["modulesPerUser", "company", "project", "rozaris"]);
+    expect(rows[0]).toMatchObject({ from: true, monthlyCents: 500, values: { n: 12, companies: 1, projects: 1 } });
+  });
+
+  it("lists each module's rate per person, the everyday tools free", () => {
+    const lines = moduleGroups(perPerson).flatMap((entry) => entry.modules);
+    expect(lines.find((row) => row.id === "SALES")).toMatchObject({ included: false, monthlyCents: 0, perUserCents: 2_800 });
+    expect(lines.find((row) => row.id === "MEETINGS")).toMatchObject({ included: true, perUserCents: 0 });
+  });
+
+  it("works out the examples and the sample estimate for people × modules", () => {
+    const examples = Object.fromEntries(priceExamples(perPerson).map((example) => [example.key, example.monthlyCents]));
+    expect(examples).toEqual({ sales: 42_000, developer: 147_000, everything: 256_500, group: 335_000 });
+    expect(sampleEstimateCents(perPerson, 1, 15)).toBe(147_000);
+  });
+});

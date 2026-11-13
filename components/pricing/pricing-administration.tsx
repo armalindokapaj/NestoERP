@@ -18,6 +18,7 @@ import { SaveMessages, UnsavedIndicator } from "@/components/unsaved/editor-stat
 import { useEditorSave } from "@/components/unsaved/use-editor-save";
 import { useUnsavedEditor } from "@/components/unsaved/use-unsaved";
 import { dateText, numberText } from "@/lib/i18n/format";
+import { isPriced } from "@/lib/modules/pricing/pricing.engine";
 import type { getPricingAdministration } from "@/lib/modules/pricing/pricing.service";
 import type { Foundation, PricingConfig, PricingModule, PricingPromotionConfig, RozarisClass } from "@/lib/modules/pricing/pricing.types";
 import type { SaveOutcome } from "@/lib/unsaved/coordinator";
@@ -113,7 +114,7 @@ function PriceBookSummary({ config }: { config: PricingConfig }) {
   const eur = (cents: number) => numberText(cents / 100, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }, locale, "en-IE");
   const mo = (cents: number) => t("pricing.perMonth", { amount: eur(cents) });
   const platform = config.foundations.find((row) => row.id === "NESTO_PLATFORM");
-  const priced = config.modules.filter((row) => row.enabled && row.public && row.monthlyPriceCents > 0).length;
+  const priced = config.modules.filter((row) => row.enabled && row.public && isPriced(row)).length;
   return (
     <dl className="mt-5 grid gap-4 border-t border-line pt-5 sm:grid-cols-3">
       <Summary label={t("pricing.sumPlatformBase")} value={platform ? mo(platform.baseMonthlyCents) : "—"} />
@@ -304,7 +305,7 @@ function PricingVersionEditor({ version }: { version: Version }) {
           <p className="mb-3 text-table text-fg-muted">{t("pricing.modulesNote")}</p>
           <div className="overflow-x-auto">
             <Table flush aria-label={t("pricing.modulesTable")}>
-              <TableHead><TableRow><TableHeaderCell>{t("pricing.col.module")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.public")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.tier")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.addon")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.inPlatform")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.inRozaris")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.locked")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.needs")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.absorbs")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.order")}</TableHeaderCell></TableRow></TableHead>
+              <TableHead><TableRow><TableHeaderCell>{t("pricing.col.module")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.public")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.tier")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.addon")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.perUser")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.inPlatform")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.inRozaris")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.locked")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.needs")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.absorbs")}</TableHeaderCell><TableHeaderCell>{t("pricing.col.order")}</TableHeaderCell></TableRow></TableHead>
               <TableBody>
                 {config.modules.map((row) => {
                   const inFoundation = (id: Foundation, on: boolean) => setModule(row.id, { includedInFoundations: on ? [...new Set([...row.includedInFoundations, id])] : row.includedInFoundations.filter((item) => item !== id) });
@@ -314,6 +315,7 @@ function PricingVersionEditor({ version }: { version: Version }) {
                       <TableCell><input type="checkbox" aria-label={t("pricing.aria.public", { id: row.id })} checked={row.enabled && row.public} onChange={(event) => setModule(row.id, { public: event.target.checked, enabled: event.target.checked || row.enabled })} /></TableCell>
                       <TableCell><FormSelect aria-label={t("pricing.aria.tier", { id: row.id })} className="h-9 rounded-md border border-line-strong bg-surface px-2 text-table" value={row.tier} onChange={(event) => setModule(row.id, { tier: event.target.value as PricingModule["tier"] })}>{["S", "A", "B", "C", "ACCESS"].map((tier) => <option key={tier}>{tier}</option>)}</FormSelect></TableCell>
                       <TableCell><Input aria-label={t("pricing.aria.price", { id: row.id })} type="number" min={0} step="0.01" className="w-28" value={row.monthlyPriceCents / 100} onChange={(event) => setModule(row.id, { monthlyPriceCents: Math.max(0, Math.round(event.target.valueAsNumber * 100) || 0) })} /></TableCell>
+                      <TableCell><Input aria-label={t("pricing.aria.perUser", { id: row.id })} type="number" min={0} step="0.01" className="w-28" value={row.monthlyPerUserCents / 100} onChange={(event) => setModule(row.id, { monthlyPerUserCents: Math.max(0, Math.round(event.target.valueAsNumber * 100) || 0) })} /></TableCell>
                       <TableCell><input type="checkbox" aria-label={t("pricing.aria.inPlatform", { id: row.id })} checked={row.includedInFoundations.includes("NESTO_PLATFORM")} onChange={(event) => inFoundation("NESTO_PLATFORM", event.target.checked)} /></TableCell>
                       <TableCell><input type="checkbox" aria-label={t("pricing.aria.inRozaris", { id: row.id })} checked={row.includedInFoundations.includes("ROZARIS")} onChange={(event) => inFoundation("ROZARIS", event.target.checked)} /></TableCell>
                       <TableCell><input type="checkbox" aria-label={t("pricing.aria.locked", { id: row.id })} checked={row.lockedWhenIncluded} onChange={(event) => setModule(row.id, { lockedWhenIncluded: event.target.checked })} /></TableCell>

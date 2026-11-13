@@ -15,7 +15,12 @@ export function isIncluded(module: PricingModule, foundation: Foundation): boole
 
 /** Selectable with this foundation: included in it, or given an add-on price by the price book. */
 export function isOffered(module: PricingModule, foundation: Foundation): boolean {
-  return module.enabled && (isIncluded(module, foundation) || module.monthlyPriceCents > 0);
+  return module.enabled && (isIncluded(module, foundation) || isPriced(module));
+}
+
+/** Sold for money: a flat price, a price for each user, or both. */
+export function isPriced(module: PricingModule): boolean {
+  return module.monthlyPriceCents > 0 || module.monthlyPerUserCents > 0;
 }
 
 /**
@@ -24,7 +29,8 @@ export function isOffered(module: PricingModule, foundation: Foundation): boolea
  * A module absorbed by a larger one it came with is dropped, never charged
  * twice; a conflict keeps the later choice. Notices say what changed.
  */
-export function resolveModules(config: PricingConfig, foundation: Foundation, requested: string[]) {
+/** The modules a configuration holds, each charged its flat price and its price for each of `users`. */
+export function resolveModules(config: PricingConfig, foundation: Foundation, requested: string[], users = 0) {
   const byId = new Map(config.modules.map((row) => [row.id, row]));
   const notices: string[] = [];
   const chosen = new Map<string, "FOUNDATION" | "SELECTED" | "DEPENDENCY">();
@@ -42,7 +48,7 @@ export function resolveModules(config: PricingConfig, foundation: Foundation, re
       const needed = byId.get(dependency);
       if (!needed || !needed.enabled || chosen.has(dependency)) continue;
       chosen.set(dependency, isIncluded(needed, foundation) ? "FOUNDATION" : "DEPENDENCY");
-      if (!isIncluded(needed, foundation) && needed.monthlyPriceCents > 0) notices.push(`${needed.name} was added because ${row!.name} needs it.`);
+      if (!isIncluded(needed, foundation) && isPriced(needed)) notices.push(`${needed.name} was added because ${row!.name} needs it.`);
       queue.push(dependency);
     }
   }
@@ -67,7 +73,8 @@ export function resolveModules(config: PricingConfig, foundation: Foundation, re
     .map((row) => {
       const reason = chosen.get(row.id)!;
       const included = reason === "FOUNDATION";
-      return { id: row.id, name: row.name, public: row.public, included, locked: included && row.lockedWhenIncluded, monthlyCents: included ? 0 : row.monthlyPriceCents, reason };
+      const perUserCents = included ? 0 : row.monthlyPerUserCents;
+      return { id: row.id, name: row.name, public: row.public, included, locked: included && row.lockedWhenIncluded, monthlyCents: included ? 0 : row.monthlyPriceCents + perUserCents * users, perUserCents, reason };
     });
   return { rows, notices };
 }
@@ -96,7 +103,7 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
   const input = normalizeRequest(raw, config);
   const foundation = config.foundations.find((row) => row.id === input.foundation)!;
   const termKey = input.contractMonths === 24 ? "monthly24Cents" : "monthly12Cents";
-  const { rows: moduleRows, notices } = resolveModules(config, input.foundation, raw.modules);
+  const { rows: moduleRows, notices } = resolveModules(config, input.foundation, raw.modules, input.activeUsers);
 
   const companyRules = config.companies[input.foundation];
   const companiesMonthly = input.companies.fullGroup * companyRules.fullGroupMonthlyCents
@@ -156,7 +163,7 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
     currency: config.currency,
     normalizedConfiguration: input,
     foundation: { id: foundation.id, monthlyCents: foundation.baseMonthlyCents, label: foundation.name },
-    modules: moduleRows.filter((row) => row.public).map(({ id, name, included, locked, monthlyCents, reason }) => ({ id, name, included, locked, monthlyCents, reason })),
+    modules: moduleRows.filter((row) => row.public).map(({ id, name, included, locked, monthlyCents, perUserCents, reason }) => ({ id, name, included, locked, monthlyCents, perUserCents, reason })),
     companies: { included: companyRules.included, ...input.companies, monthlyCents: companiesMonthly },
     projects,
     users: { requested: input.activeUsers, included: includedUsers, billable, packSize: rule.packSize, packs, monthlyCents: usersMonthly },

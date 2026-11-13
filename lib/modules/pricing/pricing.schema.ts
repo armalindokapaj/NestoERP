@@ -99,7 +99,7 @@ export const pricingConfigSchema = z.object({
   }).strict()).length(2),
   modules: z.array(z.object({
     id: moduleId, name: text(80).min(2), group: text(60).min(2), enabled: z.boolean(), public: z.boolean(),
-    tier: z.enum(["S", "A", "B", "C", "ACCESS"]), monthlyPriceCents: cents,
+    tier: z.enum(["S", "A", "B", "C", "ACCESS"]), monthlyPriceCents: cents, monthlyPerUserCents: cents.default(0),
     includedInFoundations: z.array(foundationId).max(2), lockedWhenIncluded: z.boolean(),
     dependencies: z.array(moduleId).max(20), conflicts: z.array(moduleId).max(20), absorbs: z.array(moduleId).max(20),
     shortDescription: text(200), description: text(800), imageKey: text(80).optional(), sortOrder: z.number().int().min(0).max(10_000),
