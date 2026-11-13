@@ -63,8 +63,27 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Supabase keeps the btree_gist extension in public, so Prisma cannot drop
+      # the schema and falls back to dropping tables, views and types only. Drop
+      # the app's own functions first, or the migration that creates one fails.
       - name: Empty and migrate the demo database
-        run: pnpm prisma migrate reset --force --skip-seed
+        run: |
+          pnpm prisma db execute --url "$DATABASE_URL" --stdin <<'SQL'
+          DO $$
+          DECLARE r record;
+          BEGIN
+            FOR r IN
+              SELECT p.oid::regprocedure AS routine
+              FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public' AND p.proowner = current_user::regrole
+                AND p.prokind IN ('f', 'p')
+                AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
+            LOOP
+              EXECUTE 'DROP ROUTINE ' || r.routine || ' CASCADE';
+            END LOOP;
+          END $$;
+          SQL
+          pnpm prisma migrate reset --force --skip-seed
 
       - name: Roles, permissions and modules
         run: pnpm tsx scripts/access-sync.ts
