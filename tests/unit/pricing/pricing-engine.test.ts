@@ -143,124 +143,110 @@ describe("price books and requests", () => {
 });
 
 /** Modules priced for each person (docs/pricing-modules.md): no base, no included users, people × the chosen modules' rates. */
-describe("modules priced per person", () => {
-  const PER_PERSON: Record<string, number> = { SALES: 2_800, FINANCE: 2_800, PROJECT_MANAGEMENT: 2_400, PROCUREMENT: 1_800 };
-  const perPerson: PricingConfig = {
-    ...DEFAULT_PRICING_CONFIG,
-    foundations: DEFAULT_PRICING_CONFIG.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, baseMonthlyCents: 0 } : row)),
-    modules: DEFAULT_PRICING_CONFIG.modules.map((row) => (row.id in PER_PERSON ? { ...row, monthlyPerUserCents: PER_PERSON[row.id]!, includedInFoundations: row.includedInFoundations.filter((id) => id !== "NESTO_PLATFORM") } : row)),
-    companies: { ...DEFAULT_PRICING_CONFIG.companies, NESTO_PLATFORM: { ...DEFAULT_PRICING_CONFIG.companies.NESTO_PLATFORM, includedUsersPerFullCompany: 0 } },
-    nestoIncludedUsers: 0,
-    users: DEFAULT_PRICING_CONFIG.users.map((rule) => (rule.foundation === "NESTO_PLATFORM" ? { ...rule, pricePerPackCents: 0 } : rule)),
-  };
-  const platform = (modules: string[], activeUsers: number, extra: Partial<PricingRequest> = {}): PricingRequest => ({ ...defaultRequest("NESTO_PLATFORM", perPerson), modules, activeUsers, ...extra });
+/** Book 2026.11.5 (docs/pricing-modules.md): a company chooses modules, a group has them all; €600 minimum. */
+const RATES: Record<string, [number, number]> = {
+  SALES: [15_000, 1_500], FINANCE: [15_000, 1_500], PROJECT_MANAGEMENT: [12_000, 1_200], PROCUREMENT: [10_000, 1_000],
+  HR: [8_000, 800], LEGAL_FULL: [8_000, 800], LEGAL_DOCUMENTS: [3_000, 300],
+  ARCHITECTURE: [5_000, 500], ENGINEERING: [5_000, 500], HSE: [5_000, 500], INVENTORY: [5_000, 500], CONTRACTORS: [5_000, 500],
+};
+const SOLD: PricingConfig = {
+  ...DEFAULT_PRICING_CONFIG,
+  foundations: DEFAULT_PRICING_CONFIG.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, baseMonthlyCents: 0, minimumMonthlyCents: 60_000 } : row)),
+  modules: DEFAULT_PRICING_CONFIG.modules.map((row) => {
+    const rate = RATES[row.id];
+    return rate ? { ...row, monthlyPriceCents: rate[0], monthlyPerUserCents: rate[1], includedInFoundations: row.includedInFoundations.filter((id) => id !== "NESTO_PLATFORM") } : row;
+  }),
+  companies: { ...DEFAULT_PRICING_CONFIG.companies, NESTO_PLATFORM: { ...DEFAULT_PRICING_CONFIG.companies.NESTO_PLATFORM, jointVentureMonthlyCents: 25_000, documentsOnlyMonthlyCents: 10_000, includedUsersPerFullCompany: 0 } },
+  customers: { company: { minUsers: 10 }, group: { minUsers: 25, minCompanies: 2, perCompanyCents: 60_000, perUserCents: 6_000 } },
+  nestoProjects: { included: 1, additionalMonthlyCents: 20_000 },
+  nestoIncludedUsers: 0,
+  users: DEFAULT_PRICING_CONFIG.users.map((rule) => (rule.foundation === "NESTO_PLATFORM" ? { ...rule, pricePerPackCents: 0 } : rule)),
+};
+const company = (modules: string[], activeUsers: number, extra: Partial<PricingRequest> = {}): PricingRequest => ({ ...defaultRequest("NESTO_PLATFORM", SOLD), modules, activeUsers, ...extra });
+const group = (companies: number, activeUsers: number, extra: Partial<PricingRequest> = {}): PricingRequest => ({ ...defaultRequest("NESTO_PLATFORM", SOLD, "GROUP"), companies: { fullGroup: companies - 1, jointVenture: 0, documentsOnly: 0 }, activeUsers, ...extra });
+const rozaris3d = (...types: RozarisClass[]) => types.map((type, index) => ({ tempId: `r${index}`, type }));
 
-  it("charges each chosen module for every person, and shows its rate", () => {
-    const result = calculatePricing(platform(["SALES", "FINANCE"], 15), perPerson, null);
-    expect(result.modules.find((row) => row.id === "SALES")).toMatchObject({ included: false, perUserCents: 2_800, monthlyCents: 42_000 });
-    expect(result.standardMonthlyCents).toBe(84_000);
-    expect(result.users).toMatchObject({ included: 0, monthlyCents: 0 });
+describe("a company", () => {
+  it("pays each module it chose, a month and for each user, from 10 users", () => {
+    const result = calculatePricing(company(["ARCHITECTURE", "ENGINEERING", "FINANCE", "PROJECT_MANAGEMENT"], 4), SOLD, null);
+    expect(result.customer).toBe("COMPANY");
+    expect(result.users.requested).toBe(10);
+    expect(result.modules.find((row) => row.id === "FINANCE")).toMatchObject({ included: false, perUserCents: 1_500, monthlyCents: 15_000 + 10 * 1_500 });
+    expect(result.standardMonthlyCents).toBe(37_000 + 10 * 3_700);
+    expect(result.group).toBeNull();
   });
 
-  it("grows with the people, and adds further companies and projects at their own rates", () => {
-    const core = ["SALES", "FINANCE", "PROJECT_MANAGEMENT", "PROCUREMENT"];
-    expect(calculatePricing(platform(core, 25), perPerson, null).standardMonthlyCents).toBe(245_000);
-    const group = calculatePricing(platform(core, 25, { companies: { fullGroup: 2, jointVenture: 0, documentsOnly: 0 }, nestoProjects: { active: 3 } }), perPerson, null);
-    expect(group.standardMonthlyCents).toBe(245_000 + 2 * 25_000 + 2 * 25_000);
+  it("is lifted to the €600 minimum when its month comes to less", () => {
+    const result = calculatePricing(company(["ARCHITECTURE"], 10), SOLD, null);
+    expect(result.minimum).toEqual({ monthlyCents: 60_000, topUpCents: 60_000 - 10_000 });
+    expect(result.standardMonthlyCents).toBe(60_000);
   });
 
-  it("starts the configurator at 15 people when the book includes none, and offers a module priced only per person", () => {
-    expect(defaultRequest("NESTO_PLATFORM", perPerson).activeUsers).toBe(15);
-    expect(resolveModules(perPerson, "NESTO_PLATFORM", ["SALES"], { companies: 1, activeUsers: 10 }).rows.find((row) => row.id === "SALES")).toMatchObject({ reason: "SELECTED", monthlyCents: 28_000 });
+  it("has no further companies, whatever the request says", () => {
+    const result = calculatePricing(company(["SALES"], 10, { companies: { fullGroup: 3, jointVenture: 1, documentsOnly: 1 } }), SOLD, null);
+    expect(result.normalizedConfiguration.companies).toEqual({ fullGroup: 0, jointVenture: 0, documentsOnly: 0 });
+    expect(result.companies.monthlyCents).toBe(0);
   });
 
-  it("charges a setup below the minimum the minimum, and says how much it added", () => {
-    const withMinimum: PricingConfig = { ...perPerson, foundations: perPerson.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, minimumMonthlyCents: 50_000 } : row)) };
-    // 1 architect, 1 engineer and 2 CEOs on Finance and Project Management: 4 × €52 = €208.
-    const small = calculatePricing(platform(["FINANCE", "PROJECT_MANAGEMENT"], 4), withMinimum, null);
-    expect(small.standardMonthlyCents).toBe(50_000);
-    expect(small.minimum).toEqual({ monthlyCents: 50_000, topUpCents: 50_000 - 20_800 });
-    const large = calculatePricing(platform(["SALES", "FINANCE"], 15), withMinimum, null);
-    expect(large.standardMonthlyCents).toBe(84_000);
-    expect(large.minimum.topUpCents).toBe(0);
+  it("gets Sales free with ROZARIS 3D, each 3D project priced by its size and counted towards the minimum", () => {
+    const result = calculatePricing(company(["SALES", "FINANCE"], 10, { nestoProjects: { active: 2 }, rozarisProjects: rozaris3d("BASIC", "LARGE") }), SOLD, null);
+    expect(result.modules.find((row) => row.id === "SALES")).toMatchObject({ included: true, locked: true, reason: "ROZARIS", monthlyCents: 0 });
+    expect(result.standardMonthlyCents).toBe(30_000 + 20_000 + 65_000 + 130_000);
+    const seller = calculatePricing(company([], 10, { rozarisProjects: rozaris3d("BASIC") }), SOLD, null);
+    expect(seller.minimum.topUpCents).toBe(0);
+    expect(seller.standardMonthlyCents).toBe(65_000);
   });
 
-  it("discounts the minimum with the launch offer like any NESTO charge", () => {
-    const withMinimum: PricingConfig = { ...perPerson, foundations: perPerson.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, minimumMonthlyCents: 50_000 } : row)) };
-    const quote = calculatePricing(platform(["SALES"], 2, { promotionCode: DEFAULT_LAUNCH_PROMOTION.code }), withMinimum, DEFAULT_LAUNCH_PROMOTION);
-    expect(quote.schedule.map((period) => period.monthlyCents)).toEqual([0, 25_000, 50_000]);
+  it("never has fewer projects than 3D projects", () => {
+    const result = calculatePricing(company(["FINANCE"], 10, { nestoProjects: { active: 1 }, rozarisProjects: rozaris3d("BASIC", "BASIC", "BASIC") }), SOLD, null);
+    expect(result.normalizedConfiguration.nestoProjects?.active).toBe(3);
+    expect(result.projects.find((project) => project.type === "NESTO")?.monthlyCents).toBe(40_000);
   });
 
-  it("reads a stored book without a minimum as having none", () => {
-    const stored = JSON.parse(JSON.stringify(DEFAULT_PRICING_CONFIG)) as { foundations: Array<Record<string, unknown>> };
-    for (const row of stored.foundations) delete row.minimumMonthlyCents;
-    expect(pricingConfigSchema.parse(stored).foundations.every((row) => row.minimumMonthlyCents === 0)).toBe(true);
-  });
-
-  it("reads a stored book without per-person prices as charging none", () => {
-    const stored = JSON.parse(JSON.stringify(DEFAULT_PRICING_CONFIG)) as { modules: Array<Record<string, unknown>> };
-    for (const row of stored.modules) delete row.monthlyPerUserCents;
-    expect(pricingConfigSchema.parse(stored).modules.every((row) => row.monthlyPerUserCents === 0)).toBe(true);
+  it("has the launch offer discount its NESTO charges and the minimum, never ROZARIS", () => {
+    const result = calculatePricing(company(["ARCHITECTURE"], 10, { promotionCode: DEFAULT_LAUNCH_PROMOTION.code }), SOLD, DEFAULT_LAUNCH_PROMOTION);
+    expect(result.schedule.map((period) => period.monthlyCents)).toEqual([0, 30_000, 60_000]);
   });
 });
 
-describe("modules priced per company, capped for a group, and per user", () => {
-  // [per company, group cap, per user] in cents a month.
-  const RATES: Record<string, [number, number, number]> = {
-    SALES: [15_000, 37_500, 1_500], FINANCE: [15_000, 37_500, 1_500], PROJECT_MANAGEMENT: [12_000, 30_000, 1_200],
-    PROCUREMENT: [10_000, 25_000, 1_000], ARCHITECTURE: [5_000, 12_500, 500], ENGINEERING: [5_000, 12_500, 500],
-  };
-  const mixed: PricingConfig = {
-    ...DEFAULT_PRICING_CONFIG,
-    foundations: DEFAULT_PRICING_CONFIG.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, baseMonthlyCents: 0, minimumMonthlyCents: 50_000 } : row)),
-    modules: DEFAULT_PRICING_CONFIG.modules.map((row) => {
-      const rate = RATES[row.id];
-      return rate ? { ...row, monthlyPerCompanyCents: rate[0], monthlyGroupCapCents: rate[1], monthlyPerUserCents: rate[2], includedInFoundations: row.includedInFoundations.filter((id) => id !== "NESTO_PLATFORM") } : row;
-    }),
-    companies: { ...DEFAULT_PRICING_CONFIG.companies, NESTO_PLATFORM: { ...DEFAULT_PRICING_CONFIG.companies.NESTO_PLATFORM, fullGroupMonthlyCents: 25_000, includedUsersPerFullCompany: 0 } },
-    nestoProjects: { included: 1, additionalMonthlyCents: 20_000 },
-    nestoIncludedUsers: 0,
-    users: DEFAULT_PRICING_CONFIG.users.map((rule) => (rule.foundation === "NESTO_PLATFORM" ? { ...rule, pricePerPackCents: 0 } : rule)),
-  };
-  const DEVELOPER = ["SALES", "FINANCE", "PROJECT_MANAGEMENT", "PROCUREMENT"];
-  const platform = (modules: string[], activeUsers: number, extra: Partial<PricingRequest> = {}): PricingRequest => ({ ...defaultRequest("NESTO_PLATFORM", mixed), modules, activeUsers, ...extra });
-
-  it("charges each module for its own people: 1 architect, 1 engineer and 2 CEOs, lifted to the minimum", () => {
-    const result = calculatePricing(platform(["ARCHITECTURE", "ENGINEERING", "FINANCE", "PROJECT_MANAGEMENT"], 4, { moduleUsers: { ARCHITECTURE: 1, ENGINEERING: 1, FINANCE: 2, PROJECT_MANAGEMENT: 2 } }), mixed, null);
-    expect(result.modules.find((row) => row.id === "FINANCE")).toMatchObject({ perCompanyCents: 15_000, companyCents: 15_000, perUserCents: 1_500, users: 2, monthlyCents: 18_000 });
-    expect(result.modules.find((row) => row.id === "ARCHITECTURE")).toMatchObject({ users: 1, monthlyCents: 5_500 });
-    expect(result.minimum).toEqual({ monthlyCents: 50_000, topUpCents: 50_000 - 43_400 });
-    expect(result.standardMonthlyCents).toBe(50_000);
+describe("a group of companies", () => {
+  it("has every module in its price: for each company and each user", () => {
+    const result = calculatePricing(group(3, 25, { nestoProjects: { active: 3 } }), SOLD, null);
+    expect(result.customer).toBe("GROUP");
+    expect(result.group).toEqual({ companies: 3, perCompanyCents: 60_000, users: 25, perUserCents: 6_000, monthlyCents: 3 * 60_000 + 25 * 6_000 });
+    expect(result.modules.filter((row) => RATES[row.id]).every((row) => row.included && row.reason === "GROUP" && row.monthlyCents === 0)).toBe(true);
+    expect(result.standardMonthlyCents).toBe(330_000 + 40_000);
   });
 
-  it("counts every active user for a module whose people are not given", () => {
-    expect(calculatePricing(platform(DEVELOPER, 15), mixed, null).standardMonthlyCents).toBe(52_000 + 15 * 5_200);
+  it("has at least 2 companies and 25 users, joint ventures and documents-only companies at their own prices", () => {
+    const result = calculatePricing(group(1, 5, { companies: { fullGroup: 0, jointVenture: 1, documentsOnly: 2 } }), SOLD, null);
+    expect(result.group).toMatchObject({ companies: 2, users: 25 });
+    expect(result.companies.monthlyCents).toBe(25_000 + 2 * 10_000);
+    expect(result.standardMonthlyCents).toBe(2 * 60_000 + 25 * 6_000 + 45_000);
   });
 
-  it("caps a module's company price at its group price, and keeps the company and project charges", () => {
-    const result = calculatePricing(platform(DEVELOPER, 25, { companies: { fullGroup: 2, jointVenture: 0, documentsOnly: 0 }, nestoProjects: { active: 3 } }), mixed, null);
-    // 3 companies: Sales 3 × €150 = €450, capped at €375; Procurement 3 × €100 = €300, capped at €250.
-    expect(result.modules.find((row) => row.id === "SALES")).toMatchObject({ companyCents: 37_500 });
-    expect(result.modules.find((row) => row.id === "PROCUREMENT")).toMatchObject({ companyCents: 25_000 });
-    expect(result.companies.monthlyCents).toBe(50_000);
-    expect(result.standardMonthlyCents).toBe(130_000 + 25 * 5_200 + 50_000 + 40_000);
+  it("ignores modules a request names, and is offered only where the book prices it", () => {
+    expect(calculatePricing(group(2, 25, { modules: ["SALES"] }), SOLD, null).normalizedConfiguration.modules).toEqual([]);
+    const unpriced: PricingConfig = { ...SOLD, customers: { ...SOLD.customers, group: { ...SOLD.customers.group, perCompanyCents: 0, perUserCents: 0 } } };
+    expect(calculatePricing(group(2, 25), unpriced, null).customer).toBe("COMPANY");
+  });
+});
+
+describe("stored price books", () => {
+  it("reads book 2026.11.4's per-company price as a module's monthly price, and a book without customer rules as offering no group", () => {
+    const stored = JSON.parse(JSON.stringify(SOLD)) as { modules: Array<Record<string, unknown>>; customers?: unknown };
+    for (const row of stored.modules) { row.monthlyPerCompanyCents = row.monthlyPriceCents; row.monthlyGroupCapCents = 1; row.monthlyPriceCents = 0; }
+    delete stored.customers;
+    const book = pricingConfigSchema.parse(stored);
+    expect(book.modules.find((row) => row.id === "SALES")).toMatchObject({ monthlyPriceCents: 15_000, monthlyPerUserCents: 1_500 });
+    expect(book.modules.find((row) => row.id === "SALES")).not.toHaveProperty("monthlyGroupCapCents");
+    expect(book.customers.group).toMatchObject({ perCompanyCents: 0, perUserCents: 0 });
   });
 
-  it("charges the company price for each full company under the cap, never for a documents-only one", () => {
-    const two = calculatePricing(platform(["SALES"], 1, { companies: { fullGroup: 1, jointVenture: 0, documentsOnly: 3 } }), mixed, null);
-    expect(two.modules.find((row) => row.id === "SALES")).toMatchObject({ companyCents: 30_000 });
-  });
-
-  it("keeps people only for the modules held, never more than the active users", () => {
-    const result = calculatePricing(platform(["SALES"], 10, { moduleUsers: { SALES: 99, HR: 3 } }), mixed, null);
-    expect(result.normalizedConfiguration.moduleUsers).toEqual({ SALES: 10 });
-    expect(result.modules.find((row) => row.id === "SALES")).toMatchObject({ users: 10 });
-  });
-
-  it("accepts people per module in a request, and reads a stored book without company prices as charging none", () => {
-    expect(pricingRequestSchema.parse({ ...platform(["SALES"], 5), moduleUsers: { SALES: 2 } }).moduleUsers).toEqual({ SALES: 2 });
-    const stored = JSON.parse(JSON.stringify(DEFAULT_PRICING_CONFIG)) as { modules: Array<Record<string, unknown>> };
-    for (const row of stored.modules) { delete row.monthlyPerCompanyCents; delete row.monthlyGroupCapCents; }
-    expect(pricingConfigSchema.parse(stored).modules.every((row) => row.monthlyPerCompanyCents === 0 && row.monthlyGroupCapCents === 0)).toBe(true);
+  it("reads a stored book without a minimum as having none, and accepts a request for a group", () => {
+    const stored = JSON.parse(JSON.stringify(DEFAULT_PRICING_CONFIG)) as { foundations: Array<Record<string, unknown>> };
+    for (const row of stored.foundations) delete row.minimumMonthlyCents;
+    expect(pricingConfigSchema.parse(stored).foundations.every((row) => row.minimumMonthlyCents === 0)).toBe(true);
+    expect(pricingRequestSchema.parse(group(2, 25)).customer).toBe("GROUP");
   });
 });

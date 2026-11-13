@@ -1,5 +1,5 @@
 import { PRICING_EXCLUSIONS } from "./pricing.config";
-import type { Foundation, PricingConfig, PricingModule, PricingPromotionConfig, PricingQuote, PricingRequest } from "./pricing.types";
+import type { CustomerType, Foundation, ModuleReason, PricingConfig, PricingModule, PricingPromotionConfig, PricingQuote, PricingRequest } from "./pricing.types";
 
 /*
  * The modular pricing engine (Modular Pricing PRD §11-§28, §39-§41, §55).
@@ -18,24 +18,20 @@ export function isOffered(module: PricingModule, foundation: Foundation): boolea
   return module.enabled && (isIncluded(module, foundation) || isPriced(module));
 }
 
-/** Sold for money: a flat price, a price for each company, for each user, or a mix. */
+/** Sold for money: a monthly price, a price for each user, or both. */
 export function isPriced(module: PricingModule): boolean {
-  return module.monthlyPriceCents > 0 || module.monthlyPerCompanyCents > 0 || module.monthlyPerUserCents > 0;
+  return module.monthlyPriceCents > 0 || module.monthlyPerUserCents > 0;
 }
 
-/** What a module's company price comes to for `companies`, never more than its group price. */
-export function companyCharge(module: Pick<PricingModule, "monthlyPerCompanyCents" | "monthlyGroupCapCents">, companies: number): number {
-  const full = module.monthlyPerCompanyCents * companies;
-  return module.monthlyGroupCapCents > 0 ? Math.min(full, module.monthlyGroupCapCents) : full;
+/** A group of companies is offered when the book gives it a price. */
+export function offersGroup(config: Pick<PricingConfig, "customers">): boolean {
+  return config.customers.group.perCompanyCents > 0 || config.customers.group.perUserCents > 0;
 }
 
-/** Who a module is charged for: the companies it serves, and the people using it (all active users unless said). */
-export type ModuleAudience = { companies: number; activeUsers: number; moduleUsers?: Record<string, number> };
+/** Who the modules are for: a company or a group, how many users, and whether it has ROZARIS 3D projects (which bring Sales). */
+export type ModuleBuyer = { customer: CustomerType; users: number; rozaris3d: boolean };
 
-function usersOf(id: string, audience: ModuleAudience): number {
-  const said = audience.moduleUsers?.[id];
-  return Math.min(audience.activeUsers, Math.max(0, said ?? audience.activeUsers));
-}
+const FREE: ModuleReason[] = ["FOUNDATION", "ROZARIS", "GROUP"];
 
 /**
  * The modules the configuration really holds (§12-§14, §36): what the
@@ -43,12 +39,20 @@ function usersOf(id: string, audience: ModuleAudience): number {
  * A module absorbed by a larger one it came with is dropped, never charged
  * twice; a conflict keeps the later choice. Notices say what changed.
  */
-/** The modules a configuration holds, each charged its flat price, its company price and its price for each of its users. */
-export function resolveModules(config: PricingConfig, foundation: Foundation, requested: string[], audience: ModuleAudience = { companies: 1, activeUsers: 0 }) {
+/** The modules a configuration holds, each chosen one charged its monthly price and its price for each user. */
+export function resolveModules(config: PricingConfig, foundation: Foundation, requested: string[], buyer: ModuleBuyer = { customer: "COMPANY", users: 0, rozaris3d: false }) {
   const byId = new Map(config.modules.map((row) => [row.id, row]));
   const notices: string[] = [];
-  const chosen = new Map<string, "FOUNDATION" | "SELECTED" | "DEPENDENCY">();
+  const chosen = new Map<string, ModuleReason>();
   for (const row of config.modules) if (row.enabled && isIncluded(row, foundation)) chosen.set(row.id, "FOUNDATION");
+  if (foundation === "NESTO_PLATFORM") {
+    // ROZARIS 3D brings what the ROZARIS product always included (Sales); a group has every module in its own price.
+    for (const row of config.modules) {
+      if (!row.enabled || chosen.has(row.id)) continue;
+      if (buyer.customer === "GROUP" && row.public && isOffered(row, foundation)) chosen.set(row.id, "GROUP");
+      else if (buyer.rozaris3d && isIncluded(row, "ROZARIS")) chosen.set(row.id, "ROZARIS");
+    }
+  }
   for (const id of [...new Set(requested)]) {
     const row = byId.get(id);
     if (!row || !isOffered(row, foundation) || !row.public) { if (row) notices.push(`${row.name} is not available with this foundation and was removed.`); continue; }
@@ -86,33 +90,40 @@ export function resolveModules(config: PricingConfig, foundation: Foundation, re
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((row) => {
       const reason = chosen.get(row.id)!;
-      const included = reason === "FOUNDATION";
-      const users = usersOf(row.id, audience);
+      const included = FREE.includes(reason);
       const perUserCents = included ? 0 : row.monthlyPerUserCents;
-      const perCompanyCents = included ? 0 : row.monthlyPerCompanyCents;
-      const companyCents = included ? 0 : companyCharge(row, audience.companies);
-      const monthlyCents = included ? 0 : row.monthlyPriceCents + companyCents + perUserCents * users;
-      return { id: row.id, name: row.name, public: row.public, included, locked: included && row.lockedWhenIncluded, monthlyCents, perCompanyCents, companyCents, perUserCents, users, reason };
+      const monthlyCents = included ? 0 : row.monthlyPriceCents + perUserCents * buyer.users;
+      // With ROZARIS 3D or in a group's price a module cannot be taken out; with the foundation, as the book says.
+      const locked = reason === "FOUNDATION" ? row.lockedWhenIncluded : included;
+      return { id: row.id, name: row.name, public: row.public, included, locked, monthlyCents, perUserCents, reason };
     });
   return { rows, notices };
 }
 
-/** Normalises what a request may hold for its foundation (§36): compatible choices kept, the rest removed. */
+/**
+ * Normalises what a request may hold (§36): a group or a company (a group only
+ * where the book prices one), at least its fewest users; a company has no
+ * further companies, a group at least its fewest; never fewer projects than
+ * ROZARIS 3D projects; compatible module choices kept, the rest removed.
+ */
 export function normalizeRequest(input: PricingRequest, config: PricingConfig): PricingRequest {
-  const companies = config.companies[input.foundation];
   const isRozaris = input.foundation === "ROZARIS";
-  const held = resolveModules(config, input.foundation, input.modules).rows;
-  // People per module: only for modules it holds and charges, never more than the active users.
-  const said = input.moduleUsers;
-  const moduleUsers = said ? Object.fromEntries(held.filter((row) => !row.included && row.id in said).map((row) => [row.id, Math.min(input.activeUsers, Math.max(0, said[row.id]))])) : null;
+  const customer: CustomerType = !isRozaris && input.customer === "GROUP" && offersGroup(config) ? "GROUP" : "COMPANY";
+  const rozarisProjects = (input.rozarisProjects ?? []).map((project) => ({ tempId: project.tempId, type: project.type }));
+  const held = resolveModules(config, input.foundation, customer === "GROUP" ? [] : input.modules, { customer, users: 0, rozaris3d: rozarisProjects.length > 0 }).rows;
+  const none = { fullGroup: 0, jointVenture: 0, documentsOnly: 0 };
+  if (isRozaris) {
+    return { foundation: input.foundation, modules: held.filter((row) => row.reason === "SELECTED").map((row) => row.id), companies: none, rozarisProjects, activeUsers: input.activeUsers, contractMonths: input.contractMonths, promotionCode: input.promotionCode ?? null };
+  }
+  const group = config.customers.group;
   return {
     foundation: input.foundation,
+    customer,
     modules: held.filter((row) => row.reason === "SELECTED").map((row) => row.id),
-    companies: companies.additionalAvailable ? { ...input.companies } : { fullGroup: 0, jointVenture: 0, documentsOnly: 0 },
-    ...(isRozaris ? {} : { nestoProjects: { active: Math.max(config.nestoProjects.included, input.nestoProjects?.active ?? config.nestoProjects.included) } }),
-    rozarisProjects: (input.rozarisProjects ?? []).map((project) => ({ tempId: project.tempId, type: project.type })),
-    activeUsers: input.activeUsers,
-    ...(moduleUsers ? { moduleUsers } : {}),
+    companies: customer === "GROUP" ? { fullGroup: Math.max(group.minCompanies - 1, input.companies.fullGroup), jointVenture: input.companies.jointVenture, documentsOnly: input.companies.documentsOnly } : none,
+    nestoProjects: { active: Math.max(config.nestoProjects.included, rozarisProjects.length, input.nestoProjects?.active ?? config.nestoProjects.included) },
+    rozarisProjects,
+    activeUsers: Math.max(customer === "GROUP" ? group.minUsers : config.customers.company.minUsers, input.activeUsers),
     contractMonths: input.contractMonths,
     promotionCode: input.promotionCode ?? null,
   };
@@ -126,14 +137,18 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
   const input = normalizeRequest(raw, config);
   const foundation = config.foundations.find((row) => row.id === input.foundation)!;
   const termKey = input.contractMonths === 24 ? "monthly24Cents" : "monthly12Cents";
+  const customer = input.customer ?? "COMPANY";
   const companyRules = config.companies[input.foundation];
-  // A module serves the included company, further group companies and joint ventures; documents-only companies use none.
-  const moduleCompanies = companyRules.included + input.companies.fullGroup + input.companies.jointVenture;
-  const { rows: moduleRows, notices } = resolveModules(config, input.foundation, raw.modules, { companies: moduleCompanies, activeUsers: input.activeUsers, moduleUsers: input.moduleUsers });
+  const { rows: moduleRows, notices } = resolveModules(config, input.foundation, customer === "GROUP" ? [] : raw.modules, { customer, users: input.activeUsers, rozaris3d: (input.rozarisProjects?.length ?? 0) > 0 });
 
-  const companiesMonthly = input.companies.fullGroup * companyRules.fullGroupMonthlyCents
-    + input.companies.jointVenture * companyRules.jointVentureMonthlyCents
-    + input.companies.documentsOnly * companyRules.documentsOnlyMonthlyCents;
+  // A group's own line: every module, for each of its companies and each user (docs/pricing-modules.md).
+  const groupRules = config.customers.group;
+  const groupCompanies = companyRules.included + input.companies.fullGroup;
+  const group = customer === "GROUP"
+    ? { companies: groupCompanies, perCompanyCents: groupRules.perCompanyCents, users: input.activeUsers, perUserCents: groupRules.perUserCents, monthlyCents: groupCompanies * groupRules.perCompanyCents + input.activeUsers * groupRules.perUserCents }
+    : null;
+  // Joint ventures and documents-only companies keep their own prices; a group's full companies are in its line.
+  const companiesMonthly = input.companies.jointVenture * companyRules.jointVentureMonthlyCents + input.companies.documentsOnly * companyRules.documentsOnlyMonthlyCents;
 
   const projects: PricingQuote["projects"] = [];
   let nestoProjectsMonthly = 0;
@@ -163,9 +178,9 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
   const usersMonthly = packs * rule.pricePerPackCents;
 
   const modulesMonthly = moduleRows.reduce((sum, row) => sum + row.monthlyCents, 0);
-  const chargesMonthly = foundation.baseMonthlyCents + modulesMonthly + companiesMonthly + nestoProjectsMonthly + usersMonthly;
-  // A setup that comes to less than the foundation's minimum is charged the minimum (docs/pricing-modules.md).
-  const minimumTopUp = Math.max(0, foundation.minimumMonthlyCents - chargesMonthly);
+  const chargesMonthly = foundation.baseMonthlyCents + modulesMonthly + (group?.monthlyCents ?? 0) + companiesMonthly + nestoProjectsMonthly + usersMonthly;
+  // A setup whose whole month (ROZARIS 3D too) comes to less than the foundation's minimum is charged the minimum (docs/pricing-modules.md).
+  const minimumTopUp = Math.max(0, foundation.minimumMonthlyCents - chargesMonthly - rozarisMonthly);
   const nestoMonthly = chargesMonthly + minimumTopUp;
   const standardMonthly = nestoMonthly + rozarisMonthly;
 
@@ -190,8 +205,10 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
     pricingVersion: config.version,
     currency: config.currency,
     normalizedConfiguration: input,
+    customer,
     foundation: { id: foundation.id, monthlyCents: foundation.baseMonthlyCents, label: foundation.name },
-    modules: moduleRows.filter((row) => row.public).map(({ id, name, included, locked, monthlyCents, perCompanyCents, companyCents, perUserCents, users, reason }) => ({ id, name, included, locked, monthlyCents, perCompanyCents, companyCents, perUserCents, users, reason })),
+    modules: moduleRows.filter((row) => row.public).map(({ id, name, included, locked, monthlyCents, perUserCents, reason }) => ({ id, name, included, locked, monthlyCents, perUserCents, reason })),
+    group,
     companies: { included: companyRules.included, ...input.companies, monthlyCents: companiesMonthly },
     projects,
     users: { requested: input.activeUsers, included: includedUsers, billable, packSize: rule.packSize, packs, monthlyCents: usersMonthly },

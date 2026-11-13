@@ -79,6 +79,7 @@ export async function getPublicPricingConfig(now = new Date()): Promise<PublicPr
     foundations: config.foundations.filter((row) => row.enabled),
     modules: config.modules.filter((row) => row.enabled && row.public),
     companies: config.companies,
+    customers: config.customers,
     nestoProjects: config.nestoProjects,
     nestoIncludedUsers: config.nestoIncludedUsers,
     rozaris: config.rozaris,

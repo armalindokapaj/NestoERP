@@ -1,8 +1,8 @@
 import type { Locale } from "@/lib/i18n/config";
 import { numberText } from "@/lib/i18n/format";
 import { MODULE_GROUPS } from "@/lib/modules/pricing/pricing.config";
-import { calculatePricing, isIncluded, isOffered } from "@/lib/modules/pricing/pricing.engine";
-import type { PricingConfig, PricingPromotionConfig, PublicPricingConfig } from "@/lib/modules/pricing/pricing.types";
+import { calculatePricing, isIncluded, isOffered, offersGroup } from "@/lib/modules/pricing/pricing.engine";
+import type { CustomerType, PricingConfig, PricingPromotionConfig, PublicPricingConfig, RozarisClass } from "@/lib/modules/pricing/pricing.types";
 
 /**
  * The public price book as a bill of quantities (UI-05 §3.5).
@@ -16,7 +16,7 @@ import type { PricingConfig, PricingPromotionConfig, PublicPricingConfig } from 
 /** The modules most developers start with: the examples and the apply form's sample estimate. */
 const DEVELOPER = ["SALES", "FINANCE", "PROJECT_MANAGEMENT", "PROCUREMENT"];
 
-export type PriceRowKey = "minimum" | "platform" | "modules" | "modulesPerCompany" | "modulesPerUser" | "company" | "project" | "users" | "rozaris";
+export type PriceRowKey = "minimum" | "platform" | "companyModules" | "companyUsers" | "group" | "groupUsers" | "jointVenture" | "documentsOnly" | "project" | "users" | "rozaris";
 
 export type PriceRow = {
   key: PriceRowKey;
@@ -45,24 +45,28 @@ export function priceRows(config: PublicPricingConfig): PriceRow[] {
         values: { companies: companies.included, projects: config.nestoProjects.included, users: config.nestoIncludedUsers },
       });
     }
-    // The modules a Platform buyer chooses, each part quoted from the cheapest (docs/pricing-modules.md).
+    // A company: the modules it chooses, each a month and for each user, quoted from the cheapest (docs/pricing-modules.md).
     const priced = platformModules(config).filter((row) => !row.included);
-    const perCompany = priced.filter((row) => row.perCompanyCents > 0);
+    const monthly = priced.filter((row) => row.monthlyCents > 0);
     const perUser = priced.filter((row) => row.perUserCents > 0);
-    const flat = priced.filter((row) => row.monthlyCents > 0);
-    if (perCompany.length > 0) rows.push({ key: "modulesPerCompany", monthlyCents: Math.min(...perCompany.map((row) => row.perCompanyCents)), from: true, values: { n: perCompany.length } });
-    if (perUser.length > 0) rows.push({ key: "modulesPerUser", monthlyCents: Math.min(...perUser.map((row) => row.perUserCents)), from: true, values: { n: perUser.length, companies: companies.included, projects: config.nestoProjects.included } });
-    if (flat.length > 0) rows.push({ key: "modules", monthlyCents: Math.min(...flat.map((row) => row.monthlyCents)), from: true, values: { n: flat.length } });
-    if (companies.additionalAvailable) {
-      rows.push({ key: "company", monthlyCents: companies.fullGroupMonthlyCents, from: false, values: { users: companies.includedUsersPerFullCompany } });
+    const minUsers = config.customers.company.minUsers;
+    if (monthly.length > 0) rows.push({ key: "companyModules", monthlyCents: Math.min(...monthly.map((row) => row.monthlyCents)), from: true, values: { n: priced.length, users: minUsers } });
+    if (perUser.length > 0) rows.push({ key: "companyUsers", monthlyCents: Math.min(...perUser.map((row) => row.perUserCents)), from: true, values: {} });
+    // A group: every module in one price, for each company and each user; joint ventures and documents-only companies at their own.
+    if (offersGroup(config)) {
+      const group = config.customers.group;
+      rows.push({ key: "group", monthlyCents: group.perCompanyCents, from: false, values: { companies: group.minCompanies, users: group.minUsers } });
+      if (group.perUserCents > 0) rows.push({ key: "groupUsers", monthlyCents: group.perUserCents, from: false, values: {} });
+      if (companies.jointVentureMonthlyCents > 0) rows.push({ key: "jointVenture", monthlyCents: companies.jointVentureMonthlyCents, from: false, values: {} });
+      if (companies.documentsOnlyMonthlyCents > 0) rows.push({ key: "documentsOnly", monthlyCents: companies.documentsOnlyMonthlyCents, from: false, values: {} });
     }
-    rows.push({ key: "project", monthlyCents: config.nestoProjects.additionalMonthlyCents, from: false, values: {} });
+    rows.push({ key: "project", monthlyCents: config.nestoProjects.additionalMonthlyCents, from: false, values: { included: config.nestoProjects.included } });
     if (users && users.pricePerPackCents > 0) rows.push({ key: "users", monthlyCents: users.pricePerPackCents, from: false, values: { n: users.packSize } });
   }
 
   if (config.foundations.some((row) => row.id === "ROZARIS")) {
     const smallest = Object.values(config.rozaris.classes).sort((a, b) => a.monthly24Cents - b.monthly24Cents)[0];
-    if (smallest) rows.push({ key: "rozaris", monthlyCents: smallest.monthly24Cents, from: true, values: { users: smallest.includedUsers, months: 24 } });
+    if (smallest) rows.push({ key: "rozaris", monthlyCents: smallest.monthly24Cents, from: true, values: { months: 24 } });
   }
 
   return rows;
@@ -74,20 +78,31 @@ export function platformOffer(config: PublicPricingConfig): PricingPromotionConf
 }
 
 /**
- * A sample monthly estimate for an applicant: the Platform with the modules
- * most developers start with, for their projects and the people who will sign
- * in, on 24 months before any offer. The proposal is the real figure; this
- * only stops the form being silent about money.
+ * A sample monthly estimate for an applicant: a company with the modules most
+ * developers start with, for their projects and the people who will sign in
+ * (at least the company's fewest), on 24 months before any offer. The
+ * proposal is the real figure; this only stops the form being silent about money.
  */
 export function sampleEstimateCents(config: PublicPricingConfig, projects: number, people: number): number | null {
   if (!config.foundations.some((row) => row.id === "NESTO_PLATFORM")) return null;
   const priced = platformModules(config).filter((row) => !row.included).map((row) => row.id);
-  const quote = calculatePricing(
-    { foundation: "NESTO_PLATFORM", modules: DEVELOPER.filter((id) => priced.includes(id)), companies: { fullGroup: 0, jointVenture: 0, documentsOnly: 0 }, nestoProjects: { active: Math.max(1, projects) }, rozarisProjects: [], activeUsers: Math.max(1, people), contractMonths: 24, promotionCode: null },
+  return platformQuote(config, { customer: "COMPANY", modules: DEVELOPER.filter((id) => priced.includes(id)), companies: 1, projects: Math.max(1, projects), users: Math.max(1, people), rozaris: [] }).standardMonthlyCents;
+}
+
+type Setup = { customer: CustomerType; modules: string[]; companies: number; projects: number; users: number; rozaris: RozarisClass[] };
+
+/** The engine's quote for a Platform setup on 24 months, before any offer. */
+function platformQuote(config: PublicPricingConfig, setup: Setup) {
+  return calculatePricing(
+    {
+      foundation: "NESTO_PLATFORM", customer: setup.customer, modules: setup.modules,
+      companies: { fullGroup: Math.max(0, setup.companies - 1), jointVenture: 0, documentsOnly: 0 },
+      nestoProjects: { active: setup.projects }, rozarisProjects: setup.rozaris.map((type, index) => ({ tempId: `e${index}`, type })),
+      activeUsers: setup.users, contractMonths: 24, promotionCode: null,
+    },
     engineBook(config),
     null,
   );
-  return quote.standardMonthlyCents;
 }
 
 /**
@@ -103,13 +118,13 @@ export function formatEuros(cents: number, locale: Locale): string {
 export function engineBook(config: PublicPricingConfig): PricingConfig {
   return {
     schemaVersion: 2, version: config.pricingVersion, currency: "EUR", foundations: config.foundations, modules: config.modules,
-    companies: config.companies, nestoProjects: config.nestoProjects, nestoIncludedUsers: config.nestoIncludedUsers,
+    companies: config.companies, customers: config.customers, nestoProjects: config.nestoProjects, nestoIncludedUsers: config.nestoIncludedUsers,
     rozaris: config.rozaris, users: config.users, indexation: config.indexation,
   };
 }
 
-/** A module as the site quotes it, a month: a flat price, a price for each company capped by a group price, a price for each user — or free (`included`). */
-export type ModuleLine = { id: string; name: string; short: string; group: string; monthlyCents: number; perCompanyCents: number; groupCapCents: number; perUserCents: number; included: boolean };
+/** A module as the site quotes it for a company, a month: its price and its price for each user — or free (`included`). */
+export type ModuleLine = { id: string; name: string; short: string; group: string; monthlyCents: number; perUserCents: number; included: boolean };
 
 /** Every module a NESTO Platform buyer can have: in the base, or priced on its own, in the catalogue's order. */
 export function platformModules(config: PublicPricingConfig): ModuleLine[] {
@@ -119,7 +134,7 @@ export function platformModules(config: PublicPricingConfig): ModuleLine[] {
     .map((row) => {
       const included = isIncluded(row, "NESTO_PLATFORM");
       const sold = (cents: number) => (included ? 0 : cents);
-      return { id: row.id, name: row.name, short: row.shortDescription, group: row.group, monthlyCents: sold(row.monthlyPriceCents), perCompanyCents: sold(row.monthlyPerCompanyCents), groupCapCents: sold(row.monthlyGroupCapCents), perUserCents: sold(row.monthlyPerUserCents), included };
+      return { id: row.id, name: row.name, short: row.shortDescription, group: row.group, monthlyCents: sold(row.monthlyPriceCents), perUserCents: sold(row.monthlyPerUserCents), included };
     });
 }
 
@@ -130,33 +145,31 @@ export function moduleGroups(config: PublicPricingConfig): { group: string; modu
   return [...new Set(order)].map((group) => ({ group, modules: lines.filter((row) => row.group === group) })).filter((entry) => entry.modules.length > 0);
 }
 
-export type PriceExampleKey = "office" | "developer" | "everything" | "group";
-/** `moduleUsers`: people per module where not everyone uses it. `atMinimum`: the setup comes to less than the monthly minimum, which is what it pays. */
-export type PriceExample = { key: PriceExampleKey; modules: string[]; companies: number; projects: number; users: number; moduleUsers?: Record<string, number>; monthlyCents: number; atMinimum: boolean };
+export type PriceExampleKey = "office" | "developer" | "seller" | "group";
+/** `atMinimum`: the setup comes to less than the monthly minimum, which is what it pays. */
+export type PriceExample = Setup & { key: PriceExampleKey; monthlyCents: number; atMinimum: boolean };
 
 /**
  * What a few typical buyers pay a month on 24 months, before any offer,
- * worked out by the same engine as the configurator. An example whose modules
- * the book does not sell is left out.
+ * worked out by the same engine as the configurator. An example the book does
+ * not sell (its modules, a group, ROZARIS 3D) is left out.
  */
 export function priceExamples(config: PublicPricingConfig): PriceExample[] {
-  const book = engineBook(config);
   const priced = platformModules(config).filter((row) => !row.included).map((row) => row.id);
   if (!config.foundations.some((row) => row.id === "NESTO_PLATFORM") || priced.length === 0) return [];
-  const cases: Omit<PriceExample, "monthlyCents" | "atMinimum">[] = [
-    { key: "office", modules: ["ARCHITECTURE", "ENGINEERING", "FINANCE", "PROJECT_MANAGEMENT"], companies: 1, projects: 1, users: 4, moduleUsers: { ARCHITECTURE: 1, ENGINEERING: 1, FINANCE: 2, PROJECT_MANAGEMENT: 2 } },
-    { key: "developer", modules: DEVELOPER, companies: 1, projects: 1, users: 15 },
-    { key: "everything", modules: priced, companies: 1, projects: 1, users: 15 },
-    { key: "group", modules: DEVELOPER, companies: 3, projects: 3, users: 25 },
+  const company = config.customers.company.minUsers;
+  const group = config.customers.group;
+  const cases: Array<Setup & { key: PriceExampleKey }> = [
+    { key: "office", customer: "COMPANY", modules: ["ARCHITECTURE", "ENGINEERING", "FINANCE", "PROJECT_MANAGEMENT"], companies: 1, projects: 1, users: Math.max(company, 10), rozaris: [] },
+    { key: "developer", customer: "COMPANY", modules: DEVELOPER, companies: 1, projects: 1, users: Math.max(company, 15), rozaris: [] },
+    { key: "seller", customer: "COMPANY", modules: [], companies: 1, projects: 1, users: company, rozaris: ["BASIC"] },
+    { key: "group", customer: "GROUP", modules: [], companies: Math.max(group.minCompanies, 3), projects: 3, users: group.minUsers, rozaris: [] },
   ];
+  const sellsRozaris = config.foundations.some((row) => row.id === "ROZARIS");
   return cases
-    .filter((entry) => entry.modules.every((id) => priced.includes(id)))
+    .filter((entry) => entry.modules.every((id) => priced.includes(id)) && (entry.customer !== "GROUP" || offersGroup(config)) && (entry.rozaris.length === 0 || sellsRozaris))
     .map((entry) => {
-      const quote = calculatePricing(
-        { foundation: "NESTO_PLATFORM", modules: entry.modules, companies: { fullGroup: entry.companies - 1, jointVenture: 0, documentsOnly: 0 }, nestoProjects: { active: entry.projects }, rozarisProjects: [], activeUsers: entry.users, moduleUsers: entry.moduleUsers, contractMonths: 24, promotionCode: null },
-        book,
-        null,
-      );
+      const quote = platformQuote(config, entry);
       return { ...entry, monthlyCents: quote.standardMonthlyCents, atMinimum: quote.minimum.topUpCents > 0 };
     });
 }

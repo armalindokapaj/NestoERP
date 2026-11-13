@@ -33,7 +33,7 @@ test("the section cut opens the sheet of the floor picked (UI-05 §3.1)", async 
   await page.getByTestId("floor-quality").click();
   await expect(page.getByTestId("floor-quality")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("floor-sheet")).toContainText("Inspections and tests");
-  await expect(page.getByTestId("price-book")).toContainText("NESTO Platform, every module");
+  await expect(page.getByTestId("price-book")).toContainText("A group of companies — every module");
 });
 
 test("sign-in sends a newcomer to the application, which is received with a reference (UI-05 §5, §6)", async ({ page }) => {
