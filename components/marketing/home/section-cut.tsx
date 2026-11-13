@@ -41,8 +41,8 @@ export function SectionCut({
 
   return (
     <section className="bg-canvas" data-testid="section-cut">
-      <div className="mx-auto grid w-full max-w-[1280px] items-start gap-10 px-[clamp(16px,4vw,48px)] pb-20 pt-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:pb-24 lg:pt-12">
-        <div className="flex flex-col gap-7 lg:pt-10">
+      <div className="mx-auto grid w-full max-w-[1280px] items-start gap-8 px-[clamp(16px,4vw,48px)] pb-10 pt-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10 lg:pb-12 lg:pt-10">
+        <div className="flex flex-col gap-6 lg:pt-6">
           <p className="nesto-eyebrow text-accent-strong">{copy.eyebrow}</p>
           <h1 className="text-[clamp(52px,6.6vw,104px)] leading-[0.88] text-fg font-display">
             {copy.headline}
@@ -91,7 +91,7 @@ export function SectionCut({
             The building keeps one width at every window size (356px, its
             full-screen width). The sheet stands beside it when the drawing has
             room for both (356 + 16 + 232); when not, the building is centred
-            and the sheet goes below it.
+            and the sheet goes below it, in two columns where they fit.
           */}
           <div className="@container mt-2">
             <div className="flex flex-col gap-6 @min-[604px]:flex-row @min-[604px]:items-start @min-[604px]:gap-4">
@@ -154,7 +154,8 @@ export function SectionCut({
               </div>
 
               {/* The floor's sheet. */}
-              <article aria-live="polite" className="mb-6 flex flex-col gap-3 border border-line-strong bg-surface/90 p-5 backdrop-blur-md @min-[604px]:mt-24 @min-[604px]:w-[232px] @min-[604px]:shrink-0" data-testid="floor-sheet">
+              <article aria-live="polite" className="mb-5 grid gap-3 border border-line-strong bg-surface/90 p-5 backdrop-blur-md @min-[440px]:grid-cols-2 @min-[440px]:gap-x-6 @min-[604px]:mt-24 @min-[604px]:w-[232px] @min-[604px]:shrink-0 @min-[604px]:grid-cols-1" data-testid="floor-sheet">
+                <div className="flex flex-col gap-3">
                 <span className="flex items-center justify-between">
                   <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">
                     {floor.level} · {copy.sheet}
@@ -163,7 +164,9 @@ export function SectionCut({
                 </span>
                 <p className="text-[34px] leading-none text-fg font-display">{words.name}</p>
                 <p className="nesto-standfirst text-card leading-snug">{words.line}</p>
-                <ul className="flex flex-col gap-2 border-t border-line pt-3">
+                </div>
+                <div className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-2 border-t border-line pt-3 @min-[440px]:@max-[603px]:border-t-0 @min-[440px]:@max-[603px]:pt-0">
                   {words.points.map((point) => (
                     <li key={point} className="flex gap-2 text-table text-fg">
                       <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent-strong" />
@@ -184,6 +187,7 @@ export function SectionCut({
                     <ArrowRight />
                   </Link>
                 </Button>
+                </div>
               </article>
             </div>
           </div>
