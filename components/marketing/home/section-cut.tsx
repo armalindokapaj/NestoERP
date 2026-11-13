@@ -87,97 +87,105 @@ export function SectionCut({
             <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-fg-subtle">{copy.pick}</span>
           </div>
 
-          <div className="mt-2 flex flex-col gap-6 xl:flex-row xl:items-start xl:gap-5">
-            <div className="w-full min-w-0 max-w-[440px] xl:flex-1">
-              {/* The crane, drawn over the slab column. */}
-              <div aria-hidden="true" className={columns}>
-                <span />
-                <span />
-                <svg viewBox="0 0 250 96" className="block h-auto w-full text-fg">
-                  <g fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M150 96V8M166 96V8" />
-                    <path d="M150 20l16 16M166 20l-16 16M150 44l16 16M166 44l-16 16M150 68l16 16M166 68l-16 16" />
-                    <path d="M40 8H246M60 20H166M158 0V8M120 8L158 0L200 8" />
-                    <path d="M220 8V40" strokeDasharray="3 3" />
-                  </g>
-                  <rect x="212" y="40" width="16" height="12" fill="currentColor" />
-                  <rect x="60" y="9" width="24" height="10" className="fill-accent" />
-                </svg>
+          {/*
+            The building keeps one width at every window size (356px, its
+            full-screen width). The sheet stands beside it when the drawing has
+            room for both (356 + 16 + 232); when not, the building is centred
+            and the sheet goes below it.
+          */}
+          <div className="@container mt-2">
+            <div className="flex flex-col gap-6 @min-[604px]:flex-row @min-[604px]:items-start @min-[604px]:gap-4">
+              <div className="mx-auto w-[356px] max-w-full shrink-0 @min-[604px]:mx-0">
+                {/* The crane, drawn over the slab column. */}
+                <div aria-hidden="true" className={columns}>
+                  <span />
+                  <span />
+                  <svg viewBox="0 0 250 96" className="block h-auto w-full text-fg">
+                    <g fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M150 96V8M166 96V8" />
+                      <path d="M150 20l16 16M166 20l-16 16M150 44l16 16M166 44l-16 16M150 68l16 16M166 68l-16 16" />
+                      <path d="M40 8H246M60 20H166M158 0V8M120 8L158 0L200 8" />
+                      <path d="M220 8V40" strokeDasharray="3 3" />
+                    </g>
+                    <rect x="212" y="40" width="16" height="12" fill="currentColor" />
+                    <rect x="60" y="9" width="24" height="10" className="fill-accent" />
+                  </svg>
+                </div>
+
+                <div role="group" aria-label={copy.floorsLabel} className="flex flex-col">
+                  {floors.map((item) => {
+                    const on = item.key === picked;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setPicked(item.key)}
+                        data-testid={`floor-${item.key}`}
+                        className={cn("site-floor h-[46px] w-full items-stretch text-left text-fg", columns)}
+                      >
+                        <span className={cn("flex flex-col items-end justify-center gap-px pr-2.5 text-table font-medium whitespace-nowrap", on && "text-accent-strong")}>
+                          <span className="max-w-full truncate">{copy.floors[item.key].name}</span>
+                          <span className="font-mono text-[9px] max-md:text-meta tracking-[0.1em] text-fg-subtle">{item.level}</span>
+                        </span>
+                        <span aria-hidden="true" className={cn("mb-[22px] border-b", on ? "border-accent" : "border-control")} />
+                        <span aria-hidden="true" className="site-slab" />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Ground, foundation and piles: the project record everything stands on. */}
+                <div aria-hidden="true" className={columns}>
+                  <span />
+                  <span />
+                  <span className="relative -mx-6 h-[70px] border-t-[3px] border-fg bg-[repeating-linear-gradient(-45deg,var(--nesto-border-strong)_0_1px,transparent_1px_7px)]">
+                    <span className="absolute inset-x-6 top-0 h-[30px] border-2 border-t-0 border-accent bg-accent-soft" />
+                    <span className="absolute left-[16%] top-[30px] h-10 border-l-2 border-accent" />
+                    <span className="absolute left-1/2 top-[30px] h-10 border-l-2 border-accent" />
+                    <span className="absolute right-[16%] top-[30px] h-10 border-l-2 border-accent" />
+                  </span>
+                </div>
+                <div className={cn(columns, "pb-5 pt-1")}>
+                  <span className="pr-2.5 text-right font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">{copy.foundation}</span>
+                  <span />
+                  <span className="text-table font-medium text-accent-strong">{copy.foundationLine}</span>
+                </div>
               </div>
 
-              <div role="group" aria-label={copy.floorsLabel} className="flex flex-col">
-                {floors.map((item) => {
-                  const on = item.key === picked;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => setPicked(item.key)}
-                      data-testid={`floor-${item.key}`}
-                      className={cn("site-floor h-[46px] w-full items-stretch text-left text-fg", columns)}
-                    >
-                      <span className={cn("flex flex-col items-end justify-center gap-px pr-2.5 text-table font-medium whitespace-nowrap", on && "text-accent-strong")}>
-                        <span className="max-w-full truncate">{copy.floors[item.key].name}</span>
-                        <span className="font-mono text-[9px] max-md:text-meta tracking-[0.1em] text-fg-subtle">{item.level}</span>
-                      </span>
-                      <span aria-hidden="true" className={cn("mb-[22px] border-b", on ? "border-accent" : "border-control")} />
-                      <span aria-hidden="true" className="site-slab" />
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Ground, foundation and piles: the project record everything stands on. */}
-              <div aria-hidden="true" className={columns}>
-                <span />
-                <span />
-                <span className="relative -mx-6 h-[70px] border-t-[3px] border-fg bg-[repeating-linear-gradient(-45deg,var(--nesto-border-strong)_0_1px,transparent_1px_7px)]">
-                  <span className="absolute inset-x-6 top-0 h-[30px] border-2 border-t-0 border-accent bg-accent-soft" />
-                  <span className="absolute left-[16%] top-[30px] h-10 border-l-2 border-accent" />
-                  <span className="absolute left-1/2 top-[30px] h-10 border-l-2 border-accent" />
-                  <span className="absolute right-[16%] top-[30px] h-10 border-l-2 border-accent" />
+              {/* The floor's sheet. */}
+              <article aria-live="polite" className="mb-6 flex flex-col gap-3 border border-line-strong bg-surface/90 p-5 backdrop-blur-md @min-[604px]:mt-24 @min-[604px]:w-[232px] @min-[604px]:shrink-0" data-testid="floor-sheet">
+                <span className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">
+                    {floor.level} · {copy.sheet}
+                  </span>
+                  <Icon aria-hidden="true" className="size-6 text-accent-strong" />
                 </span>
-              </div>
-              <div className={cn(columns, "pb-5 pt-1")}>
-                <span className="pr-2.5 text-right font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">{copy.foundation}</span>
-                <span />
-                <span className="text-table font-medium text-accent-strong">{copy.foundationLine}</span>
-              </div>
+                <p className="text-[34px] leading-none text-fg font-display">{words.name}</p>
+                <p className="nesto-standfirst text-card leading-snug">{words.line}</p>
+                <ul className="flex flex-col gap-2 border-t border-line pt-3">
+                  {words.points.map((point) => (
+                    <li key={point} className="flex gap-2 text-table text-fg">
+                      <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent-strong" />
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+                <ul className="flex flex-wrap gap-1">
+                  {floor.modules.map((label) => (
+                    <li key={label} className="border border-line-strong px-1.5 py-0.5 font-mono text-[9.5px] max-md:text-meta font-medium uppercase tracking-[0.12em] text-fg-muted">
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild size="sm" variant="secondary" className="self-start">
+                  <Link href="/full-view#modules">
+                    {copy.open}
+                    <ArrowRight />
+                  </Link>
+                </Button>
+              </article>
             </div>
-
-            {/* The floor's sheet. */}
-            <article aria-live="polite" className="mb-6 flex flex-col gap-3 border border-line-strong bg-surface/90 p-5 backdrop-blur-md xl:mt-24 xl:w-[232px] xl:shrink-0" data-testid="floor-sheet">
-              <span className="flex items-center justify-between">
-                <span className="font-mono text-[10px] max-md:text-meta uppercase tracking-[0.12em] text-accent-strong">
-                  {floor.level} · {copy.sheet}
-                </span>
-                <Icon aria-hidden="true" className="size-6 text-accent-strong" />
-              </span>
-              <p className="text-[34px] leading-none text-fg font-display">{words.name}</p>
-              <p className="nesto-standfirst text-card leading-snug">{words.line}</p>
-              <ul className="flex flex-col gap-2 border-t border-line pt-3">
-                {words.points.map((point) => (
-                  <li key={point} className="flex gap-2 text-table text-fg">
-                    <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent-strong" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-              <ul className="flex flex-wrap gap-1">
-                {floor.modules.map((label) => (
-                  <li key={label} className="border border-line-strong px-1.5 py-0.5 font-mono text-[9.5px] max-md:text-meta font-medium uppercase tracking-[0.12em] text-fg-muted">
-                    {label}
-                  </li>
-                ))}
-              </ul>
-              <Button asChild size="sm" variant="secondary" className="self-start">
-                <Link href="/full-view#modules">
-                  {copy.open}
-                  <ArrowRight />
-                </Link>
-              </Button>
-            </article>
           </div>
         </div>
       </div>
