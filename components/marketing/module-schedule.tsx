@@ -4,9 +4,9 @@ import { formatEuros, moduleGroups, priceExamples } from "@/lib/marketing/price-
 import type { PublicPricingConfig } from "@/lib/modules/pricing/pricing.types";
 
 /**
- * Every module of the NESTO Platform with its own rate — a month, or for each
- * person a month — by group, as a drawing's schedule, then the monthly
- * minimum and what a few typical buyers pay
+ * Every module of the NESTO Platform with its rates — for each company, at
+ * most for a group, for each user, a month — by group, as a drawing's
+ * schedule, then the monthly minimum and what a few typical buyers pay
  * (docs/pricing-modules.md). Read from the live price book like the bill of
  * quantities, so a rate changed by the Platform Admin changes here too; a
  * book that sells everything in the base shows nothing here.
@@ -19,6 +19,7 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
   const words = copy.schedule;
   const name = (id: string, fallback: string) => copy.moduleText[id]?.name ?? fallback;
   const cell = "border border-fg px-3.5 py-3 text-left align-top";
+  const figure = (cents: number) => (cents > 0 ? <span className="text-[26px] leading-none tabular-nums font-display">{formatEuros(cents, locale)}</span> : <span className="text-fg-subtle">—</span>);
 
   return (
     <div className="flex flex-col gap-10">
@@ -27,13 +28,15 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
           <tr>
             <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.module}</th>
             <th scope="col" className={`${cell} site-tb-k font-normal max-md:hidden`}>{words.columns.covers}</th>
-            <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.rate}</th>
+            <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.company}</th>
+            <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.group}</th>
+            <th scope="col" className={`${cell} site-tb-k font-normal`}>{words.columns.user}</th>
           </tr>
         </thead>
         {groups.map((entry) => (
           <tbody key={entry.group}>
             <tr>
-              <th scope="colgroup" colSpan={3} className="border border-fg bg-canvas px-3.5 py-2 text-left font-mono text-micro font-medium uppercase tracking-[0.12em] text-fg-subtle">
+              <th scope="colgroup" colSpan={5} className="border border-fg bg-canvas px-3.5 py-2 text-left font-mono text-micro font-medium uppercase tracking-[0.12em] text-fg-subtle">
                 {copy.groups[entry.group] ?? entry.group}
               </th>
             </tr>
@@ -46,22 +49,17 @@ export function ModuleSchedule({ config, copy, locale }: { config: PublicPricing
                     <span className="mt-1 block text-meta font-normal text-fg-muted md:hidden">{covers}</span>
                   </th>
                   <td className={`${cell} text-table text-fg-muted max-md:hidden`}>{covers}</td>
-                  <td className={`${cell} whitespace-nowrap`}>
-                    {row.included ? (
+                  {row.included ? (
+                    <td colSpan={3} className={`${cell} whitespace-nowrap`}>
                       <span className="font-mono text-micro font-medium uppercase tracking-[0.1em] text-fg-muted">{words.inBase}</span>
-                    ) : (
-                      <>
-                        {row.monthlyCents > 0 ? <span className="text-[26px] leading-none tabular-nums font-display">{formatEuros(row.monthlyCents, locale)}</span> : null}
-                        {row.monthlyCents > 0 && row.perUserCents > 0 ? <span className="mx-1 text-meta text-fg-muted">+</span> : null}
-                        {row.perUserCents > 0 ? (
-                          <>
-                            <span className="text-[26px] leading-none tabular-nums font-display">{formatEuros(row.perUserCents, locale)}</span>
-                            <span className="ml-1.5 text-meta text-fg-muted">{words.perPerson}</span>
-                          </>
-                        ) : null}
-                      </>
-                    )}
-                  </td>
+                    </td>
+                  ) : (
+                    <>
+                      <td className={`${cell} whitespace-nowrap`}>{figure(row.perCompanyCents)}</td>
+                      <td className={`${cell} whitespace-nowrap`}>{figure(row.groupCapCents)}</td>
+                      <td className={`${cell} whitespace-nowrap`}>{figure(row.perUserCents)}</td>
+                    </>
+                  )}
                 </tr>
               );
             })}

@@ -86,7 +86,7 @@ describe("price book charged by module", () => {
 
   it("works out what typical buyers pay with the configurator's engine", () => {
     const examples = Object.fromEntries(priceExamples(byModule).map((example) => [example.key, example.monthlyCents]));
-    expect(examples).toEqual({ sales: 70_000, developer: 145_000, everything: 225_000, group: 235_000 });
+    expect(examples).toEqual({ office: 115_000, developer: 145_000, everything: 225_000, group: 235_000 });
     expect(priceExamples(config)).toEqual([]);
   });
 });
@@ -120,7 +120,7 @@ describe("price book with modules priced for each person", () => {
 
   it("works out the examples and the sample estimate for people × modules", () => {
     const examples = Object.fromEntries(priceExamples(perPerson).map((example) => [example.key, example.monthlyCents]));
-    expect(examples).toEqual({ sales: 42_000, developer: 147_000, everything: 256_500, group: 335_000 });
+    expect(examples).toEqual({ office: 12_200, developer: 147_000, everything: 256_500, group: 335_000 });
     expect(sampleEstimateCents(perPerson, 1, 15)).toBe(147_000);
   });
 });
@@ -139,7 +139,45 @@ describe("price book with a monthly minimum", () => {
 
   it("charges an example below the minimum the minimum, and leaves the rest as they are", () => {
     const examples = Object.fromEntries(priceExamples(withMinimum).map((example) => [example.key, [example.monthlyCents, example.atMinimum]]));
-    expect(examples).toEqual({ sales: [50_000, true], developer: [147_000, false], everything: [256_500, false], group: [335_000, false] });
+    expect(examples).toEqual({ office: [50_000, true], developer: [147_000, false], everything: [256_500, false], group: [335_000, false] });
     expect(sampleEstimateCents(withMinimum, 1, 4)).toBe(50_000);
+  });
+});
+
+describe("price book with modules priced per company, capped for a group, and per user", () => {
+  // [per company, group cap, per user] in euros a month.
+  const RATES: Record<string, [number, number, number]> = {
+    SALES: [150, 375, 15], FINANCE: [150, 375, 15], PROJECT_MANAGEMENT: [120, 300, 12], PROCUREMENT: [100, 250, 10],
+    HR: [80, 200, 8], LEGAL_FULL: [80, 200, 8], LEGAL_DOCUMENTS: [30, 75, 3],
+    ARCHITECTURE: [50, 125, 5], ENGINEERING: [50, 125, 5], HSE: [50, 125, 5], INVENTORY: [50, 125, 5], CONTRACTORS: [50, 125, 5],
+  };
+  const mixed: PublicPricingConfig = {
+    ...perPerson,
+    foundations: perPerson.foundations.map((row) => (row.id === "NESTO_PLATFORM" ? { ...row, minimumMonthlyCents: 50_000 } : row)),
+    companies: { ...perPerson.companies, NESTO_PLATFORM: { ...perPerson.companies.NESTO_PLATFORM, fullGroupMonthlyCents: 25_000 } },
+    nestoProjects: { included: 1, additionalMonthlyCents: 20_000 },
+    modules: perPerson.modules.map((row) => {
+      const rate = RATES[row.id];
+      return rate ? { ...row, monthlyPerCompanyCents: rate[0] * 100, monthlyGroupCapCents: rate[1] * 100, monthlyPerUserCents: rate[2] * 100 } : row;
+    }),
+  };
+
+  it("quotes modules per company and per user, each from the cheapest", () => {
+    const rows = priceRows(mixed);
+    expect(rows.map((row) => row.key)).toEqual(["minimum", "modulesPerCompany", "modulesPerUser", "company", "project", "rozaris"]);
+    expect(rows[1]).toMatchObject({ from: true, monthlyCents: 3_000, values: { n: 12 } });
+    expect(rows[2]).toMatchObject({ from: true, monthlyCents: 300 });
+  });
+
+  it("lists each module's company, group and user rates", () => {
+    const lines = moduleGroups(mixed).flatMap((entry) => entry.modules);
+    expect(lines.find((row) => row.id === "SALES")).toMatchObject({ perCompanyCents: 15_000, groupCapCents: 37_500, perUserCents: 1_500 });
+  });
+
+  it("works out the office from its people per module, the rest for everyone", () => {
+    const examples = Object.fromEntries(priceExamples(mixed).map((example) => [example.key, [example.monthlyCents, example.atMinimum]]));
+    // Office: 43_400 of modules for 1 architect, 1 engineer, 2 directors, lifted to the minimum.
+    expect(examples).toEqual({ office: [50_000, true], developer: [130_000, false], everything: [232_500, false], group: [350_000, false] });
+    expect(sampleEstimateCents(mixed, 1, 15)).toBe(130_000);
   });
 });

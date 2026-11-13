@@ -15,7 +15,7 @@ const catalogModule = (
   extra: Partial<PricingModule> = {},
 ): PricingModule => ({
   id, name, group, tier, shortDescription, description,
-  enabled: true, public: true, monthlyPriceCents: 0, monthlyPerUserCents: 0,
+  enabled: true, public: true, monthlyPriceCents: 0, monthlyPerCompanyCents: 0, monthlyGroupCapCents: 0, monthlyPerUserCents: 0,
   includedInFoundations: ["NESTO_PLATFORM"], lockedWhenIncluded: false,
   dependencies: [], conflicts: [], absorbs: [], imageKey: id.toLowerCase().replaceAll("_", "-"), sortOrder: 0,
   ...extra,

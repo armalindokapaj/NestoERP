@@ -65,12 +65,19 @@ function readUrl(config: PublicPricingConfig): { input: PricingRequest; step: nu
     ...(foundation === "NESTO_PLATFORM" ? { nestoProjects: { active: bounded(Number(params.get("projects") ?? config.nestoProjects.included), 1, 1_000) } } : {}),
     rozarisProjects: rozaris.slice(0, 50).map((type) => ({ tempId: newProjectId(), type })),
     activeUsers: bounded(Number(params.get("users") ?? base.activeUsers), 1, 100_000),
+    ...(params.get("mu") ? { moduleUsers: readModuleUsers(params.get("mu")!) } : {}),
     contractMonths: params.get("term") === "12" ? 12 : 24,
     promotionCode: params.get("promo"),
   };
   const stepName = ({ product: "foundation", rozaris: "projects" } as Record<string, string>)[params.get("step") ?? ""] ?? params.get("step");
   const step = STEPS.indexOf(stepName as Step);
   return { input: withPromotion(config, input, params.get("promo")), step: step >= 0 ? step : 0, legacy };
+}
+
+/** `sales:5,finance:3` → people per module. */
+function readModuleUsers(value: string): Record<string, number> {
+  const pairs = value.split(",").map((pair) => pair.split(":")).filter(([id, n]) => id && n !== undefined && /^\d+$/.test(n));
+  return Object.fromEntries(pairs.slice(0, 60).map(([id, n]) => [id.trim().toUpperCase(), bounded(Number(n), 0, 100_000)]));
 }
 
 function urlFor(input: PricingRequest, step: number) {
@@ -83,6 +90,8 @@ function urlFor(input: PricingRequest, step: number) {
   if (input.nestoProjects) params.set("projects", String(input.nestoProjects.active));
   if (input.rozarisProjects?.length) params.set("rozaris", input.rozarisProjects.map((project) => project.type.toLowerCase()).join(","));
   params.set("users", String(input.activeUsers));
+  const moduleUsers = Object.entries(input.moduleUsers ?? {});
+  if (moduleUsers.length) params.set("mu", moduleUsers.map(([id, n]) => `${id.toLowerCase()}:${n}`).join(","));
   params.set("term", String(input.contractMonths));
   if (input.promotionCode) params.set("promo", input.promotionCode);
   params.set("step", STEPS[step]);
@@ -344,7 +353,12 @@ function ModuleCard({ row, ctx, held, absorbedBy, onToggle }: { row: PricingModu
   const included = isIncluded(row, input.foundation);
   const foundationName = t.foundationText[input.foundation]?.name ?? config.foundations.find((item) => item.id === input.foundation)?.name ?? "";
   const selected = Boolean(held) || Boolean(absorbedBy);
-  const price = [row.monthlyPriceCents > 0 ? fill(t.modules.addOn, { price: money(row.monthlyPriceCents) }) : null, row.monthlyPerUserCents > 0 ? fill(t.modules.addOnPerUser, { price: money(row.monthlyPerUserCents) }) : null].filter(Boolean).join(" ");
+  const parts = [
+    row.monthlyPriceCents > 0 ? money(row.monthlyPriceCents) : null,
+    row.monthlyPerCompanyCents > 0 ? fill(t.modules.perCompany, { price: money(row.monthlyPerCompanyCents) }) : null,
+    row.monthlyPerUserCents > 0 ? fill(t.modules.perUser, { price: money(row.monthlyPerUserCents) }) : null,
+  ].filter(Boolean);
+  const price = parts.length ? fill(t.modules.rate, { parts: parts.join(" + ") }) : "";
   const state = included ? fill(t.modules.includedWith, { foundation: foundationName }) : absorbedBy ? fill(t.modules.absorbed, { name: t.moduleText[absorbedBy.id]?.name ?? absorbedBy.name }) : price;
   return (
     <article className={cn("flex flex-col rounded-xl border p-4", selected ? "border-accent/60 bg-accent-soft/30" : "border-line")} data-testid={`module-${row.id.toLowerCase()}`}>
@@ -356,6 +370,7 @@ function ModuleCard({ row, ctx, held, absorbedBy, onToggle }: { row: PricingModu
         <Preview kind="module" label={words?.name ?? row.name} small />
       </div>
       <p className="mt-2 text-table font-semibold text-fg">{state}</p>
+      {!included && !absorbedBy && row.monthlyGroupCapCents > 0 ? <p className="mt-0.5 text-meta text-fg-muted">{fill(t.modules.groupCap, { price: money(row.monthlyGroupCapCents) })}</p> : null}
       {open ? <p className="mt-2 text-table leading-relaxed text-fg-muted">{words?.description ?? row.description}</p> : null}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <button type="button" className="min-h-11 text-table font-medium text-accent-strong hover:underline" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t.modules.showLess : t.modules.learnMore}</button>
@@ -437,18 +452,30 @@ function ProjectsStep({ ctx }: { ctx: Ctx }) {
 function UsersStep({ ctx }: { ctx: Ctx }) {
   const { input, quote, t, money, change } = ctx;
   const users = quote.users;
-  const perPerson = quote.modules.reduce((sum, row) => sum + row.perUserCents, 0);
+  // The charged modules a person can be counted in, each with how many use it.
+  const perUser = quote.modules.filter((row) => !row.included && row.perUserCents > 0);
   return (
     <div className="space-y-4">
       <Stepper label={t.users.requested} help={t.users.requestedHelp} value={input.activeUsers} min={1} max={100_000} onChange={(activeUsers) => change({ ...input, activeUsers }, "pricing_users_changed")} />
-      {perPerson > 0 ? (
-        <dl className="grid gap-4 border border-line bg-canvas p-5 sm:grid-cols-3" data-testid="users-per-person">
-          <Stat label={t.users.perPerson} value={money(perPerson)} />
-          <Stat label={t.users.people} value={String(input.activeUsers)} />
-          <Stat label={t.users.modulesCost} value={`${money(perPerson * input.activeUsers)} ${t.estimate.perMonth}`} />
-        </dl>
+      {perUser.length ? (
+        <section className="space-y-3" aria-labelledby="people-per-module" data-testid="users-per-module">
+          <div>
+            <h3 id="people-per-module" className="text-card font-semibold text-fg">{t.users.perModuleTitle}</h3>
+            <p className="mt-0.5 text-table text-fg-muted">{t.users.perModuleNote}</p>
+          </div>
+          {perUser.map((row) => (
+            <Stepper
+              key={row.id}
+              label={t.moduleText[row.id]?.name ?? row.name}
+              help={fill(t.users.moduleLine, { company: money(row.companyCents), users: row.users, perUser: money(row.perUserCents), total: money(row.monthlyCents) })}
+              value={row.users}
+              min={0}
+              max={input.activeUsers}
+              onChange={(people) => change({ ...input, moduleUsers: { ...input.moduleUsers, [row.id]: people } }, "pricing_users_changed")}
+            />
+          ))}
+        </section>
       ) : null}
-      {perPerson > 0 ? <p className="text-table text-fg-muted">{t.users.perPersonNote}</p> : null}
       {quote.minimum.topUpCents > 0 ? (
         <p className="border border-line bg-accent-soft/40 p-4 text-table text-fg" data-testid="minimum-note">
           {fill(t.users.minimumNote, { charges: money(quote.nestoMonthlyCents - quote.minimum.topUpCents), minimum: money(quote.minimum.monthlyCents) })}
@@ -505,7 +532,7 @@ function ReviewStep({ ctx, updating, blocked, onProposal }: { ctx: Ctx; updating
   const rows: Array<[string, React.ReactNode, number | null]> = [
     [t.review.foundation, foundationName, quote.foundation.monthlyCents || null],
     ...(included.length ? [[t.review.included, included.map(moduleName).join(", "), null] as [string, React.ReactNode, null]] : []),
-    ...added.map((row) => [t.review.added, moduleName(row), row.monthlyCents] as [string, React.ReactNode, number]),
+    ...added.map((row) => [t.review.added, row.perUserCents > 0 ? fill(t.review.moduleUsers, { name: moduleName(row), users: row.users }) : moduleName(row), row.monthlyCents] as [string, React.ReactNode, number]),
     ...(quote.companies.monthlyCents || quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly ? [[t.review.companies, `${quote.companies.included} + ${quote.companies.fullGroup + quote.companies.jointVenture + quote.companies.documentsOnly}`, quote.companies.monthlyCents] as [string, React.ReactNode, number]] : [[t.review.companies, String(quote.companies.included), null] as [string, React.ReactNode, null]]),
     ...quote.projects.map((project) => [t.review.projects, project.type === "NESTO" ? project.label : `${t.classes[project.type]?.name ?? config.rozaris.classes[project.type as RozarisClass]?.name ?? project.type} · ROZARIS`, project.monthlyCents || null] as [string, React.ReactNode, number | null]),
     [t.review.users, quote.users.included ? fill(t.review.usersLine, { included: quote.users.included, billable: quote.users.billable }) : String(quote.users.requested), quote.users.monthlyCents || null],
