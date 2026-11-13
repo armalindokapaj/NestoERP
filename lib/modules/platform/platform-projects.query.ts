@@ -98,6 +98,7 @@ export async function getPlatformProjectDetail(context: PlatformContext, project
     where: { id: projectId, OR: [{ companyId: null }, { company: { parentGroup: { isTestFixture: false } } }] },
     select: {
       id: true, code: true, name: true, description: true, status: true, archivedAt: true, createdAt: true, updatedAt: true, companyId: true, assignedAt: true,
+      projectTypeId: true, projectType: { select: { name: true } }, address: true, city: true, country: true, builtArea: true, startDate: true, endDate: true,
       company: { select: { id: true, name: true, status: true, parentGroup: { select: { id: true, name: true, kind: true } } } },
       projectManager: { select: { user: { select: { firstName: true, lastName: true } } } },
       project3DEntitlement: { select: { status: true, viewerEnabled: true, expiresAt: true } },
@@ -110,8 +111,16 @@ export async function getPlatformProjectDetail(context: PlatformContext, project
       _count: { select: { members: { where: { status: "ACTIVE" } }, units: true } },
     },
   }));
+  // The company's own project types, for the edit form; an unassigned project has none yet.
+  const types = row.companyId ? await prisma.projectType.findMany({ where: { companyId: row.companyId, isActive: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }) : [];
+  const day = (value: Date | null) => value?.toISOString().slice(0, 10) ?? null;
   return {
     id: row.id, code: row.code, name: row.name, description: row.description,
+    place: {
+      projectTypeId: row.projectTypeId, type: row.projectType?.name ?? null, address: row.address, city: row.city, country: row.country,
+      builtArea: row.builtArea === null ? null : Number(row.builtArea), startDate: day(row.startDate), endDate: day(row.endDate),
+    },
+    types: types.map((type) => ({ value: type.id, label: type.name })),
     status: row.archivedAt ? "ARCHIVED" : row.status, archived: Boolean(row.archivedAt),
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     ownership: ownershipOf(row),

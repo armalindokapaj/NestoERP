@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MODULE_KEYS } from "@/config/modules";
 import { PERMISSIONS } from "@/config/permissions";
 import { MEMBERSHIP_ROLE_KEYS } from "@/config/roles";
+import { patchArea, patchDate, patchId, patchText } from "@/lib/modules/projects/project.schema";
 import { isShellLogoSource, LOGO_DATA_URI_MAX } from "@/lib/workspace/branding";
 
 const id = z.string().trim().min(1).max(128);
@@ -172,13 +173,30 @@ export const projectAssignSchema = z.object({
 
 export const projectAssignPreviewSchema = z.object({ projectId: id, companyId: id });
 
+/**
+ * A project's identity, lifecycle and where it stands (Admin Projects & 3D PRD
+ * #5 §64): the type, place, size and dates the company's own project form
+ * keeps, so a project copied from its brochure is complete from the Admin
+ * Console. The form sends the whole record, so a field left out is cleared.
+ */
 export const projectUpdateSchema = z.object({
   projectId: id,
   name: z.string().trim().min(2).max(160),
   description: z.preprocess((value) => (value === "" ? null : value), z.string().trim().max(2000).nullable().optional()),
   status: z.enum(["PENDING", "ACTIVE", "FINISHED"]),
+  projectTypeId: patchId,
+  address: patchText(300),
+  city: patchText(120),
+  country: patchText(120),
+  builtArea: patchArea,
+  startDate: patchDate,
+  endDate: patchDate,
   reason,
 });
+type ParsedProjectUpdate = z.infer<typeof projectUpdateSchema>;
+type ProjectIdentity = "projectId" | "name" | "description" | "status" | "reason";
+/** The place fields may be left out, and are then cleared. */
+export type ProjectUpdateInput = Pick<ParsedProjectUpdate, ProjectIdentity> & Partial<Omit<ParsedProjectUpdate, ProjectIdentity>>;
 
 export const platformSettingSchema = z.object({
   key: z.enum([

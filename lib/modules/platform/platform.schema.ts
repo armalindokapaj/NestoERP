@@ -84,10 +84,17 @@ export type InitialProjectMemberInput = z.infer<typeof initialProjectMemberSchem
 
 /**
  * A new company needs only its name (Simplified Company Creation §2, §10). Its
- * code is derived from the name; everything else is completed later.
+ * code is derived from the name. The registry details can come with it, so a
+ * company copied from its registry extract is made in one step; everything
+ * else is completed later.
  */
 export const createCompanySchema = z.object({
   name: requiredText(2, 120, "Company name"),
+  legalName: unset(optionalText(200)),
+  registrationNumber: unset(optionalText(60)),
+  taxNumber: unset(optionalText(60)),
+  country: unset(optionalText(80)),
+  address: unset(optionalText(300)),
 });
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
 
