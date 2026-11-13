@@ -159,7 +159,7 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
       data-step={slide?.id}
     >
       <SectionBar label={copy.hero.eyebrow} />
-      <div className="mx-auto w-full max-w-[1280px] px-[clamp(16px,4vw,48px)] py-16 sm:py-20">
+      <div className="mx-auto w-full max-w-[1280px] px-[clamp(16px,4vw,48px)] py-10 sm:py-12">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-2xl">
             <h2 id="try-heading" className="text-balance text-[36px] leading-[0.95] text-fg sm:text-[52px] font-display">
@@ -190,7 +190,7 @@ export function InteractiveStory({ initial, copy }: { initial: StoryPosition | n
         </div>
 
         {/* The window: an illustrative NESTO, its address and its Ribbon. */}
-        <div className="site-app mt-8 overflow-hidden border-[1.5px] border-fg bg-canvas">
+        <div className="site-app mt-6 overflow-hidden border-[1.5px] border-fg bg-canvas">
           <div className="flex h-11 items-center gap-3 border-b border-line bg-surface px-4">
             <span aria-hidden="true" className="flex gap-1.5">
               <i className="size-2.5 rounded-full border border-line-strong" />

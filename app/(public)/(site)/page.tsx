@@ -98,7 +98,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {/* 02 · From the tender to the final account: six stages in lines. */}
       <section {...sectionMark(home.stages.eyebrow)} className="relative border-b border-line-strong bg-canvas">
         <SectionBar label={home.stages.eyebrow} />
-        <Container className="pb-12 pt-14 lg:pb-14 lg:pt-20">
+        <Container className="pb-8 pt-10 lg:pb-10 lg:pt-12">
           <h2 className="max-w-4xl text-[40px] leading-[0.92] text-fg sm:text-[64px] font-display">
             {home.stages.title[0]} <span className="text-accent-strong"><Dotted>{home.stages.title[1]}</Dotted></span>
           </h2>
@@ -106,9 +106,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </Container>
         <ol className="-mb-px grid grid-cols-2 border-t border-line-strong sm:grid-cols-3 lg:grid-cols-6">
           {lifecycle.map((stage, index) => (
-            <li key={stage.key} className="flex flex-col gap-3.5 border-b border-r border-line-strong px-5 pb-7 pt-5 max-sm:even:border-r-0 sm:max-lg:[&:nth-child(3n)]:border-r-0 lg:last:border-r-0">
+            <li key={stage.key} className="flex flex-col gap-3.5 border-b border-r border-line-strong px-5 pb-6 pt-4 max-sm:even:border-r-0 sm:max-lg:[&:nth-child(3n)]:border-r-0 lg:last:border-r-0">
               <span className={cn(NUMBER, "self-start")}>{String(index + 1).padStart(2, "0")}</span>
-              <span aria-hidden="true" className="flex h-[132px] flex-col-reverse items-center border-b-[3px] border-fg">
+              <span aria-hidden="true" className="flex h-[116px] flex-col-reverse items-center border-b-[3px] border-fg">
                 {STAGE_DRAWINGS[stage.key].map((block, i) => (
                   <i
                     key={i}
@@ -136,7 +136,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {/* 03 · Three kinds of company: the lineup. */}
       <section {...sectionMark(home.kinds.eyebrow)} className="relative border-b border-line-strong bg-canvas">
         <SectionBar label={home.kinds.eyebrow} />
-        <Container className="pb-12 pt-14 lg:pb-14 lg:pt-20">
+        <Container className="pb-8 pt-10 lg:pb-10 lg:pt-12">
           <h2 className="max-w-4xl text-[36px] leading-[0.92] text-fg sm:text-[64px] font-display"><Dotted>{home.kinds.title}</Dotted></h2>
         </Container>
         <ul className="-mb-px grid border-t border-line-strong md:grid-cols-3">
@@ -152,7 +152,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <span className={cn(NUMBER, index === 0 && "bg-accent text-[#0b0d10]")}>{String(index + 1).padStart(2, "0")}</span>
                     <span className="truncate font-mono text-[10px] max-md:text-meta font-medium uppercase tracking-[0.14em] text-fg-subtle">{words.meta}</span>
                   </span>
-                  <span aria-hidden="true" className="site-paper flex h-[200px] items-end justify-center gap-2.5 border-b border-line-strong pb-6">
+                  <span aria-hidden="true" className="site-paper flex h-[160px] items-end justify-center gap-2.5 border-b border-line-strong pb-5">
                     {TOWERS[kind].map((tower, i) => (
                       <span key={i} className={cn("block w-[46px] border-[1.5px] border-b-[3px] border-fg", tower.gold && "site-fill-gold")} style={{ height: tower.h }} />
                     ))}
@@ -175,7 +175,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {/* 04 · Every rate, in public. */}
       <section {...sectionMark(home.prices.eyebrow)} className="relative border-b border-line-strong bg-canvas">
         <SectionBar label={home.prices.eyebrow} />
-        <Container className="flex flex-col gap-10 py-14 lg:py-20">
+        <Container className="flex flex-col gap-8 py-10 lg:py-12">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <h2 className="max-w-4xl text-[36px] leading-[0.92] text-fg sm:text-[64px] font-display"><Dotted>{home.prices.title}</Dotted></h2>
             <Button asChild size="lg">
@@ -192,7 +192,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {/* 05 · Access: the principles, in lines. */}
       <section {...sectionMark(home.access.eyebrow)} className="relative border-b border-line-strong bg-canvas">
         <SectionBar label={home.access.eyebrow} />
-        <Container className="flex flex-wrap items-end justify-between gap-6 pb-12 pt-14 lg:pb-14 lg:pt-20">
+        <Container className="flex flex-wrap items-end justify-between gap-6 pb-8 pt-10 lg:pb-10 lg:pt-12">
           <h2 className="max-w-4xl text-[36px] leading-[0.92] text-fg sm:text-[64px] font-display"><Dotted>{home.access.title}</Dotted></h2>
           <Link href="/security" className="inline-flex items-center gap-1.5 font-mono text-[11px] max-md:text-meta font-medium uppercase tracking-[0.12em] text-fg transition-colors hover:text-accent-strong">
             {home.access.cta}
@@ -201,7 +201,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </Container>
         <ul className="-mb-px grid border-t border-line-strong sm:grid-cols-2">
           {home.access.items.map((item, index) => (
-            <li key={item.title} className="flex flex-col gap-4 border-b border-line-strong px-[clamp(16px,4vw,48px)] pb-8 pt-6 sm:odd:border-r">
+            <li key={item.title} className="flex flex-col gap-3 border-b border-line-strong px-[clamp(16px,4vw,48px)] pb-6 pt-5 sm:odd:border-r">
               <span className="flex items-start justify-between">
                 <span className="grid size-10 place-items-center border border-line-strong">
                   <span aria-hidden="true" className={cn("size-4", ACCESS_FILLS[index % ACCESS_FILLS.length])} />
@@ -218,7 +218,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {/* 06 · The way in. */}
       <section {...sectionMark(site.sheet.getStarted)} className="relative bg-fg text-canvas">
         <SectionBar label={site.sheet.getStarted} tone="ink" />
-        <Container className="flex flex-col items-center gap-8 py-24 text-center lg:py-32">
+        <Container className="flex flex-col items-center gap-6 py-14 text-center lg:py-20">
           <h2 className="text-[clamp(52px,7vw,112px)] leading-[0.9] font-display">
             {home.closing.title[0]}
             <br />
