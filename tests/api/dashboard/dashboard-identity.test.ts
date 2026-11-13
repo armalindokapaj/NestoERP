@@ -165,13 +165,16 @@ describe("each identity's dashboard is its own, in both workspaces, with a stale
     }
   }
 
-  it("gives the Owner the group's figures in the group and none of them in a company (positive and negative control)", async () => {
+  it("gives the Owner the group's figures in the group and the company's own in a company (positive and negative control)", async () => {
     const inGroup = await planDashboard(await pageAs("member_owner", "GROUP"));
     expect(inGroup.kpis.map((kpi) => kpi.key)).toEqual(expect.arrayContaining(["groupCompanyCount", "groupActiveProjects", "groupEmployees", "groupPortfolioValue"]));
+    expect(inGroup.kpis.map((kpi) => kpi.key)).not.toContain("activeProjects");
+    expect(inGroup.focus).toBe(dashboards.OWNER.focus);
     const inCompany = await planDashboard(await pageAs("member_owner", "COMPANY"));
-    // Every Owner KPI is a group figure, which a company workspace never shows.
-    expect(inCompany.kpis).toEqual([]);
-    expect(inCompany.focus).toBe(dashboards.OWNER.focus);
+    // A group figure never shows in a company workspace; the company's own do, and the line says so.
+    expect(inCompany.kpis.map((kpi) => kpi.key)).toEqual(expect.arrayContaining(["activeProjects"]));
+    expect(inCompany.kpis.every((kpi) => !kpi.key.startsWith("group"))).toBe(true);
+    expect(inCompany.focus).toBe(dashboards.CEO.focus);
   });
 });
 
