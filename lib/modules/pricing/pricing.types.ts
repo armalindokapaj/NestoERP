@@ -21,9 +21,18 @@ export type PricingModule = {
   /** Shown on the public page; a technical dependency is enabled but not public. */
   public: boolean;
   tier: ModuleTier;
-  /** The add-on price a month; ignored where the foundation includes the module. */
+  /*
+   * What the module costs a month when sold (ignored where the foundation
+   * includes it): a flat price once, a price for each company, capped by a
+   * group price, and a price for each person who uses it — added together.
+   */
+  /** Once for the whole group. */
   monthlyPriceCents: number;
-  /** The add-on price for each active user a month, on top of `monthlyPriceCents`; ignored where the foundation includes the module. */
+  /** For each company it serves: the included one, further group companies and joint ventures. */
+  monthlyPerCompanyCents: number;
+  /** The most the company price comes to for the whole group; zero for no cap. */
+  monthlyGroupCapCents: number;
+  /** For each person who uses the module. */
   monthlyPerUserCents: number;
   includedInFoundations: Foundation[];
   lockedWhenIncluded: boolean;
@@ -109,6 +118,8 @@ export type PricingRequest = {
   nestoProjects?: { active: number };
   rozarisProjects?: Array<{ tempId: string; type: RozarisClass }>;
   activeUsers: number;
+  /** People using each module, by id; a module not listed counts every active user. Never more than `activeUsers`. */
+  moduleUsers?: Record<string, number>;
   contractMonths: ContractMonths;
   promotionCode?: string | null;
 };
@@ -120,8 +131,12 @@ export type PricingQuote = {
   currency: "EUR";
   normalizedConfiguration: PricingRequest;
   foundation: { id: Foundation; monthlyCents: number; label: string };
-  /** `monthlyCents` is the module's whole charge: its flat price plus `perUserCents` for each active user. */
-  modules: Array<{ id: string; name: string; included: boolean; locked: boolean; monthlyCents: number; perUserCents: number; reason: "FOUNDATION" | "SELECTED" | "DEPENDENCY" }>;
+  /**
+   * `monthlyCents` is the module's whole charge: its flat price, `companyCents`
+   * (its price for each company, capped by its group price) and `perUserCents`
+   * for each of its `users`.
+   */
+  modules: Array<{ id: string; name: string; included: boolean; locked: boolean; monthlyCents: number; perCompanyCents: number; companyCents: number; perUserCents: number; users: number; reason: "FOUNDATION" | "SELECTED" | "DEPENDENCY" }>;
   companies: { included: number; fullGroup: number; jointVenture: number; documentsOnly: number; monthlyCents: number };
   projects: Array<{ id: string; label: string; type: string; monthlyCents: number; includedUsers: number }>;
   users: { requested: number; included: number; billable: number; packSize: number; packs: number; monthlyCents: number };

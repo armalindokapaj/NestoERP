@@ -18,6 +18,7 @@ export const pricingRequestSchema = z.object({
   nestoProjects: z.object({ active: z.number().int().min(1).max(1_000) }).strict().optional(),
   rozarisProjects: z.array(z.object({ tempId: z.string().trim().min(1).max(40), type: rozarisClass }).strict()).max(50).default([]),
   activeUsers: z.number().int().min(1).max(100_000),
+  moduleUsers: z.record(moduleId, z.number().int().min(0).max(100_000)).refine((users) => Object.keys(users).length <= 60).optional(),
   contractMonths: z.union([z.literal(12), z.literal(24)]),
   promotionCode: z.string().trim().max(80).nullable().optional(),
 }).strict().superRefine((input, context) => {
@@ -99,7 +100,7 @@ export const pricingConfigSchema = z.object({
   }).strict()).length(2),
   modules: z.array(z.object({
     id: moduleId, name: text(80).min(2), group: text(60).min(2), enabled: z.boolean(), public: z.boolean(),
-    tier: z.enum(["S", "A", "B", "C", "ACCESS"]), monthlyPriceCents: cents, monthlyPerUserCents: cents.default(0),
+    tier: z.enum(["S", "A", "B", "C", "ACCESS"]), monthlyPriceCents: cents, monthlyPerCompanyCents: cents.default(0), monthlyGroupCapCents: cents.default(0), monthlyPerUserCents: cents.default(0),
     includedInFoundations: z.array(foundationId).max(2), lockedWhenIncluded: z.boolean(),
     dependencies: z.array(moduleId).max(20), conflicts: z.array(moduleId).max(20), absorbs: z.array(moduleId).max(20),
     shortDescription: text(200), description: text(800), imageKey: text(80).optional(), sortOrder: z.number().int().min(0).max(10_000),

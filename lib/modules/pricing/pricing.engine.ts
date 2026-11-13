@@ -18,9 +18,23 @@ export function isOffered(module: PricingModule, foundation: Foundation): boolea
   return module.enabled && (isIncluded(module, foundation) || isPriced(module));
 }
 
-/** Sold for money: a flat price, a price for each user, or both. */
+/** Sold for money: a flat price, a price for each company, for each user, or a mix. */
 export function isPriced(module: PricingModule): boolean {
-  return module.monthlyPriceCents > 0 || module.monthlyPerUserCents > 0;
+  return module.monthlyPriceCents > 0 || module.monthlyPerCompanyCents > 0 || module.monthlyPerUserCents > 0;
+}
+
+/** What a module's company price comes to for `companies`, never more than its group price. */
+export function companyCharge(module: Pick<PricingModule, "monthlyPerCompanyCents" | "monthlyGroupCapCents">, companies: number): number {
+  const full = module.monthlyPerCompanyCents * companies;
+  return module.monthlyGroupCapCents > 0 ? Math.min(full, module.monthlyGroupCapCents) : full;
+}
+
+/** Who a module is charged for: the companies it serves, and the people using it (all active users unless said). */
+export type ModuleAudience = { companies: number; activeUsers: number; moduleUsers?: Record<string, number> };
+
+function usersOf(id: string, audience: ModuleAudience): number {
+  const said = audience.moduleUsers?.[id];
+  return Math.min(audience.activeUsers, Math.max(0, said ?? audience.activeUsers));
 }
 
 /**
@@ -29,8 +43,8 @@ export function isPriced(module: PricingModule): boolean {
  * A module absorbed by a larger one it came with is dropped, never charged
  * twice; a conflict keeps the later choice. Notices say what changed.
  */
-/** The modules a configuration holds, each charged its flat price and its price for each of `users`. */
-export function resolveModules(config: PricingConfig, foundation: Foundation, requested: string[], users = 0) {
+/** The modules a configuration holds, each charged its flat price, its company price and its price for each of its users. */
+export function resolveModules(config: PricingConfig, foundation: Foundation, requested: string[], audience: ModuleAudience = { companies: 1, activeUsers: 0 }) {
   const byId = new Map(config.modules.map((row) => [row.id, row]));
   const notices: string[] = [];
   const chosen = new Map<string, "FOUNDATION" | "SELECTED" | "DEPENDENCY">();
@@ -73,8 +87,12 @@ export function resolveModules(config: PricingConfig, foundation: Foundation, re
     .map((row) => {
       const reason = chosen.get(row.id)!;
       const included = reason === "FOUNDATION";
+      const users = usersOf(row.id, audience);
       const perUserCents = included ? 0 : row.monthlyPerUserCents;
-      return { id: row.id, name: row.name, public: row.public, included, locked: included && row.lockedWhenIncluded, monthlyCents: included ? 0 : row.monthlyPriceCents + perUserCents * users, perUserCents, reason };
+      const perCompanyCents = included ? 0 : row.monthlyPerCompanyCents;
+      const companyCents = included ? 0 : companyCharge(row, audience.companies);
+      const monthlyCents = included ? 0 : row.monthlyPriceCents + companyCents + perUserCents * users;
+      return { id: row.id, name: row.name, public: row.public, included, locked: included && row.lockedWhenIncluded, monthlyCents, perCompanyCents, companyCents, perUserCents, users, reason };
     });
   return { rows, notices };
 }
@@ -83,13 +101,18 @@ export function resolveModules(config: PricingConfig, foundation: Foundation, re
 export function normalizeRequest(input: PricingRequest, config: PricingConfig): PricingRequest {
   const companies = config.companies[input.foundation];
   const isRozaris = input.foundation === "ROZARIS";
+  const held = resolveModules(config, input.foundation, input.modules).rows;
+  // People per module: only for modules it holds and charges, never more than the active users.
+  const said = input.moduleUsers;
+  const moduleUsers = said ? Object.fromEntries(held.filter((row) => !row.included && row.id in said).map((row) => [row.id, Math.min(input.activeUsers, Math.max(0, said[row.id]))])) : null;
   return {
     foundation: input.foundation,
-    modules: resolveModules(config, input.foundation, input.modules).rows.filter((row) => row.reason === "SELECTED").map((row) => row.id),
+    modules: held.filter((row) => row.reason === "SELECTED").map((row) => row.id),
     companies: companies.additionalAvailable ? { ...input.companies } : { fullGroup: 0, jointVenture: 0, documentsOnly: 0 },
     ...(isRozaris ? {} : { nestoProjects: { active: Math.max(config.nestoProjects.included, input.nestoProjects?.active ?? config.nestoProjects.included) } }),
     rozarisProjects: (input.rozarisProjects ?? []).map((project) => ({ tempId: project.tempId, type: project.type })),
     activeUsers: input.activeUsers,
+    ...(moduleUsers ? { moduleUsers } : {}),
     contractMonths: input.contractMonths,
     promotionCode: input.promotionCode ?? null,
   };
@@ -103,9 +126,11 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
   const input = normalizeRequest(raw, config);
   const foundation = config.foundations.find((row) => row.id === input.foundation)!;
   const termKey = input.contractMonths === 24 ? "monthly24Cents" : "monthly12Cents";
-  const { rows: moduleRows, notices } = resolveModules(config, input.foundation, raw.modules, input.activeUsers);
-
   const companyRules = config.companies[input.foundation];
+  // A module serves the included company, further group companies and joint ventures; documents-only companies use none.
+  const moduleCompanies = companyRules.included + input.companies.fullGroup + input.companies.jointVenture;
+  const { rows: moduleRows, notices } = resolveModules(config, input.foundation, raw.modules, { companies: moduleCompanies, activeUsers: input.activeUsers, moduleUsers: input.moduleUsers });
+
   const companiesMonthly = input.companies.fullGroup * companyRules.fullGroupMonthlyCents
     + input.companies.jointVenture * companyRules.jointVentureMonthlyCents
     + input.companies.documentsOnly * companyRules.documentsOnlyMonthlyCents;
@@ -166,7 +191,7 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
     currency: config.currency,
     normalizedConfiguration: input,
     foundation: { id: foundation.id, monthlyCents: foundation.baseMonthlyCents, label: foundation.name },
-    modules: moduleRows.filter((row) => row.public).map(({ id, name, included, locked, monthlyCents, perUserCents, reason }) => ({ id, name, included, locked, monthlyCents, perUserCents, reason })),
+    modules: moduleRows.filter((row) => row.public).map(({ id, name, included, locked, monthlyCents, perCompanyCents, companyCents, perUserCents, users, reason }) => ({ id, name, included, locked, monthlyCents, perCompanyCents, companyCents, perUserCents, users, reason })),
     companies: { included: companyRules.included, ...input.companies, monthlyCents: companiesMonthly },
     projects,
     users: { requested: input.activeUsers, included: includedUsers, billable, packSize: rule.packSize, packs, monthlyCents: usersMonthly },
