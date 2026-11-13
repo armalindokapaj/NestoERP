@@ -94,7 +94,7 @@ export const pricingConfigSchema = z.object({
   version: z.string().trim().min(4).max(30),
   currency: z.literal("EUR"),
   foundations: z.array(z.object({
-    id: foundationId, enabled: z.boolean(), name: text(80).min(2), description: text(400), baseMonthlyCents: cents,
+    id: foundationId, enabled: z.boolean(), name: text(80).min(2), description: text(400), baseMonthlyCents: cents, minimumMonthlyCents: cents.default(0),
     included: z.array(text(120)).max(30), imageKey: text(80).optional(),
   }).strict()).length(2),
   modules: z.array(z.object({

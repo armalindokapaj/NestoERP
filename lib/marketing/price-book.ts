@@ -16,7 +16,7 @@ import type { PricingConfig, PricingPromotionConfig, PublicPricingConfig } from 
 /** The modules most developers start with: the examples and the apply form's sample estimate. */
 const DEVELOPER = ["SALES", "FINANCE", "PROJECT_MANAGEMENT", "PROCUREMENT"];
 
-export type PriceRowKey = "platform" | "modules" | "modulesPerUser" | "company" | "project" | "users" | "rozaris";
+export type PriceRowKey = "minimum" | "platform" | "modules" | "modulesPerUser" | "company" | "project" | "users" | "rozaris";
 
 export type PriceRow = {
   key: PriceRowKey;
@@ -34,6 +34,8 @@ export function priceRows(config: PublicPricingConfig): PriceRow[] {
   const users = config.users.find((rule) => rule.foundation === "NESTO_PLATFORM");
 
   if (platform) {
+    // The least a Platform setup is charged a month; everything below counts towards it.
+    if (platform.minimumMonthlyCents > 0) rows.push({ key: "minimum", monthlyCents: platform.minimumMonthlyCents, from: false, values: {} });
     // A base only where the book charges one: with modules priced per person there is none.
     if (platform.baseMonthlyCents > 0) {
       rows.push({
@@ -128,8 +130,8 @@ export function moduleGroups(config: PublicPricingConfig): { group: string; modu
 }
 
 export type PriceExampleKey = "sales" | "developer" | "everything" | "group";
-export type PriceExample = { key: PriceExampleKey; modules: string[]; companies: number; projects: number; users: number; monthlyCents: number };
-
+/** `atMinimum`: the setup comes to less than the monthly minimum, which is what it pays. */
+export type PriceExample = { key: PriceExampleKey; modules: string[]; companies: number; projects: number; users: number; monthlyCents: number; atMinimum: boolean };
 
 /**
  * What a few typical buyers pay a month on 24 months, before any offer,
@@ -140,7 +142,7 @@ export function priceExamples(config: PublicPricingConfig): PriceExample[] {
   const book = engineBook(config);
   const priced = platformModules(config).filter((row) => !row.included).map((row) => row.id);
   if (!config.foundations.some((row) => row.id === "NESTO_PLATFORM") || priced.length === 0) return [];
-  const cases: Omit<PriceExample, "monthlyCents">[] = [
+  const cases: Omit<PriceExample, "monthlyCents" | "atMinimum">[] = [
     { key: "sales", modules: ["SALES"], companies: 1, projects: 1, users: 15 },
     { key: "developer", modules: DEVELOPER, companies: 1, projects: 1, users: 15 },
     { key: "everything", modules: priced, companies: 1, projects: 1, users: 15 },
@@ -154,6 +156,6 @@ export function priceExamples(config: PublicPricingConfig): PriceExample[] {
         book,
         null,
       );
-      return { ...entry, monthlyCents: quote.standardMonthlyCents };
+      return { ...entry, monthlyCents: quote.standardMonthlyCents, atMinimum: quote.minimum.topUpCents > 0 };
     });
 }

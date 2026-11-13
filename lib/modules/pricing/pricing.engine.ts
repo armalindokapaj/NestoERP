@@ -138,7 +138,10 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
   const usersMonthly = packs * rule.pricePerPackCents;
 
   const modulesMonthly = moduleRows.reduce((sum, row) => sum + row.monthlyCents, 0);
-  const nestoMonthly = foundation.baseMonthlyCents + modulesMonthly + companiesMonthly + nestoProjectsMonthly + usersMonthly;
+  const chargesMonthly = foundation.baseMonthlyCents + modulesMonthly + companiesMonthly + nestoProjectsMonthly + usersMonthly;
+  // A setup that comes to less than the foundation's minimum is charged the minimum (docs/pricing-modules.md).
+  const minimumTopUp = Math.max(0, foundation.minimumMonthlyCents - chargesMonthly);
+  const nestoMonthly = chargesMonthly + minimumTopUp;
   const standardMonthly = nestoMonthly + rozarisMonthly;
 
   const promotionApplies = Boolean(promotion && promotion.enabled && input.promotionCode === promotion.code && promotion.product === input.foundation && promotion.requiredContractMonths === input.contractMonths && nestoMonthly > 0);
@@ -167,6 +170,7 @@ export function calculatePricing(raw: PricingRequest, config: PricingConfig, pro
     companies: { included: companyRules.included, ...input.companies, monthlyCents: companiesMonthly },
     projects,
     users: { requested: input.activeUsers, included: includedUsers, billable, packSize: rule.packSize, packs, monthlyCents: usersMonthly },
+    minimum: { monthlyCents: foundation.minimumMonthlyCents, topUpCents: minimumTopUp },
     nestoMonthlyCents: nestoMonthly,
     rozarisMonthlyCents: rozarisMonthly,
     standardMonthlyCents: standardMonthly,
